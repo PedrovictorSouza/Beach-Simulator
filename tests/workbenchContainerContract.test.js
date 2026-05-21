@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  GREENHOUSE_ITEM_ID,
   LEAF_DEN_KIT_ITEM_ID,
   STRAW_BED_ITEM_ID
 } from "../gameplayContent.js";
@@ -12,7 +13,8 @@ import {
   WORKBENCH_PROTOCOL_BLOCKED_REASON,
   WORKBENCH_PROTOCOL_CATEGORY,
   WORKBENCH_PROTOCOL_CATEGORY_ORDER,
-  WORKBENCH_PROTOCOL_STATE
+  WORKBENCH_PROTOCOL_STATE,
+  WORKBENCH_STATION_GUIDANCE
 } from "../app/gameplay/workbenchContainerContract.js";
 
 describe("workbench container contract", () => {
@@ -23,18 +25,21 @@ describe("workbench container contract", () => {
     });
 
     expect(state.stationId).toBe("workbench");
+    expect(state.guidance).toBe(WORKBENCH_STATION_GUIDANCE);
     expect(state.entries.map((entry) => entry.id)).toEqual([
+      GRID_PLACEABLE_IDS.GREENHOUSE,
       GRID_PLACEABLE_IDS.TRAIN_HOUSE,
       GRID_PLACEABLE_IDS.SOLAR_STATION,
       GRID_PLACEABLE_IDS.LEAF_DEN
     ]);
     expect(state.categories).toEqual([
+      WORKBENCH_PROTOCOL_CATEGORY.SOIL,
       WORKBENCH_PROTOCOL_CATEGORY.POWER,
       WORKBENCH_PROTOCOL_CATEGORY.WATER,
       WORKBENCH_PROTOCOL_CATEGORY.SHELTER
     ]);
     expect(state.categoryOrder).toEqual(WORKBENCH_PROTOCOL_CATEGORY_ORDER);
-    expect(state.canIssueAny).toBe(false);
+    expect(state.canIssueAny).toBe(true);
     expect(state.canStartAnyPlacement).toBe(false);
   });
 
@@ -44,6 +49,11 @@ describe("workbench container contract", () => {
       inventory: {}
     });
 
+    expect(getWorkbenchProtocolEntryById(state, GRID_PLACEABLE_IDS.GREENHOUSE)).toMatchObject({
+      label: "Greenhouse",
+      inventoryItemId: GREENHOUSE_ITEM_ID,
+      recipeId: GREENHOUSE_ITEM_ID
+    });
     expect(getWorkbenchProtocolEntryById(state, GRID_PLACEABLE_IDS.TRAIN_HOUSE)).toMatchObject({
       label: "Thermal Cabin",
       inventoryItemId: "campfire",
@@ -57,7 +67,8 @@ describe("workbench container contract", () => {
     expect(getWorkbenchProtocolEntryById(state, GRID_PLACEABLE_IDS.LEAF_DEN)).toMatchObject({
       label: "House Kit",
       inventoryItemId: LEAF_DEN_KIT_ITEM_ID,
-      recipeId: LEAF_DEN_KIT_ITEM_ID
+      recipeId: LEAF_DEN_KIT_ITEM_ID,
+      status: "Needs colony viability"
     });
   });
 
@@ -74,11 +85,32 @@ describe("workbench container contract", () => {
     expect(Object.isFrozen(listWorkbenchProtocolCategories())).toBe(true);
   });
 
-  it("allows issuing the Thermal Cabin after the starter Workbench protocol is known", () => {
+  it("keeps the Thermal Cabin locked until the Greenhouse is placed", () => {
     const state = resolveWorkbenchContainerState({
       storyState: {
         flags: {
           workbenchDiyRecipesReceived: true
+        }
+      },
+      inventory: {}
+    });
+    const entry = getWorkbenchProtocolEntryById(state, GRID_PLACEABLE_IDS.TRAIN_HOUSE);
+
+    expect(entry).toMatchObject({
+      state: WORKBENCH_PROTOCOL_STATE.LOCKED,
+      action: WORKBENCH_PROTOCOL_ACTION.NONE,
+      canIssue: false,
+      canStartPlacement: false,
+      status: "Plan unavailable"
+    });
+  });
+
+  it("allows issuing the Thermal Cabin after the Greenhouse is placed", () => {
+    const state = resolveWorkbenchContainerState({
+      storyState: {
+        flags: {
+          workbenchDiyRecipesReceived: true,
+          greenhousePlaced: true
         }
       },
       inventory: {}
@@ -92,6 +124,7 @@ describe("workbench container contract", () => {
       canIssue: true,
       canStartPlacement: false,
       status: "Ready to prepare",
+      guidance: "Prepare this kit here, then place it from your supplies.",
       usesCurrency: false,
       blockedReason: null
     });
@@ -149,7 +182,8 @@ describe("workbench container contract", () => {
       action: WORKBENCH_PROTOCOL_ACTION.NONE,
       actionLabel: null,
       canStartPlacement: false,
-      blockedReason: WORKBENCH_PROTOCOL_BLOCKED_REASON.NEEDS_SOLAR_STATION
+      blockedReason: WORKBENCH_PROTOCOL_BLOCKED_REASON.NEEDS_SOLAR_STATION,
+      guidance: "Place the Solar Station first. Its blue support zone enables House Kit placement."
     });
   });
 
@@ -172,7 +206,8 @@ describe("workbench container contract", () => {
       action: WORKBENCH_PROTOCOL_ACTION.PLACE,
       actionLabel: "Place House Kit",
       canStartPlacement: true,
-      blockedReason: null
+      blockedReason: null,
+      guidance: "Prepared. Select it to choose a site in the world."
     });
   });
 
@@ -202,6 +237,7 @@ describe("workbench container contract", () => {
       storyState: {
         flags: {
           workbenchDiyRecipesReceived: true,
+          greenhousePlaced: true,
           strawBedRecipeUnlocked: true,
           leafDenBuildAvailable: true
         }
@@ -214,6 +250,7 @@ describe("workbench container contract", () => {
       .filter(Boolean);
 
     expect(actionCopy).toEqual([
+      "Placed",
       "Prepare Thermal Cabin",
       "Ready to prepare",
       "Prepare Solar Station",
@@ -239,12 +276,14 @@ describe("workbench container contract", () => {
     expect(getWorkbenchProtocolEntryById(state, GRID_PLACEABLE_IDS.TRAIN_HOUSE)).toMatchObject({
       state: WORKBENCH_PROTOCOL_STATE.PLACED,
       blockedReason: WORKBENCH_PROTOCOL_BLOCKED_REASON.ALREADY_PLACED,
-      action: WORKBENCH_PROTOCOL_ACTION.NONE
+      action: WORKBENCH_PROTOCOL_ACTION.NONE,
+      guidance: "Already placed in the world."
     });
     expect(getWorkbenchProtocolEntryById(state, GRID_PLACEABLE_IDS.LEAF_DEN)).toMatchObject({
       state: WORKBENCH_PROTOCOL_STATE.BUILT,
       blockedReason: WORKBENCH_PROTOCOL_BLOCKED_REASON.ALREADY_BUILT,
-      action: WORKBENCH_PROTOCOL_ACTION.NONE
+      action: WORKBENCH_PROTOCOL_ACTION.NONE,
+      guidance: "Already built."
     });
   });
 });

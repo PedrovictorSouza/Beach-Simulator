@@ -115,6 +115,7 @@ export function initializeGameplayState(
   session.woodDrops = createStartingWoodDrops();
   session.leppaBerryDrops = [];
   session.logChair = null;
+  session.greenhouse = null;
   session.leafDen = null;
   session.playerHouses = [];
   session.leafDenFurniture = [];

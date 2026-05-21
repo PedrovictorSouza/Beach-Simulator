@@ -280,6 +280,7 @@ export function createWorldRenderer({
     gl.uniform1i(skyUniforms.texture, 0);
     gl.uniform1f(skyUniforms.yaw, yaw);
     gl.uniform1f(skyUniforms.pitch, pitch);
+    gl.uniform1f(skyUniforms.time, performance.now() * 0.001);
 
     gl.bindBuffer(gl.ARRAY_BUFFER, skyQuadBuffer);
     gl.enableVertexAttribArray(skyAttribs.position);

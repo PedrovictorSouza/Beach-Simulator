@@ -23,9 +23,18 @@ const WORKSHOP_BASE_YAW = -0.18;
 const WORKSHOP_DISMANTLED_GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
 const WORKSHOP_DISMANTLED_MIN_RADIUS = 0.936;
 const WORKSHOP_DISMANTLED_RADIUS_STEP = 0.338;
+const SOLAR_ENERGY_MODEL_FACE_YAW_OFFSET = 0;
+const SOLAR_ENERGY_MODEL_SCALE = 10;
+const SOLAR_ENERGY_MODEL_GROUND_Y = 0.02;
+const SOLAR_ENERGY_COLLIDER_ID_PREFIX = "solar-energy-collider:";
+const SOLAR_ENERGY_COLLIDER_FOOTPRINT_SCALE = 0.86;
+const SOLAR_ENERGY_COLLIDER_PADDING = 0.12;
 const SOLAR_STATION_MODEL_FACE_YAW_OFFSET = 0;
 const SOLAR_STATION_MODEL_SCALE = 8;
 const SOLAR_STATION_MODEL_GROUND_Y = 0.02;
+const GREENHOUSE_MODEL_FACE_YAW_OFFSET = 0;
+const GREENHOUSE_MODEL_SCALE = 3;
+const GREENHOUSE_MODEL_GROUND_Y = 0.02;
 const TRAIN_HOUSE_MODEL_FACE_YAW_OFFSET = 0;
 const TRAIN_HOUSE_MODEL_SCALE = 3;
 const TRAIN_HOUSE_MODEL_GROUND_Y = 0.02;
@@ -37,6 +46,7 @@ const LEAFAGE_GARDEN_MODEL_SCALE = 1.15;
 const CLOUD_MODEL_FACE_YAW_OFFSET = 0;
 const CLOUD_ATMOSPHERE_COUNT = 16;
 const CLOUD_ATMOSPHERE_GROUND_Y = 0.075;
+const CLOUD_ATMOSPHERE_Y_OFFSET = -8.4;
 const CLOUD_ATMOSPHERE_DRAW_DISTANCE = 190;
 const CLOUD_SHADOW_LIGHT_OFFSET_X = -1.4;
 const CLOUD_SHADOW_LIGHT_OFFSET_Z = 2.15;
@@ -44,6 +54,24 @@ const PLAYER_DUST_CLOUD_DRAW_DISTANCE = 34;
 const PLAYER_DUST_CLOUD_BRIGHTNESS = 0.94;
 const BEE_FIELD_DRAW_DISTANCE = 72;
 const CHARMANDER_MODEL_SCALE = 0.75;
+const SOLAR_ENERGY_INSTANCE_LAYOUT = Object.freeze([
+  { offset: [-74, 0, -58], scale: 0.92, yaw: 0.18 },
+  { offset: [-46, 0, -84], scale: 0.84, yaw: -0.28 },
+  { offset: [-8, 0, -94], scale: 0.88, yaw: 0.34 },
+  { offset: [42, 0, -86], scale: 0.9, yaw: -0.18 },
+  { offset: [88, 0, -58], scale: 0.86, yaw: 0.26 },
+  { offset: [112, 0, -8], scale: 0.94, yaw: -0.32 },
+  { offset: [92, 0, 44], scale: 0.82, yaw: 0.14 },
+  { offset: [48, 0, 88], scale: 0.88, yaw: -0.24 },
+  { offset: [6, 0, 104], scale: 0.9, yaw: 0.3 },
+  { offset: [-42, 0, 92], scale: 0.86, yaw: -0.12 },
+  { offset: [-88, 0, 56], scale: 0.84, yaw: 0.22 },
+  { offset: [-106, 0, 4], scale: 0.9, yaw: -0.34 },
+  { offset: [-62, 0, 28], scale: 0.78, yaw: 0.1 },
+  { offset: [-30, 0, 58], scale: 0.82, yaw: -0.2 },
+  { offset: [30, 0, 54], scale: 0.8, yaw: 0.2 },
+  { offset: [66, 0, 18], scale: 0.84, yaw: -0.14 }
+]);
 
 function withTerrainSupportDrawDistance(sceneObject) {
   return {
@@ -59,6 +87,15 @@ function createSinglePrimitiveModel(model, primitive) {
     offset: model.offset,
     scale: model.scale,
     size: model.size
+  };
+}
+
+function createPlayerPartInstance() {
+  return {
+    offset: [0, 0, 0],
+    scale: 0.75,
+    yaw: -Math.PI * 0.5,
+    active: false
   };
 }
 
@@ -82,6 +119,70 @@ function createDismantledWorkshopInstance(index) {
   };
 }
 
+function createSolarEnergyInstance(entry, index) {
+  return {
+    id: `solar-energy-${index + 1}`,
+    offset: [
+      entry.offset[0],
+      SOLAR_ENERGY_MODEL_GROUND_Y + Number(entry.offset[1] || 0),
+      entry.offset[2]
+    ],
+    scale: SOLAR_ENERGY_MODEL_SCALE * Number(entry.scale || 1),
+    yaw: SOLAR_ENERGY_MODEL_FACE_YAW_OFFSET + Number(entry.yaw || 0),
+    active: true
+  };
+}
+
+function getScaledSolarEnergyColliderDimension(model, instance, axisIndex, fallback) {
+  const modelSize = Number(model?.size?.[axisIndex]);
+  const instanceScale = Number(instance?.scale);
+  const scaledSize = modelSize * instanceScale * SOLAR_ENERGY_COLLIDER_FOOTPRINT_SCALE;
+
+  if (!Number.isFinite(scaledSize) || scaledSize <= 0) {
+    return fallback;
+  }
+
+  return Number(scaledSize.toFixed(4));
+}
+
+function createSolarEnergyCollider(instance, model) {
+  const height = Math.max(2.4, getScaledSolarEnergyColliderDimension(model, instance, 1, 2.4));
+
+  return {
+    id: `${SOLAR_ENERGY_COLLIDER_ID_PREFIX}${instance.id}`,
+    kind: "solarEnergy",
+    position: [
+      Number(instance.offset[0]),
+      0,
+      Number(instance.offset[2])
+    ],
+    size: [
+      Math.max(1.2, getScaledSolarEnergyColliderDimension(model, instance, 0, 1.2)),
+      height,
+      Math.max(1.2, getScaledSolarEnergyColliderDimension(model, instance, 2, 1.2))
+    ],
+    surfaceY: height,
+    blocksPlayer: true,
+    allowPlayerLanding: false,
+    visualOnly: false,
+    padding: SOLAR_ENERGY_COLLIDER_PADDING
+  };
+}
+
+function syncSolarEnergyColliders(session, solarEnergyModel) {
+  const baseColliders = (session.elevatedTerrainColliders || []).filter((collider) => {
+    return !String(collider?.id || "").startsWith(SOLAR_ENERGY_COLLIDER_ID_PREFIX);
+  });
+
+  session.solarEnergyColliders = (session.solarEnergyInstances || []).map((instance) => {
+    return createSolarEnergyCollider(instance, solarEnergyModel);
+  });
+  session.elevatedTerrainColliders = [
+    ...baseColliders,
+    ...session.solarEnergyColliders
+  ];
+}
+
 function createCloudAtmosphereSeed(index) {
   const radiusStep = WORLD_LIMIT * 0.085;
   const baseRadius = WORLD_LIMIT * 0.38 + (index % 5) * radiusStep;
@@ -93,7 +194,7 @@ function createCloudAtmosphereSeed(index) {
     baseRadius,
     radialDrift: 1.8 + (index % 3) * 0.65,
     radialSpeed: 0.025 + (index % 4) * 0.004,
-    baseY: 15.8 + (index % 5) * 1.9,
+    baseY: 15.8 + (index % 5) * 1.9 + CLOUD_ATMOSPHERE_Y_OFFSET,
     bobHeight: 0.5 + (index % 3) * 0.16,
     bobSpeed: 0.18 + (index % 4) * 0.025,
     angularSpeed: 0.0048 + (index % 5) * 0.00055,
@@ -178,7 +279,9 @@ export function buildSceneAssembly(session, assets) {
     deadTreeModel,
     leppaTreeDeadModel,
     iceGroundModel,
+    solarEnergyModel,
     solarStationModel,
+    greenhouseModel,
     trainHouseModel,
     tallGrassModel,
     deadGrassModel,
@@ -193,6 +296,7 @@ export function buildSceneAssembly(session, assets) {
     chopperBodyModel,
     chopperPropellerModel,
     playerModel,
+    playerPartModels,
     robot1Model,
     robot2Model,
     charmanderModel,
@@ -291,6 +395,19 @@ export function buildSceneAssembly(session, assets) {
     }));
   }
 
+  if (solarEnergyModel) {
+    session.solarEnergyInstances = SOLAR_ENERGY_INSTANCE_LAYOUT.map(createSolarEnergyInstance);
+    syncSolarEnergyColliders(session, solarEnergyModel);
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: solarEnergyModel,
+      instances: session.solarEnergyInstances,
+      brightness: 1.08
+    }));
+  } else {
+    session.solarEnergyInstances = [];
+    syncSolarEnergyColliders(session, solarEnergyModel);
+  }
+
   session.sceneObjects.push(
     withTerrainSupportDrawDistance({
       model: houseModel,
@@ -387,6 +504,26 @@ export function buildSceneAssembly(session, assets) {
     session.sceneObjects.push(withTerrainSupportDrawDistance({
       model: solarStationModel,
       instances: [session.strawBedModelInstance],
+      brightness: 1
+    }));
+  }
+
+  if (greenhouseModel) {
+    const greenhousePosition = session.greenhouse?.position || null;
+    session.greenhouseModelInstance = {
+      id: "greenhouse-model",
+      offset: Array.isArray(greenhousePosition) ?
+        [greenhousePosition[0], GREENHOUSE_MODEL_GROUND_Y, greenhousePosition[2]] :
+        [0, GREENHOUSE_MODEL_GROUND_Y, 0],
+      scale: GREENHOUSE_MODEL_SCALE,
+      yaw: GREENHOUSE_MODEL_FACE_YAW_OFFSET,
+      active: Boolean(greenhousePosition),
+      greenhouseBaseScale: GREENHOUSE_MODEL_SCALE,
+      greenhouseGroundY: GREENHOUSE_MODEL_GROUND_Y
+    };
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: greenhouseModel,
+      instances: [session.greenhouseModelInstance],
       brightness: 1
     }));
   }
@@ -555,10 +692,51 @@ export function buildSceneAssembly(session, assets) {
     });
   }
 
+  session.playerLegModelInstances ||= {
+    left: createPlayerPartInstance(),
+    right: createPlayerPartInstance()
+  };
+  session.playerArmModelInstances ||= {
+    left: createPlayerPartInstance(),
+    right: createPlayerPartInstance()
+  };
+
   if (playerModel && session.playerModelInstance) {
     session.sceneObjects.push(withTerrainSupportDrawDistance({
       model: playerModel,
       instances: [session.playerModelInstance],
+      brightness: 1
+    }));
+  }
+
+  if (playerPartModels?.leftLeg && session.playerLegModelInstances.left) {
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: playerPartModels.leftLeg,
+      instances: [session.playerLegModelInstances.left],
+      brightness: 1
+    }));
+  }
+
+  if (playerPartModels?.rightLeg && session.playerLegModelInstances.right) {
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: playerPartModels.rightLeg,
+      instances: [session.playerLegModelInstances.right],
+      brightness: 1
+    }));
+  }
+
+  if (playerPartModels?.leftArm && session.playerArmModelInstances.left) {
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: playerPartModels.leftArm,
+      instances: [session.playerArmModelInstances.left],
+      brightness: 1
+    }));
+  }
+
+  if (playerPartModels?.rightArm && session.playerArmModelInstances.right) {
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: playerPartModels.rightArm,
+      instances: [session.playerArmModelInstances.right],
       brightness: 1
     }));
   }

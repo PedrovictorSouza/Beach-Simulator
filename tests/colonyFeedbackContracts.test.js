@@ -7,17 +7,19 @@ import {
   getColonyFeedbackActionLabel,
   getColonyFeedbackContract,
   getColonyFeedbackNotice,
+  getColonyFeedbackPlacementLabel,
   getColonyFeedbackPrompt,
   getColonyFeedbackRewardTier,
   getColonyFeedbackTaskPop,
+  getColonyFeedbackWorldSpeech,
   getColonyRewardEventTier,
   getColonyRewardTierContract
 } from "../app/gameplay/colonyFeedbackContracts.js";
 
 describe("colony feedback contracts", () => {
   it("centralizes terminal action labels", () => {
-    expect(getColonyFeedbackActionLabel(COLONY_FEEDBACK_IDS.LOG_VIABILITY_ACTION)).toBe("Log Viability");
-    expect(getColonyFeedbackActionLabel(COLONY_FEEDBACK_IDS.ISSUE_HOUSE_KIT_ACTION)).toBe("Issue Kit");
+    expect(getColonyFeedbackActionLabel(COLONY_FEEDBACK_IDS.LOG_VIABILITY_ACTION)).toBe("Log Colony Viability");
+    expect(getColonyFeedbackActionLabel(COLONY_FEEDBACK_IDS.ISSUE_HOUSE_KIT_ACTION)).toBe("Issue House Kit");
   });
 
   it("centralizes House Kit readiness notices and prompts", () => {
@@ -27,40 +29,70 @@ describe("colony feedback contracts", () => {
     expect(getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.HOUSE_KIT_READY_TO_PLACE)).toBe(
       "House Kit ready  X / Enter Place"
     );
+    expect(getColonyFeedbackPlacementLabel(COLONY_FEEDBACK_IDS.HOUSE_KIT_READY_TO_PLACE)).toBe(
+      "Set first shelter site"
+    );
+  });
+
+  it("keeps Solar Station readiness tied to terrain choice", () => {
+    expect(getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.SOLAR_STATION_READY_MOVE_TO_OPEN_TERRAIN)).toBe(
+      "Solar Station ready  Find clear ground"
+    );
   });
 
   it("centralizes placement preview prompts", () => {
     expect(getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACEMENT_VALID)).toBe(
-      "Move Solar Station preview  X / Enter Place  B Cancel  LB/RB Rotate"
+      "Set Solar Station site  X / Enter Place  B Cancel  LB/RB Rotate"
+    );
+    expect(getColonyFeedbackPlacementLabel(COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACEMENT_VALID)).toBe(
+      "Set Solar Station site"
+    );
+    expect(getColonyFeedbackPlacementLabel(COLONY_FEEDBACK_IDS.SOLAR_STATION_READY_TO_PLACE)).toBe(
+      "Set Solar Station site"
+    );
+    expect(getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_VALID)).toBe(
+      "Set first shelter site  X / Enter Place  B Cancel  LB/RB Rotate"
+    );
+    expect(getColonyFeedbackPlacementLabel(COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_VALID)).toBe(
+      "Set first shelter site"
     );
     expect(getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_NEEDS_POWER_RADIUS)).toBe(
-      "Needs blue support zone  B Cancel  LB/RB Rotate"
+      "Place inside blue zone  B Cancel  LB/RB Rotate"
+    );
+    expect(getColonyFeedbackPlacementLabel(COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_NEEDS_POWER_RADIUS)).toBe(
+      "Place inside blue zone"
     );
     expect(getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.PLACEMENT_BLOCKED_BY_OBJECTS)).toBe(
-      "Blocked  Move away from objects  B Cancel  LB/RB Rotate"
+      "Choose a clear spot  B Cancel  LB/RB Rotate"
+    );
+    expect(getColonyFeedbackPlacementLabel(COLONY_FEEDBACK_IDS.PLACEMENT_BLOCKED_BY_OBJECTS)).toBe(
+      "Choose a clear spot"
     );
   });
 
   it("explains what Solar Station placement enables", () => {
     expect(getColonyFeedbackNotice(COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACED)).toBe(
-      "Solar Station online. Blue cells mark the human habitat support zone."
+      "Solar Station online. Blue cells mark where shelters can be built."
     );
     expect(getColonyFeedbackContract(COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACED)).toMatchObject({
       rewardTier: COLONY_REWARD_TIER.MILESTONE,
-      channels: ["notice", "groundHighlight"]
+      channels: ["notice", "groundHighlight", "worldSpeech"]
     });
+    expect(getColonyFeedbackWorldSpeech(COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACED)).toBe(
+      "Blue zone ready. First shelter goes inside it."
+    );
   });
 
   it("centralizes concise world prompt copy", () => {
     expect(getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_PLACE)).toBe("X / Enter Place");
     expect(getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_NEEDS_POWER)).toBe(
-      "Move inside blue zone"
+      "Place inside blue zone"
     );
     expect(getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_MOVE_TO_OPEN_TERRAIN)).toBe(
-      "Move to open terrain"
+      "Find clear ground"
     );
     expect(getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED)).toBe(
-      "Move away from objects"
+      "Choose a clear spot"
     );
   });
 
@@ -68,14 +100,14 @@ describe("colony feedback contracts", () => {
     expect(getColonyFeedbackContract(COLONY_FEEDBACK_IDS.HOUSE_KIT_SELECTED)).toMatchObject({
       playerGoal: "Place the House Kit in a clear powered area.",
       channels: ["notice", "worldPrompt", "groundHighlight"],
-      notice: "House Kit selected."
+      notice: "House Kit selected. Set it inside the blue zone."
     });
   });
 
   it("supports contextual bot names", () => {
     expect(getColonyFeedbackNotice(COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE, {
       growBotName: "Grow Bot"
-    })).toBe("First habitat check complete. Talk to Grow Bot.");
+    })).toBe("First colony check complete. Talk to Grow Bot.");
   });
 
   it("defines reward tiers with proportional feedback expectations", () => {
@@ -112,7 +144,7 @@ describe("colony feedback contracts", () => {
     );
   });
 
-  it("gives the habitat check milestone stronger feedback than a tiny prompt", () => {
+  it("gives the colony check milestone stronger feedback than a tiny prompt", () => {
     expect(getColonyFeedbackRewardTier(COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE)).toBe(
       COLONY_REWARD_TIER.MILESTONE
     );
@@ -120,7 +152,7 @@ describe("colony feedback contracts", () => {
       channels: ["notice", "questPulse", "taskPop"]
     });
     expect(getColonyFeedbackTaskPop(COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE)).toBe(
-      "Habitat viability confirmed."
+      "Colony zone viability confirmed."
     );
     expect(getColonyFeedbackRewardTier(COLONY_FEEDBACK_IDS.WORLD_PROMPT_PLACE)).toBe(
       COLONY_REWARD_TIER.TINY_ACTION

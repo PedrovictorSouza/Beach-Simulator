@@ -48,6 +48,11 @@ function normalizeCollisionResult(result) {
   };
 }
 
+const PLAYER_BASE_JUMP_VELOCITY = 7.2;
+const PLAYER_JUMP_HEIGHT_MULTIPLIER = 1.15;
+const PLAYER_JUMP_VELOCITY = PLAYER_BASE_JUMP_VELOCITY * Math.sqrt(PLAYER_JUMP_HEIGHT_MULTIPLIER);
+const PLAYER_GRAVITY = 15.5;
+
 function getFacingToward(fromPosition, toPosition, fallback = "down") {
   if (!fromPosition || !toPosition) {
     return fallback;
@@ -145,6 +150,7 @@ export async function createCharacterFactory({
         currentSpeed: 0,
         verticalVelocity: 0,
         groundY: baseGroundY,
+        jumpStarted: false,
       };
 
       function resolveIntent() {
@@ -165,6 +171,35 @@ export async function createCharacterFactory({
         ];
       }
 
+      function reconcileCurrentGround() {
+        if (!collisionTest) {
+          return;
+        }
+
+        const groundProbe = normalizeCollisionResult(collisionTest(
+          state.position,
+          state.id,
+          {
+            airborne: state.position[1] > state.groundY + 0.001,
+            groundY: state.groundY,
+            verticalVelocity: state.verticalVelocity
+          }
+        ));
+
+        if (!groundProbe.blocked && groundProbe.landingY !== null) {
+          state.groundY = groundProbe.landingY;
+          if (state.position[1] < groundProbe.landingY) {
+            state.position[1] = groundProbe.landingY;
+            state.verticalVelocity = 0;
+          }
+          return;
+        }
+
+        if (state.groundY > baseGroundY) {
+          state.groundY = baseGroundY;
+        }
+      }
+
       return {
         get id() {
           return state.id;
@@ -182,6 +217,7 @@ export async function createCharacterFactory({
           state.position = resolveWorldPosition(nextPosition);
           state.groundY = state.position[1] || baseGroundY;
           state.verticalVelocity = 0;
+          state.jumpStarted = false;
         },
 
         faceToward(position) {
@@ -192,14 +228,17 @@ export async function createCharacterFactory({
           const intent = resolveIntent();
           const movement = [...intent.movement];
           const length = Math.hypot(movement[0], movement[2]) || 0;
+          state.jumpStarted = false;
+          reconcileCurrentGround();
           const grounded = state.position[1] <= state.groundY + 0.001;
 
           if (intent.jumping && grounded) {
-            state.verticalVelocity = 7.2;
+            state.verticalVelocity = PLAYER_JUMP_VELOCITY;
+            state.jumpStarted = true;
           }
 
           if (!grounded || state.verticalVelocity > 0) {
-            state.verticalVelocity -= 15.5 * deltaTime;
+            state.verticalVelocity -= PLAYER_GRAVITY * deltaTime;
             state.position[1] = Math.max(
               state.groundY,
               state.position[1] + state.verticalVelocity * deltaTime
@@ -235,8 +274,13 @@ export async function createCharacterFactory({
           ];
 
           const resolvedNextPosition = resolveWorldPosition(nextPosition);
+          const collisionContext = {
+            airborne: !grounded || state.position[1] > state.groundY + 0.001,
+            groundY: state.groundY,
+            verticalVelocity: state.verticalVelocity
+          };
           const collision = normalizeCollisionResult(
-            collisionTest ? collisionTest(resolvedNextPosition, state.id) : false
+            collisionTest ? collisionTest(resolvedNextPosition, state.id, collisionContext) : false
           );
           if (!collision.blocked) {
             if (collision.landingY !== null && state.verticalVelocity <= 0.8) {
@@ -252,6 +296,12 @@ export async function createCharacterFactory({
           state.facing = intent.facing || state.facing;
           state.pattern = "walk";
           state.animationTime += deltaTime;
+        },
+
+        consumeJumpStarted() {
+          const jumpStarted = state.jumpStarted;
+          state.jumpStarted = false;
+          return jumpStarted;
         },
 
         getRenderState() {

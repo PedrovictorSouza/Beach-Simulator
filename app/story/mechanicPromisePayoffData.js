@@ -17,6 +17,9 @@ export const MECHANIC_PROMISE_PAYOFF_IDS = Object.freeze({
 const REQUIRED_PROMISE_PAYOFF_FIELDS = Object.freeze([
   "id",
   "label",
+  "macroRole",
+  "requires",
+  "opens",
   "worldObject",
   "playerAction",
   "immediateFeedback",
@@ -33,6 +36,9 @@ export const MECHANIC_PROMISE_PAYOFF_MATRIX = Object.freeze([
   freezeEntry({
     id: MECHANIC_PROMISE_PAYOFF_IDS.BUILDER_CALLSIGN,
     label: "Builder callsign",
+    macroRole: "identity",
+    requires: [],
+    opens: [MECHANIC_PROMISE_PAYOFF_IDS.HYDRO_JET],
     worldObject: "Name-entry keyboard and Colony Terminal registry",
     playerAction: "Enter and confirm a callsign during onboarding.",
     immediateFeedback: `${SANDBOTS_BOT_NAMES.scout} acknowledges the callsign and the ${SANDBOTS_WORLD_TERMS.terminal} logs it.`,
@@ -43,6 +49,9 @@ export const MECHANIC_PROMISE_PAYOFF_MATRIX = Object.freeze([
   freezeEntry({
     id: MECHANIC_PROMISE_PAYOFF_IDS.HYDRO_JET,
     label: SANDBOTS_ITEM_NAMES.hydroTool,
+    macroRole: "water-restoration",
+    requires: [MECHANIC_PROMISE_PAYOFF_IDS.BUILDER_CALLSIGN],
+    opens: [MECHANIC_PROMISE_PAYOFF_IDS.BIO_GROW],
     worldObject: `${SANDBOTS_BOT_NAMES.hydro} and dry ground`,
     playerAction: "Mark dry ground or thirsty plants with the field action.",
     immediateFeedback: `${SANDBOTS_BOT_NAMES.hydro} moves, water appears, and the tile state changes.`,
@@ -53,16 +62,25 @@ export const MECHANIC_PROMISE_PAYOFF_MATRIX = Object.freeze([
   freezeEntry({
     id: MECHANIC_PROMISE_PAYOFF_IDS.BIO_GROW,
     label: SANDBOTS_ITEM_NAMES.growTool,
+    macroRole: "soil-growth",
+    requires: [MECHANIC_PROMISE_PAYOFF_IDS.HYDRO_JET],
+    opens: [
+      MECHANIC_PROMISE_PAYOFF_IDS.WORKBENCH,
+      MECHANIC_PROMISE_PAYOFF_IDS.COLONY_TERMINAL
+    ],
     worldObject: `${SANDBOTS_BOT_NAMES.grow} and restored ground`,
     playerAction: "Use Bio-Grow on restored ground.",
-    immediateFeedback: "A plant object appears or a habitat patch reacts.",
-    systemConsequence: "Green corners, habitat checks, and Grow Bot requests progress.",
-    narrativeMeaning: "Soil recovery becomes living habitat support.",
-    futureDependency: "Plant recovery supports habitat viability, bot requests, and later shelter context."
+    immediateFeedback: "A plant object appears or a colony-zone patch reacts.",
+    systemConsequence: "Green corners, colony checks, and Grow Bot requests progress.",
+    narrativeMeaning: "Soil recovery becomes living colony-zone support.",
+    futureDependency: "Plant recovery supports colony viability, bot requests, and later shelter context."
   }),
   freezeEntry({
     id: MECHANIC_PROMISE_PAYOFF_IDS.WORKBENCH,
     label: "Workbench",
+    macroRole: "fabrication",
+    requires: [MECHANIC_PROMISE_PAYOFF_IDS.BIO_GROW],
+    opens: [MECHANIC_PROMISE_PAYOFF_IDS.SOLAR_STATION],
     worldObject: "Workbench station",
     playerAction: "Prepare or place available construction protocols.",
     immediateFeedback: "Workbench UI shows protocol status, material readiness, and action labels.",
@@ -73,26 +91,38 @@ export const MECHANIC_PROMISE_PAYOFF_MATRIX = Object.freeze([
   freezeEntry({
     id: MECHANIC_PROMISE_PAYOFF_IDS.COLONY_TERMINAL,
     label: SANDBOTS_WORLD_TERMS.terminal,
+    macroRole: "authorization",
+    requires: [MECHANIC_PROMISE_PAYOFF_IDS.BIO_GROW],
+    opens: [MECHANIC_PROMISE_PAYOFF_IDS.HOUSE_KIT],
     worldObject: SANDBOTS_WORLD_TERMS.terminal,
     playerAction: "Log viability reports and issue authorized protocols.",
     immediateFeedback: "Terminal cards, action labels, notices, and story beats confirm protocol state.",
-    systemConsequence: "Habitat checks unlock and House Kit authorization becomes available.",
+    systemConsequence: "Colony checks unlock and House Kit authorization becomes available.",
     narrativeMeaning: "Progress is planetary viability, not money or shopping.",
     futureDependency: "Terminal authorization gates shelter expansion and future colony protocols."
   }),
   freezeEntry({
     id: MECHANIC_PROMISE_PAYOFF_IDS.SOLAR_STATION,
     label: SANDBOTS_ITEM_NAMES.solarStation,
+    macroRole: "power-zone",
+    requires: [MECHANIC_PROMISE_PAYOFF_IDS.WORKBENCH],
+    opens: [MECHANIC_PROMISE_PAYOFF_IDS.HOUSE_KIT],
     worldObject: SANDBOTS_ITEM_NAMES.solarStation,
     playerAction: "Place the Solar Station on valid open terrain.",
-    immediateFeedback: "The station appears and blue cells show the human habitat support zone.",
+    immediateFeedback: "The station appears and blue cells show where shelters can be built.",
     systemConsequence: "House Kit placement becomes valid inside the support radius.",
-    narrativeMeaning: "Power defines where human-ready habitat can safely exist.",
+    narrativeMeaning: "Power defines where the first human-ready shelter can safely exist.",
     futureDependency: "House placement and shelter progression depend on the powered support zone."
   }),
   freezeEntry({
     id: MECHANIC_PROMISE_PAYOFF_IDS.HOUSE_KIT,
     label: "House Kit",
+    macroRole: "shelter",
+    requires: [
+      MECHANIC_PROMISE_PAYOFF_IDS.COLONY_TERMINAL,
+      MECHANIC_PROMISE_PAYOFF_IDS.SOLAR_STATION
+    ],
+    opens: [],
     worldObject: "House Kit preview and placed House",
     playerAction: "Place the House Kit inside a powered support zone.",
     immediateFeedback: "The preview validates cells, the placed House appears, and the callsign is registered.",
@@ -116,6 +146,7 @@ export function validateMechanicPromisePayoffMatrix({
 } = {}) {
   const errors = [];
   const seenIds = new Set();
+  const entryIndexesById = new Map();
 
   matrix.forEach((entry, index) => {
     const id = entry?.id || null;
@@ -125,11 +156,21 @@ export function validateMechanicPromisePayoffMatrix({
       errors.push({ type: "duplicate-id", id, index });
     } else {
       seenIds.add(id);
+      entryIndexesById.set(id, index);
     }
 
     REQUIRED_PROMISE_PAYOFF_FIELDS.forEach((field) => {
+      if (Array.isArray(entry?.[field])) {
+        return;
+      }
       if (!String(entry?.[field] || "").trim()) {
         errors.push({ type: "missing-field", id, index, field });
+      }
+    });
+
+    ["requires", "opens"].forEach((field) => {
+      if (!Array.isArray(entry?.[field])) {
+        errors.push({ type: "invalid-link-list", id, index, field });
       }
     });
   });
@@ -138,6 +179,29 @@ export function validateMechanicPromisePayoffMatrix({
     if (!seenIds.has(id)) {
       errors.push({ type: "missing-required-mechanic", id });
     }
+  });
+
+  matrix.forEach((entry, index) => {
+    const id = entry?.id || null;
+    if (!id) return;
+
+    (Array.isArray(entry.requires) ? entry.requires : []).forEach((requiredId) => {
+      const requiredIndex = entryIndexesById.get(requiredId);
+      if (requiredIndex === undefined) {
+        errors.push({ type: "missing-required-link", id, index, requiredId });
+      } else if (requiredIndex >= index) {
+        errors.push({ type: "future-required-link", id, index, requiredId });
+      }
+    });
+
+    (Array.isArray(entry.opens) ? entry.opens : []).forEach((openedId) => {
+      const openedIndex = entryIndexesById.get(openedId);
+      if (openedIndex === undefined) {
+        errors.push({ type: "missing-opened-link", id, index, openedId });
+      } else if (openedIndex <= index) {
+        errors.push({ type: "past-opened-link", id, index, openedId });
+      }
+    });
   });
 
   return Object.freeze(errors.map((error) => Object.freeze(error)));

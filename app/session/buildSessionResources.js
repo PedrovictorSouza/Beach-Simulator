@@ -100,6 +100,44 @@ function createPlayerDustCanvas() {
   return canvas;
 }
 
+function createMissionTargetIndicatorCanvas() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 32;
+  canvas.height = 32;
+
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, canvas.width, canvas.height);
+
+  const drawPixel = (x, y, color) => {
+    context.fillStyle = color;
+    context.fillRect(x, y, 2, 2);
+  };
+  const drawLine = (fromX, fromY, toX, toY, color, phase = 0) => {
+    const steps = Math.max(Math.abs(toX - fromX), Math.abs(toY - fromY));
+
+    for (let index = 0; index <= steps; index += 2) {
+      if (((index / 2) + phase) % 3 === 1) {
+        continue;
+      }
+
+      const x = Math.round(fromX + ((toX - fromX) * index) / steps);
+      const y = Math.round(fromY + ((toY - fromY) * index) / steps);
+      drawPixel(x, y, color);
+    }
+  };
+
+  drawLine(6, 7, 26, 7, "rgba(5, 3, 7, 0.86)", 0);
+  drawLine(6, 7, 16, 28, "rgba(5, 3, 7, 0.86)", 1);
+  drawLine(26, 7, 16, 28, "rgba(5, 3, 7, 0.86)", 2);
+  drawLine(7, 6, 25, 6, "#ffffff", 0);
+  drawLine(7, 6, 16, 26, "#ffffff", 1);
+  drawLine(25, 6, 16, 26, "#ffffff", 2);
+  drawPixel(15, 26, "#89ff00");
+  drawPixel(16, 26, "#89ff00");
+
+  return canvas;
+}
+
 function createShipSmokeCanvas() {
   const canvas = document.createElement("canvas");
   canvas.width = 36;
@@ -904,6 +942,7 @@ export function buildSessionResources(session, assets, { worldTextureFactory }) 
     ITEM_DEFS,
     WORLD_MARKER_STYLES
   );
+  session.missionTargetIndicatorTexture = worldTextureFactory.fromCanvas(createMissionTargetIndicatorCanvas());
 
   session.woodTexture = worldTextureFactory.fromImage(woodImage);
   session.leavesTexture = worldTextureFactory.fromImage(leaveImage);

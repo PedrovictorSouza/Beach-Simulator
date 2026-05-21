@@ -51,6 +51,7 @@ describe("createHudSuspenseBoundary", () => {
     expect(statusElement.textContent).toBe("Loading HUD...");
     expect(statusElement.getAttribute("aria-busy")).toBe("true");
     expect(hudInstructionsElement.textContent).toContain("Preparing controls");
+    expect(nearbyHabitatsValueElement.textContent).toBe("Mapping colony zones...");
     expect(missionsStackElement.querySelectorAll(".mission-card--skeleton")).toHaveLength(3);
     expect(inventoryGridElement.querySelectorAll(".inventory-slot--skeleton")).toHaveLength(5);
   });

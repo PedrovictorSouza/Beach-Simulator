@@ -12,7 +12,7 @@ export const SANDBOTS_BOT_NAMES = Object.freeze({
 export const SANDBOTS_WORLD_TERMS = Object.freeze({
   bot: "bot",
   bots: "bots",
-  codex: "Colony Codex",
+  codex: "Instructions.",
   core: "Colony Core",
   terminal: "Colony Terminal",
   terminalRuins: "Ruined Colony Terminal",

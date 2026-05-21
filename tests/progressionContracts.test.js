@@ -30,6 +30,34 @@ describe("progression contracts", () => {
       storyState: { flags: { workbenchDiyRecipesReceived: true } },
       inventory: {}
     })).toMatchObject({
+      state: TRAIN_HOUSE_PROGRESS_STATE.LOCKED,
+      disabled: true,
+      status: "Locked · Build Greenhouse first"
+    });
+
+    expect(getTrainHouseProgressState({
+      storyState: {
+        flags: {
+          workbenchDiyRecipesReceived: true,
+          campfireCrafted: true
+        }
+      },
+      inventory: { [CAMPFIRE_ITEM_ID]: 1 }
+    })).toMatchObject({
+      state: TRAIN_HOUSE_PROGRESS_STATE.LOCKED,
+      disabled: true,
+      status: "Locked · Build Greenhouse first"
+    });
+
+    expect(getTrainHouseProgressState({
+      storyState: {
+        flags: {
+          workbenchDiyRecipesReceived: true,
+          greenhousePlaced: true
+        }
+      },
+      inventory: {}
+    })).toMatchObject({
       state: TRAIN_HOUSE_PROGRESS_STATE.CRAFTABLE,
       disabled: false
     });
@@ -38,6 +66,7 @@ describe("progression contracts", () => {
       storyState: {
         flags: {
           workbenchDiyRecipesReceived: true,
+          greenhousePlaced: true,
           campfireCrafted: true
         }
       },
@@ -63,11 +92,19 @@ describe("progression contracts", () => {
       flags: {
         charmanderFollowing: true
       }
+    })).toBe(FIELD_TASK_IDS.BUILD_GREENHOUSE);
+
+    expect(getCharmanderDerivedTaskId({
+      flags: {
+        charmanderFollowing: true,
+        greenhousePlaced: true
+      }
     })).toBe(FIELD_TASK_IDS.WORKBENCH_CAMPFIRE);
 
     expect(getCharmanderDerivedTaskId({
       flags: {
         charmanderFollowing: true,
+        greenhousePlaced: true,
         workbenchDiyRecipesReceived: true,
         campfireCrafted: true
       }
@@ -76,6 +113,7 @@ describe("progression contracts", () => {
     expect(getCharmanderDerivedTaskId({
       flags: {
         charmanderFollowing: true,
+        greenhousePlaced: true,
         workbenchDiyRecipesReceived: true,
         campfireCrafted: true,
         campfireSpatOut: true

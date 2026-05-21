@@ -120,7 +120,7 @@
 .intro-dialogue__voice {
   font-size: 14px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: none;
   color: rgba(49, 66, 91, 0.72);
 }
 
@@ -133,7 +133,7 @@
   background: rgba(129, 96, 219, 0.14);
   font-size: 13px;
   letter-spacing: 0.06em;
-  text-transform: uppercase;
+  text-transform: none;
   color: #5c49ad;
 }
 

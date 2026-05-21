@@ -24,13 +24,15 @@ function createOverlayRoot() {
       <div data-pokedex-field="details-eyebrow"></div>
       <div data-pokedex-field="species"></div>
       <div data-pokedex-field="description"></div>
-      <div data-pokedex-field="detail-stat-label-0"></div>
-      <div data-pokedex-field="detail-stat-value-0"></div>
-      <div data-pokedex-field="detail-stat-label-1"></div>
-      <div data-pokedex-field="detail-stat-value-1"></div>
-      <div data-pokedex-field="detail-stat-label-2"></div>
-      <div data-pokedex-field="detail-type-icon"></div>
-      <div data-pokedex-field="detail-type-label"></div>
+      <div class="pokedex-entry__stats">
+        <div data-pokedex-field="detail-stat-label-0"></div>
+        <div data-pokedex-field="detail-stat-value-0"></div>
+        <div data-pokedex-field="detail-stat-label-1"></div>
+        <div data-pokedex-field="detail-stat-value-1"></div>
+        <div data-pokedex-field="detail-stat-label-2"></div>
+        <div data-pokedex-field="detail-type-icon"></div>
+        <div data-pokedex-field="detail-type-label"></div>
+      </div>
       <div data-pokedex-field="where-eyebrow"></div>
       <div data-pokedex-field="where-pin"></div>
       <div data-pokedex-field="where-island"></div>
@@ -77,6 +79,22 @@ function createOverlayRoot() {
 }
 
 describe("createPokedexOverlay", () => {
+  it("renders Hydro Bot instructions as tutorial images", () => {
+    const root = createOverlayRoot();
+    const overlay = createPokedexOverlay({ root });
+
+    overlay.setOpen(true);
+
+    const descriptionImages = root.querySelectorAll('[data-pokedex-field="description"] .pokedex-entry__description-image');
+    expect(descriptionImages).toHaveLength(1);
+    expect(descriptionImages[0]?.getAttribute("src")).toContain("tutorial-hidro-jet.png");
+    expect(descriptionImages[0]?.getAttribute("alt")).toBe("Hydro Jet tutorial");
+    expect(root.querySelector('[data-pokedex-field="details-eyebrow"]')?.textContent).toBe(
+      "Press (input) to wash the soil"
+    );
+    expect(root.querySelector(".pokedex-entry__stats")).toBeNull();
+  });
+
   it("switches content and art scene when a new pokedex entry is selected", () => {
     const root = createOverlayRoot();
     const overlay = createPokedexOverlay({ root });
@@ -105,7 +123,12 @@ describe("createPokedexOverlay", () => {
 
     expect(root.querySelector('[data-pokedex-field="number"]')?.textContent).toBe("No. 001");
     expect(root.querySelector('[data-pokedex-field="name"]')?.textContent).toBe("Tall grass");
-    expect(root.querySelector('[data-pokedex-field="description"]')?.innerHTML).toContain("Four tufts of tall grass");
+    const descriptionImages = root.querySelectorAll('[data-pokedex-field="description"] .pokedex-entry__description-image');
+    expect(descriptionImages).toHaveLength(2);
+    expect(descriptionImages[0]?.getAttribute("src")).toContain("grass.gif");
+    expect(descriptionImages[0]?.getAttribute("alt")).toBe("Tall grass instructions");
+    expect(descriptionImages[1]?.getAttribute("src")).toContain("grey-grass.gif");
+    expect(descriptionImages[1]?.getAttribute("alt")).toBe("Grey tall grass instructions");
     expect(root.querySelector('[data-pokedex-field="specialties-eyebrow"]')?.textContent).toBe("Habitat Notes");
     expect(root.querySelector('[data-pokedex-field="favorites-title"]')?.textContent).toBe("Care Inputs");
     expect(root.querySelector(".pokedex-entry")?.dataset.pokedexDrawer).toBe("hidden");
@@ -145,7 +168,6 @@ describe("createPokedexOverlay", () => {
     expect(root.querySelector('[data-pokedex-field="name"]')?.textContent).toBe("Grow Bot");
     expect(root.querySelector('[data-pokedex-field="species"]')?.textContent).toBe("Bio-Growth Utility Bot");
     expect(root.querySelector('[data-pokedex-field="description"]')?.innerHTML).toContain("Maintains seed tanks");
-    expect(root.querySelector('[data-pokedex-field="detail-type-label"]')?.textContent).toBe("Growth");
     expect(root.querySelector('[data-pokedex-field="where-pin"]')?.textContent).toBe("Tall grass");
     expect(root.querySelector('[data-pokedex-field="where-count"]')?.textContent).toBe("1/2");
     expect(root.querySelector('[data-pokedex-field="where-island"]')?.innerHTML).toContain("pokedex-entry__where-preview--tall-grass");
@@ -177,7 +199,7 @@ describe("createPokedexOverlay", () => {
     expect(root.querySelector('[data-pokedex-page-panel="requests"]')?.hidden).toBe(false);
   });
 
-  it("treats X as a close shortcut while the Pokedesk is open", () => {
+  it("treats X as a close shortcut while Instructions is open", () => {
     const root = createOverlayRoot();
     const onClose = vi.fn();
     const overlay = createPokedexOverlay({ root, onClose });
@@ -211,12 +233,12 @@ describe("createPokedexOverlay", () => {
       requestId: BOULDER_SHADED_TALL_GRASS_CHALLENGE_ID
     });
 
-    expect(root.querySelector('[data-pokedex-field="request-status"]')?.textContent).toBe("Habitat Check");
+    expect(root.querySelector('[data-pokedex-field="request-status"]')?.textContent).toBe("Colony Check");
     expect(root.querySelector('[data-pokedex-field="request-title"]')?.textContent).toBe("Boulder-Shaded Tall Grass");
     expect(root.querySelector('[data-pokedex-field="request-reward"]')?.textContent).toBe("Viability logged.");
   });
 
-  it("renders the new Habitat Checks request from the Colony Terminal", () => {
+  it("renders the new Colony Checks request from the Colony Terminal", () => {
     const root = createOverlayRoot();
     const overlay = createPokedexOverlay({ root });
 
@@ -225,9 +247,9 @@ describe("createPokedexOverlay", () => {
       requestId: NEW_HABITAT_CHALLENGES_ID
     });
 
-    expect(root.querySelector('[data-pokedex-field="request-status"]')?.textContent).toBe("New Habitat Checks");
+    expect(root.querySelector('[data-pokedex-field="request-status"]')?.textContent).toBe("New Colony Checks");
     expect(root.querySelector('[data-pokedex-field="request-giver"]')?.textContent).toBe("Colony Terminal");
-    expect(root.querySelector('[data-pokedex-field="request-title"]')?.textContent).toBe("New Habitat Checks");
-    expect(root.querySelector('[data-pokedex-field="request-objective"]')?.textContent).toContain("Review the new habitat checks");
+    expect(root.querySelector('[data-pokedex-field="request-title"]')?.textContent).toBe("New Colony Checks");
+    expect(root.querySelector('[data-pokedex-field="request-objective"]')?.textContent).toContain("Review the new colony checks");
   });
 });

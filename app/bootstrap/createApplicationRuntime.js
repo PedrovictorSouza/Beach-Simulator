@@ -43,6 +43,7 @@ import {
   CARBON_ITEM_ID,
   CAMPFIRE_ITEM_ID,
   DITTO_FLAG_ITEM_ID,
+  GREENHOUSE_ITEM_ID,
   INVENTORY_ORDER,
   ITEM_DEFS,
   LEAF_DEN_BUILD_DURATION_MS,
@@ -60,6 +61,7 @@ import {
   STRAW_BED_RECIPE_ITEM_ID,
   TANGROWTH_OPENING_LINE,
   WATER_GUN_POWER_ITEM_ID,
+  WORKBENCH_POSITION,
   canClaimBoulderChallengeReward,
   createInitialInventory,
   getItemLabel,
@@ -113,6 +115,7 @@ import { createGameInputController } from "../../input/gameInputController.js";
 import {
   buildNearbyPrompt,
   buildCampfirePlacement,
+  buildGreenhousePlacement,
   buildLeafDenKitPlacement,
   buildLogChairPlacement,
   buildStrawBedPlacement,
@@ -121,6 +124,7 @@ import {
   collectLeafResourceNodes as collectLeafResourceNodeItems,
   collectLeppaBerryDrops as collectLeppaBerryDropItems,
   collectWoodDrops,
+  findNearbyDestroyableInstantiatedObject,
   findNearbyHarvestTarget,
   findNearbyInteractable,
   isInteractableActive,
@@ -201,7 +205,7 @@ const RESOURCE_HARVEST_PROMPT = "Enter action";
 const INTERACT_PROMPT = "E talk";
 const MAIN_THEME_MUSIC_URL = new URL("../soundFx/main-theme.mp3", import.meta.url).href;
 const MAIN_THEME_B_MUSIC_URL = new URL("../soundFx/main-theme-b.mp3", import.meta.url).href;
-const ENABLE_GAMEPLAY_DEV_BOOT = true;
+const ENABLE_GAMEPLAY_DEV_BOOT = false;
 const ENABLE_QUEST_PERSISTENCE = false;
 const DEFAULT_DEV_SCENE = DEV_SCENE.GAMEPLAY;
 const WATER_GUN_FLOWER_FIELD_GROUP_ID = "water-gun-flower-field-0";
@@ -218,6 +222,10 @@ const WORKBENCH_RECIPES = createWorkbenchRecipeMap({
   placeholderRecipes: PLACEHOLDER_RECIPES
 });
 const WORKBENCH_RECIPE_PROTOCOL_UI = Object.freeze({
+  [GREENHOUSE_ITEM_ID]: Object.freeze({
+    label: "Soil Plans",
+    purpose: "Marks the first greenhouse restoration footprint."
+  }),
   campfire: Object.freeze({
     label: "Power Plans",
     purpose: "Thermal shelter and starter heat."
@@ -293,43 +301,43 @@ const FIELD_MOVE_SWITCH_PROMPT_PRESENTATION = Object.freeze({
   waterGun: {
     companionName: SANDBOTS_BOT_NAMES.hydro,
     companionId: "squirtle",
-    hint: "USE LT TO MARK THE GROUND",
+    hint: "Use LT to mark the ground",
     thumbnailUrl: new URL("../ui/images/Robot-1-thumb.png", import.meta.url).href
   },
   leafage: {
     companionName: SANDBOTS_BOT_NAMES.grow,
     companionId: "bulbasaur",
-    hint: "USE LT ON GREEN GROUND",
+    hint: "Use LT on green ground",
     thumbnailUrl: new URL("../ui/images/Robot-2-thumb.png", import.meta.url).href
   },
   fire: {
     companionName: SANDBOTS_BOT_NAMES.thermal,
     companionId: "charmander",
-    hint: "USE LT ON WHITE GROUND",
+    hint: "Use LT on white ground",
     thumbnailUrl: new URL("../ui/images/Robot-3-thumb.png", import.meta.url).href
   }
 });
 const QUEST_COMPLETION_POP_DURATION_MS = 2400;
 const QUEST_COMPLETION_POP_MESSAGES = Object.freeze({
-  "learn-to-move": "YOU TOOK YOUR FIRST STEPS!",
-  "wake-guide": "YOU MET CHOPPER!",
-  "gather-first-supplies": "HYDRO BOT IS ONLINE!",
-  "shape-a-living-patch": "YOU RESTORED A PATCH!",
-  "record-a-memory": "YOU RECORDED A MEMORY!",
-  "open-the-water-route": `${SANDBOTS_ITEM_NAMES.hydroTool.toUpperCase()} ONLINE!`,
-  "water-dry-grass": "YOU RESTORED THE TALL GRASS!",
-  "inspect-rustling-grass": `${SANDBOTS_ITEM_NAMES.growTool.toUpperCase()} ONLINE!`,
-  "grow-a-home-patch": "YOU GREW A HOME PATCH!",
-  "chopper-first-habitat-report": "YOU REPORTED BACK!"
+  "learn-to-move": "You took your first steps!",
+  "wake-guide": "You met Chopper!",
+  "gather-first-supplies": "Hydro Bot is online!",
+  "shape-a-living-patch": "You restored a patch!",
+  "record-a-memory": "You recorded a memory!",
+  "open-the-water-route": `${SANDBOTS_ITEM_NAMES.hydroTool} online!`,
+  "water-dry-grass": "You restored the tall grass!",
+  "inspect-rustling-grass": `${SANDBOTS_ITEM_NAMES.growTool} online!`,
+  "grow-a-home-patch": "You grew a home patch!",
+  "chopper-first-habitat-report": "You reported back!"
 });
 const CHOPPER_BULBASAUR_REPAIR_BOX_INTRO_LINES = Object.freeze([
   {
     speaker: "Chopper",
-    text: "Nice Job, rookie. It's good to see some green around here after so many years."
+    text: "Nice job, rookie. It's good to see some green around here after so many years."
   },
   {
     speaker: "Chopper",
-    text: "But i don't believe that just the two of you are going to be able to clean up this mess. I don't believe the company only sent one worker here."
+    text: "But I don't believe just the two of you are going to clean up this mess. I don't believe the company only sent one worker here."
   },
   {
     speaker: "Chopper",
@@ -339,7 +347,7 @@ const CHOPPER_BULBASAUR_REPAIR_BOX_INTRO_LINES = Object.freeze([
 const CHOPPER_BULBASAUR_REPAIR_BOX_PRE_INTERACTION_LINES = Object.freeze([
   {
     speaker: "Chopper",
-    text: "Theses boxes fell from the sky with you, i wonder what is inside..."
+    text: "These boxes fell from the sky with you. I wonder what's inside..."
   }
 ]);
 const CHOPPER_BULBASAUR_REPAIR_BOX_INTRO_STARTED_FLAG = "chopperBulbasaurRepairBoxIntroStarted";
@@ -353,6 +361,21 @@ const GROW_BOT_REVEAL_CINEMATIC_VISIBLE_PROGRESS = 0.72;
 const GROW_BOT_REVEAL_CINEMATIC_OPEN_START_PROGRESS = 0.62;
 const GROW_BOT_REVEAL_CINEMATIC_FLASH_START = 2.62;
 const GROW_BOT_REVEAL_CINEMATIC_FLASH_DURATION = 1.05;
+function createBotRevealBoxOpening(onComplete) {
+  return {
+    active: true,
+    elapsed: 0,
+    duration: GROW_BOT_REVEAL_CINEMATIC_DURATION,
+    visibleProgress: GROW_BOT_REVEAL_CINEMATIC_VISIBLE_PROGRESS,
+    openStartProgress: GROW_BOT_REVEAL_CINEMATIC_OPEN_START_PROGRESS,
+    flashStart: GROW_BOT_REVEAL_CINEMATIC_FLASH_START,
+    flashDuration: GROW_BOT_REVEAL_CINEMATIC_FLASH_DURATION,
+    hideBoxWhenVisible: true,
+    botVisible: false,
+    bulbasaurVisible: false,
+    onComplete
+  };
+}
 const CHOPPER_FIRST_GUIDE_APPROACH_DURATION = 0.85;
 const CHOPPER_FIRST_GUIDE_CAMERA_HEIGHT = 1.55;
 const CHOPPER_SECOND_TALK_APPROACH_DURATION = 1.05;
@@ -380,9 +403,18 @@ const HOUSE_BUILT_ROTATION_FOOTPRINT = [
   HOUSE_KIT_ROTATION_FOOTPRINT[1] * 2
 ];
 const MANUAL_SAVE_STORAGE_KEY = "small-island.manual-save.v1";
+const MANUAL_SAVE_SLOT_STORAGE_PREFIX = "small-island.manual-save-slot.v1.";
+const MANUAL_SAVE_ACTIVE_SLOT_STORAGE_KEY = "small-island.manual-save.active-slot.v1";
+const DEFAULT_MANUAL_SAVE_SLOT_ID = "slot-1";
+const MANUAL_SAVE_SLOT_IDS = Object.freeze([
+  DEFAULT_MANUAL_SAVE_SLOT_ID,
+  "slot-2",
+  "slot-3"
+]);
 const LOG_CHAIR_SAVE_REQUEST_GRACE_MS = 800;
 const SOLAR_STATION_RECIPE_ARTWORK_URL = new URL("../../Solar-Station/Solar-Station.gif", import.meta.url).href;
 const TRAIN_HOUSE_RECIPE_ARTWORK_URL = new URL("../../Train-house/train-house.gif", import.meta.url).href;
+const GREENHOUSE_RECIPE_ARTWORK_URL = new URL("../../Greenhouse/Estufa.png", import.meta.url).href;
 const HOUSE_RECIPE_ARTWORK_URL = new URL("../../house/house_2.png", import.meta.url).href;
 const LEAFAGE_TALL_GRASS_ARTWORK_URL = new URL("../../Trees/tall-grass/tall-grass.png", import.meta.url).href;
 const LEAFAGE_GARDEN_1_ARTWORK_URL = new URL("../../Trees/Garden-1/garden-1.png", import.meta.url).href;
@@ -446,9 +478,9 @@ function isPlainObject(value) {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
-function readManualSavePoint(windowRef) {
+function readManualSavePointFromKey(windowRef, key) {
   try {
-    const raw = readLocalStorageItem(windowRef, MANUAL_SAVE_STORAGE_KEY);
+    const raw = readLocalStorageItem(windowRef, key);
     if (!raw) {
       return null;
     }
@@ -458,6 +490,105 @@ function readManualSavePoint(windowRef) {
   } catch {
     return null;
   }
+}
+
+function readManualSavePoint(windowRef) {
+  return readManualSavePointFromKey(windowRef, MANUAL_SAVE_STORAGE_KEY);
+}
+
+function normalizeManualSaveSlotId(slotId) {
+  return MANUAL_SAVE_SLOT_IDS.includes(slotId) ? slotId : DEFAULT_MANUAL_SAVE_SLOT_ID;
+}
+
+function getManualSaveSlotStorageKey(slotId) {
+  return `${MANUAL_SAVE_SLOT_STORAGE_PREFIX}${normalizeManualSaveSlotId(slotId)}`;
+}
+
+function readActiveManualSaveSlotId(windowRef) {
+  return normalizeManualSaveSlotId(readLocalStorageItem(windowRef, MANUAL_SAVE_ACTIVE_SLOT_STORAGE_KEY));
+}
+
+function writeActiveManualSaveSlotId(windowRef, slotId) {
+  try {
+    windowRef.localStorage?.setItem(
+      MANUAL_SAVE_ACTIVE_SLOT_STORAGE_KEY,
+      normalizeManualSaveSlotId(slotId)
+    );
+  } catch {
+    // The game can still run without localStorage write access.
+  }
+}
+
+function readManualSaveSlot(windowRef, slotId) {
+  const normalizedSlotId = normalizeManualSaveSlotId(slotId);
+  const slotSavePoint = readManualSavePointFromKey(
+    windowRef,
+    getManualSaveSlotStorageKey(normalizedSlotId)
+  );
+
+  if (slotSavePoint) {
+    return slotSavePoint;
+  }
+
+  return normalizedSlotId === DEFAULT_MANUAL_SAVE_SLOT_ID ?
+    readManualSavePoint(windowRef) :
+    null;
+}
+
+function removeManualSaveSlot(windowRef, slotId) {
+  const normalizedSlotId = normalizeManualSaveSlotId(slotId);
+  removeLocalStorageItem(windowRef, getManualSaveSlotStorageKey(normalizedSlotId));
+  if (normalizedSlotId === DEFAULT_MANUAL_SAVE_SLOT_ID) {
+    removeLocalStorageItem(windowRef, MANUAL_SAVE_STORAGE_KEY);
+  }
+}
+
+function resolveBootManualSaveSlot(windowRef) {
+  const activeSlotId = readActiveManualSaveSlotId(windowRef);
+  const activeSlotSavePoint = readManualSaveSlot(windowRef, activeSlotId);
+  if (activeSlotSavePoint) {
+    return {
+      slotId: activeSlotId,
+      savePoint: activeSlotSavePoint
+    };
+  }
+
+  const defaultSlotSavePoint = activeSlotId === DEFAULT_MANUAL_SAVE_SLOT_ID ?
+    activeSlotSavePoint :
+    readManualSaveSlot(windowRef, DEFAULT_MANUAL_SAVE_SLOT_ID);
+
+  return {
+    slotId: defaultSlotSavePoint ? DEFAULT_MANUAL_SAVE_SLOT_ID : activeSlotId,
+    savePoint: defaultSlotSavePoint
+  };
+}
+
+function buildStartSaveSlots(savePoint, slotId) {
+  if (!savePoint) {
+    return [];
+  }
+
+  const continueSlotId = normalizeManualSaveSlotId(slotId);
+  const newGameSlotIds = MANUAL_SAVE_SLOT_IDS
+    .filter((candidateSlotId) => candidateSlotId !== continueSlotId)
+    .slice(0, 2);
+
+  return [
+    {
+      id: "continue",
+      action: "continue",
+      slotId: continueSlotId,
+      label: "Continue",
+      detail: "Saved Game"
+    },
+    ...newGameSlotIds.map((newGameSlotId, index) => ({
+      id: `new-game-${newGameSlotId}`,
+      action: "newGame",
+      slotId: newGameSlotId,
+      label: "New Game",
+      detail: `Empty Slot ${index + 1}`
+    }))
+  ];
 }
 
 function cloneFiniteNumberArray(value, length) {
@@ -679,6 +810,7 @@ function cloneSavedPatch(patch) {
 function cloneSessionPlaceables(session) {
   return {
     logChair: cloneSavedPlacement(session?.logChair),
+    greenhouse: cloneSavedPlacement(session?.greenhouse),
     strawBed: cloneSavedPlacement(session?.strawBed),
     campfire: cloneSavedPlacement(session?.campfire),
     leafDen: cloneSavedPlacement(session?.leafDen),
@@ -1017,6 +1149,7 @@ export function restoreSavedSessionState(session, savePoint) {
   const placeables = getSavedPlaceables(savePoint);
   if (placeables) {
     session.logChair = cloneSavedPlacement(placeables.logChair);
+    session.greenhouse = cloneSavedPlacement(placeables.greenhouse);
     session.strawBed = cloneSavedPlacement(placeables.strawBed);
     session.campfire = cloneSavedPlacement(placeables.campfire);
     session.leafDen = cloneSavedPlacement(placeables.leafDen);
@@ -1190,7 +1323,8 @@ export function createWorkbenchModalController({
           onConfirm: option.onConfirm || nextOnConfirm,
           disabled: Boolean(option.disabled),
           status: option.status || null,
-          actionLabel: option.actionLabel || null
+          actionLabel: option.actionLabel || null,
+          guidance: option.guidance || null
         };
       })
       .filter(Boolean);
@@ -1223,9 +1357,14 @@ export function createWorkbenchModalController({
   }
 
   function getRecipeArtworkUrl(currentRecipe) {
+    const isGreenhouseRecipe = currentRecipe.id === GREENHOUSE_ITEM_ID;
     const isSolarStationRecipe = currentRecipe.id === "strawBed";
     const isTrainHouseRecipe = currentRecipe.id === "campfire";
     const isHouseRecipe = currentRecipe.id === LEAF_DEN_KIT_ITEM_ID;
+
+    if (isGreenhouseRecipe) {
+      return GREENHOUSE_RECIPE_ARTWORK_URL;
+    }
 
     if (isSolarStationRecipe) {
       return SOLAR_STATION_RECIPE_ARTWORK_URL;
@@ -1252,6 +1391,33 @@ export function createWorkbenchModalController({
   function formatWorkbenchActionHint(actionLabel) {
     const label = String(actionLabel || "").trim();
     return label.startsWith("X ") ? `X / Enter ${label.slice(2)}` : label;
+  }
+
+  function getWorkbenchRecipeGuidance(option = {}) {
+    const actionLabel = String(option.actionLabel || "").toLocaleLowerCase();
+    const status = String(option.status || "").toLocaleLowerCase();
+
+    if (option.guidance) {
+      return option.guidance;
+    }
+
+    if (status.includes("locked")) {
+      return "Plan unavailable. Progress the current colony task first.";
+    }
+
+    if (status.includes("created") || status.includes("placed") || status.includes("built")) {
+      return "Already prepared. Check supplies or the placed object in the world.";
+    }
+
+    if (actionLabel.includes("place") || status.includes("ready to place")) {
+      return "Prepared. Select it to choose a site in the world.";
+    }
+
+    if (!option.disabled) {
+      return "Prepare this kit here, then place it from your supplies.";
+    }
+
+    return "No plan is loaded for this protocol yet.";
   }
 
   function createRecipeIcon(currentRecipe) {
@@ -1311,7 +1477,7 @@ export function createWorkbenchModalController({
     const panel = createElement("div", "workbench-modal__panel");
     applyElementStyles(panel, {
       position: "relative",
-      width: "min(720px, 90%)",
+      width: "100%",
       border: "4px solid #f5c16a",
       boxShadow: "0 0 0 4px #2b202c, 0 18px 0 rgba(0, 0, 0, 0.28)",
       background: "#15101a",
@@ -1319,7 +1485,7 @@ export function createWorkbenchModalController({
       padding: "22px 24px",
       fontFamily: "var(--game-ui-font, monospace)",
       letterSpacing: "0",
-      textTransform: "uppercase"
+      textTransform: "none"
     });
 
     const header = createElement("div", "workbench-modal__header");
@@ -1372,6 +1538,7 @@ export function createWorkbenchModalController({
       recipeCard.setAttribute("aria-pressed", selected ? "true" : "false");
       recipeCard.setAttribute("aria-disabled", option.disabled ? "true" : "false");
       applyElementStyles(recipeCard, {
+        position: "relative",
         width: "100%",
         minHeight: recipeArtworkUrl ? "clamp(220px, 32vw, 312px)" : "132px",
         display: "grid",
@@ -1379,7 +1546,7 @@ export function createWorkbenchModalController({
         gridTemplateRows: recipeArtworkUrl ? "minmax(156px, 1fr) auto" : "1fr",
         gap: recipeArtworkUrl ? "0" : "16px",
         alignItems: recipeArtworkUrl ? "stretch" : "center",
-        border: selected ? "5px solid rgb(137 255 0)" : "5px solid #f5c16a",
+        border: selected ? "10px solid rgb(137 255 0)" : "10px solid #f5c16a",
         backgroundColor: selected ? "#4b3740" : "#3b2a30",
         backgroundImage: recipeArtworkUrl ? `url("${recipeArtworkUrl}")` : "none",
         backgroundSize: recipeArtworkUrl ? "cover" : "auto",
@@ -1402,6 +1569,7 @@ export function createWorkbenchModalController({
         });
       }
 
+      const protocolMeta = getRecipeProtocolUi(currentRecipe);
       const textWrap = createElement("span", "workbench-modal__recipe-copy");
       applyElementStyles(textWrap, {
         display: "block",
@@ -1410,11 +1578,10 @@ export function createWorkbenchModalController({
         visibility: selected ? "visible" : "hidden",
         opacity: selected ? "1" : "0"
       });
-      const protocolMeta = getRecipeProtocolUi(currentRecipe);
       const protocolLabel = createElement("span", "workbench-modal__recipe-protocol", protocolMeta.label);
       applyElementStyles(protocolLabel, {
         display: "block",
-        color: "#89ff00",
+        color: "#000000",
         fontSize: "16px",
         lineHeight: "1",
         marginBottom: "8px"
@@ -1422,18 +1589,20 @@ export function createWorkbenchModalController({
       const recipeName = createElement("span", "workbench-modal__recipe-name", currentRecipe.title || "Recipe");
       applyElementStyles(recipeName, {
         display: "block",
-        color: "#ffffff",
+        color: "#000000",
         fontSize: "28px",
         lineHeight: "1"
       });
       const requirementText = option.status || getRecipeRequirementCopy(currentRecipe);
+      const recipeGuidanceText = getWorkbenchRecipeGuidance(option);
       recipeCard.setAttribute(
         "aria-label",
         [
           `${selected ? "Selected" : "Plan"}: ${currentRecipe.title || "Recipe"}`,
           protocolMeta.label,
           requirementText,
-          protocolMeta.purpose
+          protocolMeta.purpose,
+          recipeGuidanceText
         ].filter(Boolean).join(". ")
       );
       const requirement = createElement(
@@ -1443,21 +1612,30 @@ export function createWorkbenchModalController({
       );
       applyElementStyles(requirement, {
         display: "block",
-        color: requirementText === "Created" ? "#03A9F4" : option.disabled ? "#b89c76" : "#d6b68a",
-        fontSize: "20px",
+        color: "#000000",
+        fontSize: "45px",
         lineHeight: "1.1",
         marginTop: "7px"
       });
       const protocolPurpose = createElement("span", "workbench-modal__recipe-purpose", protocolMeta.purpose);
       applyElementStyles(protocolPurpose, {
         display: "block",
-        color: "#f2d6a7",
+        color: "#000000",
         fontSize: "16px",
         lineHeight: "1.12",
         marginTop: "8px",
         textTransform: "none"
       });
-      textWrap.append(protocolLabel, recipeName, requirement, protocolPurpose);
+      const recipeGuidance = createElement("span", "workbench-modal__recipe-guidance", recipeGuidanceText);
+      applyElementStyles(recipeGuidance, {
+        display: "block",
+        color: "#000000",
+        fontSize: "15px",
+        lineHeight: "1.12",
+        marginTop: "8px",
+        textTransform: "none"
+      });
+      textWrap.append(protocolLabel, recipeName, requirement, protocolPurpose, recipeGuidance);
       if (recipeArt) {
         recipeCard.append(recipeArt, textWrap);
       } else {
@@ -1719,6 +1897,53 @@ export function resolveSelectableBuildingKit({
   );
 }
 
+export function shouldChainHouseKitPlacementAfterSolarStation({
+  storyState,
+  inventory,
+  gameSession,
+  hasItemsFn = hasItems
+} = {}) {
+  const flags = storyState?.flags || {};
+  return Boolean(
+    flags.leafDenKitSelected &&
+    !flags.leafDenKitPlaced &&
+    !gameSession?.leafDen &&
+    !gameSession?.leafDenKitPlacementPreview?.active &&
+    hasItemsFn(inventory, { [LEAF_DEN_KIT_ITEM_ID]: 1 })
+  );
+}
+
+export function resolveInitialSceneIdForApplicationBoot({
+  devSceneOverride = null,
+  launchInitialGameFlow = GAME_FLOW.START,
+  manualSavePoint = null,
+  runtimeFlags = {},
+  sceneWorkbench = null
+} = {}) {
+  const devSceneInitialGameFlow =
+    devSceneOverride === DEV_SCENE.GAMEPLAY ? GAME_FLOW.GAMEPLAY :
+    devSceneOverride === DEV_SCENE.INTRO ? GAME_FLOW.INTRO :
+    devSceneOverride === DEV_SCENE.TUTORIAL ? GAME_FLOW.TUTORIAL :
+    null;
+  const shouldResumeSavedGameOnBoot =
+    launchInitialGameFlow !== GAME_FLOW.START ||
+    devSceneOverride === DEV_SCENE.GAMEPLAY;
+  const savedGameInitialGameFlow =
+    shouldResumeSavedGameOnBoot &&
+    cloneFiniteNumberArray(manualSavePoint?.playerPosition, 3) ?
+      GAME_FLOW.GAMEPLAY :
+      null;
+
+  return devSceneInitialGameFlow ||
+    savedGameInitialGameFlow ||
+    (
+      (runtimeFlags.skipStartScreen || runtimeFlags.introRoom) && launchInitialGameFlow === GAME_FLOW.START ?
+        GAME_FLOW.INTRO :
+        sceneWorkbench?.initialSceneId ||
+        launchInitialGameFlow
+    );
+}
+
 export function createApplicationRuntime({
   documentRef = document,
   windowRef = window,
@@ -1749,7 +1974,9 @@ export function createApplicationRuntime({
     consoleRef: windowRef.console || globalThis.console
   });
   let gameInput = null;
-  const manualSavePoint = readManualSavePoint(windowRef);
+  const bootManualSaveSlot = resolveBootManualSaveSlot(windowRef);
+  const bootManualSavePoint = bootManualSaveSlot.savePoint;
+  let activeManualSaveSlotId = bootManualSaveSlot.slotId;
   const devSceneOverride =
     isDev &&
     ENABLE_GAMEPLAY_DEV_BOOT &&
@@ -1759,23 +1986,20 @@ export function createApplicationRuntime({
       DEFAULT_DEV_SCENE :
       runtimeFlags.scene;
   const launchInitialGameFlow = getInitialGameFlowForLaunchMode(effectiveLaunchMode);
-  const savedGameInitialGameFlow = cloneFiniteNumberArray(manualSavePoint?.playerPosition, 3) ?
-    GAME_FLOW.GAMEPLAY :
-    null;
-  const devSceneInitialGameFlow =
-    devSceneOverride === DEV_SCENE.GAMEPLAY ? GAME_FLOW.GAMEPLAY :
-    devSceneOverride === DEV_SCENE.INTRO ? GAME_FLOW.INTRO :
-    devSceneOverride === DEV_SCENE.TUTORIAL ? GAME_FLOW.TUTORIAL :
-    null;
-  const initialSceneId =
-    devSceneInitialGameFlow ||
-    savedGameInitialGameFlow ||
-    (
-      (runtimeFlags.skipStartScreen || runtimeFlags.introRoom) && launchInitialGameFlow === GAME_FLOW.START ?
-        GAME_FLOW.INTRO :
-        sceneWorkbench?.initialSceneId ||
-        launchInitialGameFlow
-    );
+  const initialSceneId = resolveInitialSceneIdForApplicationBoot({
+    devSceneOverride,
+    launchInitialGameFlow,
+    manualSavePoint: bootManualSavePoint,
+    runtimeFlags,
+    sceneWorkbench
+  });
+  const shouldDeferManualSavePoint =
+    initialSceneId === GAME_FLOW.START &&
+    Boolean(bootManualSavePoint);
+  let manualSavePoint = shouldDeferManualSavePoint ? null : bootManualSavePoint;
+  const startSaveSlots = shouldDeferManualSavePoint ?
+    buildStartSaveSlots(bootManualSavePoint, activeManualSaveSlotId) :
+    [];
 
   markAppReady(appRoot, "loading", effectiveLaunchMode);
 
@@ -1851,11 +2075,9 @@ export function createApplicationRuntime({
     const fpsPanel = dom.fpsPanel;
     const toggleMount = fpsPanel?.parentElement;
     if (!fpsPanel || !toggleMount) {
-      runtimeFlags.debugColliders = true;
       return null;
     }
 
-    runtimeFlags.debugColliders = true;
     const toggle = documentRef.createElement("button");
     toggle.type = "button";
     toggle.id = "collider-debug-toggle";
@@ -2009,6 +2231,63 @@ export function createApplicationRuntime({
         }.`
     );
     return false;
+  }
+
+  function requestGreenhousePlacementIntent() {
+    if (
+      Number(inventory[GREENHOUSE_ITEM_ID] || 0) <= 0 ||
+      storyState.flags.greenhousePlaced
+    ) {
+      clearPendingPlacementIntent(GREENHOUSE_ITEM_ID);
+      return false;
+    }
+
+    setPendingPlacementIntent({
+      itemId: GREENHOUSE_ITEM_ID,
+      placeableId: GRID_PLACEABLE_IDS.GREENHOUSE,
+      label: "Greenhouse"
+    });
+    uiRuntime?.pushNotice?.(
+      `Greenhouse ready. Move to open terrain and press ${
+        resolveInputPrompt(UI_PROMPT_ACTION.PLACE, getCurrentInputModalityState())
+      }.`
+    );
+    return true;
+  }
+
+  function placeGreenhouseAtPlayerPosition(playerPosition) {
+    if (!Array.isArray(playerPosition)) {
+      uiRuntime?.pushNotice?.("Move into the world before placing the Greenhouse.");
+      return false;
+    }
+
+    if (!hasItems(inventory, { [GREENHOUSE_ITEM_ID]: 1 })) {
+      uiRuntime?.pushNotice?.("You need a Greenhouse in your bag.");
+      clearPendingPlacementIntent(GREENHOUSE_ITEM_ID);
+      return false;
+    }
+
+    if (storyState.flags.greenhousePlaced) {
+      clearPendingPlacementIntent(GREENHOUSE_ITEM_ID);
+      return false;
+    }
+
+    gameSession.greenhouse = attachPlayerPlacementSpawnEffect(buildGreenhousePlacement(playerPosition));
+    clearPendingPlacementIntent(GREENHOUSE_ITEM_ID);
+    consumeItems(inventory, { [GREENHOUSE_ITEM_ID]: 1 });
+    storyState.flags.greenhouseCrafted = true;
+    storyState.flags.greenhousePlaced = true;
+    uiRuntime.syncInventoryUi(inventory);
+    playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_PLACE);
+    startConstructionCloudEffect({
+      id: "greenhouse",
+      position: gameSession.greenhouse.position
+    });
+    syncQuestPanels();
+    requestAutosave(AUTOSAVE_EVENT.STORY_STEP_ADVANCED, {
+      storyBeatId: "greenhouse-placed"
+    });
+    return true;
   }
 
   function requestHouseKitPlacementIntent() {
@@ -2237,6 +2516,9 @@ export function createApplicationRuntime({
     playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_PLACE);
     uiRuntime.pushNotice(getColonyFeedbackNotice(COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACED));
     syncQuestPanels();
+    if (shouldChainHouseKitPlacementAfterSolarStation({ storyState, inventory, gameSession })) {
+      requestHouseKitPlacementIntent();
+    }
     return true;
   }
 
@@ -2290,6 +2572,98 @@ export function createApplicationRuntime({
       yaw: Number(preview.yaw || 0),
       uvRect: Array.isArray(preview.uvRect) ? [...preview.uvRect] : basePlacement.uvRect
     };
+  }
+
+  function startCampfirePlacementPreview(playerPosition) {
+    if (!Array.isArray(playerPosition)) {
+      uiRuntime.pushNotice(`Move into the world before placing the ${SANDBOTS_ITEM_NAMES.thermalCabin}.`);
+      return false;
+    }
+
+    const placement = buildCampfirePlacement(playerPosition);
+    const gridConfig = gameSession?.buildGridConfig ?
+      cloneGridPlacementConfig(gameSession.buildGridConfig) :
+      null;
+    setPendingPlacementIntent({
+      itemId: CAMPFIRE_ITEM_ID,
+      placeableId: GRID_PLACEABLE_IDS.TRAIN_HOUSE,
+      label: SANDBOTS_ITEM_NAMES.thermalCabin
+    });
+    gameSession.campfirePlacementPreview = {
+      active: true,
+      position: [...placement.position],
+      snappedPosition: [...placement.position],
+      size: [...placement.size],
+      uvRect: [...placement.uvRect],
+      gridConfig,
+      gridStep: Number(gridConfig?.cellSize) || 1.425,
+      yaw: 0,
+      valid: true,
+      readyForConfirm: false
+    };
+    uiRuntime.pushNotice(
+      resolvePlacementPreviewPrompt(`Move the ${SANDBOTS_ITEM_NAMES.thermalCabin} preview.`, getCurrentInputModalityState())
+    );
+    return true;
+  }
+
+  function confirmCampfirePlacementPreview() {
+    const preview = gameSession?.campfirePlacementPreview;
+    if (!preview?.active) {
+      return false;
+    }
+
+    if (!preview.readyForConfirm) {
+      uiRuntime.pushNotice(`Position the ${SANDBOTS_ITEM_NAMES.thermalCabin} preview first.`);
+      return true;
+    }
+
+    if (preview.valid === false) {
+      uiRuntime.pushNotice(`${SANDBOTS_ITEM_NAMES.thermalCabin} is overlapping another object.`);
+      return true;
+    }
+
+    if (!hasItems(inventory, { [CAMPFIRE_ITEM_ID]: 1 })) {
+      uiRuntime.pushNotice(`You need the ${SANDBOTS_ITEM_NAMES.thermalCabin} in your bag.`);
+      gameSession.campfirePlacementPreview = null;
+      clearPendingPlacementIntent(CAMPFIRE_ITEM_ID);
+      return true;
+    }
+
+    const basePlacement = buildCampfirePlacement([0, 0.02, 0]);
+    const placementPosition = Array.isArray(preview.snappedPosition) ?
+      preview.snappedPosition :
+      preview.position;
+    musicRuntime.stopBackgroundSoundtrack();
+    gameSession.campfire = attachPlayerPlacementSpawnEffect({
+      ...basePlacement,
+      position: [
+        placementPosition[0],
+        0.02,
+        placementPosition[2]
+      ],
+      size: getPlacementQuarterTurnSize(
+        Array.isArray(preview.size) ? preview.size : basePlacement.size,
+        preview.yaw
+      ),
+      yaw: Number(preview.yaw || 0),
+      uvRect: Array.isArray(preview.uvRect) ? [...preview.uvRect] : basePlacement.uvRect
+    });
+    gameSession.campfirePlacementPreview = null;
+    clearPendingPlacementIntent(CAMPFIRE_ITEM_ID);
+    playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_PLACE);
+    startConstructionCloudEffect({
+      id: "train-house",
+      position: gameSession.campfire.position
+    });
+    consumeItems(inventory, { [CAMPFIRE_ITEM_ID]: 1 });
+    uiRuntime.syncInventoryUi(inventory);
+    storyBeats.complete(STORY_BEAT_IDS.CAMPFIRE_SPIT_OUT);
+    syncQuestPanels();
+    requestAutosave(AUTOSAVE_EVENT.STORY_STEP_ADVANCED, {
+      storyBeatId: STORY_BEAT_IDS.CAMPFIRE_SPIT_OUT
+    });
+    return true;
   }
 
   function confirmLeafDenKitPlacementPreview() {
@@ -2400,13 +2774,13 @@ export function createApplicationRuntime({
 
   function flashLeppaTreeTaskHint() {
     const applyFlash = () => {
-      const taskTitleElement = Array.from(
-        dom.hudChecklist?.querySelectorAll?.(".hud-checklist__task-title") || []
+      const taskElement = Array.from(
+        dom.hudChecklist?.querySelectorAll?.(".hud-checklist__item--tracked") || []
       ).find((element) => {
-        return element.textContent?.trim() === "Revive the dead tree";
+        return element.dataset.taskTitle === "Revive the dead tree";
       });
 
-      if (!taskTitleElement) {
+      if (!taskElement) {
         return;
       }
 
@@ -2415,11 +2789,11 @@ export function createApplicationRuntime({
         leppaTreeTaskHintTimeout = null;
       }
 
-      taskTitleElement.dataset.hintFlash = "false";
-      void taskTitleElement.offsetWidth;
-      taskTitleElement.dataset.hintFlash = "true";
+      taskElement.dataset.hintFlash = "false";
+      void taskElement.offsetWidth;
+      taskElement.dataset.hintFlash = "true";
       leppaTreeTaskHintTimeout = windowRef.setTimeout(() => {
-        taskTitleElement.dataset.hintFlash = "false";
+        taskElement.dataset.hintFlash = "false";
         leppaTreeTaskHintTimeout = null;
       }, 1500);
     };
@@ -2452,7 +2826,7 @@ export function createApplicationRuntime({
     const completedQuest = completedQuestId ? questSystem.getQuest(completedQuestId) : null;
 
     return QUEST_COMPLETION_POP_MESSAGES[completedQuestId] ||
-      `YOU COMPLETED ${completedQuest?.title?.toUpperCase?.() || "THE TASK"}!`;
+      `You completed ${completedQuest?.title || "the task"}!`;
   }
 
   function showQuestCompletionPop(completedQuestIds = []) {
@@ -3403,6 +3777,10 @@ export function createApplicationRuntime({
       return false;
     }
 
+    if (target.action === "destroyInstantiatedObject") {
+      return false;
+    }
+
     if (target.kind === "logChairSeat") {
       armLogChairSaveRequest();
       return true;
@@ -3481,6 +3859,20 @@ export function createApplicationRuntime({
       return false;
     }
 
+    if (
+      source === "gamepadBag" &&
+      (
+        gameSession?.campfirePlacementPreview?.active ||
+        (
+          storyState?.flags?.campfireCrafted &&
+          !storyState.flags.campfireSpatOut &&
+          hasItems(inventory, { [CAMPFIRE_ITEM_ID]: 1 })
+        )
+      )
+    ) {
+      return true;
+    }
+
     if (shouldBagButtonInteractWithNearbyCharacter()) {
       return false;
     }
@@ -3488,6 +3880,32 @@ export function createApplicationRuntime({
     const playerPosition = gameSession.playerCharacter.getPosition();
     if (isPlayerNearRotatableWorkbenchPlacement(playerPosition)) {
       return true;
+    }
+
+    if (source === "gamepadBag") {
+      const nearbyDestroyableObject = findNearbyDestroyableInstantiatedObject(
+        playerPosition,
+        gameSession.groundGrassPatches,
+        storyState,
+        gameSession.groundFlowerPatches,
+        { includeRestoredGrass: true }
+      );
+
+      if (nearbyDestroyableObject?.target) {
+        return true;
+      }
+
+      const nearbyHarvestTarget = findNearbyHarvestTarget(
+        playerPosition,
+        gameSession.palmModel,
+        gameSession.palmInstances,
+        gameSession.resourceNodes,
+        storyState
+      );
+
+      if (nearbyHarvestTarget?.palm || nearbyHarvestTarget?.resourceNode) {
+        return true;
+      }
     }
 
     const activeFieldMoveId = getActiveFieldMoveId();
@@ -3509,6 +3927,10 @@ export function createApplicationRuntime({
       canUseLeafage: playerSkills.leafage && activeFieldMoveId === "leafage",
       canUseFire: playerSkills.fire && activeFieldMoveId === "fire"
     });
+
+    if (source === "gamepadBag" && activeHarvestTarget?.campfirePlacement) {
+      return true;
+    }
 
     return shouldGamepadSourceHarvestTarget({
       source,
@@ -3979,7 +4401,6 @@ export function createApplicationRuntime({
     return Boolean(
       !storyState.flags.workbenchDiyRecipesReceived &&
       !storyState.flags.bulbasaurWorkbenchGuideAvailable &&
-      !storyBeats?.hasCompleted?.(STORY_BEAT_IDS.BULBASAUR_WORKBENCH_GUIDE_INTRO) &&
       (
         storyState.flags.logChairSat ||
         hasCharmanderProgressStartedBeforeTrainHouse()
@@ -3988,11 +4409,17 @@ export function createApplicationRuntime({
   }
 
   function playBulbasaurWorkbenchGuideIntro() {
-    if (
-      storyState.flags.bulbasaurWorkbenchGuideAvailable ||
-      storyBeats?.hasCompleted?.(STORY_BEAT_IDS.BULBASAUR_WORKBENCH_GUIDE_INTRO)
-    ) {
+    if (storyState.flags.bulbasaurWorkbenchGuideAvailable) {
       return false;
+    }
+
+    if (storyBeats?.hasCompleted?.(STORY_BEAT_IDS.BULBASAUR_WORKBENCH_GUIDE_INTRO)) {
+      storyBeats.complete?.(STORY_BEAT_IDS.BULBASAUR_WORKBENCH_GUIDE_INTRO);
+      syncQuestPanels();
+      requestAutosave(AUTOSAVE_EVENT.STORY_STEP_ADVANCED, {
+        beatId: STORY_BEAT_IDS.BULBASAUR_WORKBENCH_GUIDE_INTRO
+      }, { silent: true });
+      return true;
     }
 
     scriptedInteractionActive = true;
@@ -4021,7 +4448,7 @@ export function createApplicationRuntime({
   const questSystem = createQuestSystem({
     quests: SMALL_ISLAND_QUESTS,
     storage: ENABLE_QUEST_PERSISTENCE ? windowRef.localStorage : null,
-    initialState: manualSavePoint?.questState || null,
+    initialState: (manualSavePoint || bootManualSavePoint)?.questState || null,
     transitionDelayMs: 3000,
     onChange({ reason, payload, activeQuest }) {
       uiRuntime?.syncQuestFocus(storyState);
@@ -4060,6 +4487,63 @@ export function createApplicationRuntime({
     });
   }
 
+  function setActiveManualSaveSlot(slotId) {
+    activeManualSaveSlotId = normalizeManualSaveSlotId(slotId);
+    writeActiveManualSaveSlotId(windowRef, activeManualSaveSlotId);
+    return activeManualSaveSlotId;
+  }
+
+  function applyManualSavePointToSession(savePoint, session = gameSession) {
+    if (!savePoint || !session) {
+      return false;
+    }
+
+    setActiveFieldMoveStateFromId(
+      applyManualSaveState(savePoint, {
+        storyState,
+        inventory,
+        playerSkills,
+        playerMemory
+      })
+    );
+    reconcileQuestProgressFromUnlockedSkills();
+    restoreSavedSessionState(session, savePoint);
+    restoreSavedWorldState(session, savePoint);
+    if (session.strawBed) {
+      prepareStrawBedSolarStationPlacement(session.strawBed);
+      syncStrawBedSolarStationModel(session.strawBed);
+    }
+    startRandomSavedGameSoundtrack();
+    syncSkillsUi();
+    uiRuntime.syncInventoryUi(inventory);
+    syncQuestPanels();
+    uiRuntime.syncHudMeta(
+      storyState,
+      inventory,
+      session.playerCharacter?.getPosition?.() || [0, 0, 0]
+    );
+    return true;
+  }
+
+  function handleStartGameSelection(selection = {}) {
+    const action = selection?.action || "newGame";
+    const selectedSlotId = setActiveManualSaveSlot(selection?.slotId || activeManualSaveSlotId);
+
+    if (action === "continue" && bootManualSavePoint) {
+      manualSavePoint = bootManualSavePoint;
+      applyManualSavePointToSession(manualSavePoint);
+      return;
+    }
+
+    if (action === "newGame") {
+      manualSavePoint = null;
+      removeManualSaveSlot(windowRef, selectedSlotId);
+      if (shouldDeferManualSavePoint) {
+        questSystem.reset();
+      }
+    }
+  }
+
   function getQuestObjectiveProgress(quest = null, type = "", targetId = "") {
     const objective = quest?.objectives?.find((candidate) => (
       candidate.type === type &&
@@ -4087,6 +4571,7 @@ export function createApplicationRuntime({
       const playerPosition = gameSession?.playerCharacter?.getPosition?.() || null;
       const payload = {
         version: 1,
+        slotId: activeManualSaveSlotId,
         saveKind: meta.saveKind || "manual",
         savePointId: meta.savePointId || null,
         autosaveEvent: meta.autosaveEvent || null,
@@ -4121,7 +4606,17 @@ export function createApplicationRuntime({
           null
       };
 
-      windowRef.localStorage?.setItem(MANUAL_SAVE_STORAGE_KEY, JSON.stringify(payload));
+      windowRef.localStorage?.setItem(
+        getManualSaveSlotStorageKey(activeManualSaveSlotId),
+        JSON.stringify(payload)
+      );
+      windowRef.localStorage?.setItem(
+        MANUAL_SAVE_ACTIVE_SLOT_STORAGE_KEY,
+        activeManualSaveSlotId
+      );
+      if (activeManualSaveSlotId === DEFAULT_MANUAL_SAVE_SLOT_ID) {
+        windowRef.localStorage?.setItem(MANUAL_SAVE_STORAGE_KEY, JSON.stringify(payload));
+      }
       return true;
     } catch {
       return false;
@@ -4591,7 +5086,8 @@ export function createApplicationRuntime({
   });
 
   function restartGameFromSettings() {
-    removeLocalStorageItem(windowRef, MANUAL_SAVE_STORAGE_KEY);
+    removeManualSaveSlot(windowRef, activeManualSaveSlotId);
+    removeLocalStorageItem(windowRef, MANUAL_SAVE_ACTIVE_SLOT_STORAGE_KEY);
     removeLocalStorageItem(windowRef, SKIP_START_SCREEN_STORAGE_KEY);
 
     try {
@@ -4655,7 +5151,7 @@ export function createApplicationRuntime({
     ) {
       return {
         actionId: POKEMON_CENTER_PC_ACTION.UNLOCK_CHALLENGES,
-        actionLabel: "Open Habitat Checks"
+        actionLabel: "Open Colony Checks"
       };
     }
 
@@ -4784,11 +5280,124 @@ export function createApplicationRuntime({
     return false;
   }
 
+  function createWorkbenchModalRecipeOption(option) {
+    return {
+      ...option,
+      onConfirm: () => {
+        const crafted =
+          option.recipe?.id === GREENHOUSE_ITEM_ID ?
+            craftGreenhouseAtWorkbench({
+              storyState,
+              inventory
+            }) :
+            option.recipe?.id === "strawBed" ?
+            craftStrawBedAtWorkbench({
+              storyState,
+              inventory
+            }) :
+            option.recipe?.id === LEAF_DEN_KIT_ITEM_ID ?
+              craftLeafDenKitAtWorkbench({
+                storyState,
+                inventory
+              }) :
+              craftCampfireAtWorkbench({
+                storyState,
+                inventory
+              });
+
+        if (crafted) {
+          playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_SUCCESS);
+          syncQuestPanels();
+          if (option.recipe?.id === "strawBed") {
+            requestSolarStationPlacementIntent();
+          } else if (option.recipe?.id === LEAF_DEN_KIT_ITEM_ID) {
+            requestHouseKitPlacementIntent();
+          }
+        }
+
+        return crafted;
+      }
+    };
+  }
+
+  function getCurrentWorkbenchRecipeOptions() {
+    const recipes = getWorkbenchRecipeOptions?.(storyState, inventory);
+    return Array.isArray(recipes) ? recipes : [];
+  }
+
+  function openWorkbenchCraftOptions(recipes = getCurrentWorkbenchRecipeOptions()) {
+    const recipeOptions = Array.isArray(recipes) ? recipes : [];
+    if (!recipeOptions.length) {
+      uiRuntime.pushNotice("Workbench has no active protocols.");
+      return false;
+    }
+
+    workbenchModal.open({
+      recipes: recipeOptions.map(createWorkbenchModalRecipeOption)
+    });
+    clearGameFlowInput();
+    return true;
+  }
+
+  function teleportPlayerToWorkbench() {
+    const playerCharacter = gameSession?.playerCharacter;
+    if (!playerCharacter?.setPosition) {
+      uiRuntime.pushNotice("Player is not ready for Workbench connection.");
+      return false;
+    }
+
+    playerCharacter.setPosition([
+      WORKBENCH_POSITION[0],
+      WORKBENCH_POSITION[1],
+      WORKBENCH_POSITION[2] + 1.35
+    ]);
+    uiRuntime.pushNotice("Player moved near the Workbench.");
+    return true;
+  }
+
+  function installWorkbenchConsoleBridge() {
+    if (!windowRef || typeof windowRef !== "object") {
+      return;
+    }
+
+    windowRef.sandbotsWorkbench = {
+      close() {
+        workbenchModal.close();
+        return true;
+      },
+      connect() {
+        teleportPlayerToWorkbench();
+        return openWorkbenchCraftOptions();
+      },
+      isOpen() {
+        return workbenchModal.isOpen();
+      },
+      open() {
+        return openWorkbenchCraftOptions();
+      },
+      recipes() {
+        return getCurrentWorkbenchRecipeOptions().map((option) => ({
+          id: option.recipe?.id || null,
+          label: option.recipe?.label || option.recipe?.name || null,
+          disabled: Boolean(option.disabled),
+          status: option.status || null,
+          actionLabel: option.actionLabel || null,
+          guidance: option.guidance || null
+        }));
+      },
+      teleport() {
+        return teleportPlayerToWorkbench();
+      }
+    };
+  }
+
   const {
     craftCampfireAtWorkbench,
+    craftGreenhouseAtWorkbench,
     craftLeafDenKitAtWorkbench,
     craftStrawBedAtWorkbench,
     findNearbyActionTarget,
+    getWorkbenchRecipeOptions,
     performHarvestAction,
     performInteractAction,
     resetRuntimeState: resetGameplayRuntimeState
@@ -5116,7 +5725,6 @@ export function createApplicationRuntime({
         height: GROW_BOT_REVEAL_CINEMATIC_FOCUS_HEIGHT
       });
 
-      const revealDuration = GROW_BOT_REVEAL_CINEMATIC_DURATION;
       requestAutosave(AUTOSAVE_EVENT.ROBOT_REACTIVATED, {
         robotId: "bulbasaur"
       });
@@ -5125,18 +5733,7 @@ export function createApplicationRuntime({
       encounter.originPosition = null;
       encounter.landingPosition = null;
       encounter.position = null;
-      encounter.revealBoxOpening = {
-        active: true,
-        elapsed: 0,
-        duration: revealDuration,
-        visibleProgress: GROW_BOT_REVEAL_CINEMATIC_VISIBLE_PROGRESS,
-        openStartProgress: GROW_BOT_REVEAL_CINEMATIC_OPEN_START_PROGRESS,
-        flashStart: GROW_BOT_REVEAL_CINEMATIC_FLASH_START,
-        flashDuration: GROW_BOT_REVEAL_CINEMATIC_FLASH_DURATION,
-        hideBoxWhenVisible: true,
-        bulbasaurVisible: false,
-        onComplete: openBulbasaurDiscoveryDialogue
-      };
+      encounter.revealBoxOpening = createBotRevealBoxOpening(openBulbasaurDiscoveryDialogue);
       if (encounter.repairModuleInstance) {
         encounter.repairModuleInstance.active = true;
       }
@@ -5165,31 +5762,54 @@ export function createApplicationRuntime({
         return groundGrassPatch.cellId === cellId;
       });
       const encounter = gameSession?.charmanderEncounter;
+      const openCharmanderDiscoveryDialogue = () => {
+        scriptedInteractionActive = false;
+        clearGameFlowInput();
+        if (dom.uiLayer instanceof HTMLElement) {
+          dom.uiLayer.dataset.mode = "game";
+        }
+        storyBeats.playDialogue(STORY_BEAT_IDS.CHARMANDER_DISCOVERY, {
+          onComplete: () => {
+            syncQuestPanels();
+            if (shouldRecoverBulbasaurWorkbenchGuide()) {
+              playBulbasaurWorkbenchGuideIntro();
+            }
+          }
+        });
+      };
 
       if (encounter) {
         const repairPosition = encounter.repairPosition || rustlingGrassPatch?.position;
         if (!Array.isArray(repairPosition)) {
           return;
         }
-        encounter.visible = true;
-        encounter.position = [...repairPosition];
-        encounter.targetPosition = [...encounter.position];
+        scriptedInteractionActive = true;
+        clearGameFlowInput();
+        if (dom.uiLayer instanceof HTMLElement) {
+          dom.uiLayer.dataset.mode = "cinematic";
+        }
+        dialogueCamera?.focusWorldPoint({
+          position: repairPosition,
+          height: GROW_BOT_REVEAL_CINEMATIC_FOCUS_HEIGHT
+        });
+
+        encounter.visible = false;
+        encounter.position = null;
+        encounter.targetPosition = null;
+        encounter.originPosition = null;
+        encounter.landingPosition = null;
+        encounter.jumpTimer = 0;
+        encounter.revealBoxOpening = createBotRevealBoxOpening(openCharmanderDiscoveryDialogue);
         if (encounter.repairModuleInstance) {
-          encounter.repairModuleInstance.active = false;
+          encounter.repairModuleInstance.active = true;
         }
         requestAutosave(AUTOSAVE_EVENT.ROBOT_REACTIVATED, {
           robotId: "charmander"
         });
+        return;
       }
 
-      storyBeats.playDialogue(STORY_BEAT_IDS.CHARMANDER_DISCOVERY, {
-        onComplete: () => {
-          syncQuestPanels();
-          if (shouldRecoverBulbasaurWorkbenchGuide()) {
-            playBulbasaurWorkbenchGuideIntro();
-          }
-        }
-      });
+      openCharmanderDiscoveryDialogue();
     },
     onTimburrRevealed({ cellId }) {
       const rustlingGrassPatch = gameSession?.groundGrassPatches?.find((groundGrassPatch) => {
@@ -5362,7 +5982,7 @@ export function createApplicationRuntime({
 
       const current = Math.min(3, Number(storyState.flags.leafDenFurniturePlacedCount || 0));
       if (current >= 3) {
-        uiRuntime.pushNotice(`The House already has enough furniture. Talk to ${SANDBOTS_BOT_NAMES.builder}.`);
+        uiRuntime.pushNotice(`The House has enough furniture. Talk to ${SANDBOTS_BOT_NAMES.builder} to finish the room.`);
         return;
       }
 
@@ -5469,7 +6089,7 @@ export function createApplicationRuntime({
       }
 
       if (isLogChairSaveBlocked()) {
-        uiRuntime.pushNotice("Cannot save right now.");
+        uiRuntime.pushNotice("Save is busy. Wait for the current save to finish, then sit again.");
         return;
       }
 
@@ -5503,40 +6123,7 @@ export function createApplicationRuntime({
       });
     },
     onWorkbenchCraftOptionsRequested({ recipes }) {
-      workbenchModal.open({
-        recipes: recipes.map((option) => ({
-          ...option,
-          onConfirm: () => {
-            const crafted =
-              option.recipe?.id === "strawBed" ?
-                craftStrawBedAtWorkbench({
-                  storyState,
-                  inventory
-                }) :
-                option.recipe?.id === LEAF_DEN_KIT_ITEM_ID ?
-                  craftLeafDenKitAtWorkbench({
-                    storyState,
-                    inventory
-                  }) :
-                  craftCampfireAtWorkbench({
-                    storyState,
-                    inventory
-                  });
-
-            if (crafted) {
-              playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_SUCCESS);
-              syncQuestPanels();
-              if (option.recipe?.id === "strawBed") {
-                requestSolarStationPlacementIntent();
-              } else if (option.recipe?.id === LEAF_DEN_KIT_ITEM_ID) {
-                requestHouseKitPlacementIntent();
-              }
-            }
-
-            return crafted;
-          }
-        }))
-      });
+      openWorkbenchCraftOptions(recipes);
     },
     onCampfireCraftRequested({ recipe }) {
       workbenchModal.open({
@@ -5557,7 +6144,25 @@ export function createApplicationRuntime({
     onCampfireCrafted() {
       uiRuntime.bagUiRuntime.handleItemCollected(CAMPFIRE_ITEM_ID, storyState);
       storyBeats.complete(STORY_BEAT_IDS.CAMPFIRE_CREATED);
+      setPendingPlacementIntent({
+        itemId: CAMPFIRE_ITEM_ID,
+        placeableId: GRID_PLACEABLE_IDS.TRAIN_HOUSE,
+        label: SANDBOTS_ITEM_NAMES.thermalCabin
+      });
       syncQuestPanels();
+    },
+    onGreenhouseCrafted() {
+      uiRuntime.bagUiRuntime.handleItemCollected(GREENHOUSE_ITEM_ID, storyState);
+      requestGreenhousePlacementIntent();
+      syncQuestPanels();
+    },
+    onGreenhousePlacementRequested({ playerPosition } = {}) {
+      if (Array.isArray(playerPosition)) {
+        placeGreenhouseAtPlayerPosition(playerPosition);
+        return;
+      }
+
+      requestGreenhousePlacementIntent();
     },
     onStrawBedCrafted() {
       uiRuntime.bagUiRuntime.handleItemCollected(STRAW_BED_ITEM_ID, storyState);
@@ -5584,7 +6189,7 @@ export function createApplicationRuntime({
       }
 
       if (!placementTarget?.center) {
-        uiRuntime.pushNotice(`Move closer to ${SANDBOTS_BOT_NAMES.grow}'s restored tall grass habitat.`);
+        uiRuntime.pushNotice(`Move closer to ${SANDBOTS_BOT_NAMES.grow}'s restored tall grass colony zone.`);
         return;
       }
 
@@ -5596,6 +6201,10 @@ export function createApplicationRuntime({
       });
     },
     onCampfireSpitOutRequested({ playerPosition = null } = {}) {
+      if (confirmCampfirePlacementPreview()) {
+        return;
+      }
+
       if (!hasItems(inventory, { [CAMPFIRE_ITEM_ID]: 1 })) {
         uiRuntime.pushNotice(`You need the ${SANDBOTS_ITEM_NAMES.thermalCabin} in your bag.`);
         return;
@@ -5611,20 +6220,7 @@ export function createApplicationRuntime({
         return;
       }
 
-      musicRuntime.stopBackgroundSoundtrack();
-      gameSession.campfire = attachPlayerPlacementSpawnEffect(buildCampfirePlacement(placementAnchor));
-      playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_PLACE);
-      startConstructionCloudEffect({
-        id: "train-house",
-        position: gameSession.campfire.position
-      });
-      consumeItems(inventory, { [CAMPFIRE_ITEM_ID]: 1 });
-      uiRuntime.syncInventoryUi(inventory);
-      storyBeats.complete(STORY_BEAT_IDS.CAMPFIRE_SPIT_OUT);
-      syncQuestPanels();
-      requestAutosave(AUTOSAVE_EVENT.STORY_STEP_ADVANCED, {
-        storyBeatId: STORY_BEAT_IDS.CAMPFIRE_SPIT_OUT
-      });
+      startCampfirePlacementPreview(placementAnchor);
     },
     onRuinedPokemonCenterInspectRequested() {
       storyBeats.playDialogue(STORY_BEAT_IDS.RUINED_POKEMON_CENTER_INSPECTED, {
@@ -5635,6 +6231,14 @@ export function createApplicationRuntime({
       });
     },
     onPokemonCenterPcCheckRequested() {
+      if (
+        storyState.flags.ruinedPokemonCenterInspected &&
+        !storyState.flags.challengesUnlocked
+      ) {
+        runPokemonCenterPcAction(POKEMON_CENTER_PC_ACTION.UNLOCK_CHALLENGES);
+        return;
+      }
+
       pokemonCenterPcModal.open({
         builderCallsign: playerMemory.playerName,
         missions: buildPokemonCenterPcMissionEntries(),
@@ -5652,6 +6256,7 @@ export function createApplicationRuntime({
       restoredGrassHabitat = null,
       newlyDiscoveredHabitats = []
     } = {}) {
+      playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_SUCCESS);
       playTallGrassMemorySequence({
         groundCell,
         restoredGrassHabitat,
@@ -5700,6 +6305,7 @@ export function createApplicationRuntime({
       });
     },
     onFlowerHabitatRestored({ restoredFlowerBedHabitat } = {}) {
+      playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_SUCCESS);
       if (
         !gameSession?.natureRevivalEffects ||
         restoredFlowerBedHabitat?.id !== WATER_GUN_FLOWER_FIELD_GROUP_ID
@@ -5766,6 +6372,7 @@ export function createApplicationRuntime({
     syncInventoryUi: uiRuntime.syncInventoryUi,
     pushNotice: uiRuntime.pushNotice
   });
+  installWorkbenchConsoleBridge();
   const dialogueCamera = createDialogueCameraController({
     camera: engine.camera,
     cameraOrbit: engine.cameraOrbit
@@ -5791,6 +6398,8 @@ export function createApplicationRuntime({
     unlockPlayerSkill,
     unlockPokedexUi: uiRuntime.pokedexRuntime.unlock,
     setPokedexOverlayOpen: uiRuntime.pokedexRuntime.setOpen,
+    startSaveSlots,
+    onStartGame: handleStartGameSelection,
     onPlayerNameConfirmed(payload) {
       requestAutosave(AUTOSAVE_EVENT.PLAYER_NAME_CONFIRMED, payload);
     }
@@ -6177,30 +6786,7 @@ export function createApplicationRuntime({
     onSessionReady(session) {
       gameSession = session;
       if (manualSavePoint) {
-        setActiveFieldMoveStateFromId(
-          applyManualSaveState(manualSavePoint, {
-            storyState,
-            inventory,
-            playerSkills,
-            playerMemory
-          })
-        );
-        reconcileQuestProgressFromUnlockedSkills();
-        restoreSavedSessionState(session, manualSavePoint);
-        restoreSavedWorldState(session, manualSavePoint);
-        if (session.strawBed) {
-          prepareStrawBedSolarStationPlacement(session.strawBed);
-          syncStrawBedSolarStationModel(session.strawBed);
-        }
-        startRandomSavedGameSoundtrack();
-        syncSkillsUi();
-        uiRuntime.syncInventoryUi(inventory);
-        syncQuestPanels();
-        uiRuntime.syncHudMeta(
-          storyState,
-          inventory,
-          session.playerCharacter?.getPosition?.() || [0, 0, 0]
-        );
+        applyManualSavePointToSession(manualSavePoint, session);
       }
       if (sceneFlowRuntime.sceneDirector.is(GAME_FLOW.INTRO)) {
         sceneFlowRuntime.activateIntroRoomScene(session.introRoomScene);

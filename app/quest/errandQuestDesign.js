@@ -279,7 +279,7 @@ export function getErrandQuestProgressFeedback(quest = null, {
     }
     const pokedeskReward = getErrandQuestPokedeskReward(quest);
     if (pokedeskReward) {
-      feedback.push(`Colony Codex entry unlocked: ${pokedeskReward.label}.`);
+      feedback.push(`Instructions. entry unlocked: ${pokedeskReward.label}.`);
     }
     if (hasText(errandQuest.nextHook)) {
       feedback.push(errandQuest.nextHook);

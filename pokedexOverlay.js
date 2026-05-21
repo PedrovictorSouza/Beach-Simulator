@@ -64,8 +64,16 @@ export function createPokedexOverlay({ root, onClose = () => {} } = {}) {
     return [...root.querySelectorAll("[data-pokedex-page-panel]")];
   }
 
+  function removeDetailStats() {
+    for (const statsElement of root.querySelectorAll(".pokedex-entry__stats")) {
+      statsElement.remove();
+    }
+  }
+
   function syncEntry() {
     const entry = getPokedexEntry(state.entryId);
+
+    removeDetailStats();
 
     root.dataset.entryId = entry.id;
     if (entryElement) {
@@ -79,13 +87,6 @@ export function createPokedexOverlay({ root, onClose = () => {} } = {}) {
     setText("details-eyebrow", entry.details.eyebrow);
     setText("species", entry.details.species);
     setHtml("description", entry.details.descriptionHtml);
-    setText("detail-stat-label-0", entry.details.stats[0].label);
-    setText("detail-stat-value-0", entry.details.stats[0].value);
-    setText("detail-stat-label-1", entry.details.stats[1].label);
-    setText("detail-stat-value-1", entry.details.stats[1].value);
-    setText("detail-stat-label-2", entry.details.stats[2].label);
-    setText("detail-type-icon", entry.details.stats[2].badgeIcon);
-    setText("detail-type-label", entry.details.stats[2].badgeLabel);
 
     setText("where-eyebrow", entry.whereToFind.eyebrow);
     setFieldValue("where-pin", entry.whereToFind.pinHtml || entry.whereToFind.pin, Boolean(entry.whereToFind.pinHtml));

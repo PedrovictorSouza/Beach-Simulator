@@ -11,6 +11,7 @@ import {
 import {
   EARLY_RESOURCE_PURPOSE_ITEM_IDS,
   RESOURCE_PURPOSE,
+  formatResourcePickupPrompt,
   getResourcePurposeByItemId,
   listEarlyResourcePurposes,
   validateResourcePurposeCatalog
@@ -50,6 +51,26 @@ describe("resource purpose catalog", () => {
         purposes: [RESOURCE_PURPOSE.RESTORATION]
       });
     });
+  });
+
+  it("formats pickup feedback with the resource's gameplay purpose", () => {
+    expect(formatResourcePickupPrompt({
+      itemId: "wood",
+      label: "Wood",
+      count: 3
+    })).toBe("Wood x3 - shelter/furniture");
+
+    expect(formatResourcePickupPrompt({
+      itemId: CARBON_ITEM_ID,
+      label: "Carbon",
+      count: 2
+    })).toBe("Carbon x2 - Thermal fuel");
+
+    expect(formatResourcePickupPrompt({
+      itemId: "unknown",
+      label: "Mystery",
+      count: 1
+    })).toBe("Mystery x1");
   });
 
   it("validates missing ids, duplicate ids, missing defs, unknown purposes and missing purpose copy", () => {

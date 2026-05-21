@@ -142,7 +142,7 @@ export const SMALL_ISLAND_DIALOGUES = Object.freeze({
         text: `Restore the dry tall grass with ${SANDBOTS_ITEM_NAMES.hydroTool}, then I can teach you a growth protocol.`
       },
       {
-        text: "Ten patches should prove the habitat can breathe again."
+        text: "Ten patches should prove the colony zone can take root again."
       }
     ]
   },

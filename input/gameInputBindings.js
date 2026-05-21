@@ -65,7 +65,7 @@ export const GAME_INPUT_BINDINGS = Object.freeze({
   },
   interact: {
     keyboardCode: "KeyE",
-    gamepadButton: null
+    gamepadButton: GAMEPAD_BUTTONS.A
   },
   jump: {
     keyboardCode: "Space",
@@ -73,7 +73,7 @@ export const GAME_INPUT_BINDINGS = Object.freeze({
   },
   run: {
     keyboardCodes: ["ShiftLeft", "ShiftRight"],
-    gamepadButton: GAMEPAD_BUTTONS.A
+    gamepadButton: GAMEPAD_BUTTONS.B
   },
   cameraZoomCycle: {
     keyboardCode: "KeyR",

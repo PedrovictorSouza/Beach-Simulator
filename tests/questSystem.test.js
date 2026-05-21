@@ -30,6 +30,23 @@ function cloneQuests() {
 }
 
 describe("createQuestSystem", () => {
+  it("uses colony-zone language in early restoration quest copy", () => {
+    const questCopy = SMALL_ISLAND_QUESTS
+      .filter((quest) => [
+        "open-the-water-route",
+        "grow-a-home-patch",
+        "chopper-first-habitat-report"
+      ].includes(quest.id))
+      .flatMap((quest) => [quest.description, quest.guidance].filter(Boolean))
+      .join(" ");
+
+    expect(questCopy).toContain("colony-zone clues");
+    expect(questCopy).toContain("Grow Bot's colony zone");
+    expect(questCopy).toContain("first colony zone is taking root");
+    expect(questCopy).not.toContain("helper habitat");
+    expect(questCopy).not.toContain("first habitat is taking root");
+  });
+
   it("refuses to boot if the immutable first movement task is not first", () => {
     const quests = cloneQuests();
     const [firstQuest] = quests.splice(0, 1);

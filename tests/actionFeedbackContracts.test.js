@@ -38,8 +38,19 @@ describe("action feedback contracts", () => {
       ACTION_FEEDBACK_RESULT.NO_TARGET
     )).toMatchObject({
       channels: ["notice"],
-      message: "Nothing to talk to nearby. Move closer to a marker or bot, then press E / X.",
-      repeatMessage: "Still nothing nearby. Look for an interaction marker or move closer, then press A / E / X."
+      message: "No interaction nearby. Move closer to a marker, object, or bot, then press E / X.",
+      repeatMessage: "Still no interaction. Look for a marker, object, or bot, then press A / E / X."
+    });
+  });
+
+  it("documents early interaction feedback when a valid target is not ready yet", () => {
+    expect(getActionFeedbackResponse(
+      ACTION_FEEDBACK_ACTION.INTERACT,
+      ACTION_FEEDBACK_RESULT.BLOCKED
+    )).toMatchObject({
+      channels: ["notice"],
+      message: "That target is not ready yet.",
+      repeatMessage: "Still not ready. Follow the current colony task, then come back."
     });
   });
 

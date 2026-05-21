@@ -28,13 +28,17 @@ function isTypingTarget(target) {
 const POINTER_YAW_SENSITIVITY = 0.0032;
 const POINTER_PITCH_SENSITIVITY = 0.0024;
 const GAMEPAD_LOOK_SPEED = 2.35;
+const GAMEPAD_SHOULDER_CAMERA_TURN_SPEED = 1.85;
 const GAMEPAD_DEADZONE = 0.16;
 const GAMEPAD_SETTINGS_ANALOG_NAVIGATION_THRESHOLD = 0.45;
 const GAMEPAD_DIALOGUE_ANALOG_NAVIGATION_THRESHOLD = 0.45;
 const GAMEPAD_LEFT_SHOULDER_BUTTON = 4;
 const GAMEPAD_RIGHT_SHOULDER_BUTTON = 5;
+const GAMEPAD_PRIMARY_ACTION_FACE_BUTTON = GAMEPAD_BUTTONS.Y;
 const GAMEPAD_FACE_BUTTON_PRESS_THRESHOLD = 0.55;
 const CINEMATIC_SKIP_KEY_CODES = new Set(["Enter", "KeyX", "Space", "Escape"]);
+const HELD_BAG_RUN_KEY = "bag-run";
+const GAMEPAD_DEBUG_GLOBAL_NAME = "sandbotsGamepadDebug";
 
 function applyDeadzone(value) {
   const magnitude = Math.abs(value);
@@ -79,6 +83,144 @@ function isGamepadButtonPressed(gamepad, button) {
     Number(buttonState?.value || 0) > GAMEPAD_FACE_BUTTON_PRESS_THRESHOLD;
 }
 
+function isGamepadPrimaryActionFaceButtonPressed(gamepad) {
+  return isLogicalGamepadButtonPressed(gamepad, GAMEPAD_PRIMARY_ACTION_FACE_BUTTON);
+}
+
+function getFirstConnectedGamepad(navigatorRef) {
+  return Array.from(navigatorRef?.getGamepads?.() || []).find(Boolean) || null;
+}
+
+function createGamepadDebugSnapshot(gamepad) {
+  if (!gamepad) {
+    return {
+      connected: false,
+      message: "Nenhum controle detectado. Aperte um botão no controle."
+    };
+  }
+
+  return {
+    connected: true,
+    id: gamepad.id || "",
+    mapping: gamepad.mapping || "",
+    axes: Array.from(gamepad.axes || []).map((value, index) => (
+      `${index}: ${Number(value || 0).toFixed(3)}`
+    )),
+    buttons: Array.from(gamepad.buttons || [])
+      .map((button, index) => ({
+        index,
+        pressed: Boolean(button?.pressed),
+        value: Number(Number(button?.value || 0).toFixed(3))
+      }))
+      .filter((button) => button.pressed || button.value > 0.05)
+  };
+}
+
+function serializeGamepadDebugSnapshot(snapshot) {
+  return JSON.stringify(snapshot, null, 2);
+}
+
+function installGamepadDebugConsole(windowRef) {
+  if (
+    !windowRef ||
+    typeof windowRef !== "object" ||
+    typeof windowRef.navigator?.getGamepads !== "function" ||
+    windowRef[GAMEPAD_DEBUG_GLOBAL_NAME]
+  ) {
+    return;
+  }
+
+  const consoleRef = windowRef.console || globalThis.console;
+  const requestFrame =
+    windowRef.requestAnimationFrame?.bind(windowRef) ||
+    globalThis.requestAnimationFrame?.bind(globalThis);
+  const cancelFrame =
+    windowRef.cancelAnimationFrame?.bind(windowRef) ||
+    globalThis.cancelAnimationFrame?.bind(globalThis);
+  const setTimer =
+    windowRef.setTimeout?.bind(windowRef) ||
+    globalThis.setTimeout?.bind(globalThis);
+  const clearTimer =
+    windowRef.clearTimeout?.bind(windowRef) ||
+    globalThis.clearTimeout?.bind(globalThis);
+  let watchHandle = null;
+  let watchHandleType = null;
+  let lastOutput = "";
+
+  const getSnapshot = () => createGamepadDebugSnapshot(
+    getFirstConnectedGamepad(windowRef.navigator)
+  );
+
+  const schedule = (callback) => {
+    if (requestFrame) {
+      watchHandleType = "animationFrame";
+      return requestFrame(callback);
+    }
+
+    watchHandleType = "timeout";
+    return setTimer?.(callback, 16) ?? null;
+  };
+
+  const cancelScheduled = () => {
+    if (watchHandle === null) {
+      return;
+    }
+
+    if (watchHandleType === "animationFrame") {
+      cancelFrame?.(watchHandle);
+    } else {
+      clearTimer?.(watchHandle);
+    }
+
+    watchHandle = null;
+    watchHandleType = null;
+  };
+
+  const read = ({ clear = false } = {}) => {
+    const snapshot = getSnapshot();
+    const output = serializeGamepadDebugSnapshot(snapshot);
+    if (clear) {
+      consoleRef?.clear?.();
+    }
+    consoleRef?.log?.(output);
+    return snapshot;
+  };
+
+  const watch = () => {
+    if (watchHandle !== null) {
+      return getSnapshot();
+    }
+
+    const loop = () => {
+      const snapshot = getSnapshot();
+      const output = serializeGamepadDebugSnapshot(snapshot);
+
+      if (output !== lastOutput) {
+        consoleRef?.clear?.();
+        consoleRef?.log?.(output);
+        lastOutput = output;
+      }
+
+      watchHandle = schedule(loop);
+    };
+
+    loop();
+    return getSnapshot();
+  };
+
+  const stop = () => {
+    cancelScheduled();
+    lastOutput = "";
+  };
+
+  windowRef[GAMEPAD_DEBUG_GLOBAL_NAME] = {
+    read,
+    snapshot: getSnapshot,
+    stop,
+    watch
+  };
+}
+
 export function createGameInputController({
   pressedKeys,
   cameraTurnKeys,
@@ -117,6 +259,7 @@ export function createGameInputController({
   };
   const inputModality = createInputModalityTracker();
   let gamepadActionButtonPressed = false;
+  let gamepadInteractButtonPressed = false;
   let gamepadRunButtonPressed = false;
   let gamepadJumpButtonPressed = false;
   let gamepadCameraZoomButtonPressed = false;
@@ -139,12 +282,18 @@ export function createGameInputController({
   let gamepadDialogueNavigateDownAxisPressed = false;
   let gamepadPreviousMoveButtonPressed = false;
   let gamepadNextMoveButtonPressed = false;
+  let gamepadBotQueueCycleButtonPressed = false;
+  let gamepadBagButtonUsedForRun = false;
+  let keyboardBagButtonPressed = false;
+  let keyboardBagButtonUsedForRun = false;
   let primaryActionPressed = false;
   const cinematicSkipKeysDown = new Set();
   let cameraZoomCycleRequests = 0;
   let jumpRequests = 0;
   let placementRotationRequests = 0;
   let destroyActionRequests = 0;
+
+  installGamepadDebugConsole(windowRef);
 
   function createPrimaryButtonEvent() {
     return {
@@ -304,6 +453,32 @@ export function createGameInputController({
     return isKeyboardActionKey(event, GAME_INPUT_ACTION_IDS.BAG);
   }
 
+  function isKeyboardMovementPressed() {
+    return (
+      pressedKeys.has("w") ||
+      pressedKeys.has("a") ||
+      pressedKeys.has("s") ||
+      pressedKeys.has("d")
+    );
+  }
+
+  function markKeyboardBagButtonUsedForRun() {
+    if (keyboardBagButtonPressed) {
+      keyboardBagButtonUsedForRun = true;
+    }
+  }
+
+  function performKeyboardBagAction(event) {
+    if (shouldBagButtonInteract()) {
+      requestInteract();
+    } else if (shouldGamepadButtonHarvest({ source: "gamepadBag" })) {
+      requestHarvest({ source: "gamepadBag" });
+    } else {
+      inspectBag();
+    }
+    event.preventDefault();
+  }
+
   function isDestroyActionKey(event) {
     return isKeyboardActionKey(event, GAME_INPUT_ACTION_IDS.DESTROY_ACTION);
   }
@@ -455,14 +630,15 @@ export function createGameInputController({
 
     if (isBagKey(event) && !typingTarget) {
       if (!event.repeat) {
-        if (shouldBagButtonInteract()) {
-          requestInteract();
-        } else if (shouldGamepadButtonHarvest({ source: "gamepadBag" })) {
-          requestHarvest({ source: "gamepadBag" });
-        } else {
-          inspectBag();
+        const useBagButtonForRun = isKeyboardMovementPressed();
+        keyboardBagButtonPressed = useBagButtonForRun;
+        keyboardBagButtonUsedForRun = useBagButtonForRun;
+        if (!useBagButtonForRun) {
+          performKeyboardBagAction(event);
+          return;
         }
       }
+      pressedKeys.add(HELD_BAG_RUN_KEY);
       event.preventDefault();
       return;
     }
@@ -527,6 +703,9 @@ export function createGameInputController({
     if (isKeyboardActionKey(event, GAME_INPUT_ACTION_IDS.INTERACT)) {
       if (!event.repeat) {
         requestInteract();
+        if (!builderPanelOpen) {
+          requestMoveCycle(1);
+        }
       }
       event.preventDefault();
       return;
@@ -537,6 +716,7 @@ export function createGameInputController({
     }
 
     pressedKeys.add(movementKey);
+    markKeyboardBagButtonUsedForRun();
     event.preventDefault();
   }
 
@@ -601,6 +781,21 @@ export function createGameInputController({
         }
         event.preventDefault();
       }
+      return;
+    }
+
+    if (isBagKey(event) && !isTypingTarget(event.target)) {
+      const shouldPerformBagAction = keyboardBagButtonPressed && !keyboardBagButtonUsedForRun;
+      keyboardBagButtonPressed = false;
+      keyboardBagButtonUsedForRun = false;
+      pressedKeys.delete(HELD_BAG_RUN_KEY);
+
+      if (shouldPerformBagAction) {
+        performKeyboardBagAction(event);
+        return;
+      }
+
+      event.preventDefault();
       return;
     }
 
@@ -674,6 +869,8 @@ export function createGameInputController({
     gamepadMovement.x = 0;
     gamepadMovement.y = 0;
     let actionButtonPressed = false;
+    let settingsConfirmButtonPressed = false;
+    let interactButtonPressed = false;
     let runButtonPressed = false;
     let jumpButtonPressed = false;
     let zoomButtonPressed = false;
@@ -692,14 +889,25 @@ export function createGameInputController({
     let dialogueNavigateAxisY = 0;
     let previousMoveButtonPressed = false;
     let nextMoveButtonPressed = false;
+    let botQueueCycleButtonPressed = false;
     const settingsOpen = isSettingsOpen();
     const gameplayDialogueActive = isGameplayDialogueActive();
+    const canUseBotQueueCycle = () => (
+      !settingsOpen &&
+      !gameplayDialogueActive &&
+      !isWorkbenchModalOpen() &&
+      !isGameplayCinematicInputActive() &&
+      !isPokedexOpen() &&
+      !sceneDirector.blocksGameplayInput() &&
+      !isBuilderPanelOpen()
+    );
 
     const navigatorRef = windowRef?.navigator;
     const gamepads = navigatorRef?.getGamepads?.();
 
     if (!gamepads) {
       gamepadActionButtonPressed = false;
+      gamepadInteractButtonPressed = false;
       gamepadRunButtonPressed = false;
       gamepadJumpButtonPressed = false;
       gamepadCameraZoomButtonPressed = false;
@@ -722,6 +930,7 @@ export function createGameInputController({
       gamepadDialogueNavigateDownAxisPressed = false;
       gamepadPreviousMoveButtonPressed = false;
       gamepadNextMoveButtonPressed = false;
+      gamepadBotQueueCycleButtonPressed = false;
       return;
     }
 
@@ -734,10 +943,30 @@ export function createGameInputController({
         inputModality.recordGamepadInput(gamepad);
       }
 
-      actionButtonPressed = actionButtonPressed ||
+      const primaryActionTriggerPressed =
         isGamepadButtonPressed(gamepad, GAME_INPUT_BINDINGS.primaryAction.gamepadButton);
-      runButtonPressed = runButtonPressed ||
+      const primaryActionFaceButtonPressed = isGamepadPrimaryActionFaceButtonPressed(gamepad);
+      const settingsConfirmFaceButtonPressed =
+        isGamepadButtonPressed(gamepad, GAMEPAD_BUTTONS.A);
+      const interactActionButtonPressed =
+        isLogicalGamepadButtonPressed(gamepad, GAME_INPUT_BINDINGS.interact.gamepadButton);
+      const bagActionButtonPressed =
+        isLogicalGamepadButtonPressed(gamepad, GAME_INPUT_BINDINGS.bag.gamepadButton);
+      const runActionButtonPressed =
         Boolean(gamepad.buttons?.[GAME_INPUT_BINDINGS.run.gamepadButton]?.pressed);
+      const botQueueCyclePressed = interactActionButtonPressed;
+
+      botQueueCycleButtonPressed = botQueueCycleButtonPressed || botQueueCyclePressed;
+      actionButtonPressed = actionButtonPressed ||
+        primaryActionTriggerPressed ||
+        primaryActionFaceButtonPressed;
+      settingsConfirmButtonPressed = settingsConfirmButtonPressed ||
+        settingsConfirmFaceButtonPressed;
+      interactButtonPressed = interactButtonPressed ||
+        interactActionButtonPressed;
+      runButtonPressed = runButtonPressed ||
+        runActionButtonPressed ||
+        bagActionButtonPressed;
       jumpButtonPressed = jumpButtonPressed ||
         Boolean(gamepad.buttons?.[GAME_INPUT_BINDINGS.jump.gamepadButton]?.pressed);
       zoomButtonPressed = zoomButtonPressed ||
@@ -754,9 +983,7 @@ export function createGameInputController({
           Boolean(gamepad.buttons?.[GAME_INPUT_BINDINGS.settings.gamepadButton]?.pressed);
       }
       bagButtonPressed = bagButtonPressed ||
-        isLogicalGamepadButtonPressed(gamepad, GAME_INPUT_BINDINGS.bag.gamepadButton);
-      destroyActionButtonPressed = destroyActionButtonPressed ||
-        isLogicalGamepadButtonPressed(gamepad, GAME_INPUT_BINDINGS.destroyAction.gamepadButton);
+        bagActionButtonPressed;
       followerCallButtonPressed = followerCallButtonPressed ||
         Boolean(gamepad.buttons?.[GAME_INPUT_BINDINGS.followerCall.gamepadButton]?.pressed);
       settingsPreviousTabButtonPressed = settingsPreviousTabButtonPressed ||
@@ -778,6 +1005,13 @@ export function createGameInputController({
       const moveY = applyDeadzone(Number(gamepad.axes?.[1] || 0));
       const lookX = applyDeadzone(Number(gamepad.axes?.[2] || 0));
       const lookY = applyDeadzone(Number(gamepad.axes?.[3] || 0));
+      const shoulderCameraTurn =
+        (isGamepadButtonPressed(gamepad, GAMEPAD_RIGHT_SHOULDER_BUTTON) ? 1 : 0) -
+        (isGamepadButtonPressed(gamepad, GAMEPAD_LEFT_SHOULDER_BUTTON) ? 1 : 0);
+
+      if (bagActionButtonPressed && (moveX !== 0 || moveY !== 0)) {
+        gamepadBagButtonUsedForRun = true;
+      }
 
       if (settingsOpen) {
         if (Math.abs(moveX) > Math.abs(settingsNavigateAxisX)) {
@@ -800,12 +1034,17 @@ export function createGameInputController({
 
       if (!shouldIgnoreLookInput(null)) {
         cameraLookDelta.yaw += lookX * GAMEPAD_LOOK_SPEED * deltaTime;
+        cameraLookDelta.yaw += shoulderCameraTurn * GAMEPAD_SHOULDER_CAMERA_TURN_SPEED * deltaTime;
         cameraLookDelta.pitch -= lookY * GAMEPAD_LOOK_SPEED * deltaTime;
       }
 
       if (moveX !== 0 || moveY !== 0 || lookX !== 0 || lookY !== 0) {
         continue;
       }
+    }
+
+    if (!bagButtonPressed && !gamepadBagButtonPressed) {
+      gamepadBagButtonUsedForRun = false;
     }
 
     if (isWorkbenchModalOpen()) {
@@ -836,6 +1075,7 @@ export function createGameInputController({
       }
 
       gamepadActionButtonPressed = actionButtonPressed;
+      gamepadInteractButtonPressed = interactButtonPressed;
       gamepadRunButtonPressed = runButtonPressed;
       gamepadJumpButtonPressed = jumpButtonPressed;
       gamepadCameraZoomButtonPressed = zoomButtonPressed;
@@ -856,6 +1096,7 @@ export function createGameInputController({
       gamepadDialogueNavigateDownAxisPressed = false;
       gamepadPreviousMoveButtonPressed = previousMoveButtonPressed;
       gamepadNextMoveButtonPressed = nextMoveButtonPressed;
+      gamepadBotQueueCycleButtonPressed = botQueueCycleButtonPressed;
       primaryActionPressed = false;
       return;
     }
@@ -867,6 +1108,7 @@ export function createGameInputController({
       cameraLookDelta.yaw = 0;
       cameraLookDelta.pitch = 0;
       gamepadActionButtonPressed = actionButtonPressed;
+      gamepadInteractButtonPressed = interactButtonPressed;
       gamepadRunButtonPressed = runButtonPressed;
       gamepadJumpButtonPressed = jumpButtonPressed;
       gamepadCameraZoomButtonPressed = zoomButtonPressed;
@@ -887,11 +1129,13 @@ export function createGameInputController({
       gamepadDialogueNavigateDownAxisPressed = false;
       gamepadPreviousMoveButtonPressed = previousMoveButtonPressed;
       gamepadNextMoveButtonPressed = nextMoveButtonPressed;
+      gamepadBotQueueCycleButtonPressed = botQueueCycleButtonPressed;
       primaryActionPressed = actionButtonPressed;
       return;
     }
 
     if (settingsOpen) {
+      const settingsActionButtonPressed = actionButtonPressed || settingsConfirmButtonPressed;
       const settingsNavigateLeftAxisPressed =
         settingsNavigateAxisX <= -GAMEPAD_SETTINGS_ANALOG_NAVIGATION_THRESHOLD;
       const settingsNavigateRightAxisPressed =
@@ -906,11 +1150,11 @@ export function createGameInputController({
         handleSettingsKeydown(createSettingsCancelButtonEvent());
       }
 
-      if (actionButtonPressed && !gamepadActionButtonPressed) {
+      if (settingsActionButtonPressed && !gamepadActionButtonPressed) {
         handleSettingsKeydown(createPrimaryButtonEvent());
       }
 
-      if (runButtonPressed && !gamepadRunButtonPressed) {
+      if (runButtonPressed && !jumpButtonPressed && !gamepadRunButtonPressed) {
         handleSettingsKeydown(createPrimaryButtonEvent());
       }
 
@@ -974,7 +1218,8 @@ export function createGameInputController({
         handleSettingsKeydown(createSettingsNavigationButtonEvent(1));
       }
 
-      gamepadActionButtonPressed = actionButtonPressed;
+      gamepadActionButtonPressed = settingsActionButtonPressed;
+      gamepadInteractButtonPressed = interactButtonPressed;
       gamepadRunButtonPressed = runButtonPressed;
       gamepadJumpButtonPressed = jumpButtonPressed;
       gamepadCameraZoomButtonPressed = zoomButtonPressed;
@@ -997,6 +1242,7 @@ export function createGameInputController({
       gamepadDialogueNavigateDownAxisPressed = false;
       gamepadPreviousMoveButtonPressed = previousMoveButtonPressed;
       gamepadNextMoveButtonPressed = nextMoveButtonPressed;
+      gamepadBotQueueCycleButtonPressed = botQueueCycleButtonPressed;
       primaryActionPressed = false;
       return;
     }
@@ -1017,6 +1263,10 @@ export function createGameInputController({
       }
 
       if (actionButtonPressed && !gamepadActionButtonPressed) {
+        sceneDirector.handleKeydown(createPrimaryButtonEvent());
+      }
+
+      if (interactButtonPressed && !gamepadInteractButtonPressed) {
         sceneDirector.handleKeydown(createPrimaryButtonEvent());
       }
 
@@ -1077,6 +1327,7 @@ export function createGameInputController({
       }
 
       gamepadActionButtonPressed = actionButtonPressed;
+      gamepadInteractButtonPressed = interactButtonPressed;
       gamepadRunButtonPressed = runButtonPressed;
       gamepadJumpButtonPressed = jumpButtonPressed;
       gamepadCameraZoomButtonPressed = zoomButtonPressed;
@@ -1097,6 +1348,7 @@ export function createGameInputController({
       gamepadDialogueNavigateDownAxisPressed = dialogueNavigateDownAxisPressed;
       gamepadPreviousMoveButtonPressed = previousMoveButtonPressed;
       gamepadNextMoveButtonPressed = nextMoveButtonPressed;
+      gamepadBotQueueCycleButtonPressed = botQueueCycleButtonPressed;
       primaryActionPressed = false;
       return;
     }
@@ -1136,21 +1388,43 @@ export function createGameInputController({
     gamepadNextMoveButtonPressed = nextMoveButtonPressed;
 
     if (
-      settingsPreviousTabButtonPressed &&
-      !gamepadSettingsPreviousTabButtonPressed &&
-      !sceneDirector.blocksGameplayInput() &&
-      !isBuilderPanelOpen()
+      botQueueCycleButtonPressed &&
+      !gamepadBotQueueCycleButtonPressed &&
+      canUseBotQueueCycle()
     ) {
-      placementRotationRequests -= 1;
+      requestMoveCycle(1);
+    }
+
+    gamepadBotQueueCycleButtonPressed = botQueueCycleButtonPressed;
+
+    if (
+      settingsPreviousTabButtonPressed &&
+      !gamepadSettingsPreviousTabButtonPressed
+    ) {
+      if (isPokedexOpen()) {
+        clearGameFlowInput();
+        pokedexEntry.handleKeydown(createPokedexPageButtonEvent(-1));
+      } else if (
+        !sceneDirector.blocksGameplayInput() &&
+        !isBuilderPanelOpen()
+      ) {
+        placementRotationRequests -= 1;
+      }
     }
 
     if (
       settingsNextTabButtonPressed &&
-      !gamepadSettingsNextTabButtonPressed &&
-      !sceneDirector.blocksGameplayInput() &&
-      !isBuilderPanelOpen()
+      !gamepadSettingsNextTabButtonPressed
     ) {
-      placementRotationRequests += 1;
+      if (isPokedexOpen()) {
+        clearGameFlowInput();
+        pokedexEntry.handleKeydown(createPokedexPageButtonEvent(1));
+      } else if (
+        !sceneDirector.blocksGameplayInput() &&
+        !isBuilderPanelOpen()
+      ) {
+        placementRotationRequests += 1;
+      }
     }
 
     gamepadRunButtonPressed = runButtonPressed;
@@ -1169,7 +1443,12 @@ export function createGameInputController({
     gamepadCameraZoomButtonPressed = zoomButtonPressed;
 
     if (pauseButtonPressed && !gamepadPauseButtonPressed) {
-      requestPauseToggle?.();
+      if (sceneDirector.is?.("start") && sceneDirector.blocksGameplayInput()) {
+        clearGameFlowInput();
+        sceneDirector.handleKeydown(createPrimaryButtonEvent());
+      } else {
+        requestPauseToggle?.();
+      }
     }
 
     gamepadPauseButtonPressed = pauseButtonPressed;
@@ -1197,6 +1476,22 @@ export function createGameInputController({
     gamepadSettingsButtonPressed = settingsButtonPressed;
 
     if (
+      interactButtonPressed &&
+      !gamepadInteractButtonPressed
+    ) {
+      const interactEvent = createPrimaryButtonEvent();
+
+      if (sceneDirector.blocksGameplayInput()) {
+        clearGameFlowInput();
+        sceneDirector.handleKeydown(interactEvent);
+      } else if (!isPokedexOpen() && !isBuilderPanelOpen() && !sceneDirector.handleKeydown(interactEvent)) {
+        requestInteract();
+      }
+    }
+
+    gamepadInteractButtonPressed = interactButtonPressed;
+
+    if (
       bagButtonPressed &&
       !gamepadBagButtonPressed &&
       isPokedexOpen()
@@ -1213,6 +1508,7 @@ export function createGameInputController({
     } else if (
       bagButtonPressed &&
       !gamepadBagButtonPressed &&
+      !gamepadBagButtonUsedForRun &&
       !sceneDirector.blocksGameplayInput() &&
       !isBuilderPanelOpen()
     ) {
@@ -1229,6 +1525,9 @@ export function createGameInputController({
     }
 
     gamepadBagButtonPressed = bagButtonPressed;
+    if (!bagButtonPressed) {
+      gamepadBagButtonUsedForRun = false;
+    }
 
     if (
       destroyActionButtonPressed &&
@@ -1331,7 +1630,7 @@ export function createGameInputController({
   }
 
   function isRunActive() {
-    return pressedKeys.has("shift") || gamepadRunButtonPressed;
+    return pressedKeys.has("shift") || pressedKeys.has(HELD_BAG_RUN_KEY) || gamepadRunButtonPressed;
   }
 
   function isPrimaryActionActive() {

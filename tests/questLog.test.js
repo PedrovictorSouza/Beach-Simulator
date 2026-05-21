@@ -42,7 +42,7 @@ describe("createQuestLog", () => {
     expect(logHtml).toContain('aria-label="locked: Talk to Chopper');
   });
 
-  it("renders task title and subtitle as separate HUD elements", () => {
+  it("omits the redundant Chopper talk title from the active HUD summary", () => {
     const quest = SMALL_ISLAND_QUESTS.find((entry) => entry.id === "wake-guide");
     const questLog = createQuestLog({
       questSystem: {
@@ -52,8 +52,7 @@ describe("createQuestLog", () => {
 
     const summaryHtml = questLog.renderActiveSummaryHtml();
 
-    expect(summaryHtml).toContain("hud-task-title");
-    expect(summaryHtml).toContain("Talk to Chopper");
+    expect(summaryHtml).not.toContain('<div class="hud-task-title">Talk to Chopper</div>');
     expect(summaryHtml).toContain("hud-task-subtitle");
     expect(summaryHtml).toContain("Talk to Chopper so he can explain");
   });
@@ -313,7 +312,9 @@ describe("createQuestLog", () => {
     expect(returnIndex).toBeLessThan(habitatIndex);
     expect(returnIndex).toBeLessThan(waterIndex);
     expect(checklistHtml).toContain("learn Bio-Grow");
+    expect(checklistHtml).not.toContain("Talk: Leaf helper");
     expect(logHtml).toContain('data-task-id="bulbasaur-leafage-reward"');
+    expect(logHtml).not.toContain("Talk: Leaf helper");
   });
 
   it("shows a non-blocking play seed after Bio-Grow is learned", () => {
@@ -425,7 +426,7 @@ describe("createQuestLog", () => {
     expect(logHtml).toContain('data-task-id="tangrowth-log-chair"');
   });
 
-  it("renders the Workbench task with recipe progress guidance", () => {
+  it("renders the Greenhouse build task before the Thermal Cabin task", () => {
     const quest = SMALL_ISLAND_QUESTS.find((entry) => entry.id === "water-dry-grass");
     const questLog = createQuestLog({
       questSystem: {
@@ -435,6 +436,29 @@ describe("createQuestLog", () => {
     });
     const storyState = {
       flags: {
+        workbenchDiyRecipesReceived: true,
+        trackedTaskIds: ["build-greenhouse"]
+      }
+    };
+
+    const checklistHtml = questLog.renderChecklistHtml(storyState);
+    const logHtml = questLog.renderLogHtml(storyState);
+
+    expect(checklistHtml).toContain("Build a greenhouse.");
+    expect(logHtml).toContain('data-task-id="build-greenhouse"');
+  });
+
+  it("renders the Workbench task with recipe progress guidance after Greenhouse placement", () => {
+    const quest = SMALL_ISLAND_QUESTS.find((entry) => entry.id === "water-dry-grass");
+    const questLog = createQuestLog({
+      questSystem: {
+        getActiveQuest: () => quest,
+        getQuestLog: () => [quest]
+      }
+    });
+    const storyState = {
+      flags: {
+        greenhousePlaced: true,
         workbenchDiyRecipesReceived: true,
         trackedTaskIds: ["workbench-campfire"]
       }
@@ -458,6 +482,7 @@ describe("createQuestLog", () => {
     });
     const storyState = {
       flags: {
+        greenhousePlaced: true,
         campfireCrafted: true,
         trackedTaskIds: ["spit-out-campfire"]
       }
@@ -487,6 +512,7 @@ describe("createQuestLog", () => {
     });
     const storyState = {
       flags: {
+        greenhousePlaced: true,
         workbenchDiyRecipesReceived: true,
         campfireCrafted: true,
         campfireSpatOut: true,
@@ -495,6 +521,7 @@ describe("createQuestLog", () => {
       }
     };
 
+    expect(questLog.renderChecklistHtml(storyState)).toContain("Tall Grass colony zone");
     expect(questLog.renderChecklistHtml(storyState)).toContain("2/4 tall grass grown");
 
     storyState.flags.charmanderRustlingGrassCellId = "ground-1-1";
@@ -515,6 +542,7 @@ describe("createQuestLog", () => {
     const recoveredStoryState = {
       flags: {
         workbenchDiyRecipesReceived: true,
+        greenhousePlaced: true,
         campfireCrafted: true,
         campfireSpatOut: true,
         charmanderFollowing: true
@@ -542,8 +570,14 @@ describe("createQuestLog", () => {
 
     const workbenchChecklistHtml = questLog.renderChecklistHtml(missingWorkbenchState);
 
-    expect(workbenchChecklistHtml).toContain("Follow Grow Bot to the nearby area");
+    expect(workbenchChecklistHtml).toContain("Build a greenhouse.");
     expect(workbenchChecklistHtml).not.toContain("Lead Thermal Bot close to the Thermal Cabin.");
+
+    missingWorkbenchState.flags.greenhousePlaced = true;
+    const missingRecipesChecklistHtml = questLog.renderChecklistHtml(missingWorkbenchState);
+
+    expect(missingRecipesChecklistHtml).toContain("Follow Grow Bot to the nearby area");
+    expect(missingRecipesChecklistHtml).not.toContain("Lead Thermal Bot close to the Thermal Cabin.");
 
     missingWorkbenchState.flags.workbenchDiyRecipesReceived = true;
     missingWorkbenchState.flags.campfireCrafted = true;
@@ -576,6 +610,9 @@ describe("createQuestLog", () => {
 
     expect(checklistHtml).toContain("Check the Colony Terminal beside");
     expect(logHtml).toContain('data-task-id="ruined-pokemon-center"');
+
+    storyState.flags.challengesUnlocked = true;
+    expect(questLog.renderChecklistHtml(storyState)).toContain("Colony checks are unlocked");
   });
 
   it("renders the Boulder-Shaded Tall Grass challenge as it progresses", () => {
@@ -605,7 +642,7 @@ describe("createQuestLog", () => {
     const checklistHtml = questLog.renderChecklistHtml(storyState);
     const logHtml = questLog.renderLogHtml(storyState);
 
-    expect(checklistHtml).toContain("log the habitat viability report");
+    expect(checklistHtml).toContain("log the colony viability report");
     expect(logHtml).toContain('data-task-id="boulder-shaded-tall-grass"');
   });
 
@@ -674,7 +711,7 @@ describe("createQuestLog", () => {
     expect(logHtml).toContain('data-task-id="straw-bed-recipe"');
   });
 
-  it("renders the new habitat checks in Terminal task", () => {
+  it("renders the new colony checks in Terminal task", () => {
     const quest = SMALL_ISLAND_QUESTS.find((entry) => entry.id === "water-dry-grass");
     const questLog = createQuestLog({
       questSystem: {
@@ -689,14 +726,14 @@ describe("createQuestLog", () => {
       }
     };
 
-    expect(questLog.renderChecklistHtml(storyState)).toContain("New Habitat Checks in Colony Terminal");
-    expect(questLog.renderChecklistHtml(storyState)).toContain("review the new habitat checks");
+    expect(questLog.renderChecklistHtml(storyState)).toContain("New Colony Checks in Colony Terminal");
+    expect(questLog.renderChecklistHtml(storyState)).toContain("review the new colony checks");
 
     storyState.flags.newPcChallengesChecked = true;
     const checklistHtml = questLog.renderChecklistHtml(storyState);
     const logHtml = questLog.renderLogHtml(storyState);
 
-    expect(checklistHtml).toContain("You checked the new habitat checks");
+    expect(checklistHtml).toContain("You checked the new colony checks");
     expect(logHtml).toContain('data-task-id="new-challenges-in-pc"');
   });
 

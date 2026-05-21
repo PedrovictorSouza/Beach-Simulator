@@ -95,10 +95,10 @@ const COLONY_FEEDBACK_CONTRACTS = Object.freeze({
   [COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE,
     rewardTier: COLONY_REWARD_TIER.MILESTONE,
-    playerGoal: "Talk to the Grow Bot after proving the habitat can support colony work.",
+    playerGoal: "Talk to the Grow Bot after proving the colony zone can support colony work.",
     channels: Object.freeze(["notice", "questPulse", "taskPop"]),
-    notice: ({ growBotName = "Grow Bot" } = {}) => `First habitat check complete. Talk to ${growBotName}.`,
-    taskPop: "Habitat viability confirmed."
+    notice: ({ growBotName = "Grow Bot" } = {}) => `First colony check complete. Talk to ${growBotName}.`,
+    taskPop: "Colony zone viability confirmed."
   }),
   [COLONY_FEEDBACK_IDS.HOUSE_KIT_ISSUED]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.HOUSE_KIT_ISSUED,
@@ -117,16 +117,18 @@ const COLONY_FEEDBACK_CONTRACTS = Object.freeze({
   [COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_NEEDS_POWER_RADIUS]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_NEEDS_POWER_RADIUS,
     rewardTier: COLONY_REWARD_TIER.TINY_ACTION,
-    playerGoal: "Move the House Kit preview into the blue Solar Station support zone.",
+    playerGoal: "Place the House Kit inside the blue Solar Station support zone.",
     channels: Object.freeze(["prompt", "worldPrompt", "groundHighlight"]),
-    prompt: "Needs blue support zone  B Cancel  LB/RB Rotate"
+    placementLabel: "Place inside blue zone",
+    prompt: "Place inside blue zone  B Cancel  LB/RB Rotate"
   }),
   [COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_VALID]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_VALID,
     rewardTier: COLONY_REWARD_TIER.TINY_ACTION,
-    playerGoal: "Confirm the House Kit placement or rotate/cancel the preview.",
+    playerGoal: "Choose the first shelter site inside the blue Solar Station support zone.",
     channels: Object.freeze(["prompt", "worldPrompt", "groundHighlight"]),
-    prompt: "Move House Kit preview  X / Enter Place  B Cancel  LB/RB Rotate"
+    placementLabel: "Set first shelter site",
+    prompt: "Set first shelter site  X / Enter Place  B Cancel  LB/RB Rotate"
   }),
   [COLONY_FEEDBACK_IDS.HOUSE_KIT_READY_NEEDS_SOLAR_STATION]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.HOUSE_KIT_READY_NEEDS_SOLAR_STATION,
@@ -142,6 +144,7 @@ const COLONY_FEEDBACK_CONTRACTS = Object.freeze({
     playerGoal: "Move into the world and start House Kit placement.",
     channels: Object.freeze(["notice", "worldPrompt"]),
     notice: "House Kit ready. Move into the world and press X / Enter.",
+    placementLabel: "Set first shelter site",
     prompt: "House Kit ready  X / Enter Place"
   }),
   [COLONY_FEEDBACK_IDS.HOUSE_KIT_SELECTED]: Object.freeze({
@@ -149,77 +152,81 @@ const COLONY_FEEDBACK_CONTRACTS = Object.freeze({
     rewardTier: COLONY_REWARD_TIER.USEFUL_ACTION,
     playerGoal: "Place the House Kit in a clear powered area.",
     channels: Object.freeze(["notice", "worldPrompt", "groundHighlight"]),
-    notice: "House Kit selected."
+    notice: "House Kit selected. Set it inside the blue zone."
   }),
   [COLONY_FEEDBACK_IDS.ISSUE_HOUSE_KIT_ACTION]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.ISSUE_HOUSE_KIT_ACTION,
     rewardTier: COLONY_REWARD_TIER.TINY_ACTION,
     playerGoal: "Issue the authorized House Kit from the Colony Terminal.",
     channels: Object.freeze(["terminalAction"]),
-    actionLabel: "Issue Kit"
+    actionLabel: "Issue House Kit"
   }),
   [COLONY_FEEDBACK_IDS.LOG_VIABILITY_ACTION]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.LOG_VIABILITY_ACTION,
     rewardTier: COLONY_REWARD_TIER.TINY_ACTION,
-    playerGoal: "Log the completed habitat viability report at the Colony Terminal.",
+    playerGoal: "Log the completed colony viability report at the Colony Terminal.",
     channels: Object.freeze(["terminalAction"]),
-    actionLabel: "Log Viability"
+    actionLabel: "Log Colony Viability"
   }),
   [COLONY_FEEDBACK_IDS.PLACEMENT_BLOCKED_BY_OBJECTS]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.PLACEMENT_BLOCKED_BY_OBJECTS,
     rewardTier: COLONY_REWARD_TIER.TINY_ACTION,
-    playerGoal: "Move the placement preview away from blocking objects.",
+    playerGoal: "Move the placement preview to a clear buildable spot.",
     channels: Object.freeze(["prompt", "worldPrompt", "groundHighlight"]),
-    prompt: "Blocked  Move away from objects  B Cancel  LB/RB Rotate"
+    placementLabel: "Choose a clear spot",
+    prompt: "Choose a clear spot  B Cancel  LB/RB Rotate"
   }),
   [COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACED]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACED,
     rewardTier: COLONY_REWARD_TIER.MILESTONE,
     playerGoal: "Use the powered support zone to plan the first House placement.",
-    channels: Object.freeze(["notice", "groundHighlight"]),
-    notice: "Solar Station online. Blue cells mark the human habitat support zone."
+    channels: Object.freeze(["notice", "groundHighlight", "worldSpeech"]),
+    notice: "Solar Station online. Blue cells mark where shelters can be built.",
+    worldSpeech: "Blue zone ready. First shelter goes inside it."
   }),
   [COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACEMENT_VALID]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACEMENT_VALID,
     rewardTier: COLONY_REWARD_TIER.TINY_ACTION,
-    playerGoal: "Confirm the Solar Station placement or rotate/cancel the preview.",
+    playerGoal: "Choose where the Solar Station will create the shelter build zone.",
     channels: Object.freeze(["prompt", "worldPrompt", "groundHighlight"]),
-    prompt: "Move Solar Station preview  X / Enter Place  B Cancel  LB/RB Rotate"
+    placementLabel: "Set Solar Station site",
+    prompt: "Set Solar Station site  X / Enter Place  B Cancel  LB/RB Rotate"
   }),
   [COLONY_FEEDBACK_IDS.SOLAR_STATION_READY_MOVE_TO_OPEN_TERRAIN]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.SOLAR_STATION_READY_MOVE_TO_OPEN_TERRAIN,
     rewardTier: COLONY_REWARD_TIER.USEFUL_ACTION,
-    playerGoal: "Move to open terrain before placing the Solar Station.",
+    playerGoal: "Find clear ground before placing the Solar Station.",
     channels: Object.freeze(["prompt", "worldPrompt"]),
-    prompt: "Solar Station ready  Move to open terrain"
+    prompt: "Solar Station ready  Find clear ground"
   }),
   [COLONY_FEEDBACK_IDS.SOLAR_STATION_READY_TO_PLACE]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.SOLAR_STATION_READY_TO_PLACE,
     rewardTier: COLONY_REWARD_TIER.USEFUL_ACTION,
     playerGoal: "Start Solar Station placement in valid open terrain.",
     channels: Object.freeze(["prompt", "worldPrompt"]),
+    placementLabel: "Set Solar Station site",
     prompt: "Solar Station ready  X / Enter Place"
   }),
   [COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED,
     rewardTier: COLONY_REWARD_TIER.TINY_ACTION,
-    playerGoal: "Move away from the blocked placement spot.",
+    playerGoal: "Move the placement preview away from the blocked spot.",
     channels: Object.freeze(["worldPrompt"]),
-    prompt: "Move away from objects"
+    prompt: "Choose a clear spot"
   }),
   [COLONY_FEEDBACK_IDS.WORLD_PROMPT_MOVE_TO_OPEN_TERRAIN]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.WORLD_PROMPT_MOVE_TO_OPEN_TERRAIN,
     rewardTier: COLONY_REWARD_TIER.TINY_ACTION,
-    playerGoal: "Move to open terrain.",
+    playerGoal: "Find a clear buildable spot.",
     channels: Object.freeze(["worldPrompt"]),
-    prompt: "Move to open terrain"
+    prompt: "Find clear ground"
   }),
   [COLONY_FEEDBACK_IDS.WORLD_PROMPT_NEEDS_POWER]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.WORLD_PROMPT_NEEDS_POWER,
     rewardTier: COLONY_REWARD_TIER.TINY_ACTION,
-    playerGoal: "Move into the Solar Station support zone.",
+    playerGoal: "Place the selected kit inside the Solar Station support zone.",
     channels: Object.freeze(["worldPrompt"]),
-    prompt: "Move inside blue zone"
+    prompt: "Place inside blue zone"
   }),
   [COLONY_FEEDBACK_IDS.WORLD_PROMPT_NEEDS_SOLAR_STATION]: Object.freeze({
     id: COLONY_FEEDBACK_IDS.WORLD_PROMPT_NEEDS_SOLAR_STATION,
@@ -263,6 +270,15 @@ export function getColonyFeedbackNotice(id, context = {}) {
 
 export function getColonyFeedbackPrompt(id, context = {}) {
   return resolveCopy(getColonyFeedbackContract(id)?.prompt, context);
+}
+
+export function getColonyFeedbackPlacementLabel(id, context = {}) {
+  const contract = getColonyFeedbackContract(id);
+  return resolveCopy(contract?.placementLabel || contract?.prompt, context);
+}
+
+export function getColonyFeedbackWorldSpeech(id, context = {}) {
+  return resolveCopy(getColonyFeedbackContract(id)?.worldSpeech, context);
 }
 
 export function getColonyFeedbackActionLabel(id, context = {}) {

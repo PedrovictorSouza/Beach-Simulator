@@ -13,6 +13,8 @@ describe("input prompt resolver", () => {
   it("returns keyboard and mouse prompts by default", () => {
     expect(resolveInputPrompt(UI_PROMPT_ACTION.PLACE)).toBe("X / Enter Place");
     expect(resolveInputPrompt(UI_PROMPT_ACTION.CANCEL)).toBe("Space Cancel");
+    expect(resolveInputPrompt(UI_PROMPT_ACTION.FIELD_TOOL)).toBe("Enter");
+    expect(resolveInputPrompt(UI_PROMPT_ACTION.RUN)).toBe("Shift Run");
     expect(resolvePlacementPreviewPrompt("Move House Kit preview")).toBe(
       "Move House Kit preview  X / Enter Place  Space Cancel"
     );
@@ -23,12 +25,15 @@ describe("input prompt resolver", () => {
       keyboardControls: {
         bag: "KeyZ",
         primaryAction: "KeyF",
-        jump: "KeyC"
+        jump: "KeyC",
+        run: "KeyV"
       }
     };
 
     expect(resolveInputPrompt(UI_PROMPT_ACTION.PLACE, modalityState)).toBe("Z / F Place");
     expect(resolveInputPrompt(UI_PROMPT_ACTION.CANCEL, modalityState)).toBe("C Cancel");
+    expect(resolveInputPrompt(UI_PROMPT_ACTION.FIELD_TOOL, modalityState)).toBe("F");
+    expect(resolveInputPrompt(UI_PROMPT_ACTION.RUN, modalityState)).toBe("V Run");
   });
 
   it("returns Xbox style prompts for gamepad mode", () => {
@@ -43,6 +48,8 @@ describe("input prompt resolver", () => {
     expect(resolvePlacementPreviewPrompt("Move House Kit preview", modalityState)).toBe(
       "Move House Kit preview  X Place  B Cancel  LB/RB Rotate"
     );
+    expect(resolveInputPrompt(UI_PROMPT_ACTION.RUN, modalityState)).toBe("B Run");
+    expect(resolveInputPrompt(UI_PROMPT_ACTION.FIELD_TOOL, modalityState)).toBe("LT");
     expect(resolveWorkbenchRotationPrompt(modalityState)).toBe("X Confirm  LB/RB Rotate  B Cancel");
   });
 
@@ -54,6 +61,7 @@ describe("input prompt resolver", () => {
 
     expect(resolveInputPrompt(UI_PROMPT_ACTION.PLACE, modalityState)).toBe("Y Place");
     expect(resolveInputPrompt(UI_PROMPT_ACTION.OPEN_BAG, modalityState)).toBe("Y Bag");
+    expect(resolveInputPrompt(UI_PROMPT_ACTION.INTERACT, modalityState)).toBe("A Interact");
     expect(resolvePlacementPreviewPrompt("Move Solar Station preview", modalityState)).toBe(
       "Move Solar Station preview  Y Place  B Cancel  L/R Rotate"
     );

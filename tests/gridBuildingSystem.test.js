@@ -795,6 +795,7 @@ describe("grid building system foundation", () => {
     const database = createDefaultPlacementDatabase();
 
     expect(database.list().map((entry) => entry.id)).toEqual([
+      "greenhouse",
       "trainHouse",
       "solarStation",
       "leafDenKit",
@@ -803,6 +804,14 @@ describe("grid building system foundation", () => {
       "strawBedFurniture",
       "floorPlaceholder"
     ]);
+    expect(database.get("greenhouse")).toMatchObject({
+      name: "Greenhouse",
+      prefabKey: "greenhouseModel",
+      placementType: "object",
+      buildCategory: "workbench",
+      footprint: { width: 5, height: 3 },
+      sourceItemId: "greenhouse"
+    });
     expect(database.get("trainHouse")).toMatchObject({
       name: "Thermal Cabin",
       prefabKey: "trainHouseModel",

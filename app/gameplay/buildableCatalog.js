@@ -1,5 +1,6 @@
 import {
   CAMPFIRE_ITEM_ID,
+  GREENHOUSE_ITEM_ID,
   getBuildingKitByItemId,
   ITEM_DEFS,
   LEAF_DEN_KIT_ITEM_ID,
@@ -19,6 +20,12 @@ export const BUILDABLE_SOURCE_TYPES = Object.freeze({
 });
 
 const WORKBENCH_BUILDABLE_DEFS = Object.freeze([
+  Object.freeze({
+    id: GRID_PLACEABLE_IDS.GREENHOUSE,
+    recipeId: GREENHOUSE_ITEM_ID,
+    gridPlaceableId: GRID_PLACEABLE_IDS.GREENHOUSE,
+    sourceType: BUILDABLE_SOURCE_TYPES.RECIPE
+  }),
   Object.freeze({
     id: GRID_PLACEABLE_IDS.TRAIN_HOUSE,
     recipeId: "campfire",

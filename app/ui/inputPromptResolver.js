@@ -14,7 +14,9 @@ export const UI_PROMPT_ACTION = Object.freeze({
   ROTATE: "rotate",
   CONFIRM: "confirm",
   OPEN_BAG: "openBag",
-  INTERACT: "interact"
+  INTERACT: "interact",
+  FIELD_TOOL: "fieldTool",
+  RUN: "run"
 });
 
 const KEYBOARD_MOUSE_PROMPTS = Object.freeze({
@@ -28,7 +30,9 @@ const GAMEPAD_PROMPTS = Object.freeze({
     [UI_PROMPT_ACTION.ROTATE]: "LB/RB Rotate",
     [UI_PROMPT_ACTION.CONFIRM]: "X Confirm",
     [UI_PROMPT_ACTION.OPEN_BAG]: "X Bag",
-    [UI_PROMPT_ACTION.INTERACT]: "LT Interact"
+    [UI_PROMPT_ACTION.INTERACT]: "A Interact",
+    [UI_PROMPT_ACTION.FIELD_TOOL]: "LT",
+    [UI_PROMPT_ACTION.RUN]: "B Run"
   }),
   [GAMEPAD_LAYOUT.NINTENDO]: Object.freeze({
     [UI_PROMPT_ACTION.PLACE]: "Y Place",
@@ -36,7 +40,9 @@ const GAMEPAD_PROMPTS = Object.freeze({
     [UI_PROMPT_ACTION.ROTATE]: "L/R Rotate",
     [UI_PROMPT_ACTION.CONFIRM]: "Y Confirm",
     [UI_PROMPT_ACTION.OPEN_BAG]: "Y Bag",
-    [UI_PROMPT_ACTION.INTERACT]: "ZL Interact"
+    [UI_PROMPT_ACTION.INTERACT]: "A Interact",
+    [UI_PROMPT_ACTION.FIELD_TOOL]: "LT",
+    [UI_PROMPT_ACTION.RUN]: "B Run"
   }),
   [GAMEPAD_LAYOUT.GENERIC]: Object.freeze({
     [UI_PROMPT_ACTION.PLACE]: "X Place",
@@ -44,7 +50,9 @@ const GAMEPAD_PROMPTS = Object.freeze({
     [UI_PROMPT_ACTION.ROTATE]: "LB/RB Rotate",
     [UI_PROMPT_ACTION.CONFIRM]: "X Confirm",
     [UI_PROMPT_ACTION.OPEN_BAG]: "X Bag",
-    [UI_PROMPT_ACTION.INTERACT]: "LT Interact"
+    [UI_PROMPT_ACTION.INTERACT]: "A Interact",
+    [UI_PROMPT_ACTION.FIELD_TOOL]: "LT",
+    [UI_PROMPT_ACTION.RUN]: "B Run"
   })
 });
 
@@ -93,6 +101,14 @@ function resolveKeyboardPrompt(actionId, modalityState = {}) {
 
   if (actionId === UI_PROMPT_ACTION.INTERACT) {
     return `${resolveKeyboardActionLabel(GAME_INPUT_ACTION_IDS.INTERACT, keyboardControls)} Interact`;
+  }
+
+  if (actionId === UI_PROMPT_ACTION.FIELD_TOOL) {
+    return resolveKeyboardActionLabel(GAME_INPUT_ACTION_IDS.PRIMARY_ACTION, keyboardControls);
+  }
+
+  if (actionId === UI_PROMPT_ACTION.RUN) {
+    return `${resolveKeyboardActionLabel(GAME_INPUT_ACTION_IDS.RUN, keyboardControls)} Run`;
   }
 
   return KEYBOARD_MOUSE_PROMPTS[actionId] || "";

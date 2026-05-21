@@ -121,7 +121,7 @@ export function createHudSuspenseBoundary({
       questBodyElement,
       "The expedition HUD will appear as soon as the interface bundle finishes loading."
     );
-    setTextWithFallbackMarker(nearbyHabitatsValueElement, "Mapping habitats...");
+    setTextWithFallbackMarker(nearbyHabitatsValueElement, "Mapping colony zones...");
 
     if (isElement(missionsStackElement) && missionsStackElement.dataset.hudFallback !== "true") {
       missionsStackElement.innerHTML = MISSION_FALLBACK_HTML;

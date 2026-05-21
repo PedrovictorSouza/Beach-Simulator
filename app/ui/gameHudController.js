@@ -9,9 +9,7 @@ import {
   getSmallIslandMoveByAbilityId
 } from "../sandbox/moveData.js";
 import { getErrandQuestInstructionText } from "../quest/errandQuestDesign.js";
-import { createColonyCacheState } from "../gameplay/colonyCacheContract.js";
 import { resolveGameHudInitialStatus } from "./gameHudControllerConfig.ts";
-import { createColonyStatusModel } from "./colonyStatusModel.js";
 import { resolveInitialHudGuide } from "./inputPromptResolver.js";
 import { renderInventoryCountHtml } from "./uiTextValue.ts";
 
@@ -43,6 +41,9 @@ const TALK_ACTION_TERMS = Object.freeze([
   "bulbasaur"
 ]);
 const SUPPLY_PICKUP_FLY_DURATION_MS = 1000;
+const SUPPLY_PICKUP_CENTER_HOLD_MS = 500;
+const SUPPLY_PICKUP_CENTER_SCALE = 2;
+const SUPPLY_PICKUP_SLOT_PULSE_MS = 420;
 const COLONY_STATUS_STATE_LABELS = Object.freeze({
   offline: "offline",
   available: "available",
@@ -59,6 +60,14 @@ function easeOutBack(value) {
   const progress = clamp01(value);
   const overshoot = 1.70158;
   return 1 + (overshoot + 1) * Math.pow(progress - 1, 3) + overshoot * Math.pow(progress - 1, 2);
+}
+
+function formatCssNumber(value) {
+  if (!Number.isFinite(value)) {
+    return "0";
+  }
+
+  return String(Number(value.toFixed(3)));
 }
 
 function formatColonyStatusSystem(system) {
@@ -99,6 +108,28 @@ export function formatColonyCacheHudText(colonyCache) {
     `Cache ${cacheState}: ${totalItems} supplies`;
 }
 
+function isPlacementHudPrompt(copy = "") {
+  const normalizedCopy = String(copy || "").toLowerCase();
+
+  if (!normalizedCopy) {
+    return false;
+  }
+
+  const hasPlacementControl =
+    normalizedCopy.includes("cancel") &&
+    (
+      normalizedCopy.includes("place") ||
+      normalizedCopy.includes("rotate")
+    );
+  const hasPlacementTarget =
+    normalizedCopy.includes("preview") ||
+    normalizedCopy.includes("site") ||
+    normalizedCopy.includes("spot") ||
+    normalizedCopy.includes("blue zone");
+
+  return hasPlacementControl && hasPlacementTarget;
+}
+
 export function createGameHudController({
   statusElement,
   hudInstructionsElement,
@@ -130,15 +161,15 @@ export function createGameHudController({
   const TRACKED_TASK_COMPLETION_FLASH_MS = 3000;
   const HUD_GUIDE_BY_QUEST_ID = Object.freeze({
     findPokemon: "Talk to Hydro Bot",
-    makingHabitats: "Making habitats: arrange plants, rocks, and objects to create habitats."
+    makingHabitats: "Making colony zones: arrange plants, rocks, and objects into viable colony space."
   });
   const QUEST_CHECKLIST_LABELS = Object.freeze({
     meetTangrowth: ["Talk to Chopper"],
     findPokemon: ["Talk to Hydro Bot"],
     makingHabitats: [
       "Use Hydro Jet on a dry object",
-      "Find a restored habitat",
-      "Check the Colony Codex clue"
+      "Find a restored colony zone",
+      "Check the Instructions. clue"
     ]
   });
   const statusState = {
@@ -161,7 +192,6 @@ export function createGameHudController({
     missionsHtml: "",
     hudContext: "",
     hudChecklist: "",
-    hudMeta: "",
     hudInstructions: "",
     nearbyHabitats: "",
     activeCompanionHudHtml: "",
@@ -172,7 +202,9 @@ export function createGameHudController({
     questId: null,
     until: 0
   };
-  const hudBoardElement = hudInstructionsElement?.closest?.(".hud") || hudMetaElement?.closest?.(".hud") || null;
+  hudMetaElement?.remove?.();
+
+  const hudBoardElement = hudInstructionsElement?.closest?.(".hud") || null;
   const hudCurrentActionElement = hudInstructionsElement?.closest?.(".hud-current-action") || null;
   let hudBoardFlashTimeout = 0;
   let hudBoardEntranceVariant = false;
@@ -231,21 +263,14 @@ export function createGameHudController({
       return null;
     }
 
-    let headerElement = inventoryPanelElement.querySelector(".inventory-header");
-    if (!headerElement) {
-      headerElement = document.createElement("div");
-      headerElement.className = "inventory-header";
+    const titleElement = Array.from(inventoryPanelElement.children).find((element) => {
+      return element.tagName === "STRONG";
+    });
+    titleElement?.remove();
 
-      const titleElement = Array.from(inventoryPanelElement.children).find((element) => {
-        return element.tagName === "STRONG";
-      });
-
-      if (titleElement) {
-        inventoryPanelElement.insertBefore(headerElement, titleElement);
-        headerElement.appendChild(titleElement);
-      } else {
-        inventoryPanelElement.insertBefore(headerElement, inventoryGridElement);
-      }
+    const headerElement = inventoryPanelElement.querySelector(".inventory-header");
+    if (headerElement && !headerElement.children.length) {
+      headerElement.remove();
     }
 
     const companionHudParent = inventoryPanelElement.parentElement || inventoryPanelElement;
@@ -365,7 +390,7 @@ export function createGameHudController({
         place-items: center;
         border: 3px solid #fff1cf;
         background: var(--slot-color, #ffe08a);
-        color: var(--slot-ink, #271806);
+        color: #ffffff;
         box-shadow: 0 3px 0 rgba(43, 32, 44, 0.8);
         font-family: var(--game-ui-font, monospace);
         font-size: 20px;
@@ -383,12 +408,12 @@ export function createGameHudController({
       }
 
       .inventory-slot[data-pickup-pulse="true"] .inventory-slot__icon {
-        animation: supplyPickupSlotPulse 360ms cubic-bezier(0.2, 1.5, 0.4, 1);
+        animation: supplyPickupSlotPulse 420ms cubic-bezier(0.2, 1.8, 0.4, 1);
       }
 
       @keyframes supplyPickupSlotPulse {
         0% { transform: scale(1); filter: brightness(1); }
-        45% { transform: scale(1.24); filter: brightness(1.35); }
+        45% { transform: scale(1.48); filter: brightness(1.7); }
         100% { transform: scale(1); filter: brightness(1); }
       }
     `;
@@ -469,7 +494,7 @@ export function createGameHudController({
       if (slotElement.dataset.pickupPulse === "true") {
         delete slotElement.dataset.pickupPulse;
       }
-    }, 380);
+    }, SUPPLY_PICKUP_SLOT_PULSE_MS + 40);
   }
 
   function createSupplyPickupFlyElement(itemId) {
@@ -505,35 +530,43 @@ export function createGameHudController({
       return;
     }
 
-    const start = normalizeSupplyPickupOrigin(payload.origin);
+    const center = getFallbackSupplyPickupOrigin();
     const end = getElementCenter(slotElement);
     const control = {
-      x: (start.x + end.x) * 0.5,
-      y: Math.min(start.y, end.y) - 112 - Math.abs(end.x - start.x) * 0.08
+      x: (center.x + end.x) * 0.5,
+      y: Math.min(center.y, end.y) - 112 - Math.abs(end.x - center.x) * 0.08
     };
     const startedAt = getAnimationNow();
 
     layerElement.appendChild(flyElement);
 
     const update = (timestamp) => {
-      const progress = clamp01((timestamp - startedAt) / SUPPLY_PICKUP_FLY_DURATION_MS);
-      const eased = easeOutBack(progress);
+      const elapsed = timestamp - startedAt;
+      const holdProgress = clamp01(elapsed / SUPPLY_PICKUP_CENTER_HOLD_MS);
+      const flightProgress = clamp01((elapsed - SUPPLY_PICKUP_CENTER_HOLD_MS) / SUPPLY_PICKUP_FLY_DURATION_MS);
+      const eased = easeOutBack(flightProgress);
       const curveT = clamp01(eased);
       const oneMinusT = 1 - curveT;
-      const x = oneMinusT * oneMinusT * start.x +
+      const x = oneMinusT * oneMinusT * center.x +
         2 * oneMinusT * curveT * control.x +
         curveT * curveT * end.x;
-      const y = oneMinusT * oneMinusT * start.y +
+      const y = oneMinusT * oneMinusT * center.y +
         2 * oneMinusT * curveT * control.y +
         curveT * curveT * end.y;
-      const bounce = 1 + Math.sin(progress * Math.PI) * 0.24;
-      const scale = (1 - progress * 0.28) * bounce;
-      const rotation = Math.sin(progress * Math.PI * 2) * 10;
+      const centerPop = 1 + Math.sin(holdProgress * Math.PI) * 0.22;
+      const flightBounce = 1 + Math.sin(flightProgress * Math.PI) * 0.24;
+      const scale = flightProgress <= 0 ?
+        SUPPLY_PICKUP_CENTER_SCALE * centerPop :
+        (SUPPLY_PICKUP_CENTER_SCALE - flightProgress * (SUPPLY_PICKUP_CENTER_SCALE - 0.72)) *
+          flightBounce;
+      const rotation = flightProgress <= 0 ? 0 : Math.sin(flightProgress * Math.PI * 2) * 10;
 
-      flyElement.style.opacity = String(1 - Math.max(0, progress - 0.82) / 0.18);
-      flyElement.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) rotate(${rotation}deg) scale(${scale})`;
+      flyElement.style.opacity = formatCssNumber(1 - Math.max(0, flightProgress - 0.82) / 0.18);
+      flyElement.style.transform =
+        `translate(${formatCssNumber(x)}px, ${formatCssNumber(y)}px) ` +
+        `translate(-50%, -50%) rotate(${formatCssNumber(rotation)}deg) scale(${formatCssNumber(scale)})`;
 
-      if (progress < 1) {
+      if (flightProgress < 1) {
         requestHudAnimationFrame(update);
         return;
       }
@@ -737,21 +770,23 @@ export function createGameHudController({
     }
 
     if (
+      normalizedCopy.includes("hydro jet") ||
+      normalizedCopy.includes("water gun") ||
+      normalizedCopy.includes("dry ground") ||
+      normalizedCopy.includes("dry patch") ||
+      normalizedCopy.includes("queued") ||
+      normalizedCopy.includes("restore")
+    ) {
+      return "water";
+    }
+
+    if (
       normalizedCopy.includes("talk") ||
       normalizedCopy.includes("fale") ||
       normalizedCopy.includes("[a / e]") ||
       TALK_ACTION_TERMS.some((term) => normalizedCopy.includes(term))
     ) {
       return "talk";
-    }
-
-    if (
-      normalizedCopy.includes("water gun") ||
-      normalizedCopy.includes("dry ground") ||
-      normalizedCopy.includes("queued") ||
-      normalizedCopy.includes("restore")
-    ) {
-      return "water";
     }
 
     return "neutral";
@@ -763,6 +798,21 @@ export function createGameHudController({
     }
 
     hudCurrentActionElement.dataset.actionKind = getHudActionKind(copy);
+  }
+
+  function syncHudChecklistPresentation(promptCopy = "") {
+    if (!hudChecklistElement) {
+      return;
+    }
+
+    const quiet = isPlacementHudPrompt(promptCopy);
+    if (uiCache.hudChecklistQuiet === quiet) {
+      return;
+    }
+
+    uiCache.hudChecklistQuiet = quiet;
+    hudChecklistElement.hidden = quiet;
+    hudChecklistElement.dataset.presentation = quiet ? "quiet-placement" : "quest";
   }
 
   function formatTrackedRecipe(recipe) {
@@ -1093,13 +1143,30 @@ export function createGameHudController({
     }
 
     if (activeQuest.id === "makingHabitats") {
+      if (storyState.flags?.firstRequiredTaughtActionFreedomWindowActive) {
+        return [
+          {
+            label: "Try Hydro Jet on any dry patch that catches your eye",
+            done: Boolean(storyState.flags?.firstGrassRestored)
+          },
+          {
+            label: "Watch what changes around the soil",
+            done: uiCache.nearbyHabitats.length > 0
+          },
+          {
+            label: "Keep exploring; Grow Bot can wait",
+            done: false
+          }
+        ];
+      }
+
       return [
         {
           label: "Use Hydro Jet on a dry object",
           done: Boolean(storyState.flags?.firstGrassRestored)
         },
         {
-          label: "Find a restored habitat",
+          label: "Find a restored colony zone",
           done: uiCache.nearbyHabitats.length > 0
         },
         {
@@ -1325,7 +1392,7 @@ export function createGameHudController({
       } :
       activeQuest;
     const habitatCopy = uiCache.nearbyHabitats ?
-      `Habitat: ${uiCache.nearbyHabitats}` :
+      `Colony zone: ${uiCache.nearbyHabitats}` :
       "";
     const questCopy = displayQuest ?
       `${displayQuest.title}. ${displayQuest.body}` :
@@ -1357,39 +1424,13 @@ export function createGameHudController({
   function syncHudMeta(storyState, inventory, playerPosition = [0, 0, 0]) {
     rememberStoryState(storyState);
     refreshActiveCompanionHudFromCache();
-
-    if (!hudMetaElement) {
-      return;
-    }
-
-    const colonyStatus = createColonyStatusModel({
-      storyState,
-      inventory,
-      playerSkills: latestSkillsState || {},
-      activeMoveId: latestActiveSkillId
-    });
-    const colonyCache = createColonyCacheState({
-      inventory,
-      itemDefs
-    });
-    const nextText = [
-      formatColonyStatusHudText(colonyStatus),
-      formatColonyCacheHudText(colonyCache)
-    ].filter(Boolean).join(" • ");
-
-    if (uiCache.hudMeta === nextText) {
-      return;
-    }
-
-    uiCache.hudMeta = nextText;
-    hudMetaElement.textContent = nextText;
-    hudMetaElement.dataset.colonyStatus = nextText ? "visible" : "hidden";
-    flashHudBoard();
+    hudMetaElement?.remove?.();
   }
 
   function syncHudInstructions(storyState, promptCopy = "", inputModalityState = null) {
     rememberStoryState(storyState);
     refreshActiveCompanionHudFromCache();
+    syncHudChecklistPresentation(promptCopy);
 
     if (!hudInstructionsElement) {
       return;
@@ -1398,9 +1439,15 @@ export function createGameHudController({
     if (questSystem?.getActiveQuest) {
       const activeQuest = questSystem.getActiveQuest();
       const questGuide = getErrandQuestInstructionText(activeQuest);
+      const freedomWindowGuide =
+        activeQuest?.id === "makingHabitats" &&
+        storyState.flags?.firstRequiredTaughtActionFreedomWindowActive ?
+          "Experiment with Hydro Jet. Restore any dry patch that looks interesting; Grow Bot can wait until you're ready." :
+          "";
       const nextText = promptCopy ||
+        freedomWindowGuide ||
         questGuide ||
-        "Explore freely, restore habitats, and check in with helpers.";
+        "Explore freely, restore colony zones, and check in with helpers.";
       const questChanged = activeQuest?.id && uiCache.hudQuestId !== activeQuest.id;
       uiCache.hudQuestId = activeQuest?.id || uiCache.hudQuestId;
       syncHudActionKind(nextText);

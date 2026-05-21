@@ -27,6 +27,11 @@ function createFrameSnapshot() {
       text: "",
       worldPosition: null
     },
+    dryGrassHint: {
+      visible: false,
+      targetId: null,
+      worldPosition: null
+    },
     groundCellHighlight: {
       visible: false,
       groundCell: null,
@@ -82,6 +87,10 @@ function resetFrameSnapshot(snapshot) {
   snapshot.taskPop.visible = false;
   snapshot.taskPop.text = "";
   snapshot.taskPop.worldPosition = null;
+
+  snapshot.dryGrassHint.visible = false;
+  snapshot.dryGrassHint.targetId = null;
+  snapshot.dryGrassHint.worldPosition = null;
 
   snapshot.groundCellHighlight.visible = false;
   snapshot.groundCellHighlight.groundCell = null;
@@ -238,6 +247,30 @@ function commitTaskPop(worldSpeechController, snapshot, previousSnapshot) {
   worldSpeechController.setTaskPopWorldPosition?.(snapshot.taskPop.worldPosition);
 }
 
+function commitDryGrassHint(worldSpeechController, snapshot, previousSnapshot) {
+  if (!snapshot.dryGrassHint.visible) {
+    if (previousSnapshot.dryGrassHint.visible) {
+      worldSpeechController.hideDryGrassHint?.();
+    }
+    return;
+  }
+
+  const needsShow =
+    !previousSnapshot.dryGrassHint.visible ||
+    previousSnapshot.dryGrassHint.targetId !== snapshot.dryGrassHint.targetId;
+
+  if (needsShow) {
+    worldSpeechController.showDryGrassHint?.({
+      targetId: snapshot.dryGrassHint.targetId,
+      worldPosition: snapshot.dryGrassHint.worldPosition,
+      anchorHeight: 2.9
+    });
+    return;
+  }
+
+  worldSpeechController.setDryGrassHintWorldPosition?.(snapshot.dryGrassHint.worldPosition);
+}
+
 function commitGroundCellHighlight(highlightController, snapshot, previousSnapshot) {
   if (!highlightController) {
     return;
@@ -389,6 +422,10 @@ function commitProjectedOverlays({
     worldSpeechController.updateTaskPop?.(camera, mount.clientWidth, mount.clientHeight);
   }
 
+  if (snapshot.dryGrassHint.visible) {
+    worldSpeechController.updateDryGrassHint?.(camera, mount.clientWidth, mount.clientHeight);
+  }
+
   if (highlightController && snapshot.groundCellHighlight.visible) {
     highlightController.update(camera, mount.clientWidth, mount.clientHeight);
   }
@@ -435,6 +472,7 @@ export function createFrameSnapshotController({
       commitWorldSpeech(worldSpeech, frontBuffer, previousSnapshot);
       commitWorldPrompt(worldSpeech, frontBuffer, previousSnapshot);
       commitTaskPop(worldSpeech, frontBuffer, previousSnapshot);
+      commitDryGrassHint(worldSpeech, frontBuffer, previousSnapshot);
       if (worldRenderer.drawGroundCellHighlight) {
         groundCellHighlight?.hide?.();
       } else {

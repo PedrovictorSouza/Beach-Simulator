@@ -30,6 +30,8 @@ const ELEVATED_TERRAIN_HILLS = Object.freeze([
   { id: "outer-west-crown", center: [-130, -34], radius: 8, height: 6 },
   { id: "outer-north-mid-wall", center: [8, -112], radius: 9, height: 5 }
 ]);
+const ELEVATED_TERRAIN_COLLIDER_MIN_PADDING = 0.72;
+const ELEVATED_TERRAIN_COLLIDER_PADDING_FACTOR = 0.42;
 
 function distance2d(a, b) {
   return Math.hypot(a[0] - b[0], a[1] - b[1]);
@@ -115,8 +117,13 @@ export function buildElevatedTerrain({
             position: [...instance.offset],
             size: [cellSpan, cellHeight, cellSpan],
             surfaceY,
-            blocksPlayer: false,
-            visualOnly: true
+            blocksPlayer: true,
+            allowPlayerLanding: true,
+            padding: Math.max(
+              ELEVATED_TERRAIN_COLLIDER_MIN_PADDING,
+              Number((cellSpan * ELEVATED_TERRAIN_COLLIDER_PADDING_FACTOR).toFixed(4))
+            ),
+            visualOnly: false
           });
         }
       }

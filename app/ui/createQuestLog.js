@@ -73,6 +73,10 @@ function getQuestSubtitleCopy(quest) {
   return quest.description || "";
 }
 
+function shouldRenderQuestSummaryTitle(quest) {
+  return quest?.id !== "wake-guide";
+}
+
 function renderQuestSummaryHtml(quest) {
   if (!quest) {
     return `
@@ -82,9 +86,12 @@ function renderQuestSummaryHtml(quest) {
   }
 
   const subtitle = getQuestSubtitleCopy(quest);
+  const title = shouldRenderQuestSummaryTitle(quest) ?
+    `<div class="hud-task-title">${escapeHtml(quest.title)}</div>` :
+    "";
 
   return `
-    <div class="hud-task-title">${escapeHtml(quest.title)}</div>
+    ${title}
     ${subtitle ? `<div class="hud-task-subtitle">${escapeHtml(subtitle)}</div>` : ""}
   `;
 }
@@ -362,10 +369,10 @@ function renderTrackedTaskChecklistHtml(storyState = {}, options = {}) {
         data-done="${entry.done ? "true" : "false"}"
         data-objective-type="TRACKED_TASK"
         data-task-flashing="${entry.flashing ? "true" : "false"}"
+        data-task-title="${escapeHtml(entry.task.title)}"
       >
         <span class="hud-checklist__box" aria-hidden="true"></span>
         <span class="hud-checklist__content">
-          <strong class="hud-checklist__task-title">${escapeHtml(entry.task.title)}</strong>
           <span class="hud-checklist__task-copy">${escapeHtml(description)}</span>
           ${subtasksHtml}
         </span>

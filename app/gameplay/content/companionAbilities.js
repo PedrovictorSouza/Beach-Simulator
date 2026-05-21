@@ -61,7 +61,7 @@ export const COMPANION_ABILITIES = deepFreeze([
         type: "UNLOCK",
         targetId: "waterGun"
       },
-      when: `After ${SANDBOTS_BOT_NAMES.hydro} is discovered and the Colony Codex reward flow completes.`
+      when: `After ${SANDBOTS_BOT_NAMES.hydro} is discovered and the Instructions. reward flow completes.`
     },
     runtime: {
       skillDefId: "waterGun",

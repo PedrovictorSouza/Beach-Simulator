@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   HABITAT_SITE_CRITERION,
   HABITAT_SITE_REASON_STATE,
-  evaluateHabitatSiteChoice
+  evaluateHabitatSiteChoice,
+  formatHabitatSiteChoicePrompt
 } from "../app/gameplay/habitatSiteChoiceContract.js";
 
 describe("habitat site choice contract", () => {
@@ -89,5 +90,33 @@ describe("habitat site choice contract", () => {
         state: HABITAT_SITE_REASON_STATE.WARN
       })
     ]);
+  });
+
+  it("formats readable placement prompts from site choice reasons", () => {
+    const validSite = evaluateHabitatSiteChoice({
+      position: [40, 0.02, -18],
+      footprint: [3, 3],
+      groundState: "restored",
+      requiresPower: true,
+      solarStationPosition: [38, 0.02, -17],
+      workbenchPosition: [38, 0.02, -17],
+      blockers: []
+    });
+    const unpoweredSite = evaluateHabitatSiteChoice({
+      position: [80, 0.02, -18],
+      footprint: [3, 3],
+      requiresPower: true,
+      solarStationPosition: [38, 0.02, -17],
+      blockers: []
+    });
+
+    expect(formatHabitatSiteChoicePrompt({
+      siteChoice: validSite,
+      placePrompt: "X / Enter Place"
+    })).toBe("Powered site - X / Enter Place");
+    expect(formatHabitatSiteChoicePrompt({
+      siteChoice: unpoweredSite,
+      powerPrompt: "Place inside blue zone"
+    })).toBe("No power support - Place inside blue zone");
   });
 });

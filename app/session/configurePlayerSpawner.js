@@ -24,6 +24,7 @@ import { getGameplayOpeningShipDynamicBarrier } from "./gameplayOpeningShip.js";
 import { createPlayerConstructionTerrainColliders } from "../gameplay/placementBlockers.js";
 
 export const ACT_TWO_PLAYER_SPEED = 5.1;
+const ACT_TWO_PLAYER_RUN_SPEED_MULTIPLIER = 1.55 * 1.2;
 
 export function configurePlayerSpawner(
   session,
@@ -83,6 +84,7 @@ export function configurePlayerSpawner(
       id: "player",
       position,
       speed: ACT_TWO_PLAYER_SPEED,
+      runSpeedMultiplier: ACT_TWO_PLAYER_RUN_SPEED_MULTIPLIER,
       worldHeight: 1.55,
       controller: keyboardController,
       collisionTest,

@@ -3,6 +3,7 @@ const DEFAULT_GRID_WIDTH = 1;
 const DEFAULT_GRID_HEIGHT = 1;
 
 export const GRID_PLACEABLE_IDS = Object.freeze({
+  GREENHOUSE: "greenhouse",
   TRAIN_HOUSE: "trainHouse",
   SOLAR_STATION: "solarStation",
   LEAF_DEN_KIT: "leafDenKit",
@@ -33,6 +34,15 @@ export const GRID_INPUT_EVENTS = Object.freeze({
 });
 
 export const DEFAULT_PLACEABLE_OBJECTS = Object.freeze([
+  Object.freeze({
+    id: GRID_PLACEABLE_IDS.GREENHOUSE,
+    name: "Greenhouse",
+    prefabKey: "greenhouseModel",
+    footprint: Object.freeze({ width: 5, height: 3 }),
+    placementType: GRID_PLACEMENT_TYPES.OBJECT,
+    buildCategory: GRID_BUILD_CATEGORIES.WORKBENCH,
+    sourceItemId: "greenhouse"
+  }),
   Object.freeze({
     id: GRID_PLACEABLE_IDS.TRAIN_HOUSE,
     name: "Thermal Cabin",
@@ -1092,6 +1102,7 @@ export function restoreGridPlacementSaveSnapshot({
 }
 
 export const LEGACY_PLACEABLE_GRID_SOURCE_IDS = Object.freeze({
+  greenhouse: GRID_PLACEABLE_IDS.GREENHOUSE,
   strawBed: GRID_PLACEABLE_IDS.SOLAR_STATION,
   campfire: GRID_PLACEABLE_IDS.TRAIN_HOUSE,
   leafDen: GRID_PLACEABLE_IDS.LEAF_DEN,
@@ -1133,6 +1144,7 @@ export function migrateLegacyPlaceablesToGridRecords({
   }
 
   addLegacyPlacement("strawBed", placeables.strawBed);
+  addLegacyPlacement("greenhouse", placeables.greenhouse);
   addLegacyPlacement("campfire", placeables.campfire);
   addLegacyPlacement("leafDen", placeables.leafDen);
 

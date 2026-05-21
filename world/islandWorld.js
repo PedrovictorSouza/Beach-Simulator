@@ -34,6 +34,8 @@ const LEPPA_TREE_WATERED_TILE_MAX_RADIUS_FACTOR = 1.65;
 const LOG_CHAIR_INTERACT_DISTANCE = 2.35;
 const LEAF_DEN_INTERACT_DISTANCE = 4.4;
 const INSTANTIATED_OBJECT_INTERACT_DISTANCE = 2.2;
+const THERMAL_CABIN_PLAYER_PLACEMENT_OFFSET = Object.freeze([4.25, 2.85]);
+const GREENHOUSE_PLAYER_PLACEMENT_OFFSET = Object.freeze([4.25, 2.85]);
 export const HELPER_BOT_TALK_INTERACT_DISTANCE = 8.2;
 export const BULBASAUR_TALK_INTERACT_DISTANCE = HELPER_BOT_TALK_INTERACT_DISTANCE;
 const INTERACTABLE_OBJECT_REACH_MIN = 2.55;
@@ -809,11 +811,24 @@ export function buildCampfirePlacement(anchorPosition = TANGROWTH_CAMPFIRE_ANCHO
   return {
     id: "campfire-0",
     position: [
-      anchorPosition[0] + 0.92,
+      anchorPosition[0] + THERMAL_CABIN_PLAYER_PLACEMENT_OFFSET[0],
       0.02,
-      anchorPosition[2] + 0.42
+      anchorPosition[2] + THERMAL_CABIN_PLAYER_PLACEMENT_OFFSET[1]
     ],
     size: [1.34, 1.18],
+    uvRect: [0, 0, 1, 1]
+  };
+}
+
+export function buildGreenhousePlacement(anchorPosition) {
+  return {
+    id: "greenhouse-0",
+    position: [
+      anchorPosition[0] + GREENHOUSE_PLAYER_PLACEMENT_OFFSET[0],
+      0.02,
+      anchorPosition[2] + GREENHOUSE_PLAYER_PLACEMENT_OFFSET[1]
+    ],
+    size: [2.85, 1.7],
     uvRect: [0, 0, 1, 1]
   };
 }
@@ -995,6 +1010,15 @@ function canDestroyWorldNature(storyState) {
   return Boolean(
     storyState?.flags?.bulbasaurRevealed ||
     storyState?.flags?.bulbasaurFollowing
+  );
+}
+
+function hasDryTallGrassCutPower(storyState) {
+  const flags = storyState?.flags || {};
+  return Boolean(
+    flags.bulbasaurDryGrassMissionComplete ||
+    flags.bulbasaurDryGrassRequestTurnedIn ||
+    flags.leafageTallGrassHabitatCreated
   );
 }
 
@@ -1411,6 +1435,19 @@ export function findNearbyInteractable(
     });
   }
 
+  const bulbasaurWorkbenchGuideReady =
+    storyState?.flags?.bulbasaurWorkbenchGuideAvailable &&
+    !storyState?.flags?.workbenchDiyRecipesReceived &&
+    Boolean(bulbasaurEncounterPosition);
+
+  if (bulbasaurWorkbenchGuideReady) {
+    setNearbyBulbasaurTarget({
+      kind: "bulbasaurWorkbenchGuide",
+      id: "bulbasaurWorkbenchGuide",
+      label: `Talk to ${SANDBOTS_BOT_NAMES.grow}`
+    });
+  }
+
   const nearbyLeppaTree = findNearbyLeppaTree(playerPosition, leppaTree, storyState);
   if (
     nearbyLeppaTree?.action === "headbutt" &&
@@ -1719,6 +1756,14 @@ export function buildNearbyPrompt({
   }
 
   if (interactTarget?.target?.action === "destroyInstantiatedObject") {
+    if (targetLabel === "Dry Grass") {
+      if (storyState && !hasDryTallGrassCutPower(storyState)) {
+        return `[X / Enter] ${targetLabel} • Locked`;
+      }
+
+      return `[X / Enter] ${targetLabel} • Cut`;
+    }
+
     const actionLabel = quest?.actionLabel === "Destroy" ?
       quest.actionLabel :
       (interactTarget.target.actionLabel || "Cut");
@@ -1845,7 +1890,7 @@ export function createCollisionChecker(
   const houseHalfX = houseModel.size[0] * 0.5 + 0.35;
   const houseHalfZ = houseModel.size[2] * 0.5 + 0.35;
 
-  return function isBlocked(nextPosition) {
+  return function isBlocked(nextPosition, characterId = null, context = {}) {
     const [x, y, z] = nextPosition;
 
     if (Math.abs(x) > sceneLimit || Math.abs(z) > sceneLimit) {
@@ -1887,6 +1932,19 @@ export function createCollisionChecker(
 
     if (!terrainCollider) {
       return false;
+    }
+
+    if (terrainCollider.allowPlayerLanding === false) {
+      const groundY = Number.isFinite(context?.groundY) ? context.groundY : 0;
+      const airborneClearance = Math.max(0, Number(y) - groundY);
+      if (context?.airborne && airborneClearance > 0.08) {
+        return {
+          blocked: false,
+          landingY: null
+        };
+      }
+
+      return true;
     }
 
     if (y >= terrainCollider.surfaceY - 0.18) {

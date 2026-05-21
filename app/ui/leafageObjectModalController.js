@@ -137,7 +137,7 @@ export function createLeafageObjectModalController({
       padding: "22px 24px",
       fontFamily: "var(--game-ui-font, monospace)",
       letterSpacing: "0",
-      textTransform: "uppercase"
+      textTransform: "none"
     });
 
     const header = createElement(documentRef, "div", "leafage-object-modal__header");
@@ -302,7 +302,7 @@ export function createLeafageObjectModalController({
         return false;
       }
 
-      if (event.code === "KeyX" || event.code === "Enter") {
+      if (event.code === "KeyE" || event.code === "KeyX" || event.code === "Enter") {
         confirm();
         return true;
       }

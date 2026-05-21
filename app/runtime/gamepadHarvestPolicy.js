@@ -25,6 +25,10 @@ export function shouldGamepadSourceHarvestTarget({
   }
 
   if (source === "gamepadBag") {
+    if (activeHarvestTarget.leafageGroundCell) {
+      return true;
+    }
+
     return isGamepadBagPlacementTarget(activeHarvestTarget);
   }
 

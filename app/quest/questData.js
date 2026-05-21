@@ -161,7 +161,7 @@ export const SMALL_ISLAND_QUESTS = Object.freeze([
   {
     id: "open-the-water-route",
     title: "Open the Water Route",
-    description: "Unlock a world action that can restore dry ground and reveal new habitat clues.",
+    description: "Unlock a world action that can restore dry ground and reveal colony-zone clues.",
     guidance: "Finish the helper conversation. The learned action will be confirmed on screen.",
     giverId: "chopper",
     status: QUEST_STATUS.LOCKED,
@@ -200,7 +200,7 @@ export const SMALL_ISLAND_QUESTS = Object.freeze([
     giverId: "leaf-helper",
     status: QUEST_STATUS.LOCKED,
     objectives: [
-      { type: QUEST_EVENT.TALK, targetId: "leaf-helper", required: 1, current: 0 }
+      { type: QUEST_EVENT.TALK, targetId: "leaf-helper", required: 1, current: 0, hiddenFromHud: true }
     ],
     rewards: {
       unlocks: ["leafage"],
@@ -212,7 +212,7 @@ export const SMALL_ISLAND_QUESTS = Object.freeze([
     id: "grow-a-home-patch",
     title: `Plant ${SANDBOTS_ITEM_NAMES.growTool} for ${SANDBOTS_BOT_NAMES.grow}`,
     description: `Use ${SANDBOTS_ITEM_NAMES.growTool} once on restored ground to start a new green corner for ${SANDBOTS_BOT_NAMES.grow}.`,
-    guidance: `Switch to ${SANDBOTS_ITEM_NAMES.growTool}, choose restored ground near the helper habitat, then press Enter. Keep growing more if you want to shape the full corner.`,
+    guidance: `Switch to ${SANDBOTS_ITEM_NAMES.growTool}, choose restored ground near ${SANDBOTS_BOT_NAMES.grow}'s colony zone, then press Enter. Keep growing more if you want to shape the full corner.`,
     giverId: "leaf-helper",
     status: QUEST_STATUS.LOCKED,
     objectives: [
@@ -227,7 +227,7 @@ export const SMALL_ISLAND_QUESTS = Object.freeze([
   {
     id: "chopper-first-habitat-report",
     title: "Tell Chopper",
-    description: "Return to Chopper and tell him the first habitat is taking root.",
+    description: "Return to Chopper and tell him the first colony zone is taking root.",
     guidance: "Follow Chopper's marker, stand close, then press E to report back.",
     giverId: "chopper",
     status: QUEST_STATUS.LOCKED,

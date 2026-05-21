@@ -42,12 +42,27 @@ describe("colony status model", () => {
     expect(model.activeTool).toBe("Hydro Jet");
     expect(model.systems.find((system) => system.id === COLONY_STATUS_SYSTEM_ID.WATER)).toMatchObject({
       state: COLONY_STATUS_STATE.ACTIVE,
-      detail: "Hydro Jet selected."
+      detail: "Hydro Jet selected. Aim at dry ground."
     });
     expect(model.systems.find((system) => system.id === COLONY_STATUS_SYSTEM_ID.SOIL)).toMatchObject({
       state: COLONY_STATUS_STATE.ACTIVE,
-      detail: "4/10 dry grass restored.",
+      detail: "4/10 dry grass restored. Keep watering.",
       value: 0.4
+    });
+  });
+
+  it("keeps water and soil ready states actionable", () => {
+    const model = createColonyStatusModel({
+      playerSkills: { waterGun: true }
+    });
+
+    expect(model.systems.find((system) => system.id === COLONY_STATUS_SYSTEM_ID.WATER)).toMatchObject({
+      state: COLONY_STATUS_STATE.READY,
+      detail: "Hydro Jet ready. Restore dry ground."
+    });
+    expect(model.systems.find((system) => system.id === COLONY_STATUS_SYSTEM_ID.SOIL)).toMatchObject({
+      state: COLONY_STATUS_STATE.READY,
+      detail: "Dry ground can be restored with Hydro Jet."
     });
   });
 
@@ -67,11 +82,11 @@ describe("colony status model", () => {
 
     expect(model.systems.find((system) => system.id === COLONY_STATUS_SYSTEM_ID.POWER)).toMatchObject({
       state: COLONY_STATUS_STATE.ACTIVE,
-      detail: "Solar Station online."
+      detail: "Solar Station online. Blue zone supports shelter."
     });
     expect(model.systems.find((system) => system.id === COLONY_STATUS_SYSTEM_ID.SHELTER)).toMatchObject({
       state: COLONY_STATUS_STATE.ACTIVE,
-      detail: "House Kit placed."
+      detail: "House Kit placed. Shelter site marked."
     });
   });
 
@@ -87,11 +102,26 @@ describe("colony status model", () => {
 
     expect(model.systems.find((system) => system.id === COLONY_STATUS_SYSTEM_ID.POWER)).toMatchObject({
       state: COLONY_STATUS_STATE.AVAILABLE,
-      detail: "Solar Station plans ready."
+      detail: "Solar Station plans ready at Workbench."
     });
     expect(model.systems.find((system) => system.id === COLONY_STATUS_SYSTEM_ID.SHELTER)).toMatchObject({
       state: COLONY_STATUS_STATE.READY,
-      detail: "House Kit ready."
+      detail: "House Kit ready. Place inside blue zone."
+    });
+  });
+
+  it("keeps Solar Station ready status tied to site choice", () => {
+    const model = createColonyStatusModel({
+      storyState: {
+        flags: {
+          strawBedCrafted: true
+        }
+      }
+    });
+
+    expect(model.systems.find((system) => system.id === COLONY_STATUS_SYSTEM_ID.POWER)).toMatchObject({
+      state: COLONY_STATUS_STATE.READY,
+      detail: "Solar Station ready. Find clear ground."
     });
   });
 

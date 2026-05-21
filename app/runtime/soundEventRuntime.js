@@ -2,6 +2,8 @@ const UI_CLICK_SFX_URL = new URL("../soundFx/grab.mp3", import.meta.url).href;
 const UI_CONFIRM_SFX_URL = new URL("../soundFx/center-computer.mp3", import.meta.url).href;
 const UI_SUCCESS_SFX_URL = new URL("../soundFx/mission-complete.mp3", import.meta.url).href;
 const BOT_SIGNAL_SFX_URL = new URL("../soundFx/bot-trade.mp3", import.meta.url).href;
+const CHOPPER_VOICE_SFX_URL = new URL("../soundFx/chopper-voice/chopper.mp3", import.meta.url).href;
+const PLAYER_JUMP_SFX_URL = new URL("../soundFx/player/jump.mp3", import.meta.url).href;
 const PLACE_OBJECT_SFX_URL = new URL("../soundFx/instance-object.mp3", import.meta.url).href;
 const IMPACT_SFX_URL = new URL("../soundFx/impact.mp3", import.meta.url).href;
 const WATER_SFX_URL = new URL("../soundFx/water-drop..mp3", import.meta.url).href;
@@ -20,7 +22,9 @@ export const SOUND_EVENT_IDS = Object.freeze({
   GAMEPLAY_SUCCESS: "gameplay.success",
   GAMEPLAY_IMPACT: "gameplay.impact",
   GAMEPLAY_WATER: "gameplay.water",
-  BOT_SIGNAL: "bot.signal"
+  GAMEPLAY_JUMP: "gameplay.jump",
+  BOT_SIGNAL: "bot.signal",
+  CHOPPER_VOICE: "chopper.voice"
 });
 
 export const DEFAULT_SOUND_EVENT_REGISTRY = Object.freeze({
@@ -79,10 +83,20 @@ export const DEFAULT_SOUND_EVENT_REGISTRY = Object.freeze({
     volume: 0.54,
     cooldownMs: 55
   },
+  [SOUND_EVENT_IDS.GAMEPLAY_JUMP]: {
+    src: PLAYER_JUMP_SFX_URL,
+    volume: 0.62,
+    cooldownMs: 80
+  },
   [SOUND_EVENT_IDS.BOT_SIGNAL]: {
     src: BOT_SIGNAL_SFX_URL,
     volume: 0.56,
     cooldownMs: 120
+  },
+  [SOUND_EVENT_IDS.CHOPPER_VOICE]: {
+    src: CHOPPER_VOICE_SFX_URL,
+    volume: 0.7,
+    cooldownMs: 1200
   }
 });
 

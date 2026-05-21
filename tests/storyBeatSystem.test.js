@@ -2,7 +2,6 @@ import { describe, expect, it, vi } from "vitest";
 import {
   BULBASAUR_POKEDEX_ENTRY_ID,
   CHARMANDER_POKEDEX_ENTRY_ID,
-  TALL_GRASS_POKEDEX_ENTRY_ID,
   TIMBURR_POKEDEX_ENTRY_ID
 } from "../pokedexEntries.js";
 import { createStoryBeatSystem } from "../app/story/createStoryBeatSystem.js";
@@ -85,26 +84,34 @@ describe("createStoryBeatSystem", () => {
     });
   });
 
-  it("tracks habitat tasks and opens a discovered habitat entry", () => {
+  it("tracks habitat tasks without opening the habitat entry", () => {
     const { openConversation, pokedexRuntime, system, trackFieldTask } = createSystem();
 
-    system.playDialogue(STORY_BEAT_IDS.CHOPPER_TALL_GRASS_MEMORY, {
-      context: {
-        discoveredHabitats: [
-          {
-            id: "tall-grass",
-            pokedexEntryId: TALL_GRASS_POKEDEX_ENTRY_ID
-          }
-        ]
-      }
-    });
+    system.playDialogue(STORY_BEAT_IDS.CHOPPER_TALL_GRASS_MEMORY);
     openConversation.mock.results[0].value.complete();
 
     expect(trackFieldTask).toHaveBeenCalledWith(FIELD_TASK_IDS.MAKING_HABITATS);
-    expect(pokedexRuntime.setOpen).toHaveBeenCalledWith(true, {
-      markSeen: true,
-      entryId: TALL_GRASS_POKEDEX_ENTRY_ID
-    });
+    expect(pokedexRuntime.setOpen).not.toHaveBeenCalled();
+  });
+
+  it("introduces the Colony Codex with colony-check language", () => {
+    const { system } = createSystem();
+
+    expect(system.getDialogueLines(STORY_BEAT_IDS.SQUIRTLE_DISCOVERY)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: expect.stringContaining("bot repairs, colony checks")
+      })
+    ]));
+  });
+
+  it("describes restored tall grass as a colony zone", () => {
+    const { system } = createSystem();
+
+    expect(system.getDialogueLines(STORY_BEAT_IDS.CHOPPER_TALL_GRASS_RETURN)).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: expect.stringContaining("tall grass colony zone")
+      })
+    ]));
   });
 
   it("uses dialogue system lines before fallback lines", () => {
@@ -139,6 +146,24 @@ describe("createStoryBeatSystem", () => {
     })).not.toEqual(expect.arrayContaining([
       expect.objectContaining({
         id: "ask-player-name"
+      })
+    ]));
+  });
+
+  it("pays off the confirmed player name during Chopper onboarding", () => {
+    const { system } = createSystem({
+      playerProfile: {
+        playerName: "Ada",
+        nameConfirmation: "yes"
+      }
+    });
+
+    expect(system.getDialogueLines(STORY_BEAT_IDS.CHOPPER_ONBOARDING, {
+      needsPlayerName: false
+    })).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        id: "notice-squirtle-sound",
+        text: expect.stringContaining("Come on, Ada.")
       })
     ]));
   });
@@ -260,7 +285,7 @@ describe("createStoryBeatSystem", () => {
 
     expect(storyState.flags.logChairSat).toBe(true);
     expect(storyState.flags.bulbasaurWorkbenchGuideAvailable).toBeUndefined();
-    expect(trackFieldTask).not.toHaveBeenCalledWith(FIELD_TASK_IDS.WORKBENCH_CAMPFIRE);
+    expect(trackFieldTask).not.toHaveBeenCalledWith(FIELD_TASK_IDS.BUILD_GREENHOUSE);
     expect(pushNotice).toHaveBeenCalledWith("saved.", undefined);
 
     system.playDialogue(STORY_BEAT_IDS.BULBASAUR_WORKBENCH_GUIDE_INTRO);
@@ -268,7 +293,7 @@ describe("createStoryBeatSystem", () => {
 
     expect(storyState.flags.bulbasaurWorkbenchGuideIntroSeen).toBe(true);
     expect(storyState.flags.bulbasaurWorkbenchGuideAvailable).toBe(true);
-    expect(trackFieldTask).toHaveBeenCalledWith(FIELD_TASK_IDS.WORKBENCH_CAMPFIRE);
+    expect(trackFieldTask).toHaveBeenCalledWith(FIELD_TASK_IDS.BUILD_GREENHOUSE);
   });
 
   it("unlocks the first Workbench recipe and marks Thermal Cabin creation beats", () => {
@@ -370,7 +395,7 @@ describe("createStoryBeatSystem", () => {
       entryId: undefined,
       requestId: BOULDER_SHADED_TALL_GRASS_CHALLENGE_ID
     });
-    expect(pushNotice).toHaveBeenCalledWith("Habitat checks unlocked.", undefined);
+    expect(pushNotice).toHaveBeenCalledWith("Colony checks unlocked.", undefined);
   });
 
   it("registers Timburr and completes the Boulder Challenge reward beat", () => {
@@ -390,6 +415,13 @@ describe("createStoryBeatSystem", () => {
     });
 
     system.playDialogue(STORY_BEAT_IDS.BOULDER_CHALLENGE_REWARD);
+
+    expect(openConversation.mock.calls[1][0].lines).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: "Colony check complete: Boulder-Shaded Tall Grass."
+      })
+    ]));
+
     openConversation.mock.results[1].value.complete();
 
     expect(storyState.flags.boulderChallengeRewardClaimed).toBe(true);
@@ -412,7 +444,7 @@ describe("createStoryBeatSystem", () => {
           text: "Do you need anything?"
         }),
         expect.objectContaining({
-          text: expect.stringContaining("Solar Station plans")
+          text: expect.stringContaining("this colony zone feel much steadier")
         })
       ]),
       onLineChange: undefined,
@@ -439,6 +471,13 @@ describe("createStoryBeatSystem", () => {
     expect(pushNotice).toHaveBeenCalledWith("Solar Station prepared.", undefined);
 
     system.playDialogue(STORY_BEAT_IDS.BULBASAUR_STRAW_BED_REQUEST_COMPLETE);
+
+    expect(openConversation.mock.calls[0][0].lines).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: expect.stringContaining("This place feels much more like home")
+      })
+    ]));
+
     openConversation.mock.results[0].value.complete();
 
     expect(storyState.flags.bulbasaurStrawBedRequestComplete).toBe(true);
@@ -450,7 +489,7 @@ describe("createStoryBeatSystem", () => {
     );
   });
 
-  it("checks new habitat checks from the Colony Terminal", () => {
+  it("checks new colony checks from the Colony Terminal", () => {
     const pushNotice = vi.fn();
     const { openConversation, pokedexRuntime, storyState, system, trackFieldTask } = createSystem({
       pushNotice
@@ -469,7 +508,7 @@ describe("createStoryBeatSystem", () => {
       entryId: undefined,
       requestId: NEW_HABITAT_CHALLENGES_ID
     });
-    expect(pushNotice).toHaveBeenCalledWith("New habitat checks added.", undefined);
+    expect(pushNotice).toHaveBeenCalledWith("New colony checks added.", undefined);
   });
 
   it("authorizes the House Kit after Overseer Bot explains houses", () => {
@@ -479,6 +518,13 @@ describe("createStoryBeatSystem", () => {
     });
 
     system.playDialogue(STORY_BEAT_IDS.TANGROWTH_HOUSE_BUILDING_TALK);
+
+    expect(openConversation.mock.calls[0][0].lines).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        text: expect.stringContaining("restoring colony zones")
+      })
+    ]));
+
     openConversation.mock.results[0].value.complete();
 
     expect(storyState.flags.tangrowthHouseTalkComplete).toBe(true);

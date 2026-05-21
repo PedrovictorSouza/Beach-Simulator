@@ -11,6 +11,7 @@ import {
   CAMPFIRE_ITEM_ID,
   CARBON_ITEM_ID,
   DITTO_FLAG_ITEM_ID,
+  GREENHOUSE_ITEM_ID,
   LEAF_DEN_KIT_ITEM_ID,
   LEAVES_ITEM_ID,
   LOG_CHAIR_ITEM_ID,
@@ -54,6 +55,24 @@ function createInteractions(overrides = {}) {
     pushNotice: vi.fn(),
     ...overrides
   });
+}
+
+function createGreenhouseGreenArea(center = [4.25, 0, 2.85], tileSpan = 1.425) {
+  const cells = [];
+  for (let z = -1; z <= 1; z += 1) {
+    for (let x = -2; x <= 2; x += 1) {
+      cells.push({
+        id: `greenhouse-green-ground-${x}-${z}`,
+        offset: [
+          center[0] + x * tileSpan,
+          0,
+          center[2] + z * tileSpan
+        ],
+        tileSpan
+      });
+    }
+  }
+  return cells;
 }
 
 describe("createGameplayInteractions", () => {
@@ -177,11 +196,11 @@ describe("createGameplayInteractions", () => {
 
     expect(pushNotice).toHaveBeenNthCalledWith(
       1,
-      "Nothing to talk to nearby. Move closer to a marker or bot, then press E / X."
+      "No interaction nearby. Move closer to a marker, object, or bot, then press E / X."
     );
     expect(pushNotice).toHaveBeenNthCalledWith(
       2,
-      "Still nothing nearby. Look for an interaction marker or move closer, then press A / E / X."
+      "Still no interaction. Look for a marker, object, or bot, then press A / E / X."
     );
   });
 
@@ -279,7 +298,72 @@ describe("createGameplayInteractions", () => {
       patch: null,
       type: "ground"
     });
-    expect(pushNotice).toHaveBeenCalledWith("Ground restored.");
+    expect(pushNotice).toHaveBeenCalledWith("Ground restored. Soil is viable.");
+  });
+
+  it("paints a 3x3 ground grid with one Hydro Jet impact", () => {
+    const tileSpan = 1.425;
+    const gridCells = [];
+
+    for (let z = -1; z <= 1; z += 1) {
+      for (let x = -1; x <= 1; x += 1) {
+        gridCells.push({
+          id: `ground-${x}-${z}`,
+          offset: [x * tileSpan, 0, z * tileSpan],
+          scale: 1,
+          tileSpan,
+          yaw: 0
+        });
+      }
+    }
+
+    const targetCell = gridCells.find((groundCell) => groundCell.id === "ground-0-0");
+    const farCell = {
+      id: "ground-3-3",
+      offset: [tileSpan * 3, 0, tileSpan * 3],
+      scale: 1,
+      tileSpan,
+      yaw: 0
+    };
+    const groundDeadInstances = [
+      ...gridCells,
+      farCell
+    ];
+    const groundPurifiedInstances = [];
+    const purifyGroundCell = vi.fn(() => true);
+    const onWaterGunImpactMotionRequested = vi.fn();
+    const interactions = createInteractions({
+      findNearbyGroundCell: vi.fn(() => ({
+        groundCell: targetCell,
+        distance: 0.2
+      })),
+      purifyGroundCell,
+      reviveGroundGrass: vi.fn(() => false),
+      reviveGroundFlower: vi.fn(() => false),
+      onWaterGunImpactMotionRequested,
+      pushNotice: vi.fn()
+    });
+
+    const result = interactions.performHarvestAction({
+      playerPosition: [0.1, 0, 0.1],
+      palmModel: null,
+      palmInstances: [],
+      resourceNodes: [],
+      inventory: {},
+      storyState: { questIndex: 0, flags: {} },
+      woodDrops: [],
+      groundDeadInstances,
+      groundPurifiedInstances,
+      groundGrassPatches: [],
+      canPurifyGround: true
+    });
+
+    expect(result).toBe(true);
+    expect(new Set(purifyGroundCell.mock.calls.map((call) => call[0].id))).toEqual(
+      new Set(gridCells.map((groundCell) => groundCell.id))
+    );
+    expect(onWaterGunImpactMotionRequested).toHaveBeenCalledTimes(9);
+    expect(purifyGroundCell.mock.calls.map((call) => call[0].id)).not.toContain("ground-3-3");
   });
 
   it("allows Hydro Jet on empty dry ground before the dry grass mission is complete", () => {
@@ -330,7 +414,7 @@ describe("createGameplayInteractions", () => {
       [groundCell],
       []
     );
-    expect(pushNotice).toHaveBeenCalledWith("Ground restored.");
+    expect(pushNotice).toHaveBeenCalledWith("Ground restored. Soil is viable.");
   });
 
   it("allows Water Gun on dry grass before Bulbasaur's dry grass mission is complete", () => {
@@ -969,7 +1053,7 @@ describe("createGameplayInteractions", () => {
     expect(result).toBe(false);
     expect(findNearbyGroundCell).not.toHaveBeenCalled();
     expect(pushNotice).toHaveBeenCalledWith(
-      "No resource in range. Move closer to a tree or drop, then press Enter."
+      "No resource in range. Move closer to a tree, supply drop, or resource marker, then press Enter."
     );
   });
 
@@ -996,11 +1080,78 @@ describe("createGameplayInteractions", () => {
 
     expect(pushNotice).toHaveBeenNthCalledWith(
       1,
-      "No target in range. Move closer to dry ground, grass, a tree, or a marker, then press Enter."
+      "No Hydro Jet target. Look for cracked dry soil, dry grass, or a thirsty tree, then press Enter."
     );
     expect(pushNotice).toHaveBeenNthCalledWith(
       2,
-      "Still no target. Move until a tile outline or interaction marker appears, then press X / Enter."
+      "Still no Hydro Jet target. Aim for cracked soil, dry grass, or thirsty trees until the tile outline appears."
+    );
+  });
+
+  it("teaches Bio-Grow target reading when no restored soil is in range", () => {
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      pushNotice
+    });
+    const action = {
+      playerPosition: [0, 0, 0],
+      palmModel: null,
+      palmInstances: [],
+      resourceNodes: [],
+      inventory: {},
+      storyState: { questIndex: 0, flags: {} },
+      woodDrops: [],
+      groundDeadInstances: [],
+      groundPurifiedInstances: [],
+      canUseLeafage: true
+    };
+
+    expect(interactions.performHarvestAction(action)).toBe(false);
+    expect(interactions.performHarvestAction(action)).toBe(false);
+
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      1,
+      "No Bio-Grow target. Look for restored green soil, then press Enter."
+    );
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      2,
+      "Still no Bio-Grow target. Aim at restored green soil until the tile outline appears."
+    );
+  });
+
+  it("resets missed target escalation when the selected field tool changes", () => {
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      pushNotice
+    });
+    const baseAction = {
+      playerPosition: [0, 0, 0],
+      palmModel: null,
+      palmInstances: [],
+      resourceNodes: [],
+      inventory: {},
+      storyState: { questIndex: 0, flags: {} },
+      woodDrops: [],
+      groundDeadInstances: [],
+      groundPurifiedInstances: []
+    };
+
+    expect(interactions.performHarvestAction({
+      ...baseAction,
+      canPurifyGround: true
+    })).toBe(false);
+    expect(interactions.performHarvestAction({
+      ...baseAction,
+      canUseLeafage: true
+    })).toBe(false);
+
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      1,
+      "No Hydro Jet target. Look for cracked dry soil, dry grass, or a thirsty tree, then press Enter."
+    );
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      2,
+      "No Bio-Grow target. Look for restored green soil, then press Enter."
     );
   });
 
@@ -1066,6 +1217,137 @@ describe("createGameplayInteractions", () => {
     );
   });
 
+  it("keeps Hydro Bot interaction readable when it is not the current task", () => {
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      getActiveQuest: () => ({
+        id: "water-dry-grass",
+        title: "Water dry grass"
+      }),
+      findNearbyInteractable: vi.fn(() => ({
+        target: {
+          kind: "site",
+          id: "squirtle",
+          label: "Hydro Bot"
+        },
+        distance: 1.1
+      })),
+      pushNotice
+    });
+
+    const result = interactions.performInteractAction({
+      playerPosition: [0, 0, 0],
+      npcActors: [],
+      interactables: [],
+      storyState: {
+        questIndex: 2,
+        flags: {}
+      },
+      inventory: {}
+    });
+
+    expect(result).toBe(false);
+    expect(pushNotice).toHaveBeenCalledWith(
+      "Hydro Bot is quiet for now. Follow the current colony task first."
+    );
+  });
+
+  it("escalates repeated early interaction feedback on the same valid target", () => {
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      getActiveQuest: () => ({
+        id: "water-dry-grass",
+        title: "Water dry grass"
+      }),
+      findNearbyInteractable: vi.fn(() => ({
+        target: {
+          kind: "site",
+          id: "squirtle",
+          label: "Hydro Bot"
+        },
+        distance: 1.1
+      })),
+      pushNotice
+    });
+    const action = {
+      playerPosition: [0, 0, 0],
+      npcActors: [],
+      interactables: [],
+      storyState: {
+        questIndex: 2,
+        flags: {}
+      },
+      inventory: {}
+    };
+
+    expect(interactions.performInteractAction(action)).toBe(false);
+    expect(interactions.performInteractAction(action)).toBe(false);
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      1,
+      "Hydro Bot is quiet for now. Follow the current colony task first."
+    );
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      2,
+      "Still not ready. Follow the current colony task, then come back."
+    );
+  });
+
+  it("keeps blocked route interactions readable before their quest step", () => {
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      getActiveQuest: () => ({
+        id: "freeRoam",
+        title: "Free Roam"
+      }),
+      findNearbyInteractable: vi.fn()
+        .mockReturnValueOnce({
+          target: {
+            kind: "site",
+            id: "bridge",
+            label: "Bridge"
+          },
+          distance: 1.2
+        })
+        .mockReturnValueOnce({
+          target: {
+            kind: "site",
+            id: "graniteGate",
+            label: "Granite Gate"
+          },
+          distance: 1.2
+        }),
+      pushNotice
+    });
+    const baseAction = {
+      playerPosition: [0, 0, 0],
+      npcActors: [],
+      interactables: [],
+      storyState: {
+        questIndex: 2,
+        flags: {}
+      },
+      inventory: {}
+    };
+
+    interactions.performInteractAction({
+      ...baseAction,
+      interactables: []
+    });
+    interactions.performInteractAction({
+      ...baseAction,
+      interactables: []
+    });
+
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      1,
+      "The bridge route is not ready yet. Follow the current colony task first."
+    );
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      2,
+      "The Granite Gate stays sealed until the current route opens it."
+    );
+  });
+
   it("shows a special notice when the player restores the first dead grass", () => {
     const groundCell = {
       id: "ground-1-1",
@@ -1111,12 +1393,73 @@ describe("createGameplayInteractions", () => {
 
     expect(result).toBe(true);
     expect(storyState.flags.firstGrassRestored).toBe(true);
-    expect(pushNotice).toHaveBeenCalledWith("Dry grass restored.");
+    expect(pushNotice).toHaveBeenCalledWith("Dry grass restored. 1/10 patches viable.");
     expect(habitatSystem.recordEvent).toHaveBeenCalledWith({
       type: HABITAT_EVENT.REVIVE_PATCH,
       targetId: "grass"
     });
     expect(onFirstGrassRestored).toHaveBeenCalledTimes(1);
+  });
+
+  it("rewards Hydro Jet rhythm with leaves every third restored dry grass patch", () => {
+    const groundCell = {
+      id: "ground-1-3",
+      offset: [0, 0, 0],
+      scale: 1,
+      tileSpan: 1.425,
+      yaw: 0
+    };
+    const pushNotice = vi.fn();
+    const syncInventoryUi = vi.fn();
+    const addItemsMock = vi.fn(addItems);
+    const inventory = {};
+    const interactions = createInteractions({
+      addItems: addItemsMock,
+      findNearbyGroundCell: vi.fn(() => ({
+        groundCell,
+        distance: 0.32
+      })),
+      purifyGroundCell: vi.fn(() => true),
+      reviveGroundGrass: vi.fn(() => ({
+        id: "grass-2",
+        cellId: groundCell.id,
+        state: "alive"
+      })),
+      pushNotice,
+      syncInventoryUi
+    });
+    const storyState = {
+      questIndex: 0,
+      flags: {
+        firstGrassRestored: true,
+        restoredGrassCount: 2
+      }
+    };
+
+    const result = interactions.performHarvestAction({
+      playerPosition: [0.1, 0, 0.1],
+      palmModel: null,
+      palmInstances: [],
+      resourceNodes: [],
+      inventory,
+      storyState,
+      woodDrops: [],
+      groundDeadInstances: [groundCell],
+      groundPurifiedInstances: [],
+      groundGrassPatches: [{ cellId: groundCell.id, state: "dead" }],
+      canPurifyGround: true
+    });
+
+    expect(result).toBe(true);
+    expect(storyState.flags.restoredGrassCount).toBe(3);
+    expect(inventory[LEAVES_ITEM_ID]).toBe(1);
+    expect(addItemsMock).toHaveBeenCalledWith(inventory, {
+      [LEAVES_ITEM_ID]: 1
+    });
+    expect(syncInventoryUi).toHaveBeenCalledWith(inventory);
+    expect(pushNotice).toHaveBeenCalledWith(
+      "Hydro rhythm: +1 Leaf from restored growth."
+    );
   });
 
   it("counts any purified ground tile as restored patch quest progress", () => {
@@ -1404,7 +1747,7 @@ describe("createGameplayInteractions", () => {
       type: HABITAT_EVENT.REVIVE_PATCH,
       targetId: "flower"
     });
-    expect(pushNotice).toHaveBeenCalledWith("Bio-Grow grew a flower.");
+    expect(pushNotice).toHaveBeenCalledWith("Flower planted. This patch can become a flower bed.");
   });
 
   it("finds a Leafage target without rebuilding the full ground grid candidate list", () => {
@@ -1482,8 +1825,7 @@ describe("createGameplayInteractions", () => {
       pushNotice
     });
     const groundGrassPatches = [];
-
-    const result = interactions.performHarvestAction({
+    const action = {
       playerPosition: [0, 0, 0],
       palmModel: null,
       palmInstances: [],
@@ -1499,12 +1841,18 @@ describe("createGameplayInteractions", () => {
       groundGrassPatches,
       groundFlowerPatches: [],
       canUseLeafage: true
-    });
+    };
 
-    expect(result).toBe(false);
+    expect(interactions.performHarvestAction(action)).toBe(false);
+    expect(interactions.performHarvestAction(action)).toBe(false);
     expect(groundGrassPatches).toEqual([]);
-    expect(pushNotice).toHaveBeenCalledWith(
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      1,
       "Bio-Grow needs restored ground. Use Hydro Jet here first."
+    );
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      2,
+      "Hydro Jet first, then Bio-Grow. Restored ground becomes a valid growth target."
     );
   });
 
@@ -1538,6 +1886,7 @@ describe("createGameplayInteractions", () => {
     const storyState = {
       questIndex: 2,
       flags: {
+        bulbasaurDryGrassMissionComplete: true,
         leafageTallGrassCount: 1
       }
     };
@@ -1652,7 +2001,13 @@ describe("createGameplayInteractions", () => {
       playerPosition: [0, 0, 0],
       npcActors: [],
       interactables: [],
-      storyState: { questIndex: 2, flags: { bulbasaurRevealed: true } },
+      storyState: {
+        questIndex: 2,
+        flags: {
+          bulbasaurDryGrassMissionComplete: true,
+          bulbasaurRevealed: true
+        }
+      },
       inventory: {},
       groundGrassPatches,
       allowDestroyInstantiatedObject: true
@@ -1690,7 +2045,13 @@ describe("createGameplayInteractions", () => {
       playerPosition: [0, 0, 0],
       npcActors: [],
       interactables: [],
-      storyState: { questIndex: 2, flags: { bulbasaurRevealed: true } },
+      storyState: {
+        questIndex: 2,
+        flags: {
+          bulbasaurDryGrassMissionComplete: true,
+          bulbasaurRevealed: true
+        }
+      },
       inventory: {},
       groundGrassPatches,
       allowDestroyInstantiatedObject: true
@@ -1701,7 +2062,7 @@ describe("createGameplayInteractions", () => {
     expect(pushNotice).toHaveBeenCalledWith("Dry Grass cut.");
   });
 
-  it("blocks destroying world dry grass before Bulbasaur is unlocked", () => {
+  it("blocks cutting world dry grass before the dry tall grass mission is complete", () => {
     const pushNotice = vi.fn();
     const groundGrassPatches = [
       {
@@ -1721,7 +2082,13 @@ describe("createGameplayInteractions", () => {
       playerPosition: [0, 0, 0],
       npcActors: [],
       interactables: [],
-      storyState: { questIndex: 2, flags: {} },
+      storyState: {
+        questIndex: 2,
+        flags: {
+          bulbasaurDryGrassMissionAccepted: true,
+          bulbasaurRevealed: true
+        }
+      },
       inventory: {},
       groundGrassPatches,
       allowDestroyInstantiatedObject: true
@@ -1729,7 +2096,9 @@ describe("createGameplayInteractions", () => {
 
     expect(result).toBe(false);
     expect(groundGrassPatches).toHaveLength(1);
-    expect(pushNotice).toHaveBeenCalledWith("Nothing to destroy here.");
+    expect(pushNotice).toHaveBeenCalledWith(
+      "Finish the dry tall grass mission before cutting grass."
+    );
   });
 
   it("prefers the exact Leafage flower id when another patch shares its cell", () => {
@@ -1825,7 +2194,13 @@ describe("createGameplayInteractions", () => {
       playerPosition: [0, 0, 0],
       npcActors: [],
       interactables: [],
-      storyState: { questIndex: 2, flags: { bulbasaurRevealed: true } },
+      storyState: {
+        questIndex: 2,
+        flags: {
+          bulbasaurDryGrassMissionComplete: true,
+          bulbasaurRevealed: true
+        }
+      },
       inventory: {},
       groundGrassPatches,
       allowDestroyInstantiatedObject: true
@@ -1836,7 +2211,7 @@ describe("createGameplayInteractions", () => {
     expect(pushNotice).toHaveBeenCalledWith("Dry Grass cut.");
   });
 
-  it("shows a tall grass habitat notice when a full grass group is restored", () => {
+  it("shows a tall grass colony-zone notice when a full grass group is restored", () => {
     const groundCell = {
       id: "ground-4-4",
       offset: [0, 0, 0],
@@ -1910,7 +2285,7 @@ describe("createGameplayInteractions", () => {
       "tall-grass-habitat-0"
     ]);
     expect(pushNotice).toHaveBeenCalledWith(
-      "You've restored a tall grass habitat!",
+      "You've restored a tall grass colony zone!",
       3.6
     );
     expect(habitatSystem.recordEvent).toHaveBeenCalledWith({
@@ -1977,6 +2352,59 @@ describe("createGameplayInteractions", () => {
     expect(storyState.flags.restoredFlowerCount).toBe(2);
     expect(storyState.flags.tangrowthFlowerCommentSeen).toBe(true);
     expect(onFlowersRecovered).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows flower restoration progress before a flower bed habitat is complete", () => {
+    const groundCell = {
+      id: "ground-6-1",
+      offset: [0, 0, 0],
+      scale: 1,
+      tileSpan: 1.425,
+      yaw: 0
+    };
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      findNearbyGroundCell: vi.fn(() => ({
+        groundCell,
+        distance: 0.28
+      })),
+      purifyGroundCell: vi.fn(() => true),
+      reviveGroundGrass: vi.fn(() => false),
+      reviveGroundFlower: vi.fn(() => ({
+        id: "flower-1",
+        cellId: groundCell.id,
+        habitatGroupId: "pretty-flower-bed-habitat-0",
+        state: "alive"
+      })),
+      pushNotice
+    });
+    const storyState = {
+      questIndex: 0,
+      flags: {
+        restoredGrassCount: 10,
+        restoredFlowerCount: 0,
+        tangrowthFlowerCommentSeen: false
+      }
+    };
+
+    const result = interactions.performHarvestAction({
+      playerPosition: [0, 0, 0],
+      palmModel: null,
+      palmInstances: [],
+      resourceNodes: [],
+      inventory: {},
+      storyState,
+      woodDrops: [],
+      groundDeadInstances: [groundCell],
+      groundFlowerPatches: [{ cellId: groundCell.id, state: "dead" }],
+      groundGrassPatches: [],
+      groundPurifiedInstances: [],
+      canPurifyGround: true
+    });
+
+    expect(result).toBe(true);
+    expect(storyState.flags.restoredFlowerCount).toBe(1);
+    expect(pushNotice).toHaveBeenCalledWith("Flower restored. 1 patch blooming.");
   });
 
   it("shows a pretty flower bed habitat notice when a full flower group is restored", () => {
@@ -2068,6 +2496,55 @@ describe("createGameplayInteractions", () => {
       type: HABITAT_EVENT.RESTORE_HABITAT,
       targetId: "pretty-flower-bed"
     });
+  });
+
+  it("keeps Bee Box feedback tied to the flower field state", () => {
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      findNearbyInteractable: vi.fn(() => ({
+        target: {
+          kind: "beeFieldRepairBox",
+          id: "beeFieldRepairBox",
+          label: "Bee Box"
+        },
+        distance: 1
+      })),
+      pushNotice
+    });
+    const baseAction = {
+      playerPosition: [0, 0, 0],
+      npcActors: [],
+      interactables: [],
+      inventory: {},
+      groundGrassPatches: []
+    };
+
+    expect(interactions.performInteractAction({
+      ...baseAction,
+      storyState: {
+        questIndex: 2,
+        flags: {}
+      }
+    })).toBe(true);
+    expect(interactions.performInteractAction({
+      ...baseAction,
+      storyState: {
+        questIndex: 2,
+        flags: {
+          restoredFlowerBedHabitatIds: ["water-gun-flower-field-0"],
+          beeFieldRepairBoxOpened: true
+        }
+      }
+    })).toBe(true);
+
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      1,
+      "Restore every flower in this field first. The Bee Box is still sealed."
+    );
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      2,
+      "The Bee Box is open. Follow the next colony task."
+    );
   });
 
   it("reveals Bulbasaur when the player interacts with the rustling grass", () => {
@@ -2248,6 +2725,7 @@ describe("createGameplayInteractions", () => {
       tileSpan: 1.425,
       yaw: 0
     };
+    const pushNotice = vi.fn();
     const interactions = createInteractions({
       findNearbyGroundCell: vi.fn(() => ({
         groundCell,
@@ -2259,7 +2737,7 @@ describe("createGameplayInteractions", () => {
         cellId: groundCell.id,
         state: "alive"
       })),
-      pushNotice: vi.fn()
+      pushNotice
     });
     const storyState = {
       questIndex: 0,
@@ -2295,6 +2773,193 @@ describe("createGameplayInteractions", () => {
     expect(storyState.flags.bulbasaurDryGrassMissionComplete).toBe(true);
     expect(storyState.flags.firstRequiredTaughtActionComplete).toBe(true);
     expect(storyState.flags.firstRequiredTaughtActionFreedomWindowActive).toBe(true);
+    expect(pushNotice).toHaveBeenCalledWith("Dry grass restored. 10/10 patches viable.");
+  });
+
+  it("rewards extra Hydro Jet experiments during the early freedom window with exploratory feedback", () => {
+    const groundCell = {
+      id: "ground-4-5",
+      offset: [0, 0, 0],
+      scale: 1,
+      tileSpan: 1.425,
+      yaw: 0
+    };
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      findNearbyGroundCell: vi.fn(() => ({
+        groundCell,
+        distance: 0.28
+      })),
+      purifyGroundCell: vi.fn(() => true),
+      reviveGroundGrass: vi.fn(() => ({
+        id: "grass-10",
+        cellId: groundCell.id,
+        state: "alive"
+      })),
+      pushNotice
+    });
+    const storyState = {
+      questIndex: 0,
+      flags: {
+        firstGrassRestored: true,
+        bulbasaurDryGrassMissionAccepted: true,
+        bulbasaurDryGrassMissionComplete: true,
+        restoredGrassCount: 10,
+        firstRequiredTaughtActionFreedomWindowActive: true,
+        firstRequiredTaughtActionFreedomWindowActionId: "water-dry-grass"
+      }
+    };
+
+    const result = interactions.performHarvestAction({
+      playerPosition: [0, 0, 0],
+      palmModel: null,
+      palmInstances: [],
+      resourceNodes: [],
+      inventory: {},
+      storyState,
+      woodDrops: [],
+      groundDeadInstances: [groundCell],
+      groundPurifiedInstances: [],
+      groundGrassPatches: [
+        {
+          id: "grass-10",
+          cellId: groundCell.id,
+          state: "alive"
+        }
+      ],
+      canPurifyGround: true
+    });
+
+    expect(result).toBe(true);
+    expect(storyState.flags.restoredGrassCount).toBe(11);
+    expect(pushNotice).toHaveBeenCalledWith(
+      "Another dry patch is viable. Keep experimenting with Hydro Jet."
+    );
+  });
+
+  it("nudges the player to test farther soil after repeated Hydro Jet experiments", () => {
+    const groundCell = {
+      id: "ground-4-7",
+      offset: [0, 0, 0],
+      scale: 1,
+      tileSpan: 1.425,
+      yaw: 0
+    };
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      findNearbyGroundCell: vi.fn(() => ({
+        groundCell,
+        distance: 0.28
+      })),
+      purifyGroundCell: vi.fn(() => true),
+      reviveGroundGrass: vi.fn(() => ({
+        id: "grass-11",
+        cellId: groundCell.id,
+        state: "alive"
+      })),
+      pushNotice
+    });
+    const storyState = {
+      questIndex: 0,
+      flags: {
+        firstGrassRestored: true,
+        bulbasaurDryGrassMissionAccepted: true,
+        bulbasaurDryGrassMissionComplete: true,
+        restoredGrassCount: 11,
+        firstRequiredTaughtActionFreedomWindowActive: true,
+        firstRequiredTaughtActionFreedomWindowActionId: "water-dry-grass",
+        firstRequiredTaughtActionFreedomWindowOverCompletion: 1
+      }
+    };
+
+    const result = interactions.performHarvestAction({
+      playerPosition: [0, 0, 0],
+      palmModel: null,
+      palmInstances: [],
+      resourceNodes: [],
+      inventory: {},
+      storyState,
+      woodDrops: [],
+      groundDeadInstances: [groundCell],
+      groundPurifiedInstances: [],
+      groundGrassPatches: [
+        {
+          id: "grass-11",
+          cellId: groundCell.id,
+          state: "alive"
+        }
+      ],
+      canPurifyGround: true
+    });
+
+    expect(result).toBe(true);
+    expect(storyState.flags.restoredGrassCount).toBe(12);
+    expect(pushNotice).toHaveBeenCalledWith(
+      "The soil response is spreading. Try a dry patch farther from the first colony zone."
+    );
+  });
+
+  it("closes the early Hydro Jet freedom window with a soft next-step notice", () => {
+    const groundCell = {
+      id: "ground-4-6",
+      offset: [0, 0, 0],
+      scale: 1,
+      tileSpan: 1.425,
+      yaw: 0
+    };
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      findNearbyGroundCell: vi.fn(() => ({
+        groundCell,
+        distance: 0.28
+      })),
+      purifyGroundCell: vi.fn(() => true),
+      reviveGroundGrass: vi.fn(() => ({
+        id: "grass-14",
+        cellId: groundCell.id,
+        state: "alive"
+      })),
+      pushNotice
+    });
+    const storyState = {
+      questIndex: 0,
+      flags: {
+        firstGrassRestored: true,
+        bulbasaurDryGrassMissionAccepted: true,
+        bulbasaurDryGrassMissionComplete: true,
+        restoredGrassCount: 14,
+        firstRequiredTaughtActionFreedomWindowActive: true,
+        firstRequiredTaughtActionFreedomWindowActionId: "water-dry-grass",
+        firstRequiredTaughtActionFreedomWindowOverCompletion: 4
+      }
+    };
+
+    const result = interactions.performHarvestAction({
+      playerPosition: [0, 0, 0],
+      palmModel: null,
+      palmInstances: [],
+      resourceNodes: [],
+      inventory: {},
+      storyState,
+      woodDrops: [],
+      groundDeadInstances: [groundCell],
+      groundPurifiedInstances: [],
+      groundGrassPatches: [
+        {
+          id: "grass-14",
+          cellId: groundCell.id,
+          state: "alive"
+        }
+      ],
+      canPurifyGround: true
+    });
+
+    expect(result).toBe(true);
+    expect(storyState.flags.firstRequiredTaughtActionFreedomWindowActive).toBe(false);
+    expect(storyState.flags.firstRequiredTaughtActionFreedomWindowEndReason).toBe("over-completion");
+    expect(pushNotice).toHaveBeenCalledWith(
+      "The soil has enough viable patches. Grow Bot is ready when you are."
+    );
   });
 
   it("turns in Bulbasaur's completed dry grass request from the Bulbasaur interaction", () => {
@@ -2457,7 +3122,7 @@ describe("createGameplayInteractions", () => {
     expect(result).toBe(true);
     expect(waterNearbyPalm).toHaveBeenCalledTimes(1);
     expect(strikeNearbyPalm).not.toHaveBeenCalled();
-    expect(pushNotice).toHaveBeenCalledWith("First habitat check complete. Talk to Grow Bot.");
+    expect(pushNotice).toHaveBeenCalledWith("First colony check complete. Talk to Grow Bot.");
   });
 
   it("does not revive the Leppa tree by clicking the dead tree with Water Gun", () => {
@@ -2653,7 +3318,7 @@ describe("createGameplayInteractions", () => {
     expect(leppaBerryDrops).toHaveLength(1);
     expect(leppaBerryDrops[0].collected).toBe(true);
     expect(syncInventoryUi).toHaveBeenCalledWith(inventory);
-    expect(pushNotice).toHaveBeenCalledWith("+1 Pulse Berry");
+    expect(pushNotice).toHaveBeenCalledWith("Pulse Berry picked. Grow Bot can use this.");
   });
 
   it("opens Leafage object options from a revived Leppa tree after the berry drops", () => {
@@ -2694,6 +3359,48 @@ describe("createGameplayInteractions", () => {
     expect(onLeppaTreeLeafageOptionsRequested).toHaveBeenCalledWith({
       targetId: "leppaTree"
     });
+  });
+
+  it("explains where to look when the revived tree already dropped its Pulse Berry", () => {
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      pushNotice,
+      findNearbyInteractable: vi.fn(() => ({
+        target: {
+          kind: "leppaBerryTree",
+          id: "leppaTree",
+          label: "Pick Pulse Berry"
+        },
+        distance: 1.2
+      }))
+    });
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        squirtleLeppaRequestAvailable: true,
+        leppaTreeRevived: true,
+        leppaBerryDropped: true
+      }
+    };
+
+    const result = interactions.performInteractAction({
+      playerPosition: [1.2, 0, 1.2],
+      npcActors: [],
+      interactables: [],
+      storyState,
+      inventory: {},
+      leppaTree: {
+        position: [1, 0.02, 1],
+        revived: true,
+        berryDropped: true
+      },
+      leppaBerryDrops: []
+    });
+
+    expect(result).toBe(false);
+    expect(pushNotice).toHaveBeenCalledWith(
+      "The tree already dropped its Pulse Berry. Check the ground nearby."
+    );
   });
 
   it("starts the revived tree dialogue when the tree can talk", () => {
@@ -2925,6 +3632,79 @@ describe("createGameplayInteractions", () => {
     expect(onWorkbenchRecipesRequested).toHaveBeenCalledTimes(1);
   });
 
+  it("detects Grow Bot as the Workbench guide conversation target", () => {
+    const result = findNearbyInteractable(
+      [3.2, 0, 1.1],
+      [],
+      [],
+      {
+        flags: {
+          bulbasaurRevealed: true,
+          bulbasaurFollowing: true,
+          bulbasaurWorkbenchGuideAvailable: true,
+          workbenchDiyRecipesReceived: false
+        }
+      },
+      [],
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        visible: true,
+        position: [3, 0.02, 1]
+      }
+    );
+
+    expect(result).toEqual({
+      target: {
+        kind: "bulbasaurWorkbenchGuide",
+        id: "bulbasaurWorkbenchGuide",
+        label: "Talk to Grow Bot",
+        position: [3, 0.02, 1]
+      },
+      distance: expect.any(Number)
+    });
+  });
+
+  it("requests Workbench recipes when talking to Grow Bot during the guide", () => {
+    const onWorkbenchRecipesRequested = vi.fn();
+    const interactions = createInteractions({
+      onWorkbenchRecipesRequested,
+      findNearbyInteractable: vi.fn(() => ({
+        target: {
+          kind: "bulbasaurWorkbenchGuide",
+          id: "bulbasaurWorkbenchGuide",
+          label: "Talk to Grow Bot"
+        },
+        distance: 0.8
+      })),
+      pushNotice: vi.fn()
+    });
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        bulbasaurRevealed: true,
+        bulbasaurWorkbenchGuideAvailable: true,
+        workbenchDiyRecipesReceived: false
+      }
+    };
+
+    const result = interactions.performInteractAction({
+      playerPosition: [0, 0, 0],
+      npcActors: [],
+      interactables: [],
+      storyState,
+      inventory: {},
+      groundGrassPatches: []
+    });
+
+    expect(result).toBe(true);
+    expect(storyState.flags.bulbasaurFollowing).toBe(true);
+    expect(onWorkbenchRecipesRequested).toHaveBeenCalledTimes(1);
+  });
+
   it("opens the Workbench catalog as a locked preview before recipes are learned", () => {
     const onWorkbenchCraftOptionsRequested = vi.fn();
     const pushNotice = vi.fn();
@@ -2959,6 +3739,10 @@ describe("createGameplayInteractions", () => {
     expect(onWorkbenchCraftOptionsRequested).toHaveBeenCalledWith({
       recipes: [
         expect.objectContaining({
+          recipe: expect.objectContaining({ id: GREENHOUSE_ITEM_ID }),
+          disabled: false
+        }),
+        expect.objectContaining({
           recipe: expect.objectContaining({ id: "campfire" }),
           disabled: true,
           status: "Locked"
@@ -2977,7 +3761,54 @@ describe("createGameplayInteractions", () => {
     });
   });
 
-  it("requests the Campfire Workbench modal after recipes are learned", () => {
+  it("keeps idle station feedback in colony terminology", () => {
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      placeholderRecipes: {},
+      findNearbyInteractable: vi.fn()
+        .mockReturnValueOnce({
+          target: {
+            kind: "station",
+            id: "inactiveStation",
+            label: "Inactive Station"
+          },
+          distance: 0.8
+        })
+        .mockReturnValueOnce({
+          target: {
+            kind: "station",
+            id: "stove",
+            label: "Stove"
+          },
+          distance: 0.8
+        }),
+      pushNotice
+    });
+    const action = {
+      playerPosition: [0, 0, 0],
+      npcActors: [],
+      interactables: [],
+      storyState: {
+        questIndex: 2,
+        flags: {}
+      },
+      inventory: {},
+      groundGrassPatches: []
+    };
+
+    expect(interactions.performInteractAction(action)).toBe(false);
+    expect(interactions.performInteractAction(action)).toBe(false);
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      1,
+      "This station has no active colony protocol."
+    );
+    expect(pushNotice).toHaveBeenNthCalledWith(
+      2,
+      "The stove has no active colony recipe."
+    );
+  });
+
+  it("keeps the Campfire Workbench option locked until the Greenhouse is placed", () => {
     const onCampfireCraftRequested = vi.fn();
     const onCampfireCrafted = vi.fn();
     const onWorkbenchCraftOptionsRequested = vi.fn();
@@ -3035,9 +3866,16 @@ describe("createGameplayInteractions", () => {
       recipes: [
         expect.objectContaining({
           recipe: expect.objectContaining({
-            id: "campfire"
+            id: GREENHOUSE_ITEM_ID
           }),
           disabled: false
+        }),
+        expect.objectContaining({
+          recipe: expect.objectContaining({
+            id: "campfire"
+          }),
+          disabled: true,
+          status: "Locked · Build Greenhouse first"
         }),
         expect.objectContaining({
           recipe: expect.objectContaining({
@@ -3080,6 +3918,7 @@ describe("createGameplayInteractions", () => {
       flags: {
         bulbasaurWorkbenchGuideAvailable: true,
         workbenchDiyRecipesReceived: true,
+        greenhousePlaced: true,
         campfireCrafted: false
       }
     };
@@ -3112,6 +3951,212 @@ describe("createGameplayInteractions", () => {
     });
   });
 
+  it("refuses to craft the Campfire before the Greenhouse is placed", () => {
+    const onCampfireCrafted = vi.fn();
+    const syncInventoryUi = vi.fn();
+    const pushNotice = vi.fn();
+    const questSystem = { emit: vi.fn() };
+    const interactions = createInteractions({
+      onCampfireCrafted,
+      placeholderRecipes: PLACEHOLDER_RECIPES,
+      addItems,
+      consumeItems,
+      questSystem,
+      syncInventoryUi,
+      pushNotice
+    });
+    const inventory = {
+      wood: 3
+    };
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        bulbasaurWorkbenchGuideAvailable: true,
+        workbenchDiyRecipesReceived: true,
+        campfireCrafted: false
+      }
+    };
+
+    const result = interactions.craftCampfireAtWorkbench({
+      storyState,
+      inventory
+    });
+
+    expect(result).toBe(false);
+    expect(inventory.wood).toBe(3);
+    expect(inventory[CAMPFIRE_ITEM_ID]).toBeUndefined();
+    expect(storyState.flags.campfireCrafted).toBe(false);
+    expect(syncInventoryUi).not.toHaveBeenCalled();
+    expect(questSystem.emit).not.toHaveBeenCalled();
+    expect(onCampfireCrafted).not.toHaveBeenCalled();
+    expect(pushNotice).toHaveBeenCalledWith("Locked · Build Greenhouse first");
+  });
+
+  it("crafts a Greenhouse when the crafted flag is stale but the kit is not in the bag", () => {
+    const onGreenhouseCrafted = vi.fn();
+    const syncInventoryUi = vi.fn();
+    const questSystem = { emit: vi.fn() };
+    const interactions = createInteractions({
+      onGreenhouseCrafted,
+      placeholderRecipes: PLACEHOLDER_RECIPES,
+      addItems,
+      consumeItems,
+      questSystem,
+      syncInventoryUi,
+      pushNotice: vi.fn()
+    });
+    const inventory = {};
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        greenhouseCrafted: true,
+        greenhousePlaced: false
+      }
+    };
+
+    const result = interactions.craftGreenhouseAtWorkbench({
+      storyState,
+      inventory
+    });
+
+    expect(result).toBe(true);
+    expect(inventory[GREENHOUSE_ITEM_ID]).toBe(1);
+    expect(storyState.flags.greenhouseCrafted).toBe(true);
+    expect(syncInventoryUi).toHaveBeenCalledWith(inventory);
+    expect(questSystem.emit).toHaveBeenCalledWith({
+      type: "BUILD",
+      targetId: GREENHOUSE_ITEM_ID,
+      amount: 1
+    });
+    expect(onGreenhouseCrafted).toHaveBeenCalledWith({
+      recipe: expect.objectContaining({
+        id: GREENHOUSE_ITEM_ID
+      })
+    });
+  });
+
+  it("routes an already prepared Greenhouse Workbench action to placement", () => {
+    const onGreenhousePlacementRequested = vi.fn();
+    const onGreenhouseCrafted = vi.fn();
+    const interactions = createInteractions({
+      onGreenhousePlacementRequested,
+      onGreenhouseCrafted,
+      placeholderRecipes: PLACEHOLDER_RECIPES,
+      addItems,
+      consumeItems,
+      pushNotice: vi.fn()
+    });
+    const inventory = {
+      [GREENHOUSE_ITEM_ID]: 1
+    };
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        greenhouseCrafted: true,
+        greenhousePlaced: false
+      }
+    };
+
+    const result = interactions.craftGreenhouseAtWorkbench({
+      storyState,
+      inventory
+    });
+
+    expect(result).toBe(true);
+    expect(inventory[GREENHOUSE_ITEM_ID]).toBe(1);
+    expect(onGreenhouseCrafted).not.toHaveBeenCalled();
+    expect(onGreenhousePlacementRequested).toHaveBeenCalledWith({
+      source: "workbench"
+    });
+  });
+
+  it("places a prepared Greenhouse from interaction before nearby NPC interactions", () => {
+    const onGreenhousePlacementRequested = vi.fn();
+    const onNpcInteractionStart = vi.fn();
+    const interactions = createInteractions({
+      onGreenhousePlacementRequested,
+      findNearbyInteractable: vi.fn(() => ({
+        target: {
+          kind: "npc",
+          id: "tangrowth",
+          label: "Professor Tangrowth"
+        },
+        distance: 1.1
+      }))
+    });
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        greenhouseCrafted: true,
+        greenhousePlaced: false
+      }
+    };
+
+    const result = interactions.performInteractAction({
+      playerPosition: [0, 0, 0],
+      npcActors: [],
+      interactables: [],
+      storyState,
+      inventory: {
+        [GREENHOUSE_ITEM_ID]: 1
+      },
+      groundPurifiedInstances: createGreenhouseGreenArea(),
+      groundGrassPatches: [],
+      onNpcInteractionStart
+    });
+
+    expect(result).toBe(true);
+    expect(onNpcInteractionStart).not.toHaveBeenCalled();
+    expect(onGreenhousePlacementRequested).toHaveBeenCalledWith({
+      playerPosition: [0, 0, 0]
+    });
+  });
+
+  it("blocks prepared Greenhouse placement outside restored green ground", () => {
+    const onGreenhousePlacementRequested = vi.fn();
+    const onNpcInteractionStart = vi.fn();
+    const pushNotice = vi.fn();
+    const interactions = createInteractions({
+      onGreenhousePlacementRequested,
+      pushNotice,
+      findNearbyInteractable: vi.fn(() => ({
+        target: {
+          kind: "npc",
+          id: "tangrowth",
+          label: "Professor Tangrowth"
+        },
+        distance: 1.1
+      }))
+    });
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        greenhouseCrafted: true,
+        greenhousePlaced: false
+      }
+    };
+
+    const result = interactions.performInteractAction({
+      playerPosition: [0, 0, 0],
+      npcActors: [],
+      interactables: [],
+      storyState,
+      inventory: {
+        [GREENHOUSE_ITEM_ID]: 1
+      },
+      groundPurifiedInstances: [],
+      groundGrassPatches: [],
+      onNpcInteractionStart
+    });
+
+    expect(result).toBe(false);
+    expect(onNpcInteractionStart).not.toHaveBeenCalled();
+    expect(onGreenhousePlacementRequested).not.toHaveBeenCalled();
+    expect(pushNotice).toHaveBeenCalledWith(
+      "Greenhouse needs restored green ground. Restore the target area with Hydro Jet first."
+    );
+  });
+
   it("shows concrete Workbench material progress when a protocol is missing supplies", () => {
     const pushNotice = vi.fn();
     const formatRequirementSummary = vi.fn(() => "3 Wood");
@@ -3131,6 +4176,7 @@ describe("createGameplayInteractions", () => {
       questIndex: 2,
       flags: {
         workbenchDiyRecipesReceived: true,
+        greenhousePlaced: true,
         campfireCrafted: false
       }
     };
@@ -3193,6 +4239,10 @@ describe("createGameplayInteractions", () => {
     expect(result).toBe(true);
     expect(onWorkbenchCraftOptionsRequested).toHaveBeenCalledWith({
       recipes: [
+        expect.objectContaining({
+          recipe: expect.objectContaining({ id: GREENHOUSE_ITEM_ID }),
+          disabled: false
+        }),
         expect.objectContaining({
           recipe: expect.objectContaining({ id: "campfire" }),
           disabled: true,
@@ -3267,6 +4317,7 @@ describe("createGameplayInteractions", () => {
       questIndex: 2,
       flags: {
         workbenchDiyRecipesReceived: true,
+        greenhousePlaced: true,
         campfireCrafted: true,
         campfireSpatOut: false
       }
@@ -3344,7 +4395,7 @@ describe("createGameplayInteractions", () => {
     expect(addItemsMock).not.toHaveBeenCalled();
     expect(questSystem.emit).not.toHaveBeenCalled();
     expect(syncInventoryUi).toHaveBeenCalledWith(inventory);
-    expect(pushNotice).toHaveBeenCalledWith("House Kit selected.");
+    expect(pushNotice).toHaveBeenCalledWith("House Kit selected. Set it inside the blue zone.");
   });
 
   it("issues an authorized House Kit at the Workbench without currency or material cost", () => {
@@ -3462,7 +4513,7 @@ describe("createGameplayInteractions", () => {
     expect(questSystem.emit).not.toHaveBeenCalled();
   });
 
-  it("shows an owned House Kit as ready to place in the Workbench catalog", () => {
+  it("keeps an owned House Kit blocked in the Workbench catalog until Solar Station support exists", () => {
     const onWorkbenchCraftOptionsRequested = vi.fn();
     const interactions = createInteractions({
       onWorkbenchCraftOptionsRequested,
@@ -3501,9 +4552,10 @@ describe("createGameplayInteractions", () => {
       recipes: expect.arrayContaining([
         expect.objectContaining({
           recipe: expect.objectContaining({ id: "leafDenKit" }),
-          disabled: false,
-          status: "Ready to place",
-          actionLabel: "X Place House Kit"
+          disabled: true,
+          status: "Place the Solar Station before placing the House Kit.",
+          actionLabel: null,
+          guidance: "Place the Solar Station first. Its blue support zone enables House Kit placement."
         })
       ])
     });
@@ -3929,7 +4981,9 @@ describe("createGameplayInteractions", () => {
     });
 
     expect(result).toBe(true);
-    expect(pushNotice).toHaveBeenCalledWith("Follower group is full.");
+    expect(pushNotice).toHaveBeenCalledWith(
+      "Too many bots are following. Ask one to wait before adding another."
+    );
     expect(storyState.flags.sixFollowing).toBeUndefined();
   });
 
@@ -4027,6 +5081,7 @@ describe("createGameplayInteractions", () => {
       storyState: {
         questIndex: 2,
         flags: {
+          greenhousePlaced: true,
           campfireCrafted: true,
           campfireSpatOut: false
         }
@@ -4061,6 +5116,7 @@ describe("createGameplayInteractions", () => {
     const storyState = {
       questIndex: 2,
       flags: {
+        greenhousePlaced: true,
         campfireCrafted: true,
         campfireSpatOut: false
       }
@@ -4262,7 +5318,7 @@ describe("createGameplayInteractions", () => {
     expect(storyState.flags.boulderShadedTallGrassHabitatCreated).toBe(true);
     expect(storyState.flags.timburrRustlingGrassCellId).toBe("boulder-ground-0");
     expect(pushNotice).toHaveBeenCalledWith(
-      "A boulder-shaded tall grass habitat is rustling.",
+      "A boulder-shaded tall grass colony zone is rustling.",
       3.6
     );
     expect(habitatSystem.recordEvent).toHaveBeenCalledWith({

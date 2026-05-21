@@ -74,4 +74,96 @@ describe("createStartScreen integration", () => {
     expect(root.hidden).toBe(true);
     expect(uiLayer.dataset.mode).toBe("game");
   });
+
+  it("opens save slots before starting when a save state exists", async () => {
+    const prepareExitTransition = vi.fn(() => Promise.resolve());
+    const startScreen = createStartScreen({
+      root,
+      uiLayer,
+      prepareExitTransition,
+      saveSlots: [
+        {
+          id: "continue",
+          action: "continue",
+          slotId: "slot-1",
+          label: "Continue",
+          detail: "Saved Game"
+        },
+        {
+          id: "new-game-slot-2",
+          action: "newGame",
+          slotId: "slot-2",
+          label: "New Game",
+          detail: "Empty Slot 1"
+        },
+        {
+          id: "new-game-slot-3",
+          action: "newGame",
+          slotId: "slot-3",
+          label: "New Game",
+          detail: "Empty Slot 2"
+        }
+      ],
+      onStart
+    });
+
+    startScreen.handleKeydown({
+      code: "Enter",
+      key: "Enter",
+      preventDefault: vi.fn()
+    });
+
+    expect(prepareExitTransition).not.toHaveBeenCalled();
+    expect(onStart).not.toHaveBeenCalled();
+    expect(root.textContent).toContain("Continue");
+    expect(root.textContent).toContain("> Continue");
+
+    startScreen.handleKeydown({
+      code: "ArrowDown",
+      key: "ArrowDown",
+      preventDefault: vi.fn()
+    });
+
+    expect(root.textContent).toContain("> New Game");
+
+    startScreen.handleKeydown({
+      code: "Escape",
+      key: "Escape",
+      preventDefault: vi.fn()
+    });
+
+    expect(root.textContent).toContain("Start Game");
+    expect(root.textContent).not.toContain("Continue");
+
+    startScreen.handleKeydown({
+      code: "Enter",
+      key: "Enter",
+      preventDefault: vi.fn()
+    });
+    startScreen.handleKeydown({
+      code: "ArrowDown",
+      key: "ArrowDown",
+      preventDefault: vi.fn()
+    });
+    startScreen.handleKeydown({
+      code: "Enter",
+      key: "Enter",
+      preventDefault: vi.fn()
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(prepareExitTransition).toHaveBeenCalledTimes(1);
+    expect(onStart).not.toHaveBeenCalled();
+
+    root.dispatchEvent(new Event("transitionend"));
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({
+      action: "newGame",
+      slotId: "slot-2"
+    }));
+    expect(startScreen.isActive()).toBe(false);
+  });
 });

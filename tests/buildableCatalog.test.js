@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CREATURE_SPECIALTY,
+  GREENHOUSE_ITEM_ID,
   LEAF_DEN_KIT_ITEM_ID,
   LEAVES_ITEM_ID
 } from "../gameplayContent.js";
@@ -20,6 +21,7 @@ import {
 describe("buildable catalog", () => {
   it("exposes the current Workbench buildables in one stable order", () => {
     expect(listWorkbenchBuildables().map((buildable) => buildable.id)).toEqual([
+      GRID_PLACEABLE_IDS.GREENHOUSE,
       GRID_PLACEABLE_IDS.TRAIN_HOUSE,
       GRID_PLACEABLE_IDS.SOLAR_STATION,
       GRID_PLACEABLE_IDS.LEAF_DEN
@@ -27,6 +29,24 @@ describe("buildable catalog", () => {
   });
 
   it("normalizes recipe buildables with inventory, grid, and ingredient data", () => {
+    expect(getWorkbenchBuildableById(GRID_PLACEABLE_IDS.GREENHOUSE)).toMatchObject({
+      id: GRID_PLACEABLE_IDS.GREENHOUSE,
+      label: "Greenhouse",
+      group: GRID_BUILD_CATEGORIES.WORKBENCH,
+      sourceType: BUILDABLE_SOURCE_TYPES.RECIPE,
+      sourceId: GREENHOUSE_ITEM_ID,
+      sourceItemId: GREENHOUSE_ITEM_ID,
+      inventoryItemId: GREENHOUSE_ITEM_ID,
+      recipeId: GREENHOUSE_ITEM_ID,
+      ingredients: {},
+      output: { [GREENHOUSE_ITEM_ID]: 1 },
+      gridPlaceableId: GRID_PLACEABLE_IDS.GREENHOUSE,
+      prefabKey: "greenhouseModel",
+      footprint: { width: 5, height: 3 },
+      placementType: GRID_PLACEMENT_TYPES.OBJECT,
+      buildCategory: GRID_BUILD_CATEGORIES.WORKBENCH
+    });
+
     expect(getWorkbenchBuildableById(GRID_PLACEABLE_IDS.TRAIN_HOUSE)).toMatchObject({
       id: GRID_PLACEABLE_IDS.TRAIN_HOUSE,
       label: "Thermal Cabin",
@@ -98,6 +118,7 @@ describe("buildable catalog", () => {
   });
 
   it("looks up buildables by inventory item id", () => {
+    expect(getWorkbenchBuildableByInventoryItemId(GREENHOUSE_ITEM_ID)?.id).toBe(GRID_PLACEABLE_IDS.GREENHOUSE);
     expect(getWorkbenchBuildableByInventoryItemId("campfire")?.id).toBe(GRID_PLACEABLE_IDS.TRAIN_HOUSE);
     expect(getWorkbenchBuildableByInventoryItemId("strawBed")?.id).toBe(GRID_PLACEABLE_IDS.SOLAR_STATION);
     expect(getWorkbenchBuildableByInventoryItemId(LEAF_DEN_KIT_ITEM_ID)?.id).toBe(GRID_PLACEABLE_IDS.LEAF_DEN);
@@ -117,6 +138,12 @@ describe("buildable catalog", () => {
   it("creates a Workbench recipe map that includes the House Kit issue recipe", () => {
     const recipes = createWorkbenchRecipeMap();
 
+    expect(recipes[GREENHOUSE_ITEM_ID]).toMatchObject({
+      id: GREENHOUSE_ITEM_ID,
+      title: "Greenhouse",
+      ingredients: {},
+      output: { [GREENHOUSE_ITEM_ID]: 1 }
+    });
     expect(recipes.campfire).toMatchObject({
       id: "campfire",
       title: "Thermal Cabin",

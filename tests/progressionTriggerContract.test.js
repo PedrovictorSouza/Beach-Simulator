@@ -5,12 +5,73 @@ import {
   COLONY_MILESTONE,
   COLONY_PROGRESS_EVENT,
   emitColonyProgressQuestEvents,
+  getColonyProgressTriggerById,
   getNewColonyMilestoneIds,
   resolveColonyProgressTriggers,
-  validateColonyProgressEvent
+  validateColonyProgressEvent,
+  validateColonyProgressTriggerCatalog
 } from "../app/story/progressionTriggerContract.js";
 
 describe("progression trigger contract", () => {
+  it("keeps colony progress triggers registered with unique ids and known references", () => {
+    expect(validateColonyProgressTriggerCatalog()).toEqual({
+      valid: true,
+      triggersChecked: 7,
+      errors: []
+    });
+
+    expect(getColonyProgressTriggerById("first-shelter-site-marked")).toMatchObject({
+      eventType: COLONY_PROGRESS_EVENT.BUILDABLE_PLACED,
+      milestoneIds: [COLONY_MILESTONE.FIRST_SHELTER_SITE_MARKED]
+    });
+  });
+
+  it("rejects duplicate progress trigger ids before they can make milestones ambiguous", () => {
+    const invalidTriggers = [
+      {
+        id: "duplicate",
+        eventType: COLONY_PROGRESS_EVENT.BUILDABLE_PLACED,
+        milestoneIds: [COLONY_MILESTONE.FIRST_SHELTER_SITE_MARKED]
+      },
+      {
+        id: "duplicate",
+        eventType: "unknown-event",
+        milestoneIds: ["unknown-milestone"],
+        questEvent: {
+          type: "unknown-quest-event",
+          targetId: ""
+        },
+        autosaveType: "unknown-autosave-event"
+      }
+    ];
+
+    expect(validateColonyProgressTriggerCatalog(invalidTriggers).errors).toEqual([
+      expect.objectContaining({
+        code: "duplicate-progress-trigger-id",
+        triggerId: "duplicate"
+      }),
+      expect.objectContaining({
+        code: "unknown-progress-trigger-event",
+        eventType: "unknown-event"
+      }),
+      expect.objectContaining({
+        code: "unknown-progress-trigger-milestone",
+        milestoneId: "unknown-milestone"
+      }),
+      expect.objectContaining({
+        code: "unknown-progress-trigger-quest-event",
+        questEventType: "unknown-quest-event"
+      }),
+      expect.objectContaining({
+        code: "missing-progress-trigger-quest-target"
+      }),
+      expect.objectContaining({
+        code: "unknown-progress-trigger-autosave-event",
+        autosaveType: "unknown-autosave-event"
+      })
+    ]);
+  });
+
   it("maps tool unlocks to quest progress, milestones, and autosave events", () => {
     const resolved = resolveColonyProgressTriggers(COLONY_PROGRESS_EVENT.TOOL_UNLOCKED, {
       toolId: "waterGun"

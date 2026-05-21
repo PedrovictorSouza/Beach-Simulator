@@ -1,14 +1,14 @@
-const SQUIRTLE_POKEDEX_IMAGE_URL = new URL("./images/Robot-1-thumb.png", import.meta.url).href;
-const BULBASAUR_POKEDEX_IMAGE_URL = new URL("./images/Robot-2-thumb.png", import.meta.url).href;
+const HYDRO_JET_INSTRUCTIONS_IMAGE_URL = new URL("./images/tutorial-hidro-jet.png", import.meta.url).href;
+const HYDRO_JET_AVATAR_IMAGE_URL = new URL("./images/hidrojet-avatar.png", import.meta.url).href;
 
 const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
-  <section class="start-overlay" id="start-overlay" aria-label="Start screen"></section>
   <section class="intro-overlay" id="intro-overlay" hidden aria-label="Intro sequence"></section>
   <section class="intro-room-debug-root" id="intro-room-debug-root" hidden aria-label="Intro room debug tools"></section>
   <section class="pause-overlay" id="pause-overlay" hidden aria-label="Pause screen">
     <div class="pause-overlay__label">PAUSE</div>
   </section>
   <div class="render-frame" id="render-frame">
+        <section class="start-overlay" id="start-overlay" aria-label="Start screen"></section>
         <canvas id="viewport" class="layer" width="426" height="240"></canvas>
         <div id="warm-overlay" aria-hidden="true"></div>
         <canvas id="sprite-layer" class="layer" width="426" height="240"></canvas>
@@ -18,42 +18,15 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
           <section class="skill-learn-overlay" id="skill-learn-overlay" hidden aria-label="Skill learned"></section>
           <section class="cinematic-overlay" id="cinematic-overlay" hidden aria-label="Act two cinematic"></section>
           <section class="tutorial-overlay" id="tutorial-overlay" hidden aria-label="Act two tutorial"></section>
-          <section class="pokedex-overlay" id="pokedex-overlay" hidden aria-label="Colony Codex entry">
+          <section class="pokedex-overlay" id="pokedex-overlay" hidden aria-label="Instructions entry">
             <article class="pokedex-entry">
               <div class="pokedex-entry__details">
-                <header class="pokedex-entry__heading">
-                  <span data-pokedex-field="number">Bot H-01</span>
-                  <strong data-pokedex-field="name">Hydro Bot</strong>
-                </header>
-                <div class="pokedex-entry__tabs" aria-label="Colony Codex sections">
-                  <button class="pokedex-entry__nav" data-pokedex-action="prev" type="button" aria-label="Previous page">L</button>
-                  <button class="pokedex-entry__tab" data-pokedex-page-target="details" data-active="true" type="button" aria-label="Details">&#9675;</button>
-                  <button class="pokedex-entry__tab" data-pokedex-page-target="where-to-find" data-active="false" type="button" aria-label="Field Site">&#9632;</button>
-                  <button class="pokedex-entry__tab" data-pokedex-page-target="specialties" data-active="false" type="button" aria-label="Functions and Care">&hearts;</button>
-                  <button class="pokedex-entry__tab" data-pokedex-page-target="requests" data-active="false" type="button" aria-label="Field Requests">!</button>
-                  <button class="pokedex-entry__nav" data-pokedex-action="next" type="button" aria-label="Next page">R</button>
-                </div>
                 <section class="pokedex-entry__page" data-pokedex-page-panel="details">
-                  <div class="pokedex-entry__eyebrow" data-pokedex-field="details-eyebrow">Details</div>
-                  <div class="pokedex-entry__species" data-pokedex-field="species">Hydro Utility Bot</div>
-                  <p class="pokedex-entry__description" data-pokedex-field="description">
-                    Compact field unit calibrated for Hydro Jet pressure, tree revival, and emergency hydration work.
-                  </p>
-                  <div class="pokedex-entry__stats">
-                    <div class="pokedex-entry__stat">
-                      <span data-pokedex-field="detail-stat-label-0">Frame</span>
-                      <strong data-pokedex-field="detail-stat-value-0">Compact</strong>
-                    </div>
-                    <div class="pokedex-entry__stat">
-                      <span data-pokedex-field="detail-stat-label-1">Mass</span>
-                      <strong data-pokedex-field="detail-stat-value-1">Light</strong>
-                    </div>
-                    <div class="pokedex-entry__stat">
-                      <span data-pokedex-field="detail-stat-label-2">Module</span>
-                      <div class="pokedex-entry__type-badge">
-                        <div class="pokedex-entry__type-icon" data-pokedex-field="detail-type-icon">&#128167;</div>
-                        <strong data-pokedex-field="detail-type-label">Hydro</strong>
-                      </div>
+                  <div class="pokedex-entry__eyebrow" data-pokedex-field="details-eyebrow">Press (input) to wash the soil</div>
+                  <div class="pokedex-entry__species" data-pokedex-field="species">Hydro Bot, wash the soil and make it green</div>
+                  <div class="pokedex-entry__description" data-pokedex-field="description">
+                    <div style="display:flex;gap:8px;align-items:flex-start;max-width:720px;">
+                      <img class="pokedex-entry__description-image" src="${HYDRO_JET_INSTRUCTIONS_IMAGE_URL}" alt="Hydro Jet tutorial" loading="eager" decoding="async" style="display:block;width:min(100%,384px);height:auto;image-rendering:pixelated;">
                     </div>
                   </div>
                 </section>
@@ -112,9 +85,9 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
                   <div class="pokedex-entry__eyebrow">Field Requests</div>
                   <article class="pokedex-entry__request-card">
                     <div class="pokedex-entry__request-status" data-pokedex-field="request-status">No Active Request</div>
-                    <div class="pokedex-entry__request-giver" data-pokedex-field="request-giver">Colony Codex</div>
+                    <div class="pokedex-entry__request-giver" data-pokedex-field="request-giver">Instructions.</div>
                     <h3 data-pokedex-field="request-title">No requests yet</h3>
-                    <p data-pokedex-field="request-description">Keep restoring habitats and checking in with colony bots.</p>
+                    <p data-pokedex-field="request-description">Keep restoring colony zones and checking in with colony bots.</p>
                     <div class="pokedex-entry__request-row">
                       <span>Objective</span>
                       <strong data-pokedex-field="request-objective">No objective tracked.</strong>
@@ -126,55 +99,9 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
                   </article>
                 </section>
               </div>
-              <div class="pokedex-entry__art" aria-hidden="true">
-                <div class="pokedex-entry__glow"></div>
-                <div class="pokedex-entry__creature" data-pokedex-art-scene="squirtle">
-                  <img class="pokedex-entry__robot-image pokedex-entry__robot-image--squirtle" src="${SQUIRTLE_POKEDEX_IMAGE_URL}" alt="" loading="eager" decoding="async">
-                </div>
-                <div class="pokedex-entry__flower-scene" data-pokedex-art-scene="tall-grass" hidden>
-                  <div class="pokedex-entry__flower-card">
-                    <strong data-pokedex-field="art-card-title">???</strong>
-                    <div class="pokedex-entry__flower-card-row">
-                      <span>Time</span>
-                      <strong data-pokedex-field="art-time">Day</strong>
-                    </div>
-                    <div class="pokedex-entry__flower-card-rarity" data-pokedex-field="art-rarity">Common</div>
-                  </div>
-                  <div class="pokedex-entry__flower-window">
-                    <div class="pokedex-entry__flower-cloud pokedex-entry__flower-cloud--one"></div>
-                    <div class="pokedex-entry__flower-cloud pokedex-entry__flower-cloud--two"></div>
-                    <div class="pokedex-entry__flower-cloud pokedex-entry__flower-cloud--three"></div>
-                    <div class="pokedex-entry__flower-tree pokedex-entry__flower-tree--left"></div>
-                    <div class="pokedex-entry__flower-tree pokedex-entry__flower-tree--right"></div>
-                    <div class="pokedex-entry__flower-hill"></div>
-                    <div class="pokedex-entry__tall-grass-bed">
-                      <span class="pokedex-entry__tall-grass-tuft pokedex-entry__tall-grass-tuft--one"></span>
-                      <span class="pokedex-entry__tall-grass-tuft pokedex-entry__tall-grass-tuft--two"></span>
-                      <span class="pokedex-entry__tall-grass-tuft pokedex-entry__tall-grass-tuft--three"></span>
-                      <span class="pokedex-entry__tall-grass-tuft pokedex-entry__tall-grass-tuft--four"></span>
-                    </div>
-                  </div>
-                </div>
-                <div class="pokedex-entry__bulbasaur-scene" data-pokedex-art-scene="bulbasaur" hidden>
-                  <img class="pokedex-entry__robot-image pokedex-entry__robot-image--bulbasaur" src="${BULBASAUR_POKEDEX_IMAGE_URL}" alt="" loading="eager" decoding="async">
-                </div>
-                <div class="pokedex-entry__charmander-scene" data-pokedex-art-scene="charmander" hidden>
-                </div>
-                <div class="pokedex-entry__timburr-scene" data-pokedex-art-scene="timburr" hidden>
-                  <div class="pokedex-entry__timburr-platform"></div>
-                  <div class="pokedex-entry__timburr-log"></div>
-                  <div class="pokedex-entry__timburr">
-                    <div class="pokedex-entry__timburr-body"></div>
-                    <div class="pokedex-entry__timburr-head">
-                      <div class="pokedex-entry__timburr-smile"></div>
-                    </div>
-                    <div class="pokedex-entry__timburr-arm pokedex-entry__timburr-arm--left"></div>
-                    <div class="pokedex-entry__timburr-arm pokedex-entry__timburr-arm--right"></div>
-                    <div class="pokedex-entry__timburr-leg pokedex-entry__timburr-leg--left"></div>
-                    <div class="pokedex-entry__timburr-leg pokedex-entry__timburr-leg--right"></div>
-                  </div>
-                </div>
-              </div>
+              <aside class="pokedex-entry__avatar" data-pokedex-art-scene="squirtle" aria-hidden="true">
+                <img class="pokedex-entry__avatar-image" src="${HYDRO_JET_AVATAR_IMAGE_URL}" alt="" loading="eager" decoding="async">
+              </aside>
               <div class="pokedex-entry__drawer" aria-hidden="true">
                 <div class="pokedex-entry__drawer-sheet">
                   <div class="pokedex-entry__drawer-item">
@@ -184,11 +111,11 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
                   </div>
                 </div>
               </div>
-              <button class="pokedex-entry__close" id="pokedex-overlay-close" data-pokedex-action="close" type="button" aria-label="Close Colony Codex">Close</button>
+              <button class="pokedex-entry__close" id="pokedex-overlay-close" data-pokedex-action="close" type="button" aria-label="Close Instructions">Close</button>
             </article>
           </section>
-          <aside class="nearby-habitats-panel" aria-label="Nearby habitats">
-            <div class="nearby-habitats-panel__header">Nearby Habitats</div>
+          <aside class="nearby-habitats-panel" aria-label="Nearby colony zones">
+            <div class="nearby-habitats-panel__header">Nearby Colony Zones</div>
             <div class="nearby-habitats-panel__value" id="nearby-habitats-value"></div>
           </aside>
           <aside class="quest-focus-panel" id="quest-focus-panel" aria-label="Current quest">
@@ -198,9 +125,8 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
           <div class="hud" id="hud-panel">
             <div class="hud-context" id="hud-context" aria-live="polite"></div>
             <div class="hud-checklist" id="hud-checklist" aria-label="Quest checks"></div>
-            <span id="hud-meta"></span>
             <div class="hud__signals">
-              <button class="hud-alert" id="pokedex-alert" type="button" hidden data-pulse="false">Codex Signal</button>
+              <button class="hud-alert" id="pokedex-alert" type="button" hidden data-pulse="false">Instructions.</button>
             </div>
             <div class="hud-control">
               <label for="jitter-slider">
@@ -219,7 +145,6 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
             <div class="skills-grid" id="skills-grid"></div>
           </div>
           <div class="inventory" id="inventory-panel" aria-label="Supplies">
-            <strong>Supplies</strong>
             <div class="inventory-grid" id="inventory-grid"></div>
           </div>
           <section class="builder-panel" id="builder-panel" hidden aria-label="Colony handbook"></section>

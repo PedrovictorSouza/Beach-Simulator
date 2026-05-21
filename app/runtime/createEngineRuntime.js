@@ -2,6 +2,7 @@ import {
   ACT_TWO_PLAYER_CAMERA_DIRECTION,
   ACT_TWO_PLAYER_CAMERA_DISTANCE,
   ACT_TWO_PLAYER_CAMERA_FOLLOW_LEAD,
+  ACT_TWO_PLAYER_CAMERA_FOLLOW_VERTICAL_STRENGTH,
   ACT_TWO_PLAYER_CAMERA_TARGET_HEIGHT,
   ACT_TWO_PLAYER_CAMERA_ZOOM
 } from "../../actTwoSceneConfig.js";
@@ -89,7 +90,8 @@ export function createEngineRuntime({
     target: [0, ACT_TWO_PLAYER_CAMERA_TARGET_HEIGHT, 0],
     direction: ACT_TWO_PLAYER_CAMERA_DIRECTION,
     distance: ACT_TWO_PLAYER_CAMERA_DISTANCE,
-    followLeadDistance: ACT_TWO_PLAYER_CAMERA_FOLLOW_LEAD
+    followLeadDistance: ACT_TWO_PLAYER_CAMERA_FOLLOW_LEAD,
+    followVerticalStrength: ACT_TWO_PLAYER_CAMERA_FOLLOW_VERTICAL_STRENGTH
   });
   const cameraTurnKeys = new Set();
   const cameraOrbit = createCameraOrbitController({

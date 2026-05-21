@@ -114,6 +114,13 @@ export const COLONY_PROGRESS_TRIGGERS = Object.freeze([
 ]);
 
 const COLONY_PROGRESS_EVENT_VALUES = new Set(Object.values(COLONY_PROGRESS_EVENT));
+const COLONY_MILESTONE_VALUES = new Set(Object.values(COLONY_MILESTONE));
+const QUEST_EVENT_VALUES = new Set(Object.values(QUEST_EVENT));
+const AUTOSAVE_EVENT_VALUES = new Set(Object.values(AUTOSAVE_EVENT));
+
+function isRecord(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
 
 function clonePayload(payload = {}) {
   return Object.fromEntries(
@@ -180,6 +187,137 @@ export function validateColonyProgressEvent(eventOrType, payload = {}) {
   return {
     valid: errors.length === 0,
     event,
+    errors
+  };
+}
+
+export function getColonyProgressTriggerById(
+  triggerId,
+  triggers = COLONY_PROGRESS_TRIGGERS
+) {
+  return (triggers || []).find((trigger) => trigger?.id === triggerId) || null;
+}
+
+export function validateColonyProgressTriggerCatalog(
+  triggers = COLONY_PROGRESS_TRIGGERS
+) {
+  const errors = [];
+  const seenTriggerIds = new Set();
+
+  if (!Array.isArray(triggers)) {
+    return {
+      valid: false,
+      triggersChecked: 0,
+      errors: [{
+        code: "invalid-progress-trigger-catalog",
+        message: "Colony progress triggers must be an array."
+      }]
+    };
+  }
+
+  triggers.forEach((trigger, index) => {
+    if (!isRecord(trigger)) {
+      errors.push({
+        code: "invalid-progress-trigger",
+        index,
+        message: "Colony progress trigger must be an object."
+      });
+      return;
+    }
+
+    if (typeof trigger.id !== "string" || !trigger.id.trim()) {
+      errors.push({
+        code: "missing-progress-trigger-id",
+        index,
+        message: "Colony progress trigger must declare an id."
+      });
+    } else if (seenTriggerIds.has(trigger.id)) {
+      errors.push({
+        code: "duplicate-progress-trigger-id",
+        index,
+        triggerId: trigger.id,
+        message: `Duplicate colony progress trigger id: ${trigger.id}.`
+      });
+    } else {
+      seenTriggerIds.add(trigger.id);
+    }
+
+    if (!COLONY_PROGRESS_EVENT_VALUES.has(trigger.eventType)) {
+      errors.push({
+        code: "unknown-progress-trigger-event",
+        index,
+        triggerId: trigger.id,
+        eventType: trigger.eventType,
+        message: `Unknown colony progress trigger event: ${trigger.eventType || "null"}.`
+      });
+    }
+
+    if (trigger.match !== undefined && !isRecord(trigger.match)) {
+      errors.push({
+        code: "invalid-progress-trigger-match",
+        index,
+        triggerId: trigger.id,
+        message: "Colony progress trigger match must be an object when provided."
+      });
+    }
+
+    const milestoneIds = Array.isArray(trigger.milestoneIds) ? trigger.milestoneIds : [];
+    if (milestoneIds.length === 0) {
+      errors.push({
+        code: "missing-progress-trigger-milestone",
+        index,
+        triggerId: trigger.id,
+        message: "Colony progress trigger must unlock at least one milestone."
+      });
+    }
+
+    milestoneIds
+      .filter((milestoneId) => !COLONY_MILESTONE_VALUES.has(milestoneId))
+      .forEach((milestoneId) => {
+        errors.push({
+          code: "unknown-progress-trigger-milestone",
+          index,
+          triggerId: trigger.id,
+          milestoneId,
+          message: `Unknown colony milestone id: ${milestoneId}.`
+        });
+      });
+
+    if (trigger.questEvent) {
+      if (!QUEST_EVENT_VALUES.has(trigger.questEvent.type)) {
+        errors.push({
+          code: "unknown-progress-trigger-quest-event",
+          index,
+          triggerId: trigger.id,
+          questEventType: trigger.questEvent.type,
+          message: `Unknown quest event type: ${trigger.questEvent.type || "null"}.`
+        });
+      }
+
+      if (typeof trigger.questEvent.targetId !== "string" || !trigger.questEvent.targetId.trim()) {
+        errors.push({
+          code: "missing-progress-trigger-quest-target",
+          index,
+          triggerId: trigger.id,
+          message: "Progress trigger quest event must declare a targetId."
+        });
+      }
+    }
+
+    if (trigger.autosaveType && !AUTOSAVE_EVENT_VALUES.has(trigger.autosaveType)) {
+      errors.push({
+        code: "unknown-progress-trigger-autosave-event",
+        index,
+        triggerId: trigger.id,
+        autosaveType: trigger.autosaveType,
+        message: `Unknown autosave event type: ${trigger.autosaveType}.`
+      });
+    }
+  });
+
+  return {
+    valid: errors.length === 0,
+    triggersChecked: triggers.length,
     errors
   };
 }

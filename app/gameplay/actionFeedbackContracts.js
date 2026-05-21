@@ -24,12 +24,13 @@ const ACTION_FEEDBACK_CONTRACTS = Object.freeze({
       }),
       [ACTION_FEEDBACK_RESULT.BLOCKED]: Object.freeze({
         channels: Object.freeze(["notice"]),
-        message: "The interaction path is blocked."
+        message: "That target is not ready yet.",
+        repeatMessage: "Still not ready. Follow the current colony task, then come back."
       }),
       [ACTION_FEEDBACK_RESULT.NO_TARGET]: Object.freeze({
         channels: Object.freeze(["notice"]),
-        message: "Nothing to talk to nearby. Move closer to a marker or bot, then press E / X.",
-        repeatMessage: "Still nothing nearby. Look for an interaction marker or move closer, then press A / E / X."
+        message: "No interaction nearby. Move closer to a marker, object, or bot, then press E / X.",
+        repeatMessage: "Still no interaction. Look for a marker, object, or bot, then press A / E / X."
       })
     })
   }),

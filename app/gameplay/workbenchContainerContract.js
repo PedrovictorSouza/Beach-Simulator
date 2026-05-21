@@ -13,6 +13,7 @@ import {
   TRAIN_HOUSE_PROGRESS_STATE
 } from "../story/progressionContracts.js";
 import { SANDBOTS_ITEM_NAMES } from "../story/sandbotsLexicon.js";
+import { GREENHOUSE_ITEM_ID } from "../../gameplayContent.js";
 
 export const WORKBENCH_PROTOCOL_CATEGORY = Object.freeze({
   POWER: "Power",
@@ -56,7 +57,25 @@ export const WORKBENCH_PROTOCOL_BLOCKED_REASON = Object.freeze({
   UNKNOWN_BUILDABLE: "unknown-buildable"
 });
 
+export const WORKBENCH_STATION_GUIDANCE =
+  "Workbench prepares physical kits from logged plans. Prepared kits are placed in the world.";
+
+const WORKBENCH_PROTOCOL_GUIDANCE = Object.freeze({
+  locked: "No plan is loaded for this protocol yet.",
+  canIssue: "Prepare this kit here, then place it from your supplies.",
+  readyToPlace: "Prepared. Select it to choose a site in the world.",
+  needsSolarStation: "Place the Solar Station first. Its blue support zone enables House Kit placement.",
+  placed: "Already placed in the world.",
+  built: "Already built."
+});
+
 const WORKBENCH_PROTOCOL_META = Object.freeze({
+  [GRID_PLACEABLE_IDS.GREENHOUSE]: Object.freeze({
+    category: WORKBENCH_PROTOCOL_CATEGORY.SOIL,
+    issueLabel: "Prepare Greenhouse",
+    placeLabel: "Place Greenhouse",
+    lockedLabel: "Plan unavailable"
+  }),
   [GRID_PLACEABLE_IDS.TRAIN_HOUSE]: Object.freeze({
     category: WORKBENCH_PROTOCOL_CATEGORY.POWER,
     issueLabel: `Prepare ${SANDBOTS_ITEM_NAMES.thermalCabin}`,
@@ -73,7 +92,7 @@ const WORKBENCH_PROTOCOL_META = Object.freeze({
     category: WORKBENCH_PROTOCOL_CATEGORY.SHELTER,
     issueLabel: "Prepare House Kit",
     placeLabel: "Place House Kit",
-    lockedLabel: "Needs habitat viability"
+    lockedLabel: "Needs colony viability"
   })
 });
 
@@ -105,6 +124,7 @@ function createBaseEntry(buildable, progressState) {
     canStartPlacement: false,
     blockedReason: WORKBENCH_PROTOCOL_BLOCKED_REASON.MISSING_PROTOCOL,
     status: meta.lockedLabel,
+    guidance: WORKBENCH_PROTOCOL_GUIDANCE.locked,
     usesCurrency: false
   };
 }
@@ -119,13 +139,17 @@ function withIssue(entry) {
     canIssue: true,
     canStartPlacement: false,
     blockedReason: null,
-    status: "Ready to prepare"
+    status: "Ready to prepare",
+    guidance: WORKBENCH_PROTOCOL_GUIDANCE.canIssue
   };
 }
 
 function withPlacement(entry, blockedReason = null) {
   const meta = getProtocolMeta(entry.id);
   const canStartPlacement = !blockedReason;
+  const guidance = blockedReason === WORKBENCH_PROTOCOL_BLOCKED_REASON.NEEDS_SOLAR_STATION ?
+    WORKBENCH_PROTOCOL_GUIDANCE.needsSolarStation :
+    WORKBENCH_PROTOCOL_GUIDANCE.readyToPlace;
 
   return {
     ...entry,
@@ -135,7 +159,8 @@ function withPlacement(entry, blockedReason = null) {
     canIssue: false,
     canStartPlacement,
     blockedReason,
-    status: canStartPlacement ? "Ready to place" : entry.status
+    status: canStartPlacement ? "Ready to place" : entry.status,
+    guidance
   };
 }
 
@@ -150,7 +175,8 @@ function withPlaced(entry, built = false) {
     blockedReason: built ?
       WORKBENCH_PROTOCOL_BLOCKED_REASON.ALREADY_BUILT :
       WORKBENCH_PROTOCOL_BLOCKED_REASON.ALREADY_PLACED,
-    status: built ? "Built" : "Placed"
+    status: built ? "Built" : "Placed",
+    guidance: built ? WORKBENCH_PROTOCOL_GUIDANCE.built : WORKBENCH_PROTOCOL_GUIDANCE.placed
   };
 }
 
@@ -171,6 +197,30 @@ function resolveTrainHouseEntry(buildable, context) {
   }
 
   return entry;
+}
+
+function resolveGreenhouseEntry(buildable, context) {
+  const flags = context?.storyState?.flags || context?.flags || {};
+  const inventory = context?.inventory || {};
+  const progressState = {
+    state: flags.greenhousePlaced ? "placed" :
+      (
+        flags.greenhouseCrafted || Number(inventory[GREENHOUSE_ITEM_ID] || 0) > 0 ?
+          "ready-to-place" :
+          "craftable"
+      )
+  };
+  const entry = createBaseEntry(buildable, progressState);
+
+  if (flags.greenhousePlaced) {
+    return withPlaced(entry);
+  }
+
+  if (flags.greenhouseCrafted || Number(inventory[GREENHOUSE_ITEM_ID] || 0) > 0) {
+    return withPlacement(entry);
+  }
+
+  return withIssue(entry);
 }
 
 function resolveSolarStationEntry(buildable, context) {
@@ -228,6 +278,10 @@ export function resolveWorkbenchProtocolEntry(buildable, context = {}) {
     return resolveTrainHouseEntry(buildable, context);
   }
 
+  if (buildable.id === GRID_PLACEABLE_IDS.GREENHOUSE) {
+    return resolveGreenhouseEntry(buildable, context);
+  }
+
   if (buildable.id === GRID_PLACEABLE_IDS.SOLAR_STATION) {
     return resolveSolarStationEntry(buildable, context);
   }
@@ -249,6 +303,7 @@ export function resolveWorkbenchContainerState({
 
   return {
     stationId: "workbench",
+    guidance: WORKBENCH_STATION_GUIDANCE,
     entries,
     canIssueAny: entries.some((entry) => entry.canIssue),
     canStartAnyPlacement: entries.some((entry) => entry.canStartPlacement),

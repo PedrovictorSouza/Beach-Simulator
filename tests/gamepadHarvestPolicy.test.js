@@ -3,19 +3,26 @@ import { describe, expect, it } from "vitest";
 import { shouldGamepadSourceHarvestTarget } from "../app/runtime/gamepadHarvestPolicy.js";
 
 describe("gamepad harvest policy", () => {
-  it("keeps the X button from triggering selected field moves", () => {
+  it("keeps the X button from triggering Hydro Jet, Thermal Torch, or harvest moves", () => {
     expect(shouldGamepadSourceHarvestTarget({
       source: "gamepadBag",
       activeHarvestTarget: { groundCell: { id: "dry-ground" } }
     })).toBe(false);
     expect(shouldGamepadSourceHarvestTarget({
       source: "gamepadBag",
-      activeHarvestTarget: { leafageGroundCell: { id: "restored-ground" } }
+      activeHarvestTarget: { fireGroundCell: { id: "cold-ground" } }
     })).toBe(false);
     expect(shouldGamepadSourceHarvestTarget({
       source: "gamepadBag",
       activeHarvestTarget: { palm: { id: "tree" } }
     })).toBe(false);
+  });
+
+  it("lets X trigger Bio-Grow on restored ground", () => {
+    expect(shouldGamepadSourceHarvestTarget({
+      source: "gamepadBag",
+      activeHarvestTarget: { leafageGroundCell: { id: "restored-ground" } }
+    })).toBe(true);
   });
 
   it("still lets X place selected objects from the bag", () => {

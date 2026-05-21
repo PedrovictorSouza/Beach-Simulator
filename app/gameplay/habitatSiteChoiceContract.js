@@ -167,3 +167,44 @@ export function evaluateHabitatSiteChoice({
     blockingReasons: Object.freeze(reasons.filter((reason) => reason.state === HABITAT_SITE_REASON_STATE.FAIL))
   });
 }
+
+function findReason(reasons = [], criterion, state = null) {
+  return reasons.find((reason) =>
+    reason?.criterion === criterion &&
+    (!state || reason.state === state)
+  ) || null;
+}
+
+export function formatHabitatSiteChoicePrompt({
+  siteChoice,
+  placePrompt = "Place",
+  clearPrompt = "Choose a clear spot",
+  powerPrompt = "Place inside blue zone",
+  groundPrompt = "Restore ground first"
+} = {}) {
+  const blockingReason = siteChoice?.blockingReasons?.[0] || null;
+  if (blockingReason) {
+    const nextPrompt =
+      blockingReason.criterion === HABITAT_SITE_CRITERION.POWERED ? powerPrompt :
+        blockingReason.criterion === HABITAT_SITE_CRITERION.STABLE_GROUND ? groundPrompt :
+          clearPrompt;
+    return `${blockingReason.label} - ${nextPrompt}`;
+  }
+
+  const poweredReason = findReason(
+    siteChoice?.positiveReasons,
+    HABITAT_SITE_CRITERION.POWERED,
+    HABITAT_SITE_REASON_STATE.PASS
+  );
+  const clearReason = findReason(
+    siteChoice?.positiveReasons,
+    HABITAT_SITE_CRITERION.CLEAR,
+    HABITAT_SITE_REASON_STATE.PASS
+  );
+  const warningReason = siteChoice?.warningReasons?.[0] || null;
+  const siteLabel = poweredReason ? "Powered site" : clearReason ? "Clear site" : "Valid site";
+
+  return warningReason ?
+    `${siteLabel} - ${warningReason.label} - ${placePrompt}` :
+    `${siteLabel} - ${placePrompt}`;
+}

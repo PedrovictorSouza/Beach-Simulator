@@ -28,11 +28,11 @@ export const PSX_DISTANCE_FOG_PRESETS = Object.freeze({
   [PSX_DISTANCE_FOG_PRESET_ID.GAMEPLAY_DEFAULT]: freezePreset({
     id: PSX_DISTANCE_FOG_PRESET_ID.GAMEPLAY_DEFAULT,
     enabled: true,
-    color: [0.72, 0.78, 0.82],
-    near: 26,
-    far: 64,
-    intensity: 0.58,
-    renderCullDistance: 68
+    color: [0.78, 0.84, 0.88],
+    near: 18,
+    far: 54,
+    intensity: 0.72,
+    renderCullDistance: 62
   }),
   [PSX_DISTANCE_FOG_PRESET_ID.CRASH_MIST]: freezePreset({
     id: PSX_DISTANCE_FOG_PRESET_ID.CRASH_MIST,

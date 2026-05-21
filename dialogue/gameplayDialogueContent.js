@@ -33,7 +33,7 @@ export const TANGROWTH_ONBOARDING_DIALOGUE = [
   {
     id: "notice-squirtle-sound",
     speaker: SANDBOTS_BOT_NAMES.overseer,
-    text: `That distress ping is coming from a helper bot. Come on, ${SANDBOTS_BOT_NAMES.scout} can triangulate it.`
+    text: `That distress ping is coming from a helper bot. Come on, {{playerName}}. ${SANDBOTS_BOT_NAMES.scout} can triangulate it.`
   }
 ];
 
@@ -76,7 +76,7 @@ export const SQUIRTLE_DISCOVERY_DIALOGUE = [
   },
   {
     speaker: SANDBOTS_BOT_NAMES.overseer,
-    text: "Keep it with you. It keeps notes on bot repairs, habitat checks, and small tragedies in tidy columns."
+    text: "Keep it with you. It keeps notes on bot repairs, colony checks, and small tragedies in tidy columns."
   }
 ];
 
@@ -94,7 +94,7 @@ export const TANGROWTH_FLOWER_RECOVERY_DIALOGUE = [
 export const TANGROWTH_TALL_GRASS_RETURN_DIALOGUE = [
   {
     speaker: SANDBOTS_BOT_NAMES.overseer,
-    text: "Ahh, you've restored a tall grass habitat!"
+    text: "Ahh, you've restored a tall grass colony zone!"
   },
   {
     speaker: SANDBOTS_BOT_NAMES.overseer,

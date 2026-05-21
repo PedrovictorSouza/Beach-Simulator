@@ -1,7 +1,7 @@
 const EMPTY_MISSION = Object.freeze({
   id: "empty",
   title: "????",
-  description: "No habitat check records found.",
+  description: "No colony check records found.",
   status: "locked",
   source: "terminal"
 });
@@ -10,20 +10,20 @@ const STATUS_PALETTES = Object.freeze({
   completed: {
     border: "#89ff00",
     background: "#113820",
-    label: "#9cffb1",
-    copy: "#d9ffe3"
+    label: "#ffffff",
+    copy: "#ffffff"
   },
   todo: {
     border: "#ffd66d",
     background: "#3c300c",
-    label: "#ffe28a",
-    copy: "#fff0bd"
+    label: "#ffffff",
+    copy: "#ffffff"
   },
   locked: {
     border: "#5d6470",
     background: "#181b22",
-    label: "#9aa1ad",
-    copy: "#aeb6c2"
+    label: "#ffffff",
+    copy: "#ffffff"
   }
 });
 const TERMINAL_MISSION_STATUS_TYPES = Object.freeze({
@@ -66,7 +66,7 @@ const TERMINAL_MISSION_STATUS_TYPES = Object.freeze({
 const TERMINAL_STATUS_SUMMARY_ITEMS = Object.freeze([
   Object.freeze({ key: "completed", label: "Complete", color: STATUS_PALETTES.completed.label }),
   Object.freeze({ key: "ready", label: "Ready", color: STATUS_PALETTES.todo.label }),
-  Object.freeze({ key: "todo", label: "To Do", color: "#fff0bd" }),
+  Object.freeze({ key: "todo", label: "To Do", color: "#ffffff" }),
   Object.freeze({ key: "locked", label: "Locked", color: STATUS_PALETTES.locked.label })
 ]);
 const TERMINAL_STATUS_LEGEND_ITEMS = Object.freeze([
@@ -239,14 +239,14 @@ function renderTerminalModalHeader({ builderCallsign, stats, selectedMissionInde
       <div style="display:grid;gap:7px;min-width:0;">
         <strong style="font-size:26px;line-height:1;color:#ffffff;">Colony Terminal</strong>
         ${callsign ? `
-          <span style="font-size:13px;line-height:1;color:#eaf8ff;">Builder ${escapeHtml(callsign)}</span>
+          <span style="font-size:13px;line-height:1;color:#ffffff;">Builder ${escapeHtml(callsign)}</span>
         ` : ""}
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:15px;line-height:1;color:#9fdcff;">
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:15px;line-height:1;color:#ffffff;">
           ${renderTerminalStatusSummary(stats)}
         </div>
       </div>
       <div style="display:grid;gap:4px;text-align:right;">
-        <span style="font-size:13px;color:#9fdcff;">Selected</span>
+        <span style="font-size:13px;color:#ffffff;">Selected</span>
         <strong style="font-size:24px;line-height:1;color:#ffffff;">${selectedMissionIndex + 1}/${totalMissions}</strong>
       </div>
     </header>
@@ -260,13 +260,13 @@ function renderTerminalModalBody({ cardColumns, selectedMissionIndex, visibleMis
         class="pokemon-center-pc-modal__nav"
         type="button"
         data-pc-action="previous"
-        aria-label="Previous habitat check"
+        aria-label="Previous colony check"
         style="border:3px solid #7bc7ff;background:#0d2c45;color:#ffffff;font:inherit;font-size:24px;cursor:pointer;min-height:48px;"
       >&lt;</button>
       <div
         class="pokemon-center-pc-modal__cards"
         role="listbox"
-        aria-label="Habitat checks"
+        aria-label="Colony checks"
         aria-activedescendant="pokemon-center-pc-card-${selectedMissionIndex}"
         style="display:grid;grid-template-columns:${cardColumns || "minmax(0, 1fr)"};gap:12px;align-items:stretch;min-width:0;"
       >${visibleMissionCards}</div>
@@ -274,7 +274,7 @@ function renderTerminalModalBody({ cardColumns, selectedMissionIndex, visibleMis
         class="pokemon-center-pc-modal__nav"
         type="button"
         data-pc-action="next"
-        aria-label="Next habitat check"
+        aria-label="Next colony check"
         style="border:3px solid #7bc7ff;background:#0d2c45;color:#ffffff;font:inherit;font-size:24px;cursor:pointer;min-height:48px;"
       >&gt;</button>
     </div>
@@ -285,15 +285,15 @@ function renderTerminalModalFooter({ actionHint, actionReady, dotsHtml }) {
   return `
     <footer style="display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:12px;align-items:center;margin-top:14px;">
       <div style="display:grid;gap:7px;min-width:0;">
-        <div class="pokemon-center-pc-modal__dots" aria-label="Habitat check timeline" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-height:44px;overflow:auto;padding:2px 2px 5px 2px;">${dotsHtml}</div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;line-height:1;color:#9fdcff;">
+        <div class="pokemon-center-pc-modal__dots" aria-label="Colony check timeline" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-height:44px;overflow:auto;padding:2px 2px 5px 2px;">${dotsHtml}</div>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;line-height:1;color:#ffffff;">
           ${renderTerminalStatusLegend()}
         </div>
       </div>
       <p style="margin:0;display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;color:#ffffff;font-size:17px;line-height:1;">
-        <span style="color:#9fdcff;">Left/Right Browse</span>
-        <span style="color:${actionReady ? "#ffe28a" : "#9aa1ad"};">${escapeHtml(actionHint)}</span>
-        <span style="color:#ff6a6a;">B / Esc Close</span>
+        <span style="color:#ffffff;">Left/Right Browse</span>
+        <span style="color:#ffffff;">${escapeHtml(actionHint)}</span>
+        <span style="color:#ffffff;">B / Esc Close</span>
       </p>
     </footer>
   `;
@@ -487,7 +487,7 @@ export function createPokemonCenterPcModalController({
 
     root = createElement(documentRef, "section", "pokemon-center-pc-modal");
     root.hidden = true;
-    root.setAttribute("aria-label", "Colony Terminal habitat checks");
+    root.setAttribute("aria-label", "Colony Terminal colony checks");
     root.setAttribute("role", "dialog");
     root.setAttribute("aria-modal", "true");
     Object.assign(root.style, {
@@ -589,7 +589,7 @@ export function createPokemonCenterPcModalController({
           type="button"
           data-pc-mission-index="${index}"
           data-selected="${selected ? "true" : "false"}"
-          aria-label="Habitat check ${index + 1}: ${escapeHtml(mission.title)}"
+          aria-label="Colony check ${index + 1}: ${escapeHtml(mission.title)}"
           style="
             width:${selected ? "18px" : "12px"};height:12px;border:2px solid ${selected ? "#ffffff" : palette.border};
             background:${fillColor};
@@ -640,7 +640,7 @@ export function createPokemonCenterPcModalController({
         data-pc-card-mode="${cardMode}"
         role="option"
         aria-selected="${selected ? "true" : "false"}"
-        aria-label="Habitat check ${index + 1}, ${escapeHtml(statusLabel)}: ${escapeHtml(mission.title)}"
+        aria-label="Colony check ${index + 1}, ${escapeHtml(statusLabel)}: ${escapeHtml(mission.title)}"
         style="
           min-height:${selected ? "258px" : "192px"};
           border:${selected ? "4px solid #ffffff" : `3px solid ${palette.border}`};
@@ -724,10 +724,10 @@ export function createPokemonCenterPcModalController({
       border: "4px solid #7bc7ff",
       boxShadow: "0 0 0 4px #0b1f32, 0 18px 0 rgba(0, 0, 0, 0.28)",
       background: "#071525",
-      color: "#eaf8ff",
+      color: "#ffffff",
       padding: "20px 22px",
       fontFamily: "var(--game-ui-font, monospace)",
-      textTransform: "uppercase"
+      textTransform: "none"
     });
 
     panel.innerHTML = `

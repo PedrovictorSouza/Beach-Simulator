@@ -25,6 +25,16 @@ export type RecipeDef = {
 };
 
 export const RECIPE_DEFS = {
+  greenhouse: {
+    id: "greenhouse",
+    title: "Greenhouse",
+    stationId: "workbench",
+    ingredients: {},
+    output: {
+      greenhouse: 1,
+    },
+    note: "A starter Workbench protocol for marking the greenhouse restoration footprint.",
+  },
   campfire: {
     id: "campfire",
     title: "Thermal Cabin",

@@ -264,18 +264,41 @@ const SKY_FRAGMENT_SOURCE = `
   uniform sampler2D uSkyTexture;
   uniform float uSkyYaw;
   uniform float uSkyPitch;
+  uniform float uSkyTime;
 
   varying vec2 vScreenUv;
 
   const float PI = 3.14159265359;
+  const float SKY_BACKGROUND_DISTANCE_SCALE = 1.8;
+  const float SKY_BACKGROUND_SCREEN_COVERAGE = 0.3;
+  const float SKY_CLOUD_SCROLL_SPEED = 0.015;
+  const vec3 SKY_SNOW_FOG_COLOR = vec3(0.82, 0.9, 0.94);
+  const float SKY_SNOW_FOG_BASE_BLEND = 0.18;
+  const float SKY_SNOW_HORIZON_FOG_BLEND = 0.5;
 
   void main() {
-    float horizontalSpan = 1.0;
-    float u = fract(0.5 + (uSkyYaw / (PI * 2.0)) + (vScreenUv.x - 0.5) * horizontalSpan);
+    float horizontalSpan = SKY_BACKGROUND_DISTANCE_SCALE;
+    float cloudScroll = uSkyTime * SKY_CLOUD_SCROLL_SPEED;
+    float u = fract(
+      0.5 +
+      (uSkyYaw / (PI * 2.0)) +
+      cloudScroll +
+      (vScreenUv.x - 0.5) * horizontalSpan
+    );
     float pitchOffset = clamp(uSkyPitch, -0.9, 0.9) * 0.12;
-    float v = clamp(1.0 - vScreenUv.y + pitchOffset, 0.001, 0.999);
+    float topBandProgress = (1.0 - vScreenUv.y) / SKY_BACKGROUND_SCREEN_COVERAGE;
+    float v = clamp(topBandProgress + pitchOffset, 0.001, 0.999);
+    vec4 skyTexel = texture2D(uSkyTexture, vec2(u, v));
+    float horizonLine = 1.0 - SKY_BACKGROUND_SCREEN_COVERAGE;
+    float horizonFog = 1.0 - smoothstep(horizonLine, 1.0, vScreenUv.y);
+    float snowFogBlend = clamp(
+      SKY_SNOW_FOG_BASE_BLEND + horizonFog * SKY_SNOW_HORIZON_FOG_BLEND,
+      0.0,
+      0.82
+    );
+    vec3 snowFoggedSky = mix(skyTexel.rgb, SKY_SNOW_FOG_COLOR, snowFogBlend);
 
-    gl_FragColor = texture2D(uSkyTexture, vec2(u, v));
+    gl_FragColor = vec4(snowFoggedSky, skyTexel.a);
   }
 `;
 
@@ -489,7 +512,8 @@ export function createWorldRenderingResources(gl) {
   const skyUniforms = {
     texture: gl.getUniformLocation(skyProgram, "uSkyTexture"),
     yaw: gl.getUniformLocation(skyProgram, "uSkyYaw"),
-    pitch: gl.getUniformLocation(skyProgram, "uSkyPitch")
+    pitch: gl.getUniformLocation(skyProgram, "uSkyPitch"),
+    time: gl.getUniformLocation(skyProgram, "uSkyTime")
   };
   const skyQuadBuffer = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, skyQuadBuffer);

@@ -39,7 +39,7 @@ const POKEMON_ROSTER = Object.freeze([
     abilityDescription: `${SANDBOTS_ITEM_NAMES.hydroTool} restores dry ground, revives thirsty trees, and turns dead ground green again.`,
     imageUrl: new URL("../ui/images/Robot-1-thumb.png", import.meta.url).href,
     color: "#75c6ee",
-    ink: "#10253a",
+    ink: "#ffffff",
     revealedFlag: "squirtleRobotReactivated",
     followingFlag: "squirtleFollowing"
   },
@@ -51,7 +51,7 @@ const POKEMON_ROSTER = Object.freeze([
     abilityDescription: `${SANDBOTS_ITEM_NAMES.growTool} places ${SANDBOTS_BOT_NAMES.grow}'s selected plant kit on valid ground, such as tall grass or Garden-1.`,
     imageUrl: new URL("../ui/images/Robot-2-thumb.png", import.meta.url).href,
     color: "#7ed36d",
-    ink: "#0b2610",
+    ink: "#ffffff",
     revealedFlag: "bulbasaurRevealed",
     followingFlag: "bulbasaurFollowing"
   },
@@ -63,7 +63,7 @@ const POKEMON_ROSTER = Object.freeze([
     abilityDescription: `${SANDBOTS_ITEM_NAMES.thermalTool} spends Carbon charges to burn white ground into dead ground so ${SANDBOTS_ITEM_NAMES.hydroTool} can restore it later.`,
     imageUrl: new URL("../ui/images/Robot-3-thumb.png", import.meta.url).href,
     color: "#ff8a3d",
-    ink: "#2a1005",
+    ink: "#ffffff",
     revealedFlag: "charmanderRevealed",
     followingFlag: "charmanderFollowing"
   },
@@ -74,7 +74,7 @@ const POKEMON_ROSTER = Object.freeze([
     ability: "Construction",
     abilityDescription: `Construction lets ${SANDBOTS_BOT_NAMES.builder} help finish building kits that need heavy support.`,
     color: "#c5945d",
-    ink: "#241407",
+    ink: "#ffffff",
     glyph: "T",
     revealedFlag: "timburrRevealed",
     followingFlag: "timburrFollowing"
@@ -138,7 +138,7 @@ function renderBagSlot(itemId, inventory, itemDefs) {
       </div>
       <span
         class="settings-menu__bag-name"
-        style="font-size:10px; line-height:1.1; text-align:center; color:#fff1e8;"
+        style="font-size:10px; line-height:1.1; text-align:center; color:#ffffff;"
       >${escapeHtml(label)}</span>
       <span class="inventory-count">${escapeHtml(count)}</span>
     </div>
@@ -227,7 +227,7 @@ function renderPokemonCard(pokemon, storyState = {}, { selected = false } = {}) 
         ${renderPokemonSelectedOverlay(selected)}
       </div>
       <div style="display:grid;gap:8px;padding:10px;align-content:start;">
-        <strong style="font-size:18px;line-height:1;color:#fff1e8;">${escapeHtml(pokemon.name)}</strong>
+        <strong style="font-size:18px;line-height:1;color:#ffffff;">${escapeHtml(pokemon.name)}</strong>
         ${leafDenMoveInAvailable ? `
           <button
             class="settings-menu__pokemon-move-in"
@@ -430,8 +430,8 @@ export function createSettingsMenuController({
 
     pokemonAbilityPanel.hidden = false;
     pokemonAbilityPanel.innerHTML = `
-      <span style="font-size:12px;line-height:1;color:#ffccaa;text-transform:uppercase;">Function</span>
-      <strong style="font-size:18px;line-height:1;color:#fff1e8;">${escapeHtml(selectedPokemon.name)} · ${escapeHtml(selectedPokemon.ability)}</strong>
+      <span style="font-size:12px;line-height:1;color:#ffffff;text-transform:none;">Function</span>
+      <strong style="font-size:18px;line-height:1;color:#ffffff;">${escapeHtml(selectedPokemon.name)} · ${escapeHtml(selectedPokemon.ability)}</strong>
       <p style="margin:0;color:#ffffff;font-size:14px;line-height:1.25;text-transform:none;">${escapeHtml(selectedPokemon.abilityDescription || "")}</p>
     `;
   }
@@ -566,7 +566,7 @@ export function createSettingsMenuController({
           style="display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,auto);align-items:center;gap:10px;min-height:42px;padding:8px 10px;border:2px solid ${waiting ? "#ffccaa" : "rgba(255,255,255,.55)"};background:${waiting ? "rgba(255,204,170,.22)" : "rgba(255,255,255,.08)"};color:#ffffff;font:inherit;text-align:left;cursor:pointer;"
         >
           <span>${escapeHtml(action.label)}</span>
-          <strong style="justify-self:end;color:#ffccaa;">${escapeHtml(keyLabel)}</strong>
+          <strong style="justify-self:end;color:#ffffff;">${escapeHtml(keyLabel)}</strong>
         </button>
       `;
     }).join("");
@@ -1051,21 +1051,30 @@ export function createSettingsMenuController({
     Object.assign(root.style, {
       position: "absolute",
       inset: "0",
-      zIndex: "45",
+      zIndex: "2147483647",
       display: "none",
-      placeItems: "center",
+      alignItems: "stretch",
+      justifyItems: "start",
+      width: "100%",
+      height: "100%",
+      minHeight: "100%",
+      padding: "0",
+      boxSizing: "border-box",
+      overflow: "hidden",
       pointerEvents: "auto"
     });
 
     const panel = createElement(documentRef, "article", "settings-menu__panel");
     Object.assign(panel.style, {
-      width: "min(760px, calc(100% - 64px))",
-      maxHeight: "calc(100% - 96px)",
+      width: "min(760px, 100%)",
+      height: "100%",
+      maxHeight: "100%",
       overflow: "auto",
       padding: "24px",
       border: "3px solid rgba(255, 241, 232, 0.86)",
-      borderRadius: "8px",
+      borderRadius: "0 8px 8px 0",
       background: "rgba(13, 16, 28, 0.94)",
+      boxSizing: "border-box",
       color: "#ffffff",
       fontFamily: "var(--game-ui-font, monospace)",
       textShadow: "2px 2px 0 #11111b"
@@ -1198,7 +1207,7 @@ export function createSettingsMenuController({
     );
     Object.assign(controlsIntro.style, {
       margin: "0 0 12px",
-      color: "#d8f0ff",
+      color: "#ffffff",
       fontSize: "13px",
       lineHeight: "1.25"
     });
@@ -1295,7 +1304,7 @@ export function createSettingsMenuController({
         padding: "12px",
         border: "3px solid #ffccaa",
         background: "rgba(40, 16, 18, 0.92)",
-        color: "#fff1e8"
+        color: "#ffffff"
       });
       const restartConfirmTitle = createElement(
         documentRef,

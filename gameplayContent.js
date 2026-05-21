@@ -13,6 +13,7 @@ export const WATER_GUN_POWER_ITEM_ID = "waterGunTotem";
 export const LEPPA_BERRY_ITEM_ID = "leppaBerry";
 export const LOG_CHAIR_ITEM_ID = "logChair";
 export const SIMPLE_WOODEN_DIY_RECIPES_ITEM_ID = "simpleWoodenDiyRecipes";
+export const GREENHOUSE_ITEM_ID = "greenhouse";
 export const CAMPFIRE_ITEM_ID = "campfire";
 export const LIFE_COINS_ITEM_ID = "lifeCoins";
 export const LEAVES_ITEM_ID = "leaves";
@@ -143,7 +144,7 @@ export const ITEM_DEFS = {
     color: "#9a6842",
     ink: "#fff2d6",
     slotRole: "placeable",
-    description: "A sturdy little chair carved from a log. Chopper says every habitat needs a place to rest."
+    description: "A sturdy little chair carved from a log. Chopper says every safe place needs a spot to rest."
   },
   [SIMPLE_WOODEN_DIY_RECIPES_ITEM_ID]: {
     id: SIMPLE_WOODEN_DIY_RECIPES_ITEM_ID,
@@ -156,6 +157,16 @@ export const ITEM_DEFS = {
     ink: "#2a1809",
     slotRole: "recipe",
     description: `A starter bundle of Workbench instructions. The ${SANDBOTS_ITEM_NAMES.thermalCabin} plan is circled in the corner.`
+  },
+  [GREENHOUSE_ITEM_ID]: {
+    ...CRAFTED_ITEM_DEFS[GREENHOUSE_ITEM_ID],
+    bagDetailsEligible: true,
+    shortLabel: "Green",
+    glyph: "G",
+    color: "#65b96a",
+    ink: "#0f260f",
+    slotRole: "placeable",
+    description: "A compact greenhouse footprint prepared at the Workbench for early restoration planning."
   },
   [CAMPFIRE_ITEM_ID]: {
     ...CRAFTED_ITEM_DEFS[CAMPFIRE_ITEM_ID],
@@ -177,7 +188,7 @@ export const ITEM_DEFS = {
     ink: "#0b1f32",
     slotRole: "key",
     hiddenFromInventory: true,
-    description: `Legacy save data for habitat viability reports recorded by the ${SANDBOTS_WORLD_TERMS.terminal}.`
+    description: `Legacy save data for colony viability reports recorded by the ${SANDBOTS_WORLD_TERMS.terminal}.`
   },
   [LEAVES_ITEM_ID]: {
     ...MATERIAL_DEFS[LEAVES_ITEM_ID],
@@ -187,7 +198,7 @@ export const ITEM_DEFS = {
     color: "#72b95a",
     ink: "#10220c",
     slotRole: "material",
-    description: "Fresh leaves gathered near restored tall grass. Useful for simple habitat projects."
+    description: "Fresh leaves gathered near restored tall grass. Useful for simple colony projects."
   },
   [CARBON_ITEM_ID]: {
     ...MATERIAL_DEFS[CARBON_ITEM_ID],
@@ -249,7 +260,7 @@ export const ITEM_DEFS = {
     color: "#d7b65a",
     ink: "#2d2108",
     slotRole: "placeable",
-    description: "A compact Solar Station that helps grassy habitats feel more alive."
+    description: "A compact Solar Station that helps grassy colony zones feel more alive."
   },
   [LEAF_DEN_KIT_ITEM_ID]: {
     ...CRAFTED_ITEM_DEFS[LEAF_DEN_KIT_ITEM_ID],
@@ -261,7 +272,7 @@ export const ITEM_DEFS = {
     slotRole: "placeable",
     itemKind: BUILDING_KIT_ITEM_KIND,
     buildingKitId: LEAF_DEN_KIT_ITEM_ID,
-    description: `A leafy habitat kit prepared at the ${SANDBOTS_WORLD_TERMS.terminal}. ${SANDBOTS_BOT_NAMES.overseer} says it is the first step toward proper human homes.`
+    description: `A leafy shelter kit prepared at the ${SANDBOTS_WORLD_TERMS.terminal}. ${SANDBOTS_BOT_NAMES.overseer} says it is the first step toward proper human homes.`
   },
   [DITTO_FLAG_ITEM_ID]: {
     id: DITTO_FLAG_ITEM_ID,
@@ -401,6 +412,7 @@ export const INVENTORY_ORDER = [
   LEPPA_BERRY_ITEM_ID,
   LOG_CHAIR_ITEM_ID,
   SIMPLE_WOODEN_DIY_RECIPES_ITEM_ID,
+  GREENHOUSE_ITEM_ID,
   CAMPFIRE_ITEM_ID,
   LEAVES_ITEM_ID,
   CARBON_ITEM_ID,
@@ -727,7 +739,7 @@ export const PALM_INSTANCE_LAYOUT = [
   { offset: [-22, 0, -28], scale: 0.88, yaw: -0.2 },
   { offset: [-10, 0, -20], scale: 0.84, yaw: 0.27 },
   { offset: [10, 0, -18], scale: 0.87, yaw: -0.12 },
-  { offset: [22, 0, -16], scale: 0.9, yaw: 0.22 },
+  { offset: [26, 0, -20], scale: 0.9, yaw: 0.22 },
   { offset: [36, 0, -22], scale: 0.86, yaw: -0.35 },
   { offset: [48, 0, -10], scale: 0.84, yaw: 0.28 },
   { offset: [54, 0, 4], scale: 0.88, yaw: -0.18 },
@@ -793,7 +805,7 @@ export const NPC_PROFILES = {
   aunty: {
     id: "aunty",
     label: "Core Keeper Bot",
-    role: "Habitat Core Keeper",
+    role: "Colony Core Keeper",
     summary:
       "The Core Keeper Bot kept the first hub alive while the island routes collapsed. It gives the run its repair cadence and keeps the colony logic grounded.",
     idleLine:
@@ -841,6 +853,7 @@ export const WORLD_MARKER_STYLES = {
 };
 
 export const PLACEHOLDER_RECIPES = {
+  greenhouse: RECIPE_DEFS.greenhouse,
   campfire: RECIPE_DEFS.campfire,
   strawBed: RECIPE_DEFS.strawBed,
   bridgeKit: RECIPE_DEFS.bridgeKit,
@@ -891,9 +904,9 @@ export const STORY_QUESTS = [
   {
     id: "makingHabitats",
     eyebrow: "Discovery",
-    act: "Act I • Habitat Seeds",
+    act: "Act I • Colony Seeds",
     difficulty: 1,
-    title: "Making Habitats!",
+    title: "Making colony zones",
     body:
       "Arrange tall grass, trees, rocks, and furniture into the right combinations to create a viable colony zone!",
     storyBeat:
@@ -903,7 +916,7 @@ export const STORY_QUESTS = [
     leadNpcId: "tangrowth",
     reward: PRETTY_FLOWER_BED_HABITAT_LABEL,
     actionLabel: "Space / Restore",
-    toolkitHint: "Habitats / Discovery",
+    toolkitHint: "Colony Zones / Discovery",
   },
   {
     id: "meetAunty",

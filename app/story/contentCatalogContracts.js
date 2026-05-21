@@ -168,6 +168,20 @@ function normalizeComparableCopy(text) {
     .trim();
 }
 
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function startsWithTitleHeadingPrefix(text, title) {
+  const rawText = String(text || "").replace(/<[^>]*>/g, " ").trim();
+  const rawTitle = String(title || "").replace(/<[^>]*>/g, " ").trim();
+  if (!rawText || !rawTitle) {
+    return false;
+  }
+
+  return new RegExp(`^${escapeRegExp(rawTitle)}\\s*[:\\-–—]`, "i").test(rawText);
+}
+
 function hasConsequenceCopy(text, terms = OBJECTIVE_CONSEQUENCE_TERMS) {
   const normalizedText = normalizeComparableCopy(text);
   return terms.some((term) => normalizedText.includes(normalizeComparableCopy(term)));
@@ -324,6 +338,86 @@ export function getObjectiveConsequenceCopyErrors({
             index,
             field
           });
+        }
+      });
+    });
+  });
+
+  return Object.freeze(errors.map((error) => Object.freeze(error)));
+}
+
+export function getSupportCopyDuplicationErrors({
+  catalog,
+  entries = listContentCatalogEntries(catalog),
+  titleField = "title",
+  supportFields = [
+    "subtitle",
+    "description",
+    "guidance",
+    "instructionText",
+    "errandQuest.hudText",
+    "errandQuest.instructionText"
+  ],
+  titleRepeatAllowedFields = ["errandQuest.hudText"],
+  evaluateTextFunctions = false,
+  textFunctionContext = {}
+} = {}) {
+  const errors = [];
+  const catalogEntries = listContentCatalogEntries(entries);
+
+  catalogEntries.forEach((entry, index) => {
+    const entryId = entry?.id || null;
+    const title = getFieldValue(entry, titleField);
+    const normalizedTitle = normalizeComparableCopy(title);
+    const seenSupportCopy = new Map();
+
+    supportFields.forEach((field) => {
+      const value = getFieldValue(entry, field);
+      const strings = collectStrings(value, { evaluateTextFunctions, textFunctionContext });
+
+      strings.forEach((text) => {
+        const normalizedText = normalizeComparableCopy(text);
+        if (!normalizedText) {
+          return;
+        }
+
+        if (
+          normalizedTitle &&
+          normalizedText === normalizedTitle &&
+          !titleRepeatAllowedFields.includes(field)
+        ) {
+          errors.push({
+            type: "support-copy-duplicates-title",
+            entryId,
+            index,
+            field
+          });
+          return;
+        }
+
+        if (normalizedTitle && startsWithTitleHeadingPrefix(text, title)) {
+          errors.push({
+            type: "support-copy-repeats-title-prefix",
+            entryId,
+            index,
+            field
+          });
+        }
+
+        const duplicateField = seenSupportCopy.get(normalizedText);
+        if (duplicateField && duplicateField !== field) {
+          errors.push({
+            type: "support-copy-duplicates-field",
+            entryId,
+            index,
+            field,
+            duplicateOf: duplicateField
+          });
+          return;
+        }
+
+        if (!duplicateField) {
+          seenSupportCopy.set(normalizedText, field);
         }
       });
     });

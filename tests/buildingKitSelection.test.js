@@ -2,7 +2,10 @@
 
 import { describe, expect, it } from "vitest";
 import { LEAF_DEN_KIT_ITEM_ID } from "../gameplayContent.js";
-import { resolveSelectableBuildingKit } from "../app/bootstrap/createApplicationRuntime.js";
+import {
+  resolveSelectableBuildingKit,
+  shouldChainHouseKitPlacementAfterSolarStation
+} from "../app/bootstrap/createApplicationRuntime.js";
 
 describe("building kit inventory selection", () => {
   it("selects an owned House Kit when building placement is available", () => {
@@ -49,5 +52,35 @@ describe("building kit inventory selection", () => {
       itemId: LEAF_DEN_KIT_ITEM_ID,
       name: "House Kit"
     });
+  });
+
+  it("chains Solar Station placement into House Kit placement when the player already selected the kit", () => {
+    expect(shouldChainHouseKitPlacementAfterSolarStation({
+      storyState: {
+        flags: {
+          leafDenKitSelected: true,
+          leafDenKitPlaced: false
+        }
+      },
+      inventory: {
+        [LEAF_DEN_KIT_ITEM_ID]: 1
+      },
+      gameSession: {}
+    })).toBe(true);
+  });
+
+  it("does not chain House Kit placement when the first house is already placed", () => {
+    expect(shouldChainHouseKitPlacementAfterSolarStation({
+      storyState: {
+        flags: {
+          leafDenKitSelected: true,
+          leafDenKitPlaced: true
+        }
+      },
+      inventory: {
+        [LEAF_DEN_KIT_ITEM_ID]: 1
+      },
+      gameSession: {}
+    })).toBe(false);
   });
 });

@@ -53,7 +53,7 @@ function resolvePowerStatus(flags, inventory) {
       COLONY_STATUS_SYSTEM_ID.POWER,
       "Power",
       COLONY_STATUS_STATE.ACTIVE,
-      "Solar Station online."
+      "Solar Station online. Blue zone supports shelter."
     );
   }
 
@@ -62,7 +62,7 @@ function resolvePowerStatus(flags, inventory) {
       COLONY_STATUS_SYSTEM_ID.POWER,
       "Power",
       COLONY_STATUS_STATE.READY,
-      "Solar Station ready to place."
+      "Solar Station ready. Find clear ground."
     );
   }
 
@@ -71,7 +71,7 @@ function resolvePowerStatus(flags, inventory) {
       COLONY_STATUS_SYSTEM_ID.POWER,
       "Power",
       COLONY_STATUS_STATE.AVAILABLE,
-      "Solar Station plans ready."
+      "Solar Station plans ready at Workbench."
     );
   }
 
@@ -91,7 +91,7 @@ function resolveWaterStatus({ flags, inventory, playerSkills, activeMoveId }) {
       COLONY_STATUS_SYSTEM_ID.WATER,
       "Water",
       COLONY_STATUS_STATE.ACTIVE,
-      "Hydro Jet selected."
+      "Hydro Jet selected. Aim at dry ground."
     );
   }
 
@@ -100,7 +100,7 @@ function resolveWaterStatus({ flags, inventory, playerSkills, activeMoveId }) {
       COLONY_STATUS_SYSTEM_ID.WATER,
       "Water",
       COLONY_STATUS_STATE.READY,
-      "Hydro Jet available."
+      "Hydro Jet ready. Restore dry ground."
     );
   }
 
@@ -129,7 +129,7 @@ function resolveSoilStatus({ flags, playerSkills }) {
       COLONY_STATUS_SYSTEM_ID.SOIL,
       "Soil",
       COLONY_STATUS_STATE.ACTIVE,
-      `${Math.min(restoredGrassCount, SOIL_RESTORATION_SAMPLE_TARGET)}/${SOIL_RESTORATION_SAMPLE_TARGET} dry grass restored.`,
+      `${Math.min(restoredGrassCount, SOIL_RESTORATION_SAMPLE_TARGET)}/${SOIL_RESTORATION_SAMPLE_TARGET} dry grass restored. Keep watering.`,
       Math.min(1, restoredGrassCount / SOIL_RESTORATION_SAMPLE_TARGET)
     );
   }
@@ -139,7 +139,7 @@ function resolveSoilStatus({ flags, playerSkills }) {
       COLONY_STATUS_SYSTEM_ID.SOIL,
       "Soil",
       COLONY_STATUS_STATE.READY,
-      "Dry ground can be restored."
+      "Dry ground can be restored with Hydro Jet."
     );
   }
 
@@ -166,7 +166,7 @@ function resolveShelterStatus(flags, inventory) {
       COLONY_STATUS_SYSTEM_ID.SHELTER,
       "Shelter",
       COLONY_STATUS_STATE.ACTIVE,
-      "House Kit placed."
+      "House Kit placed. Shelter site marked."
     );
   }
 
@@ -175,7 +175,7 @@ function resolveShelterStatus(flags, inventory) {
       COLONY_STATUS_SYSTEM_ID.SHELTER,
       "Shelter",
       COLONY_STATUS_STATE.READY,
-      "House Kit ready."
+      "House Kit ready. Place inside blue zone."
     );
   }
 

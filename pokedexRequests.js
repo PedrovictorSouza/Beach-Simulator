@@ -15,27 +15,27 @@ export const POKEDEX_REQUESTS = Object.freeze({
     status: "New Request",
     giver: SANDBOTS_BOT_NAMES.hydro,
     title: `A Pulse Berry for ${SANDBOTS_BOT_NAMES.grow}`,
-    description: `${SANDBOTS_BOT_NAMES.hydro} thinks a Pulse Berry from the old dead tree might stabilize ${SANDBOTS_BOT_NAMES.grow} after all that habitat work.`,
+    description: `${SANDBOTS_BOT_NAMES.hydro} thinks a Pulse Berry from the old dead tree might stabilize ${SANDBOTS_BOT_NAMES.grow} after all that restoration work.`,
     objective: `Use ${SANDBOTS_ITEM_NAMES.hydroTool} on the dead tree, bump it loose, pick up the Pulse Berry, then show it to ${SANDBOTS_BOT_NAMES.hydro} or ${SANDBOTS_BOT_NAMES.grow}.`,
-    reward: `${SANDBOTS_BOT_NAMES.grow} will trust your habitat care even more.`
+    reward: `${SANDBOTS_BOT_NAMES.grow} will trust your restoration work a little more.`
   },
   [BOULDER_SHADED_TALL_GRASS_CHALLENGE_ID]: {
     id: BOULDER_SHADED_TALL_GRASS_CHALLENGE_ID,
-    status: "Habitat Check",
+    status: "Colony Check",
     giver: SANDBOTS_WORLD_TERMS.terminal,
     title: "Boulder-Shaded Tall Grass",
-    description: "The restored terminal is checking whether specialized habitats can support returning bots and future colony work.",
-    objective: `Use ${SANDBOTS_ITEM_NAMES.growTool} near the boulder to grow four tall grass patches, inspect the rustling habitat, then return to the ${SANDBOTS_WORLD_TERMS.terminal}.`,
+    description: "The restored terminal is checking whether specialized colony zones can support returning bots and future colony work.",
+    objective: `Use ${SANDBOTS_ITEM_NAMES.growTool} near the boulder to grow four tall grass patches, inspect the rustling colony zone, then return to the ${SANDBOTS_WORLD_TERMS.terminal}.`,
     reward: "Viability logged."
   },
   [NEW_HABITAT_CHALLENGES_ID]: {
     id: NEW_HABITAT_CHALLENGES_ID,
-    status: "New Habitat Checks",
+    status: "New Colony Checks",
     giver: SANDBOTS_WORLD_TERMS.terminal,
-    title: "New Habitat Checks",
-    description: `The terminal added a fresh set of habitat checks after ${SANDBOTS_BOT_NAMES.grow}'s tall grass home improved.`,
-    objective: "Review the new habitat checks, then keep restoring habitats around the island.",
-    reward: "More habitat recovery routes."
+    title: "New Colony Checks",
+    description: `The terminal added a fresh set of colony checks after ${SANDBOTS_BOT_NAMES.grow}'s tall grass home improved.`,
+    objective: "Review the new colony checks, then keep restoring colony zones around the island.",
+    reward: "More restoration routes."
   }
 });
 

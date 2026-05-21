@@ -208,8 +208,10 @@ describe("createPokemonCenterPcModalController", () => {
     expect(mount.textContent).toContain("Press X / Enter to Log Viability.");
     expect(mount.textContent).toContain("X / Enter Log Viability");
     expect(mount.textContent).toContain("B / Esc Close");
-    expect(modal?.querySelector('[data-pc-action="previous"]')?.getAttribute("aria-label")).toBe("Previous habitat check");
-    expect(modal?.querySelector('[data-pc-action="next"]')?.getAttribute("aria-label")).toBe("Next habitat check");
+    expect(modal?.getAttribute("aria-label")).toBe("Colony Terminal colony checks");
+    expect(modal?.querySelector(".pokemon-center-pc-modal__cards")?.getAttribute("aria-label")).toBe("Colony checks");
+    expect(modal?.querySelector('[data-pc-action="previous"]')?.getAttribute("aria-label")).toBe("Previous colony check");
+    expect(modal?.querySelector('[data-pc-action="next"]')?.getAttribute("aria-label")).toBe("Next colony check");
 
     controller.handleKeydown({ code: "KeyX", preventDefault() {} });
 

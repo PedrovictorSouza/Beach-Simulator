@@ -82,6 +82,8 @@ export function createSceneFlowRuntime({
   unlockPlayerSkill,
   unlockPokedexUi,
   setPokedexOverlayOpen,
+  startSaveSlots = [],
+  onStartGame = () => {},
   onPlayerNameConfirmed = () => {}
 }) {
   let sceneDirector = null;
@@ -102,12 +104,12 @@ export function createSceneFlowRuntime({
     root: dom.startOverlay,
     uiLayer,
     initiallyActive: false,
+    saveSlots: startSaveSlots,
     prepareExitTransition: () => transitionVeil.show(),
-    onStart: () => {
-      sceneDirector?.transition(GAME_FLOW.INTRO);
-      void introEntryPromise
-        .catch(() => {})
-        .then(() => transitionVeil.hide());
+    onStart: (selection) => {
+      onStartGame(selection);
+      sceneDirector?.transition(GAME_FLOW.GAMEPLAY);
+      void transitionVeil.hide();
     }
   });
   const introSequenceModule = createLazyUiModule(async () => {

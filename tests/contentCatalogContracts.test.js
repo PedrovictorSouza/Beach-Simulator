@@ -6,6 +6,7 @@ import {
   DIALOGUE_LINE_FUNCTION,
   getDialogueLineUtilityErrors,
   getObjectiveConsequenceCopyErrors,
+  getSupportCopyDuplicationErrors,
   getContentCatalogValidationErrors,
   listContentCatalogEntries,
   validateContentCatalog
@@ -13,7 +14,8 @@ import {
 import { SMALL_ISLAND_DIALOGUES } from "../app/dialogue/dialogueData.js";
 import { listShortExpeditions } from "../app/story/shortExpeditionData.js";
 import { FIELD_TASK_IDS, SMALL_ISLAND_FIELD_TASKS } from "../app/story/storyBeatData.js";
-import { ITEM_DEFS, STORY_QUESTS } from "../gameplayContent.js";
+import { ITEM_DEFS, NPC_PROFILES, STORY_QUESTS } from "../gameplayContent.js";
+import { SMALL_ISLAND_QUESTS } from "../app/quest/questData.js";
 import { POKEDEX_ENTRIES } from "../pokedexEntries.js";
 import { POKEDEX_REQUESTS } from "../pokedexRequests.js";
 
@@ -33,7 +35,7 @@ describe("content catalog contracts", () => {
       catalog: listWorkbenchBuildables()
     })).toMatchObject({
       valid: true,
-      entriesChecked: 3,
+      entriesChecked: 4,
       errors: []
     });
   });
@@ -86,6 +88,27 @@ describe("content catalog contracts", () => {
       valid: true,
       errors: []
     });
+  });
+
+  it("keeps inventory and NPC profile copy in colony-zone language", () => {
+    const playerFacingCopy = [
+      ITEM_DEFS.logChair.description,
+      ITEM_DEFS.leaves.description,
+      ITEM_DEFS.strawBed.description,
+      ITEM_DEFS.leafDenKit.description,
+      NPC_PROFILES.aunty.role
+    ].join(" ");
+
+    expect(playerFacingCopy).toContain("safe place");
+    expect(playerFacingCopy).toContain("simple colony projects");
+    expect(playerFacingCopy).toContain("grassy colony zones");
+    expect(playerFacingCopy).toContain("leafy shelter kit");
+    expect(playerFacingCopy).toContain("Colony Core Keeper");
+    expect(playerFacingCopy).not.toContain("every habitat");
+    expect(playerFacingCopy).not.toContain("simple habitat projects");
+    expect(playerFacingCopy).not.toContain("grassy habitats");
+    expect(playerFacingCopy).not.toContain("leafy habitat kit");
+    expect(playerFacingCopy).not.toContain("Habitat Core Keeper");
   });
 
   it("keeps structured dialogue lines in Sandbots terminology", () => {
@@ -337,5 +360,48 @@ describe("content catalog contracts", () => {
         field: "description"
       }
     ]);
+  });
+
+  it("flags duplicated quest support copy and title-prefixed subtitles", () => {
+    expect(getSupportCopyDuplicationErrors({
+      catalog: [
+        {
+          id: "wake-hydro",
+          title: "Wake up Hydro Bot",
+          subtitle: "Wake up Hydro Bot: scan warm wood before the heat signature disappears.",
+          description: "Wake up Hydro Bot",
+          guidance: "Follow Hydro Bot's marker.",
+          errandQuest: {
+            instructionText: "Follow Hydro Bot's marker."
+          }
+        }
+      ]
+    })).toEqual([
+      {
+        type: "support-copy-repeats-title-prefix",
+        entryId: "wake-hydro",
+        index: 0,
+        field: "subtitle"
+      },
+      {
+        type: "support-copy-duplicates-title",
+        entryId: "wake-hydro",
+        index: 0,
+        field: "description"
+      },
+      {
+        type: "support-copy-duplicates-field",
+        entryId: "wake-hydro",
+        index: 0,
+        field: "errandQuest.instructionText",
+        duplicateOf: "guidance"
+      }
+    ]);
+  });
+
+  it("keeps current quest support copy from repeating title, subtitle, or guidance", () => {
+    expect(getSupportCopyDuplicationErrors({
+      catalog: SMALL_ISLAND_QUESTS
+    })).toEqual([]);
   });
 });

@@ -19,6 +19,14 @@ const CHOPPER_PATROL_ARRIVE_DISTANCE = 0.22;
 const CHOPPER_GUIDE_ARRIVE_DISTANCE = 0.18;
 const CHOPPER_INVESTIGATION_ARRIVE_DISTANCE = 0.18;
 const CHOPPER_PATROL_RADIUS_MULTIPLIER = 3;
+export const CHOPPER_NPC_BEHAVIOR_MODE = Object.freeze({
+  SCRIPTED_FLIGHT: "scripted-flight",
+  DIALOGUE: "dialogue",
+  INVESTIGATE: "investigate",
+  GUIDE: "guide",
+  PATROL: "patrol",
+  IDLE: "idle"
+});
 const CHOPPER_TURN_POSE = Object.freeze({
   yawResponsiveness: 9,
   pitchResponsiveness: 7,
@@ -191,6 +199,7 @@ export function createChopperNpcActor({ npcActor }) {
     active: true,
     elapsed: 0,
     flightLift: 0,
+    behaviorMode: CHOPPER_NPC_BEHAVIOR_MODE.IDLE,
     scriptedFlight: null,
     patrol: null,
     propellerAngle: 0,
@@ -347,6 +356,58 @@ function updateInvestigation(actor, deltaTime, investigationTarget) {
   return true;
 }
 
+function canGuideChopper(storyState, guidePosition) {
+  return Boolean(
+    storyState?.flags?.pokemonCenterGuideStarted &&
+    !storyState.flags.ruinedPokemonCenterInspected &&
+    Array.isArray(guidePosition)
+  );
+}
+
+function canPatrolChopper(storyState) {
+  return Boolean(
+    storyState?.flags?.chopperPatrolEnabled &&
+    !(
+      storyState?.flags?.pokemonCenterGuideStarted &&
+      !storyState?.flags?.challengesUnlocked
+    )
+  );
+}
+
+function resolveChopperBehaviorMode(actor, {
+  scriptedFlightActive = false,
+  dialogueActive = false,
+  storyState = null,
+  guidePosition = null,
+  investigationTarget = null
+} = {}) {
+  if (scriptedFlightActive) {
+    return CHOPPER_NPC_BEHAVIOR_MODE.SCRIPTED_FLIGHT;
+  }
+
+  if (!actor?.active) {
+    return CHOPPER_NPC_BEHAVIOR_MODE.IDLE;
+  }
+
+  if (dialogueActive) {
+    return CHOPPER_NPC_BEHAVIOR_MODE.DIALOGUE;
+  }
+
+  if (Array.isArray(investigationTarget?.position)) {
+    return CHOPPER_NPC_BEHAVIOR_MODE.INVESTIGATE;
+  }
+
+  if (canGuideChopper(storyState, guidePosition)) {
+    return CHOPPER_NPC_BEHAVIOR_MODE.GUIDE;
+  }
+
+  if (canPatrolChopper(storyState)) {
+    return CHOPPER_NPC_BEHAVIOR_MODE.PATROL;
+  }
+
+  return CHOPPER_NPC_BEHAVIOR_MODE.IDLE;
+}
+
 export function startChopperNpcFlight(actor, {
   targetPosition,
   duration = 0.95,
@@ -373,7 +434,7 @@ function updateScriptedFlight(actor, deltaTime) {
   const flight = actor.scriptedFlight;
   if (!flight) {
     actor.flightLift = 0;
-    return;
+    return false;
   }
 
   flight.elapsed = Math.min(flight.duration, flight.elapsed + deltaTime);
@@ -390,7 +451,7 @@ function updateScriptedFlight(actor, deltaTime) {
   setNpcPosition(actor.npcActor, nextPosition);
 
   if (progress < 1) {
-    return;
+    return true;
   }
 
   const onComplete = flight.onComplete;
@@ -400,6 +461,7 @@ function updateScriptedFlight(actor, deltaTime) {
   if (typeof onComplete === "function") {
     onComplete();
   }
+  return true;
 }
 
 export function updateChopperNpcActor(actor, {
@@ -417,20 +479,29 @@ export function updateChopperNpcActor(actor, {
   actor.elapsed += deltaTime;
   actor.propellerAngle =
     (actor.propellerAngle + deltaTime * CHOPPER_NPC_PROPELLER_SPEED) % (Math.PI * 2);
-  updateScriptedFlight(actor, deltaTime);
+  const scriptedFlightActive = updateScriptedFlight(actor, deltaTime);
   actor.active = typeof isNpcActive === "function" ?
     isNpcActive(actor.npcActor, storyState) :
     true;
   const dialogueActive = typeof isDialogueActive === "function" ?
     isDialogueActive() :
     Boolean(isDialogueActive);
+  const behaviorMode = resolveChopperBehaviorMode(actor, {
+    scriptedFlightActive,
+    dialogueActive,
+    storyState,
+    guidePosition,
+    investigationTarget
+  });
 
-  if (!dialogueActive) {
-    const investigating = updateInvestigation(actor, deltaTime, investigationTarget);
-    if (!investigating) {
-      updateGuide(actor, deltaTime, storyState, guidePosition);
-      updatePatrol(actor, deltaTime, storyState);
-    }
+  actor.behaviorMode = behaviorMode;
+
+  if (behaviorMode === CHOPPER_NPC_BEHAVIOR_MODE.INVESTIGATE) {
+    updateInvestigation(actor, deltaTime, investigationTarget);
+  } else if (behaviorMode === CHOPPER_NPC_BEHAVIOR_MODE.GUIDE) {
+    updateGuide(actor, deltaTime, storyState, guidePosition);
+  } else if (behaviorMode === CHOPPER_NPC_BEHAVIOR_MODE.PATROL) {
+    updatePatrol(actor, deltaTime, storyState);
   }
 
   const time = actor.elapsed;

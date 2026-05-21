@@ -36,6 +36,7 @@ export const FIELD_TASK_IDS = Object.freeze({
   BULBASAUR_GREEN_CORNER_PLAY_SEED: "bulbasaur-green-corner-play-seed",
   GIVE_LEPPA_BERRY: "give-leppa-berry",
   TANGROWTH_LOG_CHAIR: "tangrowth-log-chair",
+  BUILD_GREENHOUSE: "build-greenhouse",
   WORKBENCH_CAMPFIRE: "workbench-campfire",
   SPIT_OUT_CAMPFIRE: "spit-out-campfire",
   CHARMANDER_TALL_GRASS: "charmander-tall-grass",
@@ -221,6 +222,24 @@ export const SMALL_ISLAND_FIELD_TASKS = Object.freeze({
     },
     completeFlag: "logChairSat"
   },
+  [FIELD_TASK_IDS.BUILD_GREENHOUSE]: {
+    id: FIELD_TASK_IDS.BUILD_GREENHOUSE,
+    title: "Workbench",
+    description(storyState = {}) {
+      const flags = storyState.flags || {};
+
+      if (flags.greenhousePlaced) {
+        return "You built a greenhouse.";
+      }
+
+      if (flags.greenhouseCrafted) {
+        return "Press A or E anywhere outside to place the greenhouse.";
+      }
+
+      return "Build a greenhouse.";
+    },
+    completeFlag: "greenhousePlaced"
+  },
   [FIELD_TASK_IDS.WORKBENCH_CAMPFIRE]: {
     id: FIELD_TASK_IDS.WORKBENCH_CAMPFIRE,
     title: "Workbench",
@@ -276,7 +295,7 @@ export const SMALL_ISLAND_FIELD_TASKS = Object.freeze({
       }
 
       const current = Math.min(4, Number(flags.leafageTallGrassCount || 0));
-      return `Use ${SANDBOTS_ITEM_NAMES.growTool} to grow a Tall Grass habitat. ${current}/4 tall grass grown.`;
+      return `Use ${SANDBOTS_ITEM_NAMES.growTool} to grow a Tall Grass colony zone. ${current}/4 tall grass grown.`;
     },
     completeFlag: "charmanderCampfireLit"
   },
@@ -287,7 +306,7 @@ export const SMALL_ISLAND_FIELD_TASKS = Object.freeze({
       const flags = storyState.flags || {};
 
       if (flags.challengesUnlocked) {
-        return `Habitat checks are unlocked from the old ${SANDBOTS_WORLD_TERMS.terminal}.`;
+        return `Colony checks are unlocked from the old ${SANDBOTS_WORLD_TERMS.terminal}.`;
       }
 
       if (flags.ruinedPokemonCenterInspected) {
@@ -313,7 +332,7 @@ export const SMALL_ISLAND_FIELD_TASKS = Object.freeze({
       }
 
       if (flags.timburrRevealed) {
-        return `Return to the ${SANDBOTS_WORLD_TERMS.terminal} to log the habitat viability report.`;
+        return `Return to the ${SANDBOTS_WORLD_TERMS.terminal} to log the colony viability report.`;
       }
 
       if (flags.boulderShadedTallGrassHabitatCreated) {
@@ -397,15 +416,15 @@ export const SMALL_ISLAND_FIELD_TASKS = Object.freeze({
   },
   [FIELD_TASK_IDS.NEW_CHALLENGES_IN_PC]: {
     id: FIELD_TASK_IDS.NEW_CHALLENGES_IN_PC,
-    title: `New Habitat Checks in ${SANDBOTS_WORLD_TERMS.terminal}`,
+    title: `New Colony Checks in ${SANDBOTS_WORLD_TERMS.terminal}`,
     description(storyState = {}) {
       const flags = storyState.flags || {};
 
       if (flags.newPcChallengesChecked) {
-        return `You checked the new habitat checks added to the ${SANDBOTS_WORLD_TERMS.terminal}.`;
+        return `You checked the new colony checks added to the ${SANDBOTS_WORLD_TERMS.terminal}.`;
       }
 
-      return `Interact with the ${SANDBOTS_WORLD_TERMS.terminal} to review the new habitat checks.`;
+      return `Interact with the ${SANDBOTS_WORLD_TERMS.terminal} to review the new colony checks.`;
     },
     completeFlag: "newPcChallengesChecked"
   },
@@ -546,9 +565,6 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
       {
         type: STORY_BEAT_EFFECT.TRACK_FIELD_TASK,
         taskId: FIELD_TASK_IDS.MAKING_HABITATS
-      },
-      {
-        type: STORY_BEAT_EFFECT.OPEN_DISCOVERED_HABITAT_POKEDEX
       }
     ]
   },
@@ -670,7 +686,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
           },
         {
           speaker: targetName,
-          text: "Let's keep making this place greener, one little habitat at a time."
+          text: "Let's keep making this place greener, one little colony zone at a time."
         }
       ];
     },
@@ -698,7 +714,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
     fallbackLines: [
       {
         speaker: "Chopper",
-        text: "You've been working hard out here. A habitat is not just plants and paths, you know."
+        text: "You've been working hard out here. A colony zone is not just plants and paths, you know."
       },
       {
         speaker: "Chopper",
@@ -729,7 +745,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
       },
       {
         speaker: "Chopper",
-        text: "Keep building habitats like that, with room for bots to rest, hide, and pretend this is normal."
+        text: "Keep building places like that, with room for bots to rest, hide, and pretend this is normal."
       }
     ],
     effects: [
@@ -749,7 +765,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
     fallbackLines: [
       {
         speaker: SANDBOTS_BOT_NAMES.grow,
-        text: "I was thinking about that chair. A habitat needs more than a safe patch of grass."
+        text: "I was thinking about that chair. A colony zone needs more than a safe patch of grass."
       },
       {
         speaker: "You",
@@ -767,7 +783,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
       },
       {
         type: STORY_BEAT_EFFECT.TRACK_FIELD_TASK,
-        taskId: FIELD_TASK_IDS.WORKBENCH_CAMPFIRE
+        taskId: FIELD_TASK_IDS.BUILD_GREENHOUSE
       }
     ]
   },
@@ -960,11 +976,11 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
       },
       {
         speaker: SANDBOTS_WORLD_TERMS.codex,
-        text: "Habitat checks unlocked."
+        text: "Colony checks unlocked."
       },
       {
         speaker: SANDBOTS_BOT_NAMES.overseer,
-        text: "Good. Habitat checks will prove each restored zone can support the colony."
+        text: "Good. Colony checks will prove each restored zone can support the outpost."
       }
     ],
     effects: [
@@ -990,7 +1006,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
       },
       {
         type: STORY_BEAT_EFFECT.PUSH_NOTICE,
-        message: "Habitat checks unlocked."
+        message: "Colony checks unlocked."
       }
     ]
   },
@@ -1038,7 +1054,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
     fallbackLines: [
       {
         speaker: SANDBOTS_WORLD_TERMS.codex,
-        text: "Habitat check complete: Boulder-Shaded Tall Grass."
+        text: "Colony check complete: Boulder-Shaded Tall Grass."
       },
       {
         speaker: SANDBOTS_WORLD_TERMS.codex,
@@ -1081,7 +1097,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
       },
       {
         speaker: SANDBOTS_BOT_NAMES.grow,
-        text: "I saved Solar Station plans for you. It should make a habitat feel much steadier."
+        text: "I saved Solar Station plans for you. It should make this colony zone feel much steadier."
       },
       {
         speaker: SANDBOTS_WORLD_TERMS.codex,
@@ -1129,7 +1145,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
       },
       {
         speaker: SANDBOTS_BOT_NAMES.grow,
-        text: "This habitat feels much more like home now. Thank you!"
+        text: "This place feels much more like home now. Thank you!"
       },
       {
         speaker: SANDBOTS_WORLD_TERMS.codex,
@@ -1164,11 +1180,11 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
       },
       {
         speaker: SANDBOTS_WORLD_TERMS.codex,
-        text: "New habitat checks have been added."
+        text: "New colony checks have been added."
       },
       {
         speaker: SANDBOTS_BOT_NAMES.overseer,
-        text: "That means the planet is ready for more habitat checks. Review the terminal whenever you need the next lead."
+        text: "That means the planet is ready for more colony checks. Review the terminal whenever you need the next lead."
       }
     ],
     effects: [
@@ -1194,7 +1210,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
       },
       {
         type: STORY_BEAT_EFFECT.PUSH_NOTICE,
-        message: "New habitat checks added."
+        message: "New colony checks added."
       }
     ]
   },
@@ -1203,7 +1219,7 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
     fallbackLines: [
       {
         speaker: SANDBOTS_BOT_NAMES.overseer,
-        text: "You've been restoring habitats, but future humans will need places to settle too."
+        text: "You've been restoring colony zones, but future humans will need places to settle too."
       },
       {
         speaker: SANDBOTS_BOT_NAMES.overseer,

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  CHOPPER_NPC_BEHAVIOR_MODE,
   createChopperNpcActor,
   startChopperNpcFlight,
   updateChopperNpcActor
@@ -83,6 +84,7 @@ describe("chopperNpcActor", () => {
 
     expect(npcActor.character.getPosition()[0]).toBeGreaterThan(0);
     expect(npcActor.character.getPosition()[0]).toBeLessThan(4);
+    expect(chopperActor.behaviorMode).toBe(CHOPPER_NPC_BEHAVIOR_MODE.SCRIPTED_FLIGHT);
     expect(chopperActor.bodyInstance.offset[1]).toBeGreaterThan(1.35);
     expect(onComplete).not.toHaveBeenCalled();
 
@@ -170,6 +172,7 @@ describe("chopperNpcActor", () => {
 
     expect(npcActor.character.getPosition()[0]).toBeGreaterThan(0);
     expect(npcActor.character.getPosition()[0]).toBeLessThan(10);
+    expect(chopperActor.behaviorMode).toBe(CHOPPER_NPC_BEHAVIOR_MODE.GUIDE);
     expect(chopperActor.scriptedFlight).toBeNull();
   });
 
@@ -198,6 +201,7 @@ describe("chopperNpcActor", () => {
     expect(position[2]).toBeGreaterThan(-8.4);
     expect(position[0]).toBeGreaterThan(10);
     expect(position[2]).toBeLessThan(-6);
+    expect(chopperActor.behaviorMode).toBe(CHOPPER_NPC_BEHAVIOR_MODE.INVESTIGATE);
   });
 
   it("hovers in place during dialogue before resuming patrol", () => {
@@ -217,6 +221,7 @@ describe("chopperNpcActor", () => {
     });
 
     expect(npcActor.character.getPosition()).toEqual([12.4, 0.02, -8.4]);
+    expect(chopperActor.behaviorMode).toBe(CHOPPER_NPC_BEHAVIOR_MODE.DIALOGUE);
     expect(chopperActor.bodyInstance.offset[1]).toBeGreaterThan(1.2);
     expect(chopperActor.propellerAngle).toBeGreaterThan(0);
 

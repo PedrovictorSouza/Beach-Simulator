@@ -22,9 +22,15 @@ const CLOUD_MODEL_TEXTURE_PATH = new URL("../../buildings/cloud/cloud.png", impo
 const CARBON_ORE_MODEL_GLTF_PATH = new URL("../../Commodities/carbon/carvao.gltf", import.meta.url).href;
 const CARBON_ORE_MODEL_BIN_PATH = new URL("../../Commodities/carbon/carvao.bin", import.meta.url).href;
 const CARBON_ORE_MODEL_TEXTURE_PATH = new URL("../../Commodities/carbon/carvao.png", import.meta.url).href;
+const SOLAR_ENERGY_MODEL_GLTF_PATH = new URL("../../../solar-energy/solar-energy.gltf", import.meta.url).href;
+const SOLAR_ENERGY_MODEL_BIN_PATH = new URL("../../../solar-energy/solar-energy.bin", import.meta.url).href;
+const SOLAR_ENERGY_MODEL_TEXTURE_PATH = new URL("../../../solar-energy/solar-energy.png", import.meta.url).href;
 const SOLAR_STATION_MODEL_GLTF_PATH = new URL("../../../Solar-Station/Solar-Station.gltf", import.meta.url).href;
 const SOLAR_STATION_MODEL_BIN_PATH = new URL("../../../Solar-Station/Solar-Station.bin", import.meta.url).href;
 const SOLAR_STATION_MODEL_TEXTURE_PATH = new URL("../../../Solar-Station/Solar-Station.png", import.meta.url).href;
+const GREENHOUSE_MODEL_GLTF_PATH = new URL("../../../Greenhouse/Estufa.gltf", import.meta.url).href;
+const GREENHOUSE_MODEL_BIN_PATH = new URL("../../../Greenhouse/Estufa.bin", import.meta.url).href;
+const GREENHOUSE_MODEL_TEXTURE_PATH = new URL("../../../Greenhouse/Estufa.png", import.meta.url).href;
 const TRAIN_HOUSE_MODEL_GLTF_PATH = new URL("../../../Train-house/train-house.gltf", import.meta.url).href;
 const TRAIN_HOUSE_MODEL_BIN_PATH = new URL("../../../Train-house/train-house.bin", import.meta.url).href;
 const TRAIN_HOUSE_MODEL_TEXTURE_PATH = new URL("../../../Train-house/train-house.png", import.meta.url).href;
@@ -163,7 +169,9 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     tree2Model,
     leppaTreeDeadModel,
     iceGroundModel,
+    solarEnergyModel,
     solarStationModel,
+    greenhouseModel,
     trainHouseModel,
     carbonOreModel,
     cloudModel,
@@ -276,10 +284,26 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     }),
     loadTexturedModel({
       gl,
+      gltfPath: SOLAR_ENERGY_MODEL_GLTF_PATH,
+      binPath: SOLAR_ENERGY_MODEL_BIN_PATH,
+      texturePath: SOLAR_ENERGY_MODEL_TEXTURE_PATH,
+      normalizedSize: 1.9,
+      onStatus: setStatus
+    }),
+    loadTexturedModel({
+      gl,
       gltfPath: SOLAR_STATION_MODEL_GLTF_PATH,
       binPath: SOLAR_STATION_MODEL_BIN_PATH,
       texturePath: SOLAR_STATION_MODEL_TEXTURE_PATH,
       normalizedSize: 2.3,
+      onStatus: setStatus
+    }),
+    loadTexturedModel({
+      gl,
+      gltfPath: GREENHOUSE_MODEL_GLTF_PATH,
+      binPath: GREENHOUSE_MODEL_BIN_PATH,
+      texturePath: GREENHOUSE_MODEL_TEXTURE_PATH,
+      normalizedSize: 3.8,
       onStatus: setStatus
     }),
     loadTexturedModel({
@@ -340,7 +364,9 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     tree2Model,
     leppaTreeDeadModel,
     iceGroundModel,
+    solarEnergyModel,
     solarStationModel,
+    greenhouseModel,
     trainHouseModel,
     carbonOreModel,
     cloudModel,

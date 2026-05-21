@@ -149,6 +149,46 @@ describe("createGameInputController", () => {
     });
   });
 
+  it("installs a console gamepad debug helper on the runtime window", () => {
+    const gamepad = createGamepad({
+      id: "Debug Controller",
+      axes: [0.25, -0.5, 0, 1]
+    });
+    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: true, value: 1 };
+    const consoleRef = {
+      clear: vi.fn(),
+      log: vi.fn()
+    };
+    const windowRef = {
+      console: consoleRef,
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+
+    createController({ windowRef });
+
+    expect(windowRef.sandbotsGamepadDebug.snapshot()).toEqual({
+      connected: true,
+      id: "Debug Controller",
+      mapping: "standard",
+      axes: ["0: 0.250", "1: -0.500", "2: 0.000", "3: 1.000"],
+      buttons: [
+        {
+          index: GAMEPAD_BUTTONS.A,
+          pressed: true,
+          value: 1
+        }
+      ]
+    });
+
+    expect(windowRef.sandbotsGamepadDebug.read()).toMatchObject({
+      connected: true,
+      id: "Debug Controller"
+    });
+    expect(consoleRef.log).toHaveBeenCalledWith(expect.stringContaining('"index": 0'));
+  });
+
   it("opens the Pokedesk with Tab", () => {
     const { controller, requestPokedexOpen } = createController();
     const event = createKeyboardEvent("Tab");
@@ -219,9 +259,11 @@ describe("createGameInputController", () => {
     expect(handleSettingsKeydown).toHaveBeenCalledWith(closeEvent);
     expect(closeEvent.preventDefault).toHaveBeenCalledTimes(1);
 
+    handleSettingsKeydown.mockClear();
     gamepad.buttons[GAMEPAD_BUTTONS.B] = { pressed: true, value: 1 };
     controller.updateGamepads(1 / 60);
 
+    expect(handleSettingsKeydown).toHaveBeenCalledTimes(1);
     expect(handleSettingsKeydown).toHaveBeenCalledWith(expect.objectContaining({
       code: "KeyB"
     }));
@@ -353,7 +395,7 @@ describe("createGameInputController", () => {
     }));
   });
 
-  it("keeps the gamepad A button as run-only input", () => {
+  it("keeps the gamepad B button as run-only input", () => {
     const gamepad = createGamepad();
     const windowRef = {
       navigator: {
@@ -361,27 +403,33 @@ describe("createGameInputController", () => {
       }
     };
     const shouldGamepadButtonHarvest = vi.fn(() => true);
-    const { controller, requestHarvest, requestInteract } = createController({
+    const { controller, requestHarvest, requestInteract, requestMoveCycle } = createController({
       windowRef,
       shouldGamepadButtonHarvest
     });
 
-    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: true, value: 1 };
+    gamepad.buttons[GAMEPAD_BUTTONS.B] = { pressed: true, value: 1 };
     controller.updateGamepads(1 / 60);
     controller.updateGamepads(1 / 60);
 
     expect(controller.isRunActive()).toBe(true);
+    expect(requestMoveCycle).not.toHaveBeenCalled();
     expect(shouldGamepadButtonHarvest).not.toHaveBeenCalled();
     expect(requestHarvest).not.toHaveBeenCalled();
     expect(requestInteract).not.toHaveBeenCalled();
 
-    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: false, value: 0 };
+    gamepad.buttons[GAMEPAD_BUTTONS.B] = { pressed: false, value: 0 };
     controller.updateGamepads(1 / 60);
 
     expect(controller.isRunActive()).toBe(false);
+
+    gamepad.buttons[GAMEPAD_BUTTONS.B] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(requestMoveCycle).not.toHaveBeenCalled();
   });
 
-  it("does not use the gamepad A button for nearby field actions", () => {
+  it("does not use the gamepad B button for nearby field actions", () => {
     const gamepad = createGamepad();
     const windowRef = {
       navigator: {
@@ -389,34 +437,36 @@ describe("createGameInputController", () => {
       }
     };
     const shouldGamepadButtonHarvest = vi.fn(() => true);
-    const { controller, requestHarvest, requestInteract } = createController({
+    const { controller, requestHarvest, requestInteract, requestMoveCycle } = createController({
       windowRef,
       shouldGamepadButtonHarvest
     });
 
-    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: true, value: 1 };
+    gamepad.buttons[GAMEPAD_BUTTONS.B] = { pressed: true, value: 1 };
     controller.updateGamepads(1 / 60);
     controller.updateGamepads(1 / 60);
 
+    expect(requestMoveCycle).not.toHaveBeenCalled();
     expect(shouldGamepadButtonHarvest).not.toHaveBeenCalled();
     expect(requestHarvest).not.toHaveBeenCalled();
     expect(requestInteract).not.toHaveBeenCalled();
   });
 
-  it("opens the bag once per X button press", () => {
+  it("opens the bag once per gamepad X button press", () => {
     const gamepad = createGamepad();
     const windowRef = {
       navigator: {
         getGamepads: () => [gamepad]
       }
     };
-    const { controller, inspectBag, requestHarvest } = createController({ windowRef });
+    const { controller, inspectBag, requestHarvest, requestMoveCycle } = createController({ windowRef });
 
     gamepad.buttons[GAMEPAD_BUTTONS.X] = { pressed: true, value: 1 };
     controller.updateGamepads(1 / 60);
     controller.updateGamepads(1 / 60);
 
     expect(inspectBag).toHaveBeenCalledTimes(1);
+    expect(requestMoveCycle).not.toHaveBeenCalled();
     expect(requestHarvest).not.toHaveBeenCalled();
 
     gamepad.buttons[GAMEPAD_BUTTONS.X] = { pressed: false, value: 0 };
@@ -442,6 +492,36 @@ describe("createGameInputController", () => {
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
   });
 
+  it("cycles bots from the keyboard interact key", () => {
+    const { controller, requestInteract, requestMoveCycle } = createController();
+    const event = createKeyboardEvent("KeyE");
+
+    controller.handleKeydown(event);
+
+    expect(requestInteract).toHaveBeenCalledTimes(1);
+    expect(requestMoveCycle).toHaveBeenCalledTimes(1);
+    expect(requestMoveCycle).toHaveBeenCalledWith(1);
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses held keyboard X for running while movement is active", () => {
+    const { controller, inspectBag } = createController();
+    const moveEvent = createKeyboardEvent("KeyW");
+    const runEvent = createKeyboardEvent("KeyX");
+    const releaseRunEvent = createKeyboardEvent("KeyX");
+
+    controller.handleKeydown(moveEvent);
+    controller.handleKeydown(runEvent);
+
+    expect(controller.isRunActive()).toBe(true);
+    expect(inspectBag).not.toHaveBeenCalled();
+
+    controller.handleKeyup(releaseRunEvent);
+
+    expect(controller.isRunActive()).toBe(false);
+    expect(inspectBag).not.toHaveBeenCalled();
+  });
+
   it("uses the gamepad X button as contextual interaction when needed", () => {
     const gamepad = createGamepad();
     const windowRef = {
@@ -450,7 +530,7 @@ describe("createGameInputController", () => {
       }
     };
     const shouldBagButtonInteract = vi.fn(() => true);
-    const { controller, inspectBag, requestInteract } = createController({
+    const { controller, inspectBag, requestInteract, requestMoveCycle } = createController({
       windowRef,
       shouldBagButtonInteract
     });
@@ -459,8 +539,34 @@ describe("createGameInputController", () => {
     controller.updateGamepads(1 / 60);
     controller.updateGamepads(1 / 60);
 
+    expect(requestMoveCycle).not.toHaveBeenCalled();
     expect(shouldBagButtonInteract).toHaveBeenCalledTimes(1);
     expect(requestInteract).toHaveBeenCalledTimes(1);
+    expect(inspectBag).not.toHaveBeenCalled();
+  });
+
+  it("uses held gamepad X for running while movement is active", () => {
+    const gamepad = createGamepad();
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const { controller, inspectBag, requestHarvest, requestMoveCycle } = createController({ windowRef });
+
+    gamepad.axes[0] = 0.75;
+    gamepad.buttons[GAMEPAD_BUTTONS.X] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(controller.isRunActive()).toBe(true);
+    expect(inspectBag).not.toHaveBeenCalled();
+    expect(requestHarvest).not.toHaveBeenCalled();
+    expect(requestMoveCycle).not.toHaveBeenCalled();
+
+    gamepad.buttons[GAMEPAD_BUTTONS.X] = { pressed: false, value: 0 };
+    controller.updateGamepads(1 / 60);
+
+    expect(controller.isRunActive()).toBe(false);
     expect(inspectBag).not.toHaveBeenCalled();
   });
 
@@ -472,7 +578,7 @@ describe("createGameInputController", () => {
       }
     };
     const shouldGamepadButtonHarvest = vi.fn(() => true);
-    const { controller, inspectBag, requestHarvest, requestInteract } = createController({
+    const { controller, inspectBag, requestHarvest, requestInteract, requestMoveCycle } = createController({
       windowRef,
       shouldGamepadButtonHarvest
     });
@@ -481,6 +587,7 @@ describe("createGameInputController", () => {
     controller.updateGamepads(1 / 60);
     controller.updateGamepads(1 / 60);
 
+    expect(requestMoveCycle).not.toHaveBeenCalled();
     expect(shouldGamepadButtonHarvest).toHaveBeenCalledTimes(1);
     expect(requestHarvest).toHaveBeenCalledTimes(1);
     expect(requestInteract).not.toHaveBeenCalled();
@@ -568,7 +675,7 @@ describe("createGameInputController", () => {
       }
     };
     const handleKeydown = vi.fn((event) => event.code === "KeyX");
-    const { controller, inspectBag, requestInteract } = createController({
+    const { controller, inspectBag, requestInteract, requestMoveCycle } = createController({
       windowRef,
       sceneDirector: {
         blocksGameplayInput: () => false,
@@ -585,6 +692,7 @@ describe("createGameInputController", () => {
       code: "KeyX",
       key: "x"
     }));
+    expect(requestMoveCycle).not.toHaveBeenCalled();
     expect(requestInteract).not.toHaveBeenCalled();
     expect(inspectBag).not.toHaveBeenCalled();
   });
@@ -618,6 +726,66 @@ describe("createGameInputController", () => {
     expect(requestHarvest).not.toHaveBeenCalled();
     expect(requestInteract).not.toHaveBeenCalled();
     expect(inspectBag).not.toHaveBeenCalled();
+  });
+
+  it("routes the gamepad A button to the start screen as confirm", () => {
+    const gamepad = createGamepad();
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const handleKeydown = vi.fn(() => true);
+    const { controller, requestInteract } = createController({
+      windowRef,
+      sceneDirector: {
+        is: (sceneId) => sceneId === "start",
+        blocksGameplayInput: () => true,
+        handleKeydown,
+        handleKeyup: vi.fn(() => false)
+      }
+    });
+
+    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(handleKeydown).toHaveBeenCalledTimes(1);
+    expect(handleKeydown).toHaveBeenCalledWith(expect.objectContaining({
+      code: "Enter",
+      key: "Enter"
+    }));
+    expect(requestInteract).not.toHaveBeenCalled();
+  });
+
+  it("routes the gamepad Start button to the start screen instead of pause", () => {
+    const gamepad = createGamepad();
+    const requestPauseToggle = vi.fn();
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const handleKeydown = vi.fn(() => true);
+    const { controller } = createController({
+      windowRef,
+      requestPauseToggle,
+      sceneDirector: {
+        is: (sceneId) => sceneId === "start",
+        blocksGameplayInput: () => true,
+        handleKeydown,
+        handleKeyup: vi.fn(() => false)
+      }
+    });
+
+    gamepad.buttons[GAMEPAD_BUTTONS.START] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(handleKeydown).toHaveBeenCalledTimes(1);
+    expect(handleKeydown).toHaveBeenCalledWith(expect.objectContaining({
+      code: "Enter",
+      key: "Enter"
+    }));
+    expect(requestPauseToggle).not.toHaveBeenCalled();
   });
 
   it("routes the gamepad X button to the open Pokedesk instead of the bag", () => {
@@ -680,6 +848,41 @@ describe("createGameInputController", () => {
     expect(handleKeydown).toHaveBeenNthCalledWith(2, expect.objectContaining({
       code: "ArrowRight",
       key: "ArrowRight"
+    }));
+    expect(requestMoveCycle).not.toHaveBeenCalled();
+  });
+
+  it("routes gamepad LB and RB to the open Instructions pages", () => {
+    const gamepad = createGamepad();
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const handleKeydown = vi.fn(() => true);
+    const { controller, requestMoveCycle } = createController({
+      windowRef,
+      isPokedexOpen: () => true,
+      pokedexEntry: {
+        handleKeydown
+      }
+    });
+
+    gamepad.buttons[GAMEPAD_RB] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+    controller.updateGamepads(1 / 60);
+    gamepad.buttons[GAMEPAD_RB] = { pressed: false, value: 0 };
+    controller.updateGamepads(1 / 60);
+    gamepad.buttons[GAMEPAD_LB] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(handleKeydown).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      code: "ArrowRight",
+      key: "ArrowRight"
+    }));
+    expect(handleKeydown).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      code: "ArrowLeft",
+      key: "ArrowLeft"
     }));
     expect(requestMoveCycle).not.toHaveBeenCalled();
   });
@@ -788,6 +991,33 @@ describe("createGameInputController", () => {
     expect(requestHarvest).toHaveBeenCalledTimes(1);
   });
 
+  it("requests interaction from gamepad A once per press", () => {
+    const gamepad = createGamepad();
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const { controller, requestHarvest, requestInteract, requestMoveCycle } = createController({ windowRef });
+
+    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+    controller.updateGamepads(1 / 60);
+
+    expect(requestInteract).toHaveBeenCalledTimes(1);
+    expect(requestMoveCycle).toHaveBeenCalledTimes(1);
+    expect(requestMoveCycle).toHaveBeenCalledWith(1);
+    expect(requestHarvest).not.toHaveBeenCalled();
+
+    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: false, value: 0 };
+    controller.updateGamepads(1 / 60);
+    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(requestInteract).toHaveBeenCalledTimes(2);
+    expect(requestMoveCycle).toHaveBeenCalledTimes(2);
+  });
+
   it("requests primary harvest from Xbox left trigger when only analog value is reported", () => {
     const gamepad = createGamepad({
       id: "Xbox Wireless Controller"
@@ -819,24 +1049,26 @@ describe("createGameInputController", () => {
     expect(event.preventDefault).toHaveBeenCalledTimes(1);
   });
 
-  it("requests destroy action from gamepad Y once per press", () => {
+  it("requests primary harvest from gamepad Y once per press", () => {
     const gamepad = createGamepad();
     const windowRef = {
       navigator: {
         getGamepads: () => [gamepad]
       }
     };
-    const { controller } = createController({ windowRef });
+    const { controller, requestHarvest } = createController({ windowRef });
 
     gamepad.buttons[GAMEPAD_BUTTONS.Y] = { pressed: true, value: 1 };
     controller.updateGamepads(1 / 60);
     controller.updateGamepads(1 / 60);
 
-    expect(controller.consumeDestroyActionRequest()).toBe(true);
+    expect(requestHarvest).toHaveBeenCalledTimes(1);
+    expect(requestHarvest).toHaveBeenCalledWith({ source: "gamepadPrimary" });
+    expect(controller.isPrimaryActionActive()).toBe(true);
     expect(controller.consumeDestroyActionRequest()).toBe(false);
   });
 
-  it("requests destroy action from Xbox Series Y when the browser reports only button value", () => {
+  it("requests primary harvest from Xbox Series Y when the browser reports only button value", () => {
     const gamepad = createGamepad({
       id: "Xbox Wireless Controller"
     });
@@ -845,16 +1077,46 @@ describe("createGameInputController", () => {
         getGamepads: () => [gamepad]
       }
     };
-    const { controller } = createController({ windowRef });
+    const { controller, requestHarvest } = createController({ windowRef });
 
     gamepad.buttons[GAMEPAD_BUTTONS.Y] = { pressed: false, value: 1 };
     controller.updateGamepads(1 / 60);
 
-    expect(controller.consumeDestroyActionRequest()).toBe(true);
+    expect(requestHarvest).toHaveBeenCalledTimes(1);
     expect(controller.consumeDestroyActionRequest()).toBe(false);
   });
 
-  it("maps Nintendo-style physical Y to destroy action", () => {
+  it("cycles bots from the interact button even when primary action is also held", () => {
+    const gamepad = createGamepad();
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const { controller, inspectBag, requestHarvest, requestInteract, requestMoveCycle } = createController({ windowRef });
+
+    gamepad.buttons[GAMEPAD_BUTTONS.Y] = { pressed: true, value: 1 };
+    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+    controller.updateGamepads(1 / 60);
+
+    expect(requestMoveCycle).toHaveBeenCalledTimes(1);
+    expect(requestMoveCycle).toHaveBeenCalledWith(1);
+    expect(requestHarvest).toHaveBeenCalledTimes(1);
+    expect(requestInteract).toHaveBeenCalledTimes(1);
+    expect(inspectBag).not.toHaveBeenCalled();
+    expect(controller.isPrimaryActionActive()).toBe(true);
+    expect(controller.consumeDestroyActionRequest()).toBe(false);
+
+    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: false, value: 0 };
+    controller.updateGamepads(1 / 60);
+    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(requestMoveCycle).toHaveBeenCalledTimes(2);
+  });
+
+  it("maps Nintendo-style physical Y to primary harvest", () => {
     const gamepad = createGamepad({
       id: "Nintendo Switch Pro Controller"
     });
@@ -863,12 +1125,34 @@ describe("createGameInputController", () => {
         getGamepads: () => [gamepad]
       }
     };
-    const { controller, inspectBag } = createController({ windowRef });
+    const { controller, inspectBag, requestHarvest } = createController({ windowRef });
 
     gamepad.buttons[GAMEPAD_BUTTONS.X] = { pressed: true, value: 1 };
     controller.updateGamepads(1 / 60);
 
-    expect(controller.consumeDestroyActionRequest()).toBe(true);
+    expect(requestHarvest).toHaveBeenCalledTimes(1);
+    expect(inspectBag).not.toHaveBeenCalled();
+    expect(controller.consumeDestroyActionRequest()).toBe(false);
+  });
+
+  it("cycles bots from the interact button on Nintendo-style controllers", () => {
+    const gamepad = createGamepad({
+      id: "Nintendo Switch Pro Controller"
+    });
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const { controller, inspectBag, requestHarvest, requestInteract, requestMoveCycle } = createController({ windowRef });
+
+    gamepad.buttons[GAMEPAD_BUTTONS.A] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(requestMoveCycle).toHaveBeenCalledTimes(1);
+    expect(requestMoveCycle).toHaveBeenCalledWith(1);
+    expect(requestInteract).toHaveBeenCalledTimes(1);
+    expect(requestHarvest).not.toHaveBeenCalled();
     expect(inspectBag).not.toHaveBeenCalled();
   });
 
@@ -881,12 +1165,13 @@ describe("createGameInputController", () => {
         getGamepads: () => [gamepad]
       }
     };
-    const { controller, inspectBag } = createController({ windowRef });
+    const { controller, inspectBag, requestMoveCycle } = createController({ windowRef });
 
     gamepad.buttons[GAMEPAD_BUTTONS.Y] = { pressed: true, value: 1 };
     controller.updateGamepads(1 / 60);
 
     expect(inspectBag).toHaveBeenCalledTimes(1);
+    expect(requestMoveCycle).not.toHaveBeenCalled();
     expect(controller.consumeDestroyActionRequest()).toBe(false);
   });
 
@@ -969,6 +1254,31 @@ describe("createGameInputController", () => {
     const lookDelta = controller.consumeCameraLookDelta();
     expect(lookDelta.yaw).toBeGreaterThan(0);
     expect(lookDelta.pitch).toBeGreaterThan(0);
+  });
+
+  it("rotates the camera smoothly while holding gamepad shoulder buttons", () => {
+    const gamepad = createGamepad();
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const { controller } = createController({ windowRef });
+
+    gamepad.buttons[GAMEPAD_RB] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    const rightDelta = controller.consumeCameraLookDelta();
+    expect(rightDelta.yaw).toBeGreaterThan(0);
+    expect(rightDelta.pitch).toBe(0);
+
+    gamepad.buttons[GAMEPAD_RB] = { pressed: false, value: 0 };
+    gamepad.buttons[GAMEPAD_LB] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    const leftDelta = controller.consumeCameraLookDelta();
+    expect(leftDelta.yaw).toBeLessThan(0);
+    expect(leftDelta.pitch).toBe(0);
   });
 
   it("cycles moves with D-pad left and right without using analog axes", () => {

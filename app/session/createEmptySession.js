@@ -23,6 +23,8 @@ export function createEmptySession() {
     campfire: null,
     campfireTrainHouseModelInstance: null,
     campfireTexture: null,
+    greenhouse: null,
+    greenhouseModelInstance: null,
     deadFlowerTexture: null,
     deadGrassTexture: null,
     dittoFlag: null,

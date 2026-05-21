@@ -1,4 +1,5 @@
 export const CRAFTED_ITEM_IDS = [
+  "greenhouse",
   "campfire",
   "strawBed",
   "bridgeKit",
@@ -17,6 +18,11 @@ export type CraftedItemDef = {
 };
 
 export const CRAFTED_ITEM_DEFS = {
+  greenhouse: {
+    id: "greenhouse",
+    label: "Greenhouse",
+    bagLabel: "Greenhouse",
+  },
   campfire: {
     id: "campfire",
     label: "Thermal Cabin",

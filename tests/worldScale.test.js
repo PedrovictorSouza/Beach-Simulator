@@ -35,7 +35,7 @@ describe("world scale", () => {
     expect(largeDistantMountainCount).toBeGreaterThan(0);
   });
 
-  it("keeps generated elevated terrain visual-only until its sides are readable", () => {
+  it("generates elevated terrain as solid mountain blockers", () => {
     const terrain = buildElevatedTerrain({
       tileSpan: 1,
       tileHeight: 1,
@@ -44,7 +44,9 @@ describe("world scale", () => {
     });
 
     expect(terrain.colliders.length).toBeGreaterThan(0);
-    expect(terrain.colliders.every((collider) => collider.visualOnly === true)).toBe(true);
-    expect(terrain.colliders.every((collider) => collider.blocksPlayer === false)).toBe(true);
+    expect(terrain.colliders.every((collider) => collider.visualOnly === false)).toBe(true);
+    expect(terrain.colliders.every((collider) => collider.blocksPlayer === true)).toBe(true);
+    expect(terrain.colliders.every((collider) => collider.allowPlayerLanding === true)).toBe(true);
+    expect(terrain.colliders.every((collider) => collider.padding >= 0.72)).toBe(true);
   });
 });

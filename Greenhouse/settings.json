@@ -1,0 +1,17 @@
+{
+  "warn_on_exit":true,
+  "invert_mouse_controls":false,
+  "os_mouse":false,
+  "snap_is_default":true,
+  "auto_save_frequency":10,
+  "last_path":"",
+  "recent_files":["Estufa.txt","Robot-01/unnamed_4.txt","dead-grass/dead-grass.txt","unnamed_16.txt","Dead-Tree.txt"],
+  "invert_zoom":false,
+  "texture_grid_size":16,
+  "rmb_action":1,
+  "theme":"classic",
+  "gif_file_increment":true,
+  "show_grid":true,
+  "window_width":576,
+  "window_height":612
+}

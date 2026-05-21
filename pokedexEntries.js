@@ -11,6 +11,10 @@ export const FLOWER_BED_POKEDEX_ENTRY_ID = "prettyFlowerBed";
 export const TALL_GRASS_POKEDEX_ENTRY_ID = "tallGrass";
 export const THERMAL_GENERATOR_POKEDEX_ENTRY_ID = "thermalGeneratorDiagnostic";
 
+const TALL_GRASS_INSTRUCTIONS_IMAGE_URL = new URL("./app/ui/images/grass.gif", import.meta.url).href;
+const GREY_TALL_GRASS_INSTRUCTIONS_IMAGE_URL = new URL("./app/ui/images/grey-grass.gif", import.meta.url).href;
+const HYDRO_JET_INSTRUCTIONS_IMAGE_URL = new URL("./app/ui/images/tutorial-hidro-jet.png", import.meta.url).href;
+
 function createPokedexToken(label, variant, glyph) {
   return `<span class="pokedex-entry__where-token pokedex-entry__where-token--${variant}" aria-label="${label}" title="${label}">${glyph}</span>`;
 }
@@ -43,10 +47,10 @@ export const POKEDEX_ENTRIES = {
       theme: "water",
       artVariant: "squirtle",
       details: {
-        eyebrow: "Details",
+        eyebrow: "Press (input) to wash the soil",
         species: "Hydro Utility Bot",
         descriptionHtml:
-        `Compact field helper calibrated for ${SANDBOTS_ITEM_NAMES.hydroTool} pressure, tree revival, and emergency hydration work.`,
+        `<div style="display:flex;gap:8px;align-items:flex-start;max-width:720px;"><img class="pokedex-entry__description-image" src="${HYDRO_JET_INSTRUCTIONS_IMAGE_URL}" alt="Hydro Jet tutorial" loading="eager" decoding="async" style="display:block;width:min(100%,384px);height:auto;image-rendering:pixelated;" /></div>`,
       stats: [
         { label: "Build", value: "Compact" },
         { label: "Mass", value: "Light" },
@@ -325,7 +329,7 @@ export const POKEDEX_ENTRIES = {
       eyebrow: "Details",
       species: "Restored Habitat Plot",
       descriptionHtml:
-        "Four tufts of tall grass bunched together in a plot.<br />A useful shelter marker for small maintenance bots.",
+        `<div style="display:flex;gap:8px;align-items:flex-start;max-width:720px;"><img class="pokedex-entry__description-image" src="${TALL_GRASS_INSTRUCTIONS_IMAGE_URL}" alt="Tall grass instructions" loading="eager" decoding="async" style="display:block;width:calc((100% - 8px) / 2);max-width:384px;height:auto;image-rendering:pixelated;" /><img class="pokedex-entry__description-image" src="${GREY_TALL_GRASS_INSTRUCTIONS_IMAGE_URL}" alt="Grey tall grass instructions" loading="eager" decoding="async" style="display:block;width:calc((100% - 8px) / 2);max-width:384px;height:auto;image-rendering:pixelated;" /></div>`,
       stats: [
         { label: "Patch Size", value: "4 tufts" },
         { label: "Rarity", value: "Common" },

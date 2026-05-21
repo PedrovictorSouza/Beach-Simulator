@@ -52,7 +52,9 @@ export function getTrainHouseProgressState({
   inventory = {}
 } = {}) {
   const flags = explicitFlags || getFlags(storyState);
-  const recipeKnown = Boolean(flags.workbenchDiyRecipesReceived);
+  const greenhousePlaced = Boolean(flags.greenhousePlaced);
+  const workbenchRecipesReceived = Boolean(flags.workbenchDiyRecipesReceived);
+  const recipeKnown = Boolean(workbenchRecipesReceived && greenhousePlaced);
   const crafted = Boolean(flags.campfireCrafted);
   const placed = Boolean(flags.campfireSpatOut);
   const inBag = hasInventoryItem(inventory, CAMPFIRE_ITEM_ID);
@@ -61,6 +63,7 @@ export function getTrainHouseProgressState({
     return {
       state: TRAIN_HOUSE_PROGRESS_STATE.PLACED,
       recipeKnown,
+      greenhousePlaced,
       crafted,
       placed,
       inBag,
@@ -70,10 +73,11 @@ export function getTrainHouseProgressState({
     };
   }
 
-  if (crafted && inBag) {
+  if (greenhousePlaced && crafted && inBag) {
     return {
       state: TRAIN_HOUSE_PROGRESS_STATE.READY_TO_PLACE,
       recipeKnown,
+      greenhousePlaced,
       crafted,
       placed,
       inBag,
@@ -87,6 +91,7 @@ export function getTrainHouseProgressState({
     return {
       state: TRAIN_HOUSE_PROGRESS_STATE.CRAFTABLE,
       recipeKnown,
+      greenhousePlaced,
       crafted,
       placed,
       inBag,
@@ -99,11 +104,14 @@ export function getTrainHouseProgressState({
   return {
     state: TRAIN_HOUSE_PROGRESS_STATE.LOCKED,
     recipeKnown,
+    greenhousePlaced,
     crafted,
     placed,
     inBag,
     disabled: true,
-    status: null,
+    status: workbenchRecipesReceived && !greenhousePlaced ?
+      "Locked · Build Greenhouse first" :
+      null,
     actionLabel: null
   };
 }
@@ -304,6 +312,10 @@ export function getCharmanderPrerequisiteTaskId(storyStateOrFlags = {}) {
   const flags = getFlags(storyStateOrFlags);
   const trainHouseState = getTrainHouseProgressState({ flags });
 
+  if (!flags.greenhousePlaced && !flags.campfireSpatOut) {
+    return FIELD_TASK_IDS.BUILD_GREENHOUSE;
+  }
+
   if (!trainHouseState.recipeKnown || !trainHouseState.crafted) {
     return FIELD_TASK_IDS.WORKBENCH_CAMPFIRE;
   }
@@ -335,8 +347,16 @@ export function getCharmanderDerivedTaskId(storyStateOrFlags = {}) {
 }
 
 export function shouldHideTrackedTaskForProgressionPrerequisite(taskId, storyStateOrFlags = {}) {
+  const prerequisiteTaskId = getCharmanderPrerequisiteTaskId(storyStateOrFlags);
+
   return Boolean(
-    taskId === FIELD_TASK_IDS.CHARMANDER_TALL_GRASS &&
-    getCharmanderPrerequisiteTaskId(storyStateOrFlags)
+    (
+      taskId === FIELD_TASK_IDS.CHARMANDER_TALL_GRASS &&
+      prerequisiteTaskId
+    ) ||
+    (
+      (taskId === FIELD_TASK_IDS.WORKBENCH_CAMPFIRE || taskId === FIELD_TASK_IDS.SPIT_OUT_CAMPFIRE) &&
+      prerequisiteTaskId === FIELD_TASK_IDS.BUILD_GREENHOUSE
+    )
   );
 }

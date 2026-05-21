@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   BULBASAUR_TALK_INTERACT_DISTANCE,
   buildCampfirePlacement,
+  buildGreenhousePlacement,
   createCollisionChecker,
   buildLeafDenKitPlacement,
   buildLogChairPlacement,
@@ -1438,11 +1439,20 @@ describe("findNearbyInteractable", () => {
     });
   });
 
-  it("builds a Campfire placement near the supplied anchor", () => {
+  it("builds a Thermal Cabin placement away from the supplied anchor", () => {
     expect(buildCampfirePlacement([7, 0, 3.78])).toEqual({
       id: "campfire-0",
-      position: [7.92, 0.02, 4.2],
+      position: [11.25, 0.02, 6.63],
       size: [1.34, 1.18],
+      uvRect: [0, 0, 1, 1]
+    });
+  });
+
+  it("builds a Greenhouse placement away from the supplied anchor", () => {
+    expect(buildGreenhousePlacement([7, 0, 3.78])).toEqual({
+      id: "greenhouse-0",
+      position: [11.25, 0.02, 6.63],
+      size: [2.85, 1.7],
       uvRect: [0, 0, 1, 1]
     });
   });
@@ -1743,7 +1753,7 @@ describe("findNearbyInteractable", () => {
     })).toBe("[Y] Tall Grass • Destroy");
   });
 
-  it("detects nearby dry grass as destroyable with Y", () => {
+  it("detects nearby dry grass as cuttable with X", () => {
     const result = findNearbyInteractable(
       [1.15, 0, 0.2],
       [],
@@ -1776,7 +1786,7 @@ describe("findNearbyInteractable", () => {
         title: "Any quest",
         actionLabel: "Destroy"
       }
-    })).toBe("[Y] Dry Grass • Destroy");
+    })).toBe("[X / Enter] Dry Grass • Cut");
   });
 
   it("describes the Leafage grow action in the nearby prompt", () => {
@@ -1902,6 +1912,45 @@ describe("createCollisionChecker", () => {
     expect(isBlocked([-5, 0, 0])).toEqual({
       blocked: false,
       landingY: 0.16
+    });
+  });
+
+  it("blocks mountain colliders while allowing airborne jumps onto them", () => {
+    const colliders = [
+      {
+        id: "mountain-solid",
+        position: [5, 0, 0],
+        size: [4, 2, 4],
+        surfaceY: 2,
+        blocksPlayer: true,
+        allowPlayerLanding: true,
+        padding: 0
+      }
+    ];
+    const isBlocked = createCollisionChecker(
+      { size: [1, 1, 1] },
+      { size: [1, 1, 1] },
+      [],
+      () => [],
+      () => colliders,
+      2000
+    );
+
+    expect(isBlocked([5, 0, 0])).toBe(true);
+    expect(isBlocked([5, 2, 0])).toEqual({
+      blocked: false,
+      landingY: 2
+    });
+    expect(isBlocked([5, 0.4, 0], "player", {
+      airborne: true,
+      groundY: 0
+    })).toBe(true);
+    expect(isBlocked([5, 2, 0], "player", {
+      airborne: true,
+      groundY: 0
+    })).toEqual({
+      blocked: false,
+      landingY: 2
     });
   });
 });

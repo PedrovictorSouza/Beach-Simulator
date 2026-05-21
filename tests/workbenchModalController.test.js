@@ -49,24 +49,36 @@ describe("createWorkbenchModalController", () => {
     expect(modal?.hidden).toBe(false);
     expect(modal?.style.display).toBe("grid");
     expect(panel?.style.position).toBe("relative");
+    expect(panel?.style.width).toBe("100%");
     expect(panel?.style.padding).toBe("22px 24px");
     expect(header?.textContent).toContain("Workbench");
     expect(header?.textContent).toContain("Left/Right Select");
     expect(mount.querySelector(".workbench-modal__hint")?.textContent).not.toContain("Left/Right Select");
     expect(recipeGrid?.style.gap).toBe("24px");
     expect(recipeButton?.style.minHeight).toContain("clamp(220px");
-    expect(recipeButton?.style.border).toContain("5px solid");
+    expect(recipeButton?.style.border).toContain("10px solid");
     expect(recipeButton?.style.backgroundImage).toContain("train-house.gif");
     expect(recipeButton?.style.backgroundImage).not.toContain("linear-gradient");
     expect(recipeButton?.style.opacity).toBe("1");
     expect(mount.querySelector(".workbench-modal__recipe-thumbnail")).toBeNull();
     expect(mount.querySelector(".workbench-modal__recipe-icon img")).toBeNull();
     expect(recipeButton?.firstElementChild).toBe(recipeArt);
+    expect(mount.querySelector(".workbench-modal__recipe-tab")).toBeNull();
     expect(mount.querySelector(".workbench-modal__recipe-copy")?.style.background).toBe("none");
     expect(mount.querySelector(".workbench-modal__recipe-protocol")?.textContent).toBe("Power Plans");
     expect(mount.querySelector(".workbench-modal__recipe-purpose")?.textContent).toContain("starter heat");
+    expect(mount.querySelector(".workbench-modal__recipe-guidance")?.textContent).toContain("Already prepared");
+    const recipeCopyChildren = mount.querySelectorAll(".workbench-modal__recipe-copy > span");
+    expect([...recipeCopyChildren].map((child) => child.style.color)).toEqual([
+      "rgb(0, 0, 0)",
+      "rgb(0, 0, 0)",
+      "rgb(0, 0, 0)",
+      "rgb(0, 0, 0)",
+      "rgb(0, 0, 0)"
+    ]);
     expect(requirement?.textContent).toBe("Created");
-    expect(requirement?.style.color).toBe("rgb(3, 169, 244)");
+    expect(requirement?.style.color).toBe("rgb(0, 0, 0)");
+    expect(requirement?.style.fontSize).toBe("45px");
     expect(mount.querySelector(".workbench-modal__hint-action")?.textContent).toBe("Created");
     expect(mount.querySelector(".workbench-modal__hint-close")?.textContent).toBe("B / Esc Close");
     expect(mount.querySelector(".workbench-modal__hint-close")?.style.position).toBe("absolute");
@@ -85,12 +97,21 @@ describe("createWorkbenchModalController", () => {
 
   it("shows the construction recipes and crafts the selected solar station recipe", () => {
     const { controller, mount } = createController();
+    const craftGreenhouse = vi.fn(() => true);
     const craftCampfire = vi.fn(() => true);
     const craftStrawBed = vi.fn(() => true);
     const craftHouse = vi.fn(() => true);
 
     controller.open({
       recipes: [
+        {
+          recipe: {
+            id: "greenhouse",
+            title: "Greenhouse",
+            ingredients: {}
+          },
+          onConfirm: craftGreenhouse
+        },
         {
           recipe: {
             id: "campfire",
@@ -119,35 +140,44 @@ describe("createWorkbenchModalController", () => {
     });
 
     const recipeButtons = [...mount.querySelectorAll(".workbench-modal__recipe")];
-    expect(recipeButtons).toHaveLength(3);
-    expect(recipeButtons[0].textContent).toContain("Thermal Cabin");
-    expect(recipeButtons[1].textContent).toContain("Solar Station");
-    expect(recipeButtons[2].textContent).toContain("House");
-    expect(recipeButtons[0].textContent).toContain("Wood 3/3");
-    expect(recipeButtons[1].textContent).toContain("Leaves 0/2");
+    expect(recipeButtons).toHaveLength(4);
+    expect(recipeButtons[0].textContent).toContain("Greenhouse");
+    expect(recipeButtons[1].textContent).toContain("Thermal Cabin");
+    expect(recipeButtons[2].textContent).toContain("Solar Station");
+    expect(recipeButtons[3].textContent).toContain("House");
+    expect(recipeButtons[1].textContent).toContain("Wood 3/3");
+    expect(recipeButtons[2].textContent).toContain("Leaves 0/2");
     expect(recipeButtons[0].dataset.selected).toBe("true");
     expect(recipeButtons[0].getAttribute("aria-pressed")).toBe("true");
     expect(recipeButtons[0].getAttribute("aria-disabled")).toBe("false");
-    expect(recipeButtons[0].getAttribute("aria-label")).toContain("Selected: Thermal Cabin");
-    expect(recipeButtons[0].getAttribute("aria-label")).toContain("Power Plans");
+    expect(recipeButtons[0].getAttribute("aria-label")).toContain("Selected: Greenhouse");
+    expect(recipeButtons[0].getAttribute("aria-label")).toContain("Soil Plans");
+    expect(recipeButtons[0].getAttribute("aria-label")).toContain("Prepare this kit here");
     expect(recipeButtons[0].style.border).toContain("rgb(137, 255, 0)");
     expect(recipeButtons[0].querySelector(".workbench-modal__recipe-copy")?.style.visibility).toBe("visible");
     expect(recipeButtons[0].querySelector(".workbench-modal__recipe-copy")?.style.opacity).toBe("1");
     expect(recipeButtons[1].dataset.selected).toBe("false");
     expect(recipeButtons[1].getAttribute("aria-pressed")).toBe("false");
-    expect(recipeButtons[1].getAttribute("aria-label")).toContain("Water Plans");
+    expect(recipeButtons[1].getAttribute("aria-label")).toContain("Power Plans");
     expect(recipeButtons[1].style.border).not.toContain("rgb(137, 255, 0)");
     expect(recipeButtons[1].querySelector(".workbench-modal__recipe-copy")?.style.visibility).toBe("hidden");
     expect(recipeButtons[1].querySelector(".workbench-modal__recipe-copy")?.style.opacity).toBe("0");
-    expect(recipeButtons[0].style.backgroundImage).toContain("train-house.gif");
-    expect(recipeButtons[1].style.backgroundImage).toContain("Solar-Station.gif");
-    expect(recipeButtons[2].style.backgroundImage).toContain("house_2.png");
-    expect(recipeButtons[0].textContent).toContain("Power Plans");
-    expect(recipeButtons[1].textContent).toContain("Water Plans");
-    expect(recipeButtons[2].textContent).toContain("Shelter Plans");
-    expect(recipeButtons[1].textContent).toContain("local circulation");
+    expect(recipeButtons[0].style.backgroundImage).toContain("Estufa.png");
+    expect(recipeButtons[1].style.backgroundImage).toContain("train-house.gif");
+    expect(recipeButtons[2].style.backgroundImage).toContain("Solar-Station.gif");
+    expect(recipeButtons[3].style.backgroundImage).toContain("house_2.png");
+    expect(recipeButtons[0].textContent).toContain("Soil Plans");
+    expect(recipeButtons[1].textContent).toContain("Power Plans");
+    expect(recipeButtons[2].textContent).toContain("Water Plans");
+    expect(recipeButtons[3].textContent).toContain("Shelter Plans");
+    expect(recipeButtons[2].querySelector(".workbench-modal__recipe-tab")).toBeNull();
+    expect(recipeButtons[2].textContent).toContain("local circulation");
     expect(mount.querySelector(".workbench-modal__hint-action")?.textContent).toContain("X / Enter");
 
+    controller.handleKeydown({
+      code: "ArrowRight",
+      preventDefault() {}
+    });
     controller.handleKeydown({
       code: "ArrowRight",
       preventDefault() {}
@@ -158,19 +188,24 @@ describe("createWorkbenchModalController", () => {
     expect(updatedRecipeButtons[0].style.border).not.toContain("rgb(137, 255, 0)");
     expect(updatedRecipeButtons[0].querySelector(".workbench-modal__recipe-copy")?.style.visibility).toBe("hidden");
     expect(updatedRecipeButtons[0].querySelector(".workbench-modal__recipe-copy")?.style.opacity).toBe("0");
-    expect(updatedRecipeButtons[1].dataset.selected).toBe("true");
-    expect(updatedRecipeButtons[1].style.border).toContain("rgb(137, 255, 0)");
-    expect(updatedRecipeButtons[1].querySelector(".workbench-modal__recipe-copy")?.style.visibility).toBe("visible");
-    expect(updatedRecipeButtons[1].querySelector(".workbench-modal__recipe-copy")?.style.opacity).toBe("1");
-    expect(updatedRecipeButtons[0].style.backgroundImage).toContain("train-house.gif");
-    expect(updatedRecipeButtons[1].style.backgroundImage).toContain("Solar-Station.gif");
-    expect(updatedRecipeButtons[2].style.backgroundImage).toContain("house_2.png");
+    expect(updatedRecipeButtons[2].dataset.selected).toBe("true");
+    expect(updatedRecipeButtons[2].style.border).toContain("rgb(137, 255, 0)");
+    expect(updatedRecipeButtons[2].querySelector(".workbench-modal__recipe-copy")?.style.visibility).toBe("visible");
+    expect(updatedRecipeButtons[2].querySelector(".workbench-modal__recipe-copy")?.style.opacity).toBe("1");
+    expect(updatedRecipeButtons[2].querySelector(".workbench-modal__recipe-guidance")?.textContent).toContain(
+      "Prepare this kit here"
+    );
+    expect(updatedRecipeButtons[0].style.backgroundImage).toContain("Estufa.png");
+    expect(updatedRecipeButtons[1].style.backgroundImage).toContain("train-house.gif");
+    expect(updatedRecipeButtons[2].style.backgroundImage).toContain("Solar-Station.gif");
+    expect(updatedRecipeButtons[3].style.backgroundImage).toContain("house_2.png");
 
     controller.handleKeydown({
       code: "KeyX",
       preventDefault() {}
     });
 
+    expect(craftGreenhouse).not.toHaveBeenCalled();
     expect(craftCampfire).not.toHaveBeenCalled();
     expect(craftStrawBed).toHaveBeenCalledTimes(1);
     expect(craftHouse).not.toHaveBeenCalled();

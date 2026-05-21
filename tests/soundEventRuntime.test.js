@@ -68,6 +68,26 @@ describe("createSoundEventRuntime", () => {
     runtime.dispose();
   });
 
+  it("registers Chopper voice as an explicit accessibility cue", () => {
+    const root = document.createElement("div");
+    const audio = createFakeAudio();
+    const audioFactory = vi.fn(() => audio);
+    const runtime = createSoundEventRuntime({
+      root,
+      audioFactory,
+      now: () => 1000
+    });
+
+    runtime.play(SOUND_EVENT_IDS.CHOPPER_VOICE);
+
+    expect(audioFactory).toHaveBeenCalledTimes(1);
+    expect(audioFactory.mock.calls[0][0]).toContain("chopper-voice/chopper.mp3");
+    expect(audio.volume).toBeCloseTo(0.7);
+    expect(audio.play).toHaveBeenCalledTimes(1);
+
+    runtime.dispose();
+  });
+
   it("throttles rapid UI changes so sliders and steppers do not spam audio", () => {
     const root = document.createElement("div");
     const input = document.createElement("input");
