@@ -1144,7 +1144,13 @@ export function migrateLegacyPlaceablesToGridRecords({
   }
 
   addLegacyPlacement("strawBed", placeables.strawBed);
-  addLegacyPlacement("greenhouse", placeables.greenhouse);
+  if (Array.isArray(placeables.greenhouses) && placeables.greenhouses.length > 0) {
+    placeables.greenhouses.forEach((placement, index) => {
+      addLegacyPlacement("greenhouse", placement, index);
+    });
+  } else {
+    addLegacyPlacement("greenhouse", placeables.greenhouse);
+  }
   addLegacyPlacement("campfire", placeables.campfire);
   addLegacyPlacement("leafDen", placeables.leafDen);
 

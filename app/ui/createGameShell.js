@@ -1,3 +1,5 @@
+import { createStartScreenUniverseBackground } from "./startScreenUniverseBackground.js";
+
 const HYDRO_JET_INSTRUCTIONS_IMAGE_URL = new URL("./images/tutorial-hidro-jet.png", import.meta.url).href;
 const HYDRO_JET_AVATAR_IMAGE_URL = new URL("./images/hidrojet-avatar.png", import.meta.url).href;
 
@@ -155,6 +157,7 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
 
 const GAME_STAGE_ID = "game-stage";
 const RENDER_FRAME_ID = "render-frame";
+const GAMEPLAY_UNIVERSE_BACKGROUND_CLASS = "gameplay-universe-background";
 
 function getElement(documentRef, id) {
   return documentRef.getElementById(id);
@@ -182,6 +185,24 @@ function mountGameShell(documentRef) {
   return main;
 }
 
+function mountGameplayUniverseBackground(documentRef) {
+  const gameStage = getElement(documentRef, GAME_STAGE_ID);
+  if (!(gameStage instanceof HTMLElement)) {
+    return;
+  }
+
+  if (gameStage.querySelector(`.${GAMEPLAY_UNIVERSE_BACKGROUND_CLASS}`)) {
+    return;
+  }
+
+  createStartScreenUniverseBackground({
+    root: gameStage,
+    className: GAMEPLAY_UNIVERSE_BACKGROUND_CLASS,
+    palette: "purpleBlue",
+    starCount: 420
+  });
+}
+
 function resolveGameShellNodes(documentRef, main) {
   const appRoot = documentRef.documentElement;
 
@@ -196,5 +217,6 @@ function resolveGameShellNodes(documentRef, main) {
 
 export function createGameShell({ documentRef = document } = {}) {
   const main = mountGameShell(documentRef);
+  mountGameplayUniverseBackground(documentRef);
   return resolveGameShellNodes(documentRef, main);
 }

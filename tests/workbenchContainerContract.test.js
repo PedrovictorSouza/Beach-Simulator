@@ -130,6 +130,52 @@ describe("workbench container contract", () => {
     });
   });
 
+  it("keeps Greenhouse issuable after one has already been placed", () => {
+    const state = resolveWorkbenchContainerState({
+      storyState: {
+        flags: {
+          workbenchDiyRecipesReceived: true,
+          greenhouseCrafted: true,
+          greenhousePlaced: true
+        }
+      },
+      inventory: {}
+    });
+    const entry = getWorkbenchProtocolEntryById(state, GRID_PLACEABLE_IDS.GREENHOUSE);
+
+    expect(entry).toMatchObject({
+      state: WORKBENCH_PROTOCOL_STATE.CAN_ISSUE,
+      action: WORKBENCH_PROTOCOL_ACTION.ISSUE,
+      actionLabel: "Prepare Greenhouse",
+      canIssue: true,
+      canStartPlacement: false
+    });
+  });
+
+  it("keeps owned extra Greenhouses placeable after one has already been placed", () => {
+    const state = resolveWorkbenchContainerState({
+      storyState: {
+        flags: {
+          workbenchDiyRecipesReceived: true,
+          greenhouseCrafted: true,
+          greenhousePlaced: true
+        }
+      },
+      inventory: {
+        [GREENHOUSE_ITEM_ID]: 1
+      }
+    });
+    const entry = getWorkbenchProtocolEntryById(state, GRID_PLACEABLE_IDS.GREENHOUSE);
+
+    expect(entry).toMatchObject({
+      state: WORKBENCH_PROTOCOL_STATE.READY_TO_PLACE,
+      action: WORKBENCH_PROTOCOL_ACTION.PLACE,
+      actionLabel: "Place Greenhouse",
+      canIssue: false,
+      canStartPlacement: true
+    });
+  });
+
   it("switches Solar Station from issue to placement when the item is in the bag", () => {
     const craftable = resolveWorkbenchContainerState({
       storyState: {
@@ -250,7 +296,8 @@ describe("workbench container contract", () => {
       .filter(Boolean);
 
     expect(actionCopy).toEqual([
-      "Placed",
+      "Prepare Greenhouse",
+      "Ready to prepare",
       "Prepare Thermal Cabin",
       "Ready to prepare",
       "Prepare Solar Station",

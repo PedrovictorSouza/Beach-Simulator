@@ -31,6 +31,7 @@ import {
   resolvePlacementPreviewPrompt,
   UI_PROMPT_ACTION
 } from "../ui/inputPromptResolver.js";
+import { getFirstMissionCompletionPopText } from "../ui/firstMissionCompletionPop.js";
 import {
   mapActiveFieldMoveStateToSaveGameDto,
   mapSaveGameDtoToActiveFieldMoveState
@@ -319,7 +320,6 @@ const FIELD_MOVE_SWITCH_PROMPT_PRESENTATION = Object.freeze({
 });
 const QUEST_COMPLETION_POP_DURATION_MS = 2400;
 const QUEST_COMPLETION_POP_MESSAGES = Object.freeze({
-  "learn-to-move": "You took your first steps!",
   "wake-guide": "You met Chopper!",
   "gather-first-supplies": "Hydro Bot is online!",
   "shape-a-living-patch": "You restored a patch!",
@@ -395,6 +395,7 @@ const SQUIRTLE_DRY_GRASS_FOCUS_LINE_INDEX = 3;
 const SQUIRTLE_DRY_GRASS_CAMERA_FOCUS_HEIGHT = 1.12;
 const WORKBENCH_OBJECT_ROTATE_DISTANCE = 3.2;
 const WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN = 1.425;
+const GREENHOUSE_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 5, height: 3 });
 const SOLAR_STATION_ROTATION_FOOTPRINT = [2.2, 2.2];
 const TRAIN_HOUSE_ROTATION_FOOTPRINT = [1.7, 1.45];
 const HOUSE_KIT_ROTATION_FOOTPRINT = [1.95, 1.45];
@@ -414,8 +415,9 @@ const MANUAL_SAVE_SLOT_IDS = Object.freeze([
 const LOG_CHAIR_SAVE_REQUEST_GRACE_MS = 800;
 const SOLAR_STATION_RECIPE_ARTWORK_URL = new URL("../../Solar-Station/Solar-Station.gif", import.meta.url).href;
 const TRAIN_HOUSE_RECIPE_ARTWORK_URL = new URL("../../Train-house/train-house.gif", import.meta.url).href;
-const GREENHOUSE_RECIPE_ARTWORK_URL = new URL("../../Greenhouse/Estufa.png", import.meta.url).href;
+const GREENHOUSE_RECIPE_ARTWORK_URL = new URL("../ui/images/Estufa.gif", import.meta.url).href;
 const HOUSE_RECIPE_ARTWORK_URL = new URL("../../house/house_2.png", import.meta.url).href;
+const WORKBENCH_PANEL_BACKGROUND_URL = new URL("../ui/images/grass.gif", import.meta.url).href;
 const LEAFAGE_TALL_GRASS_ARTWORK_URL = new URL("../../Trees/tall-grass/tall-grass.png", import.meta.url).href;
 const LEAFAGE_GARDEN_1_ARTWORK_URL = new URL("../../Trees/Garden-1/garden-1.png", import.meta.url).href;
 const LEAFAGE_FLOWER_ARTWORK_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' fill='%23284f24'/%3E%3Crect x='44' y='48' width='8' height='30' fill='%2338b764'/%3E%3Crect x='32' y='38' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='50' y='38' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='41' y='28' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='41' y='50' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='42' y='42' width='12' height='12' fill='%23ff7eb6'/%3E%3Crect x='28' y='64' width='14' height='8' fill='%2346d75b'/%3E%3Crect x='54' y='62' width='16' height='8' fill='%2346d75b'/%3E%3C/svg%3E";
@@ -681,6 +683,153 @@ function buildOccupiedGridCells(originCell, size) {
   return cells;
 }
 
+function normalizeGreenhouseGridFootprint(footprint = GREENHOUSE_PLACEMENT_GRID_FOOTPRINT) {
+  return {
+    width: Math.max(1, Math.round(Number(footprint?.width) || GREENHOUSE_PLACEMENT_GRID_FOOTPRINT.width)),
+    height: Math.max(1, Math.round(Number(footprint?.height) || GREENHOUSE_PLACEMENT_GRID_FOOTPRINT.height))
+  };
+}
+
+function getRotatedGreenhouseGridFootprint(footprint = GREENHOUSE_PLACEMENT_GRID_FOOTPRINT, yaw = 0) {
+  const normalizedFootprint = normalizeGreenhouseGridFootprint(footprint);
+  const quarterTurn = Math.abs(Math.round(Number(yaw || 0) / (Math.PI * 0.5))) % 4;
+
+  if (quarterTurn % 2 === 1) {
+    return {
+      width: normalizedFootprint.height,
+      height: normalizedFootprint.width
+    };
+  }
+
+  return normalizedFootprint;
+}
+
+export function buildGreenhouseFootprintGroundPositions(preview) {
+  const snappedPosition = Array.isArray(preview?.snappedPosition) ?
+    preview.snappedPosition :
+    preview?.position;
+  if (!Array.isArray(snappedPosition)) {
+    return [];
+  }
+
+  const gridStep = Math.max(
+    0.25,
+    Number(preview?.gridStep) ||
+      Number(preview?.gridConfig?.cellSize) ||
+      DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.cellSize
+  );
+  const rotatedFootprint = getRotatedGreenhouseGridFootprint(
+    GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
+    preview?.yaw
+  );
+  const originX = snappedPosition[0] - ((rotatedFootprint.width - 1) * gridStep * 0.5);
+  const originZ = snappedPosition[2] - ((rotatedFootprint.height - 1) * gridStep * 0.5);
+  const surfaceY = snappedPosition[1] || 0.02;
+  const positions = [];
+
+  for (let row = 0; row < rotatedFootprint.height; row += 1) {
+    for (let column = 0; column < rotatedFootprint.width; column += 1) {
+      positions.push({
+        position: [
+          Number((originX + column * gridStep).toFixed(3)),
+          surfaceY,
+          Number((originZ + row * gridStep).toFixed(3))
+        ],
+        tileSpan: gridStep
+      });
+    }
+  }
+
+  return positions;
+}
+
+function getNearestGreenhouseFootprintTerrainCell(position, {
+  groundDeadInstances = [],
+  iceGroundInstances = [],
+  groundPurifiedInstances = [],
+  tileSpan = DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.cellSize
+} = {}) {
+  if (!Array.isArray(position)) {
+    return null;
+  }
+
+  const candidates = [
+    ...(Array.isArray(groundDeadInstances) ? groundDeadInstances : []),
+    ...(Array.isArray(iceGroundInstances) ? iceGroundInstances : []),
+    ...(Array.isArray(groundPurifiedInstances) ? groundPurifiedInstances : [])
+  ];
+  const tolerance = Math.max(0.18, Number(tileSpan) * 0.42);
+  let nearestCell = null;
+  let nearestDistance = Infinity;
+
+  for (const groundCell of candidates) {
+    if (groundCell?.active === false || !Array.isArray(groundCell?.offset)) {
+      continue;
+    }
+
+    const distance = Math.hypot(
+      Number(position[0]) - Number(groundCell.offset[0]),
+      Number(position[2]) - Number(groundCell.offset[2])
+    );
+    if (distance <= tolerance && distance < nearestDistance) {
+      nearestCell = groundCell;
+      nearestDistance = distance;
+    }
+  }
+
+  return nearestCell;
+}
+
+export function restoreGreenhouseFootprintGround({
+  preview,
+  groundDeadInstances = [],
+  iceGroundInstances = [],
+  groundPurifiedInstances = []
+} = {}) {
+  if (!Array.isArray(groundPurifiedInstances)) {
+    return 0;
+  }
+
+  const deadGround = Array.isArray(groundDeadInstances) ? groundDeadInstances : [];
+  const iceGround = Array.isArray(iceGroundInstances) ? iceGroundInstances : [];
+  const visitedCells = new Set();
+  let restoredCount = 0;
+  const footprintPositions = buildGreenhouseFootprintGroundPositions(preview);
+
+  for (const footprintPosition of footprintPositions) {
+    const groundCell = getNearestGreenhouseFootprintTerrainCell(footprintPosition.position, {
+      groundDeadInstances: deadGround,
+      iceGroundInstances: iceGround,
+      groundPurifiedInstances,
+      tileSpan: footprintPosition.tileSpan
+    });
+
+    if (!groundCell || visitedCells.has(groundCell)) {
+      continue;
+    }
+
+    if (groundPurifiedInstances.includes(groundCell)) {
+      visitedCells.add(groundCell);
+      continue;
+    }
+
+    const restored =
+      purifyGroundCell(groundCell, deadGround, groundPurifiedInstances) ||
+      purifyGroundCell(groundCell, iceGround, groundPurifiedInstances);
+
+    if (restored) {
+      visitedCells.add(groundCell);
+      restoredCount += 1;
+    }
+  }
+
+  if (restoredCount > 0) {
+    syncPurifiedGroundVariantInstances(groundPurifiedInstances);
+  }
+
+  return restoredCount;
+}
+
 function cloneSavedGridPlacementRecord(record) {
   if (!isPlainObject(record)) {
     return null;
@@ -807,10 +956,23 @@ function cloneSavedPatch(patch) {
   };
 }
 
+function cloneSavedPlacementList(placements) {
+  return Array.isArray(placements) ?
+    placements.map(cloneSavedPlacement).filter(Boolean) :
+    [];
+}
+
 function cloneSessionPlaceables(session) {
+  const greenhouses = cloneSavedPlacementList(session?.greenhouses);
+  const legacyGreenhouse = cloneSavedPlacement(session?.greenhouse);
+  const savedGreenhouses = greenhouses.length > 0 ?
+    greenhouses :
+    (legacyGreenhouse ? [legacyGreenhouse] : []);
+
   return {
     logChair: cloneSavedPlacement(session?.logChair),
-    greenhouse: cloneSavedPlacement(session?.greenhouse),
+    greenhouse: savedGreenhouses[0] || null,
+    greenhouses: savedGreenhouses,
     strawBed: cloneSavedPlacement(session?.strawBed),
     campfire: cloneSavedPlacement(session?.campfire),
     leafDen: cloneSavedPlacement(session?.leafDen),
@@ -1148,8 +1310,14 @@ export function restoreSavedSessionState(session, savePoint) {
 
   const placeables = getSavedPlaceables(savePoint);
   if (placeables) {
+    const restoredGreenhouses = cloneSavedPlacementList(placeables.greenhouses);
+    const legacyGreenhouse = cloneSavedPlacement(placeables.greenhouse);
+    const savedGreenhouses = restoredGreenhouses.length > 0 ?
+      restoredGreenhouses :
+      (legacyGreenhouse ? [legacyGreenhouse] : []);
     session.logChair = cloneSavedPlacement(placeables.logChair);
-    session.greenhouse = cloneSavedPlacement(placeables.greenhouse);
+    session.greenhouses = savedGreenhouses;
+    session.greenhouse = savedGreenhouses[0] || null;
     session.strawBed = cloneSavedPlacement(placeables.strawBed);
     session.campfire = cloneSavedPlacement(placeables.campfire);
     session.leafDen = cloneSavedPlacement(placeables.leafDen);
@@ -1330,9 +1498,12 @@ export function createWorkbenchModalController({
       .filter(Boolean);
   }
 
-  function selectFirstAvailableRecipe() {
+  function selectFirstAvailableRecipe(preferredRecipeId = null) {
+    const preferredIndex = preferredRecipeId ?
+      recipeOptions.findIndex((option) => option?.recipe?.id === preferredRecipeId) :
+      -1;
     const enabledIndex = recipeOptions.findIndex((option) => !option.disabled);
-    selectedRecipeIndex = enabledIndex >= 0 ? enabledIndex : 0;
+    selectedRecipeIndex = preferredIndex >= 0 ? preferredIndex : enabledIndex >= 0 ? enabledIndex : 0;
     recipe = recipeOptions[selectedRecipeIndex]?.recipe || null;
   }
 
@@ -1480,7 +1651,11 @@ export function createWorkbenchModalController({
       width: "100%",
       border: "4px solid #f5c16a",
       boxShadow: "0 0 0 4px #2b202c, 0 18px 0 rgba(0, 0, 0, 0.28)",
-      background: "#15101a",
+      backgroundColor: "#15101a",
+      backgroundImage: `url("${WORKBENCH_PANEL_BACKGROUND_URL}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
       color: "#fff1cf",
       padding: "22px 24px",
       fontFamily: "var(--game-ui-font, monospace)",
@@ -1690,7 +1865,7 @@ export function createWorkbenchModalController({
       }
 
       onConfirm = options.onConfirm;
-      selectFirstAvailableRecipe();
+      selectFirstAvailableRecipe(options.initialRecipeId);
       open = true;
       render();
       if (root) {
@@ -2234,10 +2409,7 @@ export function createApplicationRuntime({
   }
 
   function requestGreenhousePlacementIntent() {
-    if (
-      Number(inventory[GREENHOUSE_ITEM_ID] || 0) <= 0 ||
-      storyState.flags.greenhousePlaced
-    ) {
+    if (Number(inventory[GREENHOUSE_ITEM_ID] || 0) <= 0) {
       clearPendingPlacementIntent(GREENHOUSE_ITEM_ID);
       return false;
     }
@@ -2255,7 +2427,7 @@ export function createApplicationRuntime({
     return true;
   }
 
-  function placeGreenhouseAtPlayerPosition(playerPosition) {
+  function startGreenhousePlacementPreview(playerPosition) {
     if (!Array.isArray(playerPosition)) {
       uiRuntime?.pushNotice?.("Move into the world before placing the Greenhouse.");
       return false;
@@ -2267,21 +2439,185 @@ export function createApplicationRuntime({
       return false;
     }
 
-    if (storyState.flags.greenhousePlaced) {
-      clearPendingPlacementIntent(GREENHOUSE_ITEM_ID);
+    const placement = buildGreenhousePlacement(playerPosition);
+    const gridConfig = gameSession?.buildGridConfig ?
+      cloneGridPlacementConfig(gameSession.buildGridConfig) :
+      null;
+    setPendingPlacementIntent({
+      itemId: GREENHOUSE_ITEM_ID,
+      placeableId: GRID_PLACEABLE_IDS.GREENHOUSE,
+      label: "Greenhouse"
+    });
+    gameSession.greenhousePlacementPreview = {
+      active: true,
+      position: [...placement.position],
+      snappedPosition: [...placement.position],
+      size: [...placement.size],
+      uvRect: [...placement.uvRect],
+      gridConfig,
+      gridStep: Number(gridConfig?.cellSize) || 1.425,
+      yaw: 0,
+      valid: false,
+      readyForConfirm: false
+    };
+    uiRuntime?.pushNotice?.(
+      resolvePlacementPreviewPrompt("Move the Greenhouse preview.", getCurrentInputModalityState())
+    );
+    return true;
+  }
+
+  function getSessionGreenhouses() {
+    if (!Array.isArray(gameSession.greenhouses)) {
+      gameSession.greenhouses = gameSession.greenhouse ? [gameSession.greenhouse] : [];
+    }
+
+    return gameSession.greenhouses;
+  }
+
+  function getGreenhouseSceneInstances() {
+    if (Array.isArray(gameSession?.greenhouseSceneObject?.instances)) {
+      return gameSession.greenhouseSceneObject.instances;
+    }
+
+    const previewInstance = gameSession?.greenhouseModelInstance;
+    const greenhouseSceneObject = Array.isArray(gameSession?.sceneObjects) ?
+      gameSession.sceneObjects.find((sceneObject) => {
+        return Array.isArray(sceneObject?.instances) &&
+          (
+            sceneObject.instances.includes(previewInstance) ||
+            sceneObject.instances.some((instance) => {
+              return typeof instance?.id === "string" && instance.id.startsWith("greenhouse-");
+            })
+          );
+      }) :
+      null;
+
+    if (greenhouseSceneObject) {
+      gameSession.greenhouseSceneObject = greenhouseSceneObject;
+    }
+
+    return greenhouseSceneObject?.instances || null;
+  }
+
+  function appendGreenhouseModelInstance(placement) {
+    const previewInstance = gameSession?.greenhouseModelInstance;
+    if (!previewInstance || !Array.isArray(placement?.position)) {
+      return;
+    }
+
+    const instances = getGreenhouseSceneInstances();
+    const groundY = previewInstance.greenhouseGroundY ?? Number(previewInstance.offset?.[1] ?? 0.02);
+    const baseScale = previewInstance.greenhouseBaseScale ?? Number(previewInstance.scale || 3);
+    const baseYaw = previewInstance.greenhouseBaseYaw ?? Number(previewInstance.yaw || 0) - Number(placement.yaw || 0);
+    const placedIndex = Array.isArray(gameSession.greenhouseModelInstances) ?
+      gameSession.greenhouseModelInstances.length :
+      0;
+
+    previewInstance.id = `greenhouse-model-${placedIndex}`;
+    previewInstance.placementId = placement.id;
+    previewInstance.offset = [
+      placement.position[0],
+      groundY,
+      placement.position[2]
+    ];
+    previewInstance.scale = baseScale;
+    previewInstance.yaw = baseYaw + Number(placement.yaw || 0);
+    previewInstance.active = true;
+    previewInstance.alpha = 1;
+    previewInstance.tintStrength = 0;
+
+    if (!Array.isArray(gameSession.greenhouseModelInstances)) {
+      gameSession.greenhouseModelInstances = [];
+    }
+    gameSession.greenhouseModelInstances.push(previewInstance);
+
+    const nextPreviewInstance = {
+      id: "greenhouse-preview-model",
+      offset: [0, groundY, 0],
+      scale: baseScale,
+      yaw: baseYaw,
+      active: false,
+      placementId: null,
+      greenhouseBaseScale: baseScale,
+      greenhouseGroundY: groundY,
+      greenhouseBaseYaw: baseYaw,
+      alpha: 1,
+      tintStrength: 0
+    };
+    gameSession.greenhouseModelInstance = nextPreviewInstance;
+
+    if (instances && !instances.includes(nextPreviewInstance)) {
+      instances.push(nextPreviewInstance);
+    }
+  }
+
+  function confirmGreenhousePlacementPreview() {
+    const preview = gameSession?.greenhousePlacementPreview;
+    if (!preview?.active) {
       return false;
     }
 
-    gameSession.greenhouse = attachPlayerPlacementSpawnEffect(buildGreenhousePlacement(playerPosition));
+    if (!preview.readyForConfirm) {
+      uiRuntime?.pushNotice?.("Position the Greenhouse preview first.");
+      return true;
+    }
+
+    if (preview.valid === false) {
+      uiRuntime?.pushNotice?.("Greenhouse placement is blocked.");
+      return true;
+    }
+
+    if (!hasItems(inventory, { [GREENHOUSE_ITEM_ID]: 1 })) {
+      uiRuntime?.pushNotice?.("You need a Greenhouse in your bag.");
+      gameSession.greenhousePlacementPreview = null;
+      clearPendingPlacementIntent(GREENHOUSE_ITEM_ID);
+      return true;
+    }
+
+    const basePlacement = buildGreenhousePlacement([0, 0.02, 0]);
+    const placementPosition = Array.isArray(preview.snappedPosition) ?
+      preview.snappedPosition :
+      preview.position;
+    const greenhouses = getSessionGreenhouses();
+    const placedGreenhouse = attachPlayerPlacementSpawnEffect({
+      ...basePlacement,
+      id: `greenhouse-${greenhouses.length}`,
+      position: [
+        placementPosition[0],
+        0.02,
+        placementPosition[2]
+      ],
+      size: getPlacementQuarterTurnSize(
+        Array.isArray(preview.size) ? preview.size : basePlacement.size,
+        preview.yaw
+      ),
+      yaw: Number(preview.yaw || 0),
+      uvRect: Array.isArray(preview.uvRect) ? [...preview.uvRect] : basePlacement.uvRect
+    });
+    greenhouses.push(placedGreenhouse);
+    if (!gameSession.greenhouse) {
+      gameSession.greenhouse = placedGreenhouse;
+    }
+    restoreGreenhouseFootprintGround({
+      preview: {
+        ...preview,
+        snappedPosition: placementPosition
+      },
+      groundDeadInstances: gameSession.groundDeadInstances,
+      iceGroundInstances: gameSession.iceGroundInstances,
+      groundPurifiedInstances: gameSession.groundPurifiedInstances
+    });
+    appendGreenhouseModelInstance(placedGreenhouse);
+    gameSession.greenhousePlacementPreview = null;
     clearPendingPlacementIntent(GREENHOUSE_ITEM_ID);
     consumeItems(inventory, { [GREENHOUSE_ITEM_ID]: 1 });
     storyState.flags.greenhouseCrafted = true;
     storyState.flags.greenhousePlaced = true;
-    uiRuntime.syncInventoryUi(inventory);
+    uiRuntime?.syncInventoryUi?.(inventory);
     playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_PLACE);
     startConstructionCloudEffect({
-      id: "greenhouse",
-      position: gameSession.greenhouse.position
+      id: placedGreenhouse.id,
+      position: placedGreenhouse.position
     });
     syncQuestPanels();
     requestAutosave(AUTOSAVE_EVENT.STORY_STEP_ADVANCED, {
@@ -2824,6 +3160,11 @@ export function createApplicationRuntime({
   function buildQuestCompletionPopText(completedQuestIds = []) {
     const completedQuestId = completedQuestIds.at(-1);
     const completedQuest = completedQuestId ? questSystem.getQuest(completedQuestId) : null;
+    const firstMissionPopText = getFirstMissionCompletionPopText(completedQuestId);
+
+    if (firstMissionPopText) {
+      return firstMissionPopText;
+    }
 
     return QUEST_COMPLETION_POP_MESSAGES[completedQuestId] ||
       `You completed ${completedQuest?.title || "the task"}!`;
@@ -3862,7 +4203,12 @@ export function createApplicationRuntime({
     if (
       source === "gamepadBag" &&
       (
+        gameSession?.greenhousePlacementPreview?.active ||
         gameSession?.campfirePlacementPreview?.active ||
+        (
+          storyState?.flags?.greenhouseCrafted &&
+          hasItems(inventory, { [GREENHOUSE_ITEM_ID]: 1 })
+        ) ||
         (
           storyState?.flags?.campfireCrafted &&
           !storyState.flags.campfireSpatOut &&
@@ -5332,8 +5678,13 @@ export function createApplicationRuntime({
       return false;
     }
 
+    const shouldFocusThermalCabin =
+      Boolean(storyState?.flags?.greenhousePlaced) &&
+      !storyState.flags.campfireCrafted;
+
     workbenchModal.open({
-      recipes: recipeOptions.map(createWorkbenchModalRecipeOption)
+      recipes: recipeOptions.map(createWorkbenchModalRecipeOption),
+      initialRecipeId: shouldFocusThermalCabin ? CAMPFIRE_ITEM_ID : null
     });
     clearGameFlowInput();
     return true;
@@ -6157,12 +6508,21 @@ export function createApplicationRuntime({
       syncQuestPanels();
     },
     onGreenhousePlacementRequested({ playerPosition } = {}) {
-      if (Array.isArray(playerPosition)) {
-        placeGreenhouseAtPlayerPosition(playerPosition);
+      if (confirmGreenhousePlacementPreview()) {
         return;
       }
 
-      requestGreenhousePlacementIntent();
+      const placementAnchor =
+        Array.isArray(playerPosition) ?
+          playerPosition :
+          gameSession?.playerCharacter?.getPosition?.() || null;
+
+      if (!Array.isArray(placementAnchor)) {
+        requestGreenhousePlacementIntent();
+        return;
+      }
+
+      startGreenhousePlacementPreview(placementAnchor);
     },
     onStrawBedCrafted() {
       uiRuntime.bagUiRuntime.handleItemCollected(STRAW_BED_ITEM_ID, storyState);

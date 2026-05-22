@@ -36,7 +36,7 @@ const LEAF_DEN_INTERACT_DISTANCE = 4.4;
 const INSTANTIATED_OBJECT_INTERACT_DISTANCE = 2.2;
 const THERMAL_CABIN_PLAYER_PLACEMENT_OFFSET = Object.freeze([4.25, 2.85]);
 const GREENHOUSE_PLAYER_PLACEMENT_OFFSET = Object.freeze([4.25, 2.85]);
-export const HELPER_BOT_TALK_INTERACT_DISTANCE = 8.2;
+export const HELPER_BOT_TALK_INTERACT_DISTANCE = 16;
 export const BULBASAUR_TALK_INTERACT_DISTANCE = HELPER_BOT_TALK_INTERACT_DISTANCE;
 const INTERACTABLE_OBJECT_REACH_MIN = 2.55;
 const PALM_SHAKE_DURATION = 0.42;
@@ -1346,7 +1346,7 @@ export function findNearbyInteractable(
         playerPosition[2] - interactionPosition[2]
       );
 
-      if (distance <= POKEMON_TALK_INTERACT_DISTANCE && distance < nearestDistance) {
+      if (distance <= HELPER_BOT_TALK_INTERACT_DISTANCE && distance < nearestDistance) {
         nearest = {
           kind: "charmanderGrassEncounter",
           id: "charmanderRustlingGrass",
@@ -1378,7 +1378,7 @@ export function findNearbyInteractable(
         playerPosition[2] - interactionPosition[2]
       );
 
-      if (distance <= POKEMON_TALK_INTERACT_DISTANCE && distance < nearestDistance) {
+      if (distance <= HELPER_BOT_TALK_INTERACT_DISTANCE && distance < nearestDistance) {
         nearest = {
           kind: "timburrGrassEncounter",
           id: "timburrRustlingGrass",
@@ -1551,7 +1551,7 @@ export function findNearbyInteractable(
       playerPosition[2] - timburrEncounter.position[2]
     );
 
-    if (distance <= POKEMON_TALK_INTERACT_DISTANCE && distance < nearestDistance) {
+    if (distance <= HELPER_BOT_TALK_INTERACT_DISTANCE && distance < nearestDistance) {
       nearest = {
         kind: "timburrLeafDenFurnitureComplete",
         id: "timburr",
@@ -1574,7 +1574,7 @@ export function findNearbyInteractable(
       playerPosition[2] - charmanderEncounter.position[2]
     );
 
-    if (distance <= POKEMON_TALK_INTERACT_DISTANCE && distance < nearestDistance) {
+    if (distance <= HELPER_BOT_TALK_INTERACT_DISTANCE && distance < nearestDistance) {
       nearest = {
         kind: "charmanderCelebrationRequest",
         id: "charmander",

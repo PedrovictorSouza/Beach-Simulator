@@ -50,8 +50,8 @@
   background: rgba(12, 10, 20, 0.82);
   color: #ffffff;
   font-family: var(--game-font-family, monospace);
-  font-size: 18px;
-  line-height: 1;
+  font-size: 9px;
+  line-height: 0.5;
   text-align: right;
   letter-spacing: 0;
   pointer-events: none;
@@ -77,8 +77,8 @@
   background: rgba(12, 10, 20, 0.82);
   color: #ffffff;
   font-family: var(--game-font-family, monospace);
-  font-size: 13px;
-  line-height: 1;
+  font-size: 6.5px;
+  line-height: 0.5;
   text-align: right;
   letter-spacing: 0;
   cursor: pointer;
@@ -147,7 +147,7 @@
 }
 
 .nearby-habitats-panel__header {
-  font-size: 15px;
+  font-size: 7.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
 }
@@ -156,8 +156,8 @@
   margin-top: 10px;
   padding-top: 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.18);
-  font-size: 17px;
-  line-height: 1.35;
+  font-size: 8.5px;
+  line-height: 0.675;
 }
 
 .quest-focus-panel {
@@ -169,7 +169,7 @@
 }
 
 .quest-focus-panel__title {
-  font-size: 19px;
+  font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
@@ -178,8 +178,8 @@
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.18);
-  font-size: 17px;
-  line-height: 1.5;
+  font-size: 8.5px;
+  line-height: 0.75;
 }
 
 .bag-details-panel {
@@ -216,8 +216,8 @@
   border: 2px solid rgba(255, 215, 96, 0.86);
   background: var(--bag-icon-color);
   color: #ffffff;
-  font-size: 12px;
-  line-height: 1;
+  font-size: 6px;
+  line-height: 0.5;
   box-shadow:
     0 0 0 2px rgba(255, 255, 255, 0.12),
     0 6px 14px rgba(12, 8, 24, 0.18);
@@ -225,9 +225,9 @@
 
 .bag-details-panel__name,
 .bag-details-panel__count {
-  font-size: 20px;
+  font-size: 10px;
   font-weight: 700;
-  line-height: 1.2;
+  line-height: 0.6;
   letter-spacing: 0.01em;
 }
 
@@ -240,8 +240,8 @@
   margin-top: 14px;
   padding-top: 14px;
   border-top: 1px solid rgba(255, 255, 255, 0.18);
-  font-size: 17px;
-  line-height: 1.55;
+  font-size: 8.5px;
+  line-height: 0.775;
   white-space: pre-line;
 }
 
@@ -255,19 +255,20 @@
   grid-row: 1;
   gap: 8px;
   padding: 18px 20px;
+  background: black;
 }
 
 .hud strong {
-  font-size: 18px;
+  font-size: 9px;
 }
 
 .hud span {
-  font-size: 15px;
-  line-height: 1.45;
+  font-size: 7.5px;
+  line-height: 0.725;
 }
 
 .hud-control label {
-  font-size: 13px;
+  font-size: 6.5px;
 }
 
 .status {
@@ -281,14 +282,14 @@
   justify-self: end;
   align-self: end;
   padding: 16px 18px;
-  font-size: 15px;
-  line-height: 1.5;
+  font-size: 7.5px;
+  line-height: 0.75;
 }
 
 .skills-panel strong,
 .inventory strong,
 .missions-header {
-  font-size: 13px;
+  font-size: 6.5px;
 }
 
 .skills-panel {
@@ -304,7 +305,7 @@
 }
 
 .skill-slot__label {
-  font-size: 11px;
+  font-size: 5.5px;
 }
 
 .missions-panel {
@@ -357,16 +358,16 @@
 
 .mission-card__copy {
   min-width: 0;
-  font-size: 15px;
-  line-height: 1.6;
+  font-size: 7.5px;
+  line-height: 0.8;
 }
 
 .mission-card__eyebrow {
-  font-size: 12px;
+  font-size: 6px;
 }
 
 .mission-card__title {
-  font-size: 24px;
+  font-size: 12px;
 }
 
 .mission-card__meta {
@@ -376,7 +377,7 @@
   margin-top: 0;
   padding-top: 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
-  font-size: 12px;
+  font-size: 6px;
 }
 
 .mission-card__meta span {
@@ -419,12 +420,12 @@
 }
 
 .inventory-count {
-  font-size: 18px;
+  font-size: 9px;
 }
 
 .inventory-slot[data-empty="true"] {
   border: 0;
-  background: transparent;
+  background: #000;
   box-shadow: none;
 }
 
@@ -432,7 +433,7 @@
   width: 58%;
   aspect-ratio: 1 / 1;
   border: 0;
-  background: transparent;
+  background: black;
 }
 
 /* Pixel-perfect game HUD pass. Keep gameplay UI in logical pixels and let the stage scale it. */
@@ -506,12 +507,12 @@
   padding: 0;
   border: 0;
   border-radius: 0;
-  background: transparent;
+  background: black;
   box-shadow: none;
   color: #ffffff;
   font-family: var(--game-ui-font);
-  font-size: 68px;
-  line-height: 1;
+  font-size: 34px;
+  line-height: 0.5;
   letter-spacing: 0;
   text-align: center;
   text-shadow:
@@ -532,7 +533,7 @@
   background: transparent;
   box-shadow: none;
   color: #ffffff;
-  font-size: 68px;
+  font-size: 34px;
   text-transform: none;
 }
 
@@ -595,8 +596,8 @@
   box-shadow: none;
   color: #ffffff;
   font-family: var(--quest-completion-pop-font);
-  font-size: 42px;
-  line-height: 0.95;
+  font-size: 21px;
+  line-height: 0.475;
   text-shadow: none;
   text-transform: none;
   white-space: nowrap;
@@ -609,7 +610,7 @@
 
 .act-two-tutorial__speech[data-world-speech-variant="task-pop"][data-task-pop-size="large"] .act-two-tutorial__speech-bubble {
   max-width: 1500px;
-  font-size: 84px;
+  font-size: 42px;
 }
 
 @keyframes task-completion-bubble-pop {
@@ -647,7 +648,7 @@
   border-image-slice: 8;
   border-image-width: 16px;
   border-image-repeat: round;
-  background: #00BCD4;
+  background: black;
   background-clip: padding-box;
   gap: 8px;
   image-rendering: pixelated;
@@ -657,16 +658,16 @@
 }
 
 .hud strong {
-  font-size: 44px;
-  line-height: 0.9;
+  font-size: 22px;
+  line-height: 0.45;
   font-weight: 400;
   color: #ffffff;
   text-transform: none;
 }
 
 .hud span {
-  font-size: 31px;
-  line-height: 1;
+  font-size: 15.5px;
+  line-height: 0.5;
   color: #ffffff;
 }
 
@@ -682,14 +683,14 @@
 }
 
 .hud-task-subtitle {
-  font-size: 31px;
-  line-height: 1.08;
+  font-size: 15.5px;
+  line-height: 0.54;
   color: #FFEB3B;
 }
 
 .hud-task-guidance {
-  font-size: 26px;
-  line-height: 1.08;
+  font-size: 13px;
+  line-height: 0.54;
   color: #ffffff;
 }
 
@@ -706,13 +707,13 @@
   gap: 8px;
   color: #ffffff;
   font-family: var(--game-ui-font);
-  font-size: 29px;
-  line-height: 1;
+  font-size: 14.5px;
+  line-height: 0.5;
 }
 
 .hud .hud-checklist__item span {
-  font-size: 29px;
-  line-height: 1;
+  font-size: 14.5px;
+  line-height: 0.5;
 }
 
 .hud-checklist__progress {
@@ -772,8 +773,8 @@
 .hud .hud-checklist__item .hud-checklist__task-copy {
   margin-top: 5px;
   color: #ffffff;
-  font-size: 23px;
-  line-height: 1.12;
+  font-size: 11.5px;
+  line-height: 1.56;
 }
 
 .hud-control-hint {
@@ -998,9 +999,9 @@
   box-shadow: 3px 3px 0 #050307;
   color: #ffffff;
   font-family: var(--game-ui-font);
-  font-size: 29px;
+  font-size: 14.5px;
   letter-spacing: 0;
-  line-height: 1;
+  line-height: 0.5;
 }
 
 .hud-alert::before {
@@ -1016,8 +1017,8 @@
 }
 
 .hud-control label {
-  font-size: 29px;
-  line-height: 1;
+  font-size: 14.5px;
+  line-height: 0.5;
   letter-spacing: 0;
 }
 
@@ -1034,8 +1035,8 @@
 .missions-header,
 .inventory strong,
 .skills-panel strong {
-  font-size: 31px;
-  line-height: 1;
+  font-size: 15.5px;
+  line-height: 0.5;
   letter-spacing: 0;
   color: #ffffff;
 }
@@ -1056,15 +1057,15 @@
 }
 
 .mission-card__eyebrow {
-  font-size: 29px;
-  line-height: 1;
+  font-size: 14.5px;
+  line-height: 0.5;
   letter-spacing: 0;
   color: #ffffff;
 }
 
 .mission-card__title {
-  font-size: 47px;
-  line-height: 0.95;
+  font-size: 23.5px;
+  line-height: 0.475;
   font-weight: 400;
   color: #ffffff;
 }
@@ -1103,8 +1104,8 @@
 }
 
 .mission-card__copy {
-  font-size: 31px;
-  line-height: 1.08;
+  font-size: 15.5px;
+  line-height: 0.54;
   color: #ffffff;
 }
 
@@ -1113,7 +1114,7 @@
   gap: 8px;
   padding-top: 8px;
   border-top: 3px solid #2b202c;
-  font-size: 26px;
+  font-size: 13px;
   letter-spacing: 0;
 }
 
@@ -1179,8 +1180,8 @@
 }
 
 .inventory-header strong {
-  font-size: 18px;
-  line-height: 1;
+  font-size: 9px;
+  line-height: 0.5;
 }
 
 .inventory-grid {
@@ -1219,7 +1220,7 @@
   width: 40px;
   height: 40px;
   border: 0;
-  font-size: 18px;
+  font-size: 9px;
 }
 
 .inventory-slot[data-icon-kind="image"] .inventory-slot__icon {
@@ -1239,8 +1240,8 @@
   top: 3px;
   max-width: calc(100% - 20px);
   color: #ffffff;
-  font-size: 26px;
-  line-height: 1;
+  font-size: 13px;
+  line-height: 0.5;
   letter-spacing: 0;
 }
 
@@ -1270,7 +1271,7 @@
   right: 3px;
   top: 2px;
   bottom: auto;
-  font-size: 39px;
+  font-size: 19.5px;
   font-weight: 400;
   color: #ffffff;
 }
@@ -1339,7 +1340,7 @@
 .active-companion-hud__name,
 .active-companion-hud__hint {
   overflow: hidden;
-  line-height: 1;
+  line-height: 0.5;
   letter-spacing: 0;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1347,12 +1348,12 @@
 
 .active-companion-hud__move {
   color: #ffffff;
-  font-size: 31px;
+  font-size: 15.5px;
 }
 
 .active-companion-hud__name {
   color: #ffffff;
-  font-size: 23px;
+  font-size: 11.5px;
 }
 
 .active-companion-hud__hint {
@@ -1391,6 +1392,7 @@
     border-width: 12px;
     border-image-width: 12px;
     gap: 6px;
+    background: black;
   }
 
   .hud-context {
@@ -1398,12 +1400,12 @@
   }
 
   .hud strong {
-    font-size: 34px;
+    font-size: 17px;
   }
 
   .hud span {
-    font-size: 23px;
-    line-height: 1.08;
+    font-size: 11.5px;
+    line-height: 0.54;
   }
 
   .hud-task-title {
@@ -1411,14 +1413,14 @@
   }
 
   .hud-task-subtitle {
-    font-size: 18px;
-    line-height: 35px;
+    font-size: 9px;
+    line-height: 17.5px;
     color: #ffffff;
     margin-bottom: 8px;
   }
 
   .hud-task-guidance {
-    font-size: 21px;
+    font-size: 10.5px;
   }
 
   .hud-checklist {
@@ -1428,16 +1430,17 @@
   .hud-checklist__item {
     grid-template-columns: 18px 1fr;
     gap: 6px;
-    font-size: 23px;
+    font-size: 11.5px;
   }
 
   .hud .hud-checklist__item span {
-    font-size: 23px;
+    font-size: 11.5px;
   }
 
   .hud .hud-checklist__item .hud-checklist__task-copy {
     margin-top: 3px;
-    font-size: 21px;
+    font-size: 10.5px;
+    line-height: 20px;
   }
 
   .hud-control-hint {
@@ -1458,11 +1461,11 @@
     min-height: 36px;
     padding: 7px 9px;
     border-width: 2px;
-    font-size: 22px;
+    font-size: 11px;
   }
 
   .hud-control label {
-    font-size: 22px;
+    font-size: 11px;
   }
 
   .missions-panel {
@@ -1481,7 +1484,7 @@
   .missions-header,
   .inventory strong,
   .skills-panel strong {
-    font-size: 26px;
+    font-size: 13px;
   }
 
   .mission-card__header {
@@ -1496,23 +1499,23 @@
   }
 
   .mission-card__eyebrow {
-    font-size: 18px;
+    font-size: 9px;
   }
 
   .mission-card__title {
-    font-size: 31px;
+    font-size: 15.5px;
   }
 
   .mission-card__copy {
-    font-size: 18px;
-    line-height: 1.12;
+    font-size: 9px;
+    line-height: 0.56;
   }
 
   .mission-card__meta {
     gap: 6px;
     padding-top: 5px;
     border-top-width: 2px;
-    font-size: 16px;
+    font-size: 8px;
   }
 
   .mission-card__meta span {
@@ -1536,7 +1539,7 @@
   }
 
   .inventory-header strong {
-    font-size: 28px;
+    font-size: 14px;
   }
 
   .inventory-grid {
@@ -1556,7 +1559,7 @@
   }
 
   .inventory-count {
-    font-size: 30px;
+    font-size: 15px;
   }
 
   .active-companion-hud {
@@ -1566,11 +1569,11 @@
   }
 
   .active-companion-hud__move {
-    font-size: 26px;
+    font-size: 13px;
   }
 
   .active-companion-hud__name {
-    font-size: 20px;
+    font-size: 10px;
   }
 
   .active-companion-hud__hint-image {
@@ -1599,8 +1602,8 @@
   border: 4px solid var(--game-ui-border-dark);
   background: #00bfd4;
   color: #ffffff;
-  font-size: 31px;
-  line-height: 1.05;
+  font-size: 15.5px;
+  line-height: 0.525;
 }
 
 .skills-panel {
@@ -1630,12 +1633,12 @@
   width: 36px;
   height: 36px;
   border: 3px solid #2b202c;
-  font-size: 31px;
+  font-size: 15.5px;
 }
 
 .skill-slot__label {
-  font-size: 21px;
-  line-height: 1;
+  font-size: 10.5px;
+  line-height: 0.5;
   letter-spacing: 0;
 }
 
@@ -1656,8 +1659,8 @@
   border: 4px solid #050307;
   background: #4558c9;
   color: #ffffff;
-  font-size: 26px;
-  line-height: 1;
+  font-size: 13px;
+  line-height: 0.5;
   font-weight: 400;
 }
 
@@ -1681,8 +1684,8 @@
   width: 800px;
   margin: 0;
   padding-bottom: 0;
-  font-size: 38px;
-  line-height: 1.05;
+  font-size: 19px;
+  line-height: 30px;
 }
 
 .act-two-dialogue__edit-button {
@@ -1695,9 +1698,9 @@
   background: #e6c755;
   color: #ffffff;
   font-family: var(--game-ui-font);
-  font-size: 24px;
+  font-size: 12px;
   font-weight: 400;
-  line-height: 1;
+  line-height: 0.5;
   letter-spacing: 0;
   text-transform: none;
   image-rendering: pixelated;
@@ -1713,8 +1716,8 @@
   border-radius: 0;
   background: #e80854;
   color: #ffffff;
-  font-size: 24px;
-  line-height: 1;
+  font-size: 12px;
+  line-height: 0.5;
   letter-spacing: 0;
 }
 
@@ -1745,8 +1748,8 @@
   border: 4px solid #ffea5f;
   background: rgba(21, 10, 13, 0.86);
   color: #ffffff;
-  font-size: 30px;
-  line-height: 1;
+  font-size: 15px;
+  line-height: 0.5;
   text-shadow: 3px 3px 0 #000;
   box-shadow: 0 0 0 4px rgba(208, 35, 35, 0.8);
 }
@@ -1771,7 +1774,7 @@
 .collider-gizmo-overlay__label {
   fill: #ffea5f;
   font-family: var(--game-ui-font);
-  font-size: 22px;
+  font-size: 11px;
   paint-order: stroke;
   pointer-events: none;
   stroke: #16070a;
@@ -1883,17 +1886,17 @@
 .skill-learn-overlay__note {
   display: block;
   color: #ffffff;
-  font-size: 34px;
-  line-height: 1;
+  font-size: 17px;
+  line-height: 0.5;
 }
 
 .skill-learn-overlay__card strong {
   display: block;
   margin: 6px 0 10px;
   color: #ffffff;
-  font-size: 86px;
+  font-size: 43px;
   font-weight: 400;
-  line-height: 0.9;
+  line-height: 0.45;
   text-shadow:
     4px 0 #ffffff,
     0 4px #ffffff,
@@ -1903,7 +1906,7 @@
 
 .skill-learn-overlay__note {
   color: #ffffff;
-  font-size: 28px;
+  font-size: 14px;
 }
 
 @keyframes skill-learn-screen-flash {
@@ -1997,6 +2000,7 @@
 
   .hud {
     width: 360px;
+    background: black;
   }
 
   .missions-panel {
@@ -2014,7 +2018,7 @@
     min-height: 44px;
     padding: 9px 11px;
     border-width: 3px;
-    font-size: 23px;
-    line-height: 1.1;
+    font-size: 11.5px;
+    line-height: 0.55;
   }
 }

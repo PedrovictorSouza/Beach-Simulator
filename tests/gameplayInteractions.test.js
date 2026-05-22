@@ -57,24 +57,6 @@ function createInteractions(overrides = {}) {
   });
 }
 
-function createGreenhouseGreenArea(center = [4.25, 0, 2.85], tileSpan = 1.425) {
-  const cells = [];
-  for (let z = -1; z <= 1; z += 1) {
-    for (let x = -2; x <= 2; x += 1) {
-      cells.push({
-        id: `greenhouse-green-ground-${x}-${z}`,
-        offset: [
-          center[0] + x * tileSpan,
-          0,
-          center[2] + z * tileSpan
-        ],
-        tileSpan
-      });
-    }
-  }
-  return cells;
-}
-
 describe("createGameplayInteractions", () => {
   it("advances the onboarding quest when talking to Tangrowth", () => {
     const pushNotice = vi.fn();
@@ -3740,7 +3722,8 @@ describe("createGameplayInteractions", () => {
       recipes: [
         expect.objectContaining({
           recipe: expect.objectContaining({ id: GREENHOUSE_ITEM_ID }),
-          disabled: false
+          disabled: false,
+          guidance: "Greenhouse creates green soil in its footprint."
         }),
         expect.objectContaining({
           recipe: expect.objectContaining({ id: "campfire" }),
@@ -4070,6 +4053,84 @@ describe("createGameplayInteractions", () => {
     });
   });
 
+  it("crafts another Greenhouse after the first one is placed", () => {
+    const onGreenhouseCrafted = vi.fn();
+    const syncInventoryUi = vi.fn();
+    const questSystem = { emit: vi.fn() };
+    const interactions = createInteractions({
+      onGreenhouseCrafted,
+      placeholderRecipes: PLACEHOLDER_RECIPES,
+      addItems,
+      consumeItems,
+      questSystem,
+      syncInventoryUi,
+      pushNotice: vi.fn()
+    });
+    const inventory = {};
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        greenhouseCrafted: true,
+        greenhousePlaced: true
+      }
+    };
+
+    const result = interactions.craftGreenhouseAtWorkbench({
+      storyState,
+      inventory
+    });
+
+    expect(result).toBe(true);
+    expect(inventory[GREENHOUSE_ITEM_ID]).toBe(1);
+    expect(storyState.flags.greenhousePlaced).toBe(true);
+    expect(syncInventoryUi).toHaveBeenCalledWith(inventory);
+    expect(questSystem.emit).toHaveBeenCalledWith({
+      type: "BUILD",
+      targetId: GREENHOUSE_ITEM_ID,
+      amount: 1
+    });
+    expect(onGreenhouseCrafted).toHaveBeenCalledWith({
+      recipe: expect.objectContaining({
+        id: GREENHOUSE_ITEM_ID
+      })
+    });
+  });
+
+  it("routes another prepared Greenhouse to placement after the first one is placed", () => {
+    const onGreenhousePlacementRequested = vi.fn();
+    const onGreenhouseCrafted = vi.fn();
+    const interactions = createInteractions({
+      onGreenhousePlacementRequested,
+      onGreenhouseCrafted,
+      placeholderRecipes: PLACEHOLDER_RECIPES,
+      addItems,
+      consumeItems,
+      pushNotice: vi.fn()
+    });
+    const inventory = {
+      [GREENHOUSE_ITEM_ID]: 1
+    };
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        greenhouseCrafted: true,
+        greenhousePlaced: true
+      }
+    };
+
+    const result = interactions.craftGreenhouseAtWorkbench({
+      storyState,
+      inventory
+    });
+
+    expect(result).toBe(true);
+    expect(inventory[GREENHOUSE_ITEM_ID]).toBe(1);
+    expect(onGreenhouseCrafted).not.toHaveBeenCalled();
+    expect(onGreenhousePlacementRequested).toHaveBeenCalledWith({
+      source: "workbench"
+    });
+  });
+
   it("places a prepared Greenhouse from interaction before nearby NPC interactions", () => {
     const onGreenhousePlacementRequested = vi.fn();
     const onNpcInteractionStart = vi.fn();
@@ -4100,7 +4161,7 @@ describe("createGameplayInteractions", () => {
       inventory: {
         [GREENHOUSE_ITEM_ID]: 1
       },
-      groundPurifiedInstances: createGreenhouseGreenArea(),
+      groundPurifiedInstances: [],
       groundGrassPatches: [],
       onNpcInteractionStart
     });
@@ -4112,13 +4173,95 @@ describe("createGameplayInteractions", () => {
     });
   });
 
-  it("blocks prepared Greenhouse placement outside restored green ground", () => {
+  it("places another prepared Greenhouse from interaction after the first one is placed", () => {
     const onGreenhousePlacementRequested = vi.fn();
     const onNpcInteractionStart = vi.fn();
-    const pushNotice = vi.fn();
     const interactions = createInteractions({
       onGreenhousePlacementRequested,
-      pushNotice,
+      findNearbyInteractable: vi.fn(() => ({
+        target: {
+          kind: "npc",
+          id: "tangrowth",
+          label: "Professor Tangrowth"
+        },
+        distance: 1.1
+      }))
+    });
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        greenhouseCrafted: true,
+        greenhousePlaced: true
+      }
+    };
+
+    const result = interactions.performInteractAction({
+      playerPosition: [0, 0, 0],
+      npcActors: [],
+      interactables: [],
+      storyState,
+      inventory: {
+        [GREENHOUSE_ITEM_ID]: 1
+      },
+      groundPurifiedInstances: [],
+      groundGrassPatches: [],
+      onNpcInteractionStart
+    });
+
+    expect(result).toBe(true);
+    expect(onNpcInteractionStart).not.toHaveBeenCalled();
+    expect(onGreenhousePlacementRequested).toHaveBeenCalledWith({
+      playerPosition: [0, 0, 0]
+    });
+  });
+
+  it("opens the Workbench instead of placing a prepared Greenhouse when nearby", () => {
+    const onGreenhousePlacementRequested = vi.fn();
+    const onWorkbenchRecipesRequested = vi.fn();
+    const interactions = createInteractions({
+      onGreenhousePlacementRequested,
+      onWorkbenchRecipesRequested,
+      findNearbyInteractable: vi.fn(() => ({
+        target: {
+          kind: "station",
+          id: "workbench",
+          label: "Workbench"
+        },
+        distance: 1.1
+      }))
+    });
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        greenhouseCrafted: true,
+        greenhousePlaced: false,
+        bulbasaurWorkbenchGuideAvailable: true,
+        workbenchDiyRecipesReceived: false
+      }
+    };
+
+    const result = interactions.performInteractAction({
+      playerPosition: [0, 0, 0],
+      npcActors: [],
+      interactables: [],
+      storyState,
+      inventory: {
+        [GREENHOUSE_ITEM_ID]: 1
+      },
+      groundPurifiedInstances: [],
+      groundGrassPatches: []
+    });
+
+    expect(result).toBe(true);
+    expect(onWorkbenchRecipesRequested).toHaveBeenCalledTimes(1);
+    expect(onGreenhousePlacementRequested).not.toHaveBeenCalled();
+  });
+
+  it("starts prepared Greenhouse placement preview outside green ground", () => {
+    const onGreenhousePlacementRequested = vi.fn();
+    const onNpcInteractionStart = vi.fn();
+    const interactions = createInteractions({
+      onGreenhousePlacementRequested,
       findNearbyInteractable: vi.fn(() => ({
         target: {
           kind: "npc",
@@ -4149,12 +4292,11 @@ describe("createGameplayInteractions", () => {
       onNpcInteractionStart
     });
 
-    expect(result).toBe(false);
+    expect(result).toBe(true);
     expect(onNpcInteractionStart).not.toHaveBeenCalled();
-    expect(onGreenhousePlacementRequested).not.toHaveBeenCalled();
-    expect(pushNotice).toHaveBeenCalledWith(
-      "Greenhouse needs restored green ground. Restore the target area with Hydro Jet first."
-    );
+    expect(onGreenhousePlacementRequested).toHaveBeenCalledWith({
+      playerPosition: [0, 0, 0]
+    });
   });
 
   it("shows concrete Workbench material progress when a protocol is missing supplies", () => {
@@ -4335,6 +4477,13 @@ describe("createGameplayInteractions", () => {
     expect(result).toBe(true);
     expect(onWorkbenchCraftOptionsRequested).toHaveBeenCalledWith({
       recipes: expect.arrayContaining([
+        expect.objectContaining({
+          recipe: expect.objectContaining({ id: GREENHOUSE_ITEM_ID }),
+          disabled: false,
+          status: null,
+          actionLabel: "Prepare Greenhouse",
+          guidance: "Greenhouse creates green soil in its footprint."
+        }),
         expect.objectContaining({
           recipe: expect.objectContaining({ id: "campfire" }),
           disabled: false,

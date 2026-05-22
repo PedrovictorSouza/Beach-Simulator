@@ -1,6 +1,7 @@
 const DEFAULT_PLACEMENT_CAMERA_PRESET = Object.freeze({
-  zoom: 6.05,
-  distance: 10.1
+  zoom: 6.4,
+  distance: 18,
+  projectionMode: "orthographic"
 });
 
 function applyPreset(camera, preset = {}) {
@@ -16,7 +17,13 @@ function applyPreset(camera, preset = {}) {
     camera.setDistance?.(preset.distance);
   }
 
-  return typeof preset.zoom === "number" || typeof preset.distance === "number";
+  if (typeof preset.projectionMode === "string") {
+    camera.setProjectionMode?.(preset.projectionMode);
+  }
+
+  return typeof preset.zoom === "number" ||
+    typeof preset.distance === "number" ||
+    typeof preset.projectionMode === "string";
 }
 
 export function createPlacementCameraAssist({
@@ -25,6 +32,7 @@ export function createPlacementCameraAssist({
   placementPreset = DEFAULT_PLACEMENT_CAMERA_PRESET
 } = {}) {
   let active = false;
+  let restorePreset = null;
 
   return Object.freeze({
     update({ placementActive = false } = {}) {
@@ -38,9 +46,20 @@ export function createPlacementCameraAssist({
       }
 
       active = nextActive;
+      if (active) {
+        const gameplayPreset = typeof getGameplayPreset === "function" ? getGameplayPreset() : null;
+        restorePreset = {
+          ...(gameplayPreset || {}),
+          projectionMode: camera?.getProjectionMode?.() || "perspective"
+        };
+      }
+
       const applied = active ?
         applyPreset(camera, placementPreset) :
-        applyPreset(camera, typeof getGameplayPreset === "function" ? getGameplayPreset() : null);
+        applyPreset(camera, restorePreset);
+      if (!active) {
+        restorePreset = null;
+      }
 
       return {
         changed: true,

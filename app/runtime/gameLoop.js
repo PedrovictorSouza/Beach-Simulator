@@ -118,6 +118,8 @@ const LOG_CHAIR_PLACEMENT_PREVIEW_ALPHA = 0.42;
 const BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT = 10;
 const BOULDER_SHADED_TALL_GRASS_TASK_ID = "boulder-shaded-tall-grass";
 const SUPPLY_PICKUP_FLY_ITEM_IDS = Object.freeze(["wood", LEAVES_ITEM_ID, CARBON_ITEM_ID]);
+const GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT = [2.85, 1.7];
+const GREENHOUSE_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 5, height: 3 });
 const SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT = [2.2, 2.2];
 const SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 4, height: 4 });
 const SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE = 2.85;
@@ -1641,6 +1643,7 @@ function getSolarStationPlacementBlockers(session, storyState) {
     session,
     storyState,
     footprints: {
+      greenhouse: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
       solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
       trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
       houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
@@ -2139,6 +2142,7 @@ export function startGameLoop({
       session,
       storyState: controls.storyState,
       footprints: {
+        greenhouse: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
         solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
         trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
         houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
@@ -2731,6 +2735,24 @@ export function startGameLoop({
     return true;
   }
 
+  function cancelGreenhousePlacementPreview() {
+    if (!session.greenhousePlacementPreview?.active) {
+      return false;
+    }
+
+    session.greenhousePlacementPreview = null;
+
+    if (session.greenhouseModelInstance) {
+      session.greenhouseModelInstance.active = false;
+      session.greenhouseModelInstance.alpha = 1;
+      session.greenhouseModelInstance.tintStrength = 0;
+    }
+
+    playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
+    hud?.pushNotice?.("Greenhouse placement canceled.");
+    return true;
+  }
+
   function cancelCampfirePlacementPreview() {
     if (!session.campfirePlacementPreview?.active) {
       return false;
@@ -2798,6 +2820,7 @@ export function startGameLoop({
     };
 
     rotatePreview(session.strawBedPlacementPreview);
+    rotatePreview(session.greenhousePlacementPreview);
     rotatePreview(session.campfirePlacementPreview);
     rotatePreview(session.leafDenKitPlacementPreview);
 
@@ -3248,6 +3271,68 @@ export function startGameLoop({
       instance.scale = baseScale;
       instance.yaw = baseYaw + Number(preview.yaw || 0);
       instance.swayStrength = 0;
+      instance.alpha = previewVisual.alpha;
+      instance.tint = previewVisual.tint;
+      instance.tintStrength = previewVisual.tintStrength;
+      instance.active = true;
+    }
+
+    return preview;
+  }
+
+  function updateGreenhousePlacementPreview(timeSeconds = 0) {
+    const preview = session.greenhousePlacementPreview;
+    const instance = session.greenhouseModelInstance;
+    if (!preview?.active) {
+      if (instance) {
+        instance.active = false;
+      }
+      return null;
+    }
+
+    syncPlacementPreviewPositionToPlayer(preview);
+
+    const snappedPosition = getSnappedSolarStationPreviewPosition(preview);
+    const previewCollisionSize = getPlacementPreviewFootprintWorldSize(
+      preview,
+      GREENHOUSE_PLACEMENT_GRID_FOOTPRINT
+    );
+    const blockers = getSolarStationPlacementBlockers(session, controls.storyState);
+    const validation = validateBuildingKitPlacement({
+      position: snappedPosition,
+      size: previewCollisionSize,
+      blockers
+    });
+
+    preview.snappedPosition = snappedPosition;
+    preview.effectiveSize = getRotatedPlacementSize(
+      Array.isArray(preview.size) ?
+        preview.size :
+        GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+      preview.yaw
+    );
+    preview.valid = validation.valid;
+    preview.invalidReason = validation.valid ? null : validation.reason;
+    preview.readyForConfirm = true;
+
+    if (instance) {
+      const previewVisual = resolveWorkbenchPlacementPreviewVisual({
+        valid: preview.valid,
+        timeSeconds
+      });
+      const groundY = instance.greenhouseGroundY ?? Number(instance.offset?.[1] ?? snappedPosition[1] ?? 0.02);
+      const baseScale = instance.greenhouseBaseScale ?? Number(instance.scale || 1);
+      const baseYaw = instance.greenhouseBaseYaw ?? Number(instance.yaw || 0);
+      instance.greenhouseGroundY = groundY;
+      instance.greenhouseBaseScale = baseScale;
+      instance.greenhouseBaseYaw = baseYaw;
+      instance.offset = [
+        snappedPosition[0],
+        groundY,
+        snappedPosition[2]
+      ];
+      instance.scale = baseScale;
+      instance.yaw = baseYaw + Number(preview.yaw || 0);
       instance.alpha = previewVisual.alpha;
       instance.tint = previewVisual.tint;
       instance.tintStrength = previewVisual.tintStrength;
@@ -7394,33 +7479,50 @@ export function startGameLoop({
   }
 
   function syncGreenhouseModelInstance(deltaTime = 0) {
-    const instance = session.greenhouseModelInstance;
-    if (!instance) {
+    const placements = Array.isArray(session.greenhouses) && session.greenhouses.length > 0 ?
+      session.greenhouses :
+      (session.greenhouse ? [session.greenhouse] : []);
+    const instances = Array.isArray(session.greenhouseModelInstances) ?
+      session.greenhouseModelInstances :
+      [];
+
+    if (!instances.length) {
       return;
     }
 
-    if (!session.greenhouse?.position || !controls.storyState.flags.greenhousePlaced) {
-      instance.active = false;
+    if (!placements.length) {
+      for (const instance of instances) {
+        instance.active = false;
+      }
       return;
     }
 
-    instance.active = true;
-    const spawnApplied = applyPlayerPlacementSpawnToModelInstance(session.greenhouse, instance, {
-      baseScale: instance.greenhouseBaseScale,
-      groundY: instance.greenhouseGroundY,
-      deltaTime
+    placements.forEach((placement, index) => {
+      const instance = instances[index];
+      if (!instance || !Array.isArray(placement?.position)) {
+        return;
+      }
+
+      instance.active = true;
+      const spawnApplied = applyPlayerPlacementSpawnToModelInstance(placement, instance, {
+        baseScale: instance.greenhouseBaseScale,
+        groundY: instance.greenhouseGroundY,
+        deltaTime
+      });
+
+      if (!spawnApplied) {
+        const baseYaw = instance.greenhouseBaseYaw ?? 0;
+        instance.offset = [
+          placement.position[0],
+          instance.greenhouseGroundY || 0.02,
+          placement.position[2]
+        ];
+        instance.scale = instance.greenhouseBaseScale || instance.scale || 3;
+        instance.yaw = baseYaw + Number(placement.yaw || 0);
+        instance.alpha = 1;
+        instance.tintStrength = 0;
+      }
     });
-
-    if (!spawnApplied) {
-      instance.offset = [
-        session.greenhouse.position[0],
-        instance.greenhouseGroundY || 0.02,
-        session.greenhouse.position[2]
-      ];
-      instance.scale = instance.greenhouseBaseScale || instance.scale || 3;
-      instance.alpha = 1;
-      instance.tintStrength = 0;
-    }
   }
 
   function getLeafDenConstructionNowMs() {
@@ -8806,10 +8908,12 @@ export function startGameLoop({
       resetCinematicControlState(gameplayOpeningSkipControl);
     }
     const solarStationPlacementPreviewActive = Boolean(session.strawBedPlacementPreview?.active);
+    const greenhousePlacementPreviewActive = Boolean(session.greenhousePlacementPreview?.active);
     const campfirePlacementPreviewActive = Boolean(session.campfirePlacementPreview?.active);
     const leafDenKitPlacementPreviewActive = Boolean(session.leafDenKitPlacementPreview?.active);
     const placementPreviewActive =
       solarStationPlacementPreviewActive ||
+      greenhousePlacementPreviewActive ||
       campfirePlacementPreviewActive ||
       leafDenKitPlacementPreviewActive;
     placementCameraAssist.update({ placementActive: placementPreviewActive });
@@ -8961,15 +9065,19 @@ export function startGameLoop({
       }
     }
 
-    const shouldConsumeJumpForPlacementCancel = Boolean(
+    const shouldConsumePlacementCancel = Boolean(
       workbenchRotationSelection ||
       session.strawBedPlacementPreview?.active ||
+      session.greenhousePlacementPreview?.active ||
       session.campfirePlacementPreview?.active ||
       session.leafDenKitPlacementPreview?.active
     );
-    const placementCancelRequested = shouldConsumeJumpForPlacementCancel ?
-      controls.consumeJumpRequest?.() || false :
-      false;
+    let placementCancelRequested = false;
+    if (shouldConsumePlacementCancel) {
+      placementCancelRequested = typeof controls.consumePlacementCancelRequest === "function" ?
+        controls.consumePlacementCancelRequest() :
+        controls.consumeJumpRequest?.() || false;
+    }
     if (
       placementCancelRequested &&
       workbenchRotationSelection
@@ -8979,20 +9087,23 @@ export function startGameLoop({
       placementCancelRequested &&
       (
         session.strawBedPlacementPreview?.active ||
+        session.greenhousePlacementPreview?.active ||
         session.campfirePlacementPreview?.active ||
         session.leafDenKitPlacementPreview?.active
       )
     ) {
       cancelSolarStationPlacementPreview();
+      cancelGreenhousePlacementPreview();
       cancelCampfirePlacementPreview();
       cancelLeafDenKitPlacementPreview();
     }
 
-    if (!shouldConsumeJumpForPlacementCancel && (movementBlocked || !session.playerCharacter)) {
+    if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacter)) {
       controls.consumeJumpRequest?.();
     }
 
     let solarStationPlacementPreview = updateSolarStationPlacementPreview(now * 0.001);
+    let greenhousePlacementPreview = updateGreenhousePlacementPreview(now * 0.001);
     let campfirePlacementPreview = updateCampfirePlacementPreview(now * 0.001);
     let leafDenKitPlacementPreview = updateLeafDenKitPlacementPreview(now * 0.001);
     updateSolarStationSpawnEffect(deltaTime);
@@ -9216,6 +9327,7 @@ export function startGameLoop({
       });
       const primaryActionPlacementTarget = Boolean(
         primaryActionTarget?.logChairPlacement ||
+        primaryActionTarget?.greenhousePlacement ||
         primaryActionTarget?.campfirePlacement ||
         primaryActionTarget?.strawBedPlacement ||
         primaryActionTarget?.leafDenKitPlacement ||
@@ -9690,6 +9802,7 @@ export function startGameLoop({
         inventory: controls.inventory,
         groundGrassPatches: session.groundGrassPatches,
         groundFlowerPatches: session.groundFlowerPatches,
+        groundPurifiedInstances: session.groundPurifiedInstances,
         logChair: session.logChair,
         leafDen: session.leafDen,
         leppaTree: session.leppaTree,
@@ -10234,6 +10347,9 @@ export function startGameLoop({
     if (!session.strawBedPlacementPreview?.active) {
       solarStationPlacementPreview = null;
     }
+    if (!session.greenhousePlacementPreview?.active) {
+      greenhousePlacementPreview = null;
+    }
     if (!session.campfirePlacementPreview?.active) {
       campfirePlacementPreview = null;
     }
@@ -10273,6 +10389,15 @@ export function startGameLoop({
           })
       ) :
       "";
+    const greenhousePlacementPrompt = greenhousePlacementPreview ?
+      (
+        greenhousePlacementPreview.valid ?
+          resolvePlacementPreviewPrompt("Move the Greenhouse preview", inputModalityState) :
+          resolvePlacementPreviewPrompt(placementBlockedPreviewLabel, inputModalityState, {
+            includePlace: false
+          })
+      ) :
+      "";
     const leafDenKitPlacementPrompt = leafDenKitPlacementPreview ?
       (
         leafDenKitPlacementPreview.valid ?
@@ -10287,7 +10412,7 @@ export function startGameLoop({
       ) :
       "";
     const pendingPlacementIntent =
-      !solarStationPlacementPreview && !campfirePlacementPreview && !leafDenKitPlacementPreview ?
+      !solarStationPlacementPreview && !greenhousePlacementPreview && !campfirePlacementPreview && !leafDenKitPlacementPreview ?
         getActivePendingPlacementIntent(session, controls.storyState, controls.inventory) :
         null;
     const pendingPlacementPrompt = getPendingPlacementPrompt(
@@ -10297,6 +10422,7 @@ export function startGameLoop({
     );
     const selectedWorkbenchRotationTarget =
       !solarStationPlacementPreview &&
+      !greenhousePlacementPreview &&
       !campfirePlacementPreview &&
       !leafDenKitPlacementPreview ?
         getSelectedRotatableWorkbenchPlacement() :
@@ -10304,6 +10430,7 @@ export function startGameLoop({
     const nearbyWorkbenchRotationTarget =
       !selectedWorkbenchRotationTarget &&
       !solarStationPlacementPreview &&
+      !greenhousePlacementPreview &&
       !campfirePlacementPreview &&
       !leafDenKitPlacementPreview &&
       session.playerCharacter &&
@@ -10327,6 +10454,7 @@ export function startGameLoop({
       scriptedInteractionActive ?
       "" :
       solarStationPlacementPrompt ||
+      greenhousePlacementPrompt ||
       campfirePlacementPrompt ||
       leafDenKitPlacementPrompt ||
       pendingPlacementPrompt ||
@@ -10364,6 +10492,15 @@ export function startGameLoop({
       leafDenKitPlacementPreview ?
         buildPlacedSolarStationPowerRadiusGroundCells(session, controls.storyState) :
         [];
+    const greenhousePlacementGroundCells = buildPlacementPreviewFootprintCells(
+      greenhousePlacementPreview,
+      {
+        idPrefix: "greenhouse-placement-preview",
+        footprint: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
+        targetState: greenhousePlacementPreview?.valid ? "valid" : "invalid"
+      }
+    );
+    const greenhousePlacementGroundCell = greenhousePlacementGroundCells[0] || null;
     const campfirePlacementGroundCells = buildPlacementPreviewFootprintCells(
       campfirePlacementPreview,
       {
@@ -10679,6 +10816,9 @@ export function startGameLoop({
     const shouldShowSolarStationPlacementPrompt =
       canShowWorldSpaceUi &&
       Boolean(solarStationPlacementPreview?.snappedPosition);
+    const shouldShowGreenhousePlacementPrompt =
+      canShowWorldSpaceUi &&
+      Boolean(greenhousePlacementPreview?.snappedPosition);
     const shouldShowCampfirePlacementPrompt =
       canShowWorldSpaceUi &&
       Boolean(campfirePlacementPreview?.snappedPosition);
@@ -10869,6 +11009,16 @@ export function startGameLoop({
           getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED),
         worldPosition: solarStationPlacementPreview.snappedPosition
       });
+    } else if (shouldShowGreenhousePlacementPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "placement",
+        target: "greenhouse",
+        valid: greenhousePlacementPreview.valid,
+        text: greenhousePlacementPreview.valid ?
+          resolveInputPrompt(UI_PROMPT_ACTION.PLACE, inputModalityState) :
+          getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED),
+        worldPosition: greenhousePlacementPreview.snappedPosition
+      });
     } else if (shouldShowCampfirePlacementPrompt) {
       setFrameWorldPrompt(nextFrame, {
         kind: "placement",
@@ -11001,6 +11151,11 @@ export function startGameLoop({
       nextFrame.groundCellHighlight.markedGroundCells.push(
         ...solarStationPowerRadiusGroundCells,
         ...solarStationPlacementGroundCells
+      );
+    } else if (greenhousePlacementGroundCell) {
+      nextFrame.groundCellHighlight.visible = true;
+      nextFrame.groundCellHighlight.markedGroundCells.push(
+        ...greenhousePlacementGroundCells
       );
     } else if (campfirePlacementGroundCell) {
       nextFrame.groundCellHighlight.visible = true;

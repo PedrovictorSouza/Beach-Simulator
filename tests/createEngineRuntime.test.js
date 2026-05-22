@@ -19,11 +19,12 @@ describe("createEngineRuntime", () => {
     const root = createStyleMap();
     const frame = createStyleMap();
     const onWebGlUnavailable = vi.fn();
+    const getContext = vi.fn(() => null);
 
     expect(() => createEngineRuntime({
       dom: {
         worldCanvas: {
-          getContext: () => null
+          getContext
         },
         spriteCanvas: {},
         mount: {},
@@ -46,6 +47,10 @@ describe("createEngineRuntime", () => {
     })).toThrow("WebGL indisponivel");
 
     expect(onWebGlUnavailable).toHaveBeenCalledTimes(1);
+    expect(getContext).toHaveBeenCalledWith("webgl", expect.objectContaining({
+      alpha: true,
+      premultipliedAlpha: false
+    }));
     expect(frame.properties.get("--render-frame-scale")).toBe("0.8");
     expect(root.properties.get("--ui-stage-scale")).toBe("0.8");
     expect(root.properties.get("--game-scale")).toBe("0.8");

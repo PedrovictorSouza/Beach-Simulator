@@ -429,6 +429,30 @@ describe("createGameInputController", () => {
     expect(requestMoveCycle).not.toHaveBeenCalled();
   });
 
+  it("exposes gamepad B as a placement cancel request", () => {
+    const gamepad = createGamepad();
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const shouldGamepadButtonHarvest = vi.fn(() => true);
+    const { controller, requestHarvest, requestInteract } = createController({
+      windowRef,
+      shouldGamepadButtonHarvest
+    });
+
+    gamepad.buttons[GAMEPAD_BUTTONS.B] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(controller.consumePlacementCancelRequest()).toBe(true);
+    expect(controller.consumePlacementCancelRequest()).toBe(false);
+    expect(controller.isRunActive()).toBe(true);
+    expect(shouldGamepadButtonHarvest).not.toHaveBeenCalled();
+    expect(requestHarvest).not.toHaveBeenCalled();
+    expect(requestInteract).not.toHaveBeenCalled();
+  });
+
   it("does not use the gamepad B button for nearby field actions", () => {
     const gamepad = createGamepad();
     const windowRef = {
@@ -755,6 +779,71 @@ describe("createGameInputController", () => {
       key: "Enter"
     }));
     expect(requestInteract).not.toHaveBeenCalled();
+  });
+
+  it("routes gamepad D-pad and left stick vertical navigation to the start screen", () => {
+    const gamepad = createGamepad();
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const handleKeydown = vi.fn(() => true);
+    const { controller, requestFollowerCall, requestMoveCycle } = createController({
+      windowRef,
+      sceneDirector: {
+        is: (sceneId) => sceneId === "start",
+        blocksGameplayInput: () => true,
+        handleKeydown,
+        handleKeyup: vi.fn(() => false)
+      }
+    });
+
+    gamepad.buttons[GAMEPAD_BUTTONS.DPAD_DOWN] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+    controller.updateGamepads(1 / 60);
+
+    expect(handleKeydown).toHaveBeenCalledTimes(1);
+    expect(handleKeydown).toHaveBeenLastCalledWith(expect.objectContaining({
+      code: "ArrowDown",
+      key: "ArrowDown"
+    }));
+
+    gamepad.buttons[GAMEPAD_BUTTONS.DPAD_DOWN] = { pressed: false, value: 0 };
+    controller.updateGamepads(1 / 60);
+    gamepad.buttons[GAMEPAD_BUTTONS.DPAD_UP] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(handleKeydown).toHaveBeenCalledTimes(2);
+    expect(handleKeydown).toHaveBeenLastCalledWith(expect.objectContaining({
+      code: "ArrowUp",
+      key: "ArrowUp"
+    }));
+
+    gamepad.buttons[GAMEPAD_BUTTONS.DPAD_UP] = { pressed: false, value: 0 };
+    controller.updateGamepads(1 / 60);
+    gamepad.axes[1] = 0.85;
+    controller.updateGamepads(1 / 60);
+    controller.updateGamepads(1 / 60);
+
+    expect(handleKeydown).toHaveBeenCalledTimes(3);
+    expect(handleKeydown).toHaveBeenLastCalledWith(expect.objectContaining({
+      code: "ArrowDown",
+      key: "ArrowDown"
+    }));
+
+    gamepad.axes[1] = 0;
+    controller.updateGamepads(1 / 60);
+    gamepad.axes[1] = -0.85;
+    controller.updateGamepads(1 / 60);
+
+    expect(handleKeydown).toHaveBeenCalledTimes(4);
+    expect(handleKeydown).toHaveBeenLastCalledWith(expect.objectContaining({
+      code: "ArrowUp",
+      key: "ArrowUp"
+    }));
+    expect(requestFollowerCall).not.toHaveBeenCalled();
+    expect(requestMoveCycle).not.toHaveBeenCalled();
   });
 
   it("routes the gamepad Start button to the start screen instead of pause", () => {

@@ -24,6 +24,7 @@ describe("createStartScreen integration", () => {
       animationDuration: "0s",
       animationDelay: "0s"
     });
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
     root = document.createElement("section");
     uiLayer = document.createElement("div");
     document.body.append(root, uiLayer);
@@ -46,6 +47,9 @@ describe("createStartScreen integration", () => {
     expect(startScreen.isActive()).toBe(true);
     expect(uiLayer.dataset.mode).toBe("start");
     expect(root.querySelector(".start-card__title-image")?.getAttribute("alt")).toBe("Small Island");
+    const background = root.querySelector(".start-screen-universe");
+    expect(background).toBeInstanceOf(HTMLCanvasElement);
+    expect(root.querySelector(".start-shell")?.firstElementChild).toBe(background);
 
     const event = {
       code: "Space",
@@ -72,6 +76,7 @@ describe("createStartScreen integration", () => {
     expect(onStart).toHaveBeenCalledTimes(1);
     expect(startScreen.isActive()).toBe(false);
     expect(root.hidden).toBe(true);
+    expect(root.querySelector(".start-screen-universe")).toBeNull();
     expect(uiLayer.dataset.mode).toBe("game");
   });
 

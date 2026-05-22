@@ -124,6 +124,39 @@ describe("construction site save data", () => {
     expect(saved.placedObjects[0].occupiedCells).toHaveLength(9);
   });
 
+  it("mirrors every Greenhouse placement into grid placement save data", () => {
+    const legacyPlaceables = {
+      greenhouses: [
+        {
+          id: "greenhouse-0",
+          position: [4, 0, 6],
+          size: [2.85, 1.7],
+          uvRect: [0, 0, 1, 1]
+        },
+        {
+          id: "greenhouse-1",
+          position: [10, 0, 6],
+          size: [2.85, 1.7],
+          uvRect: [0, 0, 1, 1]
+        }
+      ]
+    };
+
+    const saved = createLegacyGridPlacementSaveData(legacyPlaceables);
+
+    expect(saved.placedObjects).toHaveLength(2);
+    expect(saved.placedObjects[0]).toMatchObject({
+      placedObjectId: "legacy-greenhouse-0",
+      sourceDatabaseId: "greenhouse",
+      legacyKey: "greenhouse"
+    });
+    expect(saved.placedObjects[1]).toMatchObject({
+      placedObjectId: "legacy-greenhouse-1",
+      sourceDatabaseId: "greenhouse",
+      legacyKey: "greenhouse"
+    });
+  });
+
   it("restores saved grid placement records on session boot", () => {
     const session = {
       spawnActTwoPlayer({ position }) {
@@ -163,5 +196,40 @@ describe("construction site save data", () => {
       ]
     });
     expect(session.playerCharacter.getPosition()).toEqual([1, 0, 2]);
+  });
+
+  it("restores multiple saved Greenhouse placeables while keeping the legacy first alias", () => {
+    const session = {
+      spawnActTwoPlayer({ position }) {
+        session.playerCharacter = {
+          getPosition: () => position
+        };
+      }
+    };
+    const savePoint = {
+      version: 1,
+      playerPosition: [1, 0, 2],
+      placeables: {
+        greenhouses: [
+          {
+            id: "greenhouse-0",
+            position: [4, 0.02, -3],
+            size: [2.85, 1.7],
+            uvRect: [0, 0, 1, 1]
+          },
+          {
+            id: "greenhouse-1",
+            position: [8, 0.02, -6],
+            size: [2.85, 1.7],
+            uvRect: [0, 0, 1, 1]
+          }
+        ]
+      }
+    };
+
+    expect(restoreSavedSessionState(session, savePoint)).toBe(true);
+    expect(session.greenhouses).toHaveLength(2);
+    expect(session.greenhouse).toEqual(session.greenhouses[0]);
+    expect(session.gridPlacement.placedObjects).toHaveLength(2);
   });
 });

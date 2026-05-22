@@ -80,6 +80,41 @@ function withTerrainSupportDrawDistance(sceneObject) {
   };
 }
 
+function hasPlacementPosition(placement) {
+  return Array.isArray(placement?.position) &&
+    Number.isFinite(Number(placement.position[0])) &&
+    Number.isFinite(Number(placement.position[2]));
+}
+
+function getSessionGreenhousePlacements(session) {
+  const placements = Array.isArray(session?.greenhouses) ?
+    session.greenhouses.filter(hasPlacementPosition) :
+    [];
+
+  if (placements.length > 0) {
+    return placements;
+  }
+
+  return hasPlacementPosition(session?.greenhouse) ? [session.greenhouse] : [];
+}
+
+function createGreenhouseModelInstance(placement = null, index = 0) {
+  const position = hasPlacementPosition(placement) ? placement.position : null;
+  return {
+    id: position ? `greenhouse-model-${index}` : "greenhouse-preview-model",
+    offset: position ?
+      [position[0], GREENHOUSE_MODEL_GROUND_Y, position[2]] :
+      [0, GREENHOUSE_MODEL_GROUND_Y, 0],
+    scale: GREENHOUSE_MODEL_SCALE,
+    yaw: GREENHOUSE_MODEL_FACE_YAW_OFFSET + Number(placement?.yaw || 0),
+    active: Boolean(position),
+    placementId: typeof placement?.id === "string" ? placement.id : null,
+    greenhouseBaseScale: GREENHOUSE_MODEL_SCALE,
+    greenhouseGroundY: GREENHOUSE_MODEL_GROUND_Y,
+    greenhouseBaseYaw: GREENHOUSE_MODEL_FACE_YAW_OFFSET
+  };
+}
+
 function createSinglePrimitiveModel(model, primitive) {
   return {
     primitives: [primitive],
@@ -509,23 +544,22 @@ export function buildSceneAssembly(session, assets) {
   }
 
   if (greenhouseModel) {
-    const greenhousePosition = session.greenhouse?.position || null;
-    session.greenhouseModelInstance = {
-      id: "greenhouse-model",
-      offset: Array.isArray(greenhousePosition) ?
-        [greenhousePosition[0], GREENHOUSE_MODEL_GROUND_Y, greenhousePosition[2]] :
-        [0, GREENHOUSE_MODEL_GROUND_Y, 0],
-      scale: GREENHOUSE_MODEL_SCALE,
-      yaw: GREENHOUSE_MODEL_FACE_YAW_OFFSET,
-      active: Boolean(greenhousePosition),
-      greenhouseBaseScale: GREENHOUSE_MODEL_SCALE,
-      greenhouseGroundY: GREENHOUSE_MODEL_GROUND_Y
-    };
-    session.sceneObjects.push(withTerrainSupportDrawDistance({
+    const greenhousePlacements = getSessionGreenhousePlacements(session);
+    session.greenhouses = greenhousePlacements;
+    session.greenhouse = greenhousePlacements[0] || null;
+    session.greenhouseModelInstances = greenhousePlacements.map((placement, index) => {
+      return createGreenhouseModelInstance(placement, index);
+    });
+    session.greenhouseModelInstance = createGreenhouseModelInstance(null);
+    session.greenhouseSceneObject = withTerrainSupportDrawDistance({
       model: greenhouseModel,
-      instances: [session.greenhouseModelInstance],
+      instances: [
+        ...session.greenhouseModelInstances,
+        session.greenhouseModelInstance
+      ],
       brightness: 1
-    }));
+    });
+    session.sceneObjects.push(session.greenhouseSceneObject);
   }
 
   if (trainHouseModel) {

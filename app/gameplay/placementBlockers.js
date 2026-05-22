@@ -1,4 +1,5 @@
 export const DEFAULT_PLAYER_CONSTRUCTION_FOOTPRINTS = Object.freeze({
+  greenhouse: Object.freeze([2.85, 1.7]),
   solarStation: Object.freeze([2.2, 2.2]),
   trainHouse: Object.freeze([1.7, 1.45]),
   houseKit: Object.freeze([1.95, 1.45]),
@@ -62,6 +63,19 @@ export function createPlayerConstructionPlacementBlockers({
 } = {}) {
   const flags = storyState?.flags || {};
   const blockers = [];
+  const greenhousePlacements = Array.isArray(session.greenhouses) && session.greenhouses.length > 0 ?
+    session.greenhouses :
+    (session.greenhouse ? [session.greenhouse] : []);
+
+  greenhousePlacements.forEach((greenhouse, index) => {
+    addConstructionBlocker(blockers, {
+      id: greenhouse?.id ? `greenhouse:${greenhouse.id}` : `greenhouse:${index}`,
+      kind: "greenhouse",
+      placement: greenhouse,
+      fallbackSize: footprints.greenhouse,
+      rotateSize: true
+    });
+  });
 
   if (flags.strawBedPlacedInBulbasaurHabitat) {
     addConstructionBlocker(blockers, {

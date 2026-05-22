@@ -76,15 +76,23 @@ describe("solar energy map flyweights", () => {
     expect(session.elevatedTerrainColliders[0].id).toBe("existing-mountain-collider");
   });
 
-  it("renders a placed Greenhouse as one model instance", () => {
+  it("renders placed Greenhouses as shared model instances plus one inactive preview", () => {
     const session = createSession();
     const assets = createAssets();
-    session.greenhouse = {
-      id: "greenhouse-0",
-      position: [4, 0.02, -3],
-      size: [2.85, 1.7],
-      uvRect: [0, 0, 1, 1]
-    };
+    session.greenhouses = [
+      {
+        id: "greenhouse-0",
+        position: [4, 0.02, -3],
+        size: [2.85, 1.7],
+        uvRect: [0, 0, 1, 1]
+      },
+      {
+        id: "greenhouse-1",
+        position: [8, 0.02, -6],
+        size: [2.85, 1.7],
+        uvRect: [0, 0, 1, 1]
+      }
+    ];
 
     buildSceneAssembly(session, assets);
 
@@ -93,11 +101,24 @@ describe("solar energy map flyweights", () => {
     });
 
     expect(greenhouseSceneObjects).toHaveLength(1);
-    expect(greenhouseSceneObjects[0].instances).toEqual([session.greenhouseModelInstance]);
-    expect(session.greenhouseModelInstance).toMatchObject({
-      id: "greenhouse-model",
+    expect(greenhouseSceneObjects[0].instances).toEqual([
+      ...session.greenhouseModelInstances,
+      session.greenhouseModelInstance
+    ]);
+    expect(session.greenhouseModelInstances).toHaveLength(2);
+    expect(session.greenhouseModelInstances[0]).toMatchObject({
+      id: "greenhouse-model-0",
       offset: [4, 0.02, -3],
       active: true
+    });
+    expect(session.greenhouseModelInstances[1]).toMatchObject({
+      id: "greenhouse-model-1",
+      offset: [8, 0.02, -6],
+      active: true
+    });
+    expect(session.greenhouseModelInstance).toMatchObject({
+      id: "greenhouse-preview-model",
+      active: false
     });
   });
 });

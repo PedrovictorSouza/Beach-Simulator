@@ -51,6 +51,8 @@ describe("createWorkbenchModalController", () => {
     expect(panel?.style.position).toBe("relative");
     expect(panel?.style.width).toBe("100%");
     expect(panel?.style.padding).toBe("22px 24px");
+    expect(panel?.style.backgroundImage).toContain("grass.gif");
+    expect(panel?.style.backgroundSize).toBe("cover");
     expect(header?.textContent).toContain("Workbench");
     expect(header?.textContent).toContain("Left/Right Select");
     expect(mount.querySelector(".workbench-modal__hint")?.textContent).not.toContain("Left/Right Select");
@@ -110,6 +112,7 @@ describe("createWorkbenchModalController", () => {
             title: "Greenhouse",
             ingredients: {}
           },
+          guidance: "Greenhouse creates green soil in its footprint.",
           onConfirm: craftGreenhouse
         },
         {
@@ -152,7 +155,10 @@ describe("createWorkbenchModalController", () => {
     expect(recipeButtons[0].getAttribute("aria-disabled")).toBe("false");
     expect(recipeButtons[0].getAttribute("aria-label")).toContain("Selected: Greenhouse");
     expect(recipeButtons[0].getAttribute("aria-label")).toContain("Soil Plans");
-    expect(recipeButtons[0].getAttribute("aria-label")).toContain("Prepare this kit here");
+    expect(recipeButtons[0].getAttribute("aria-label")).toContain("Greenhouse creates green soil in its footprint.");
+    expect(recipeButtons[0].querySelector(".workbench-modal__recipe-guidance")?.textContent).toBe(
+      "Greenhouse creates green soil in its footprint."
+    );
     expect(recipeButtons[0].style.border).toContain("rgb(137, 255, 0)");
     expect(recipeButtons[0].querySelector(".workbench-modal__recipe-copy")?.style.visibility).toBe("visible");
     expect(recipeButtons[0].querySelector(".workbench-modal__recipe-copy")?.style.opacity).toBe("1");
@@ -162,7 +168,7 @@ describe("createWorkbenchModalController", () => {
     expect(recipeButtons[1].style.border).not.toContain("rgb(137, 255, 0)");
     expect(recipeButtons[1].querySelector(".workbench-modal__recipe-copy")?.style.visibility).toBe("hidden");
     expect(recipeButtons[1].querySelector(".workbench-modal__recipe-copy")?.style.opacity).toBe("0");
-    expect(recipeButtons[0].style.backgroundImage).toContain("Estufa.png");
+    expect(recipeButtons[0].style.backgroundImage).toContain("Estufa.gif");
     expect(recipeButtons[1].style.backgroundImage).toContain("train-house.gif");
     expect(recipeButtons[2].style.backgroundImage).toContain("Solar-Station.gif");
     expect(recipeButtons[3].style.backgroundImage).toContain("house_2.png");
@@ -195,7 +201,7 @@ describe("createWorkbenchModalController", () => {
     expect(updatedRecipeButtons[2].querySelector(".workbench-modal__recipe-guidance")?.textContent).toContain(
       "Prepare this kit here"
     );
-    expect(updatedRecipeButtons[0].style.backgroundImage).toContain("Estufa.png");
+    expect(updatedRecipeButtons[0].style.backgroundImage).toContain("Estufa.gif");
     expect(updatedRecipeButtons[1].style.backgroundImage).toContain("train-house.gif");
     expect(updatedRecipeButtons[2].style.backgroundImage).toContain("Solar-Station.gif");
     expect(updatedRecipeButtons[3].style.backgroundImage).toContain("house_2.png");
@@ -209,5 +215,41 @@ describe("createWorkbenchModalController", () => {
     expect(craftCampfire).not.toHaveBeenCalled();
     expect(craftStrawBed).toHaveBeenCalledTimes(1);
     expect(craftHouse).not.toHaveBeenCalled();
+  });
+
+  it("can open with the current Workbench objective selected", () => {
+    const { controller, mount } = createController();
+    const craftGreenhouse = vi.fn(() => true);
+    const craftCampfire = vi.fn(() => true);
+
+    controller.open({
+      initialRecipeId: "campfire",
+      recipes: [
+        {
+          recipe: {
+            id: "greenhouse",
+            title: "Greenhouse",
+            ingredients: {}
+          },
+          onConfirm: craftGreenhouse
+        },
+        {
+          recipe: {
+            id: "campfire",
+            title: "Thermal Cabin",
+            ingredients: { wood: 3 }
+          },
+          onConfirm: craftCampfire
+        }
+      ]
+    });
+
+    const recipeButtons = [...mount.querySelectorAll(".workbench-modal__recipe")];
+
+    expect(recipeButtons[0].dataset.selected).toBe("false");
+    expect(recipeButtons[1].dataset.selected).toBe("true");
+    expect(recipeButtons[1].getAttribute("aria-label")).toContain("Selected: Thermal Cabin");
+    expect(recipeButtons[1].textContent).toContain("Wood 3/3");
+    expect(mount.querySelector(".workbench-modal__hint-action")?.textContent).toContain("Craft Thermal Cabin");
   });
 });

@@ -200,23 +200,15 @@ function resolveTrainHouseEntry(buildable, context) {
 }
 
 function resolveGreenhouseEntry(buildable, context) {
-  const flags = context?.storyState?.flags || context?.flags || {};
   const inventory = context?.inventory || {};
   const progressState = {
-    state: flags.greenhousePlaced ? "placed" :
-      (
-        flags.greenhouseCrafted || Number(inventory[GREENHOUSE_ITEM_ID] || 0) > 0 ?
-          "ready-to-place" :
-          "craftable"
-      )
+    state: Number(inventory[GREENHOUSE_ITEM_ID] || 0) > 0 ?
+      "ready-to-place" :
+      "craftable"
   };
   const entry = createBaseEntry(buildable, progressState);
 
-  if (flags.greenhousePlaced) {
-    return withPlaced(entry);
-  }
-
-  if (flags.greenhouseCrafted || Number(inventory[GREENHOUSE_ITEM_ID] || 0) > 0) {
+  if (Number(inventory[GREENHOUSE_ITEM_ID] || 0) > 0) {
     return withPlacement(entry);
   }
 

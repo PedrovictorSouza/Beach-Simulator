@@ -20,7 +20,6 @@ import {
 } from "../app/story/earlyFreedomWindow.js";
 import { reactivateHelperRobot } from "../app/story/robotReactivation.js";
 import {
-  buildGreenhousePlacement,
   collectLeppaBerryDrops,
   dropLeppaBerryFromTree,
   getLeppaTreeSurroundingGroundCells,
@@ -79,6 +78,7 @@ export const CHARMANDER_FIRE_USES_PER_CARBON = CHARMANDER_FIRE_COST.usesPerUnit;
 export const CHARMANDER_FIRE_CARBON_USES_FLAG = CHARMANDER_FIRE_COST.useFlag;
 export const MAX_ACTIVE_POKEMON_FOLLOWERS = 5;
 const SOLAR_STATION_PLACEMENT_WORLD_MARGIN = 2.2;
+const GREENHOUSE_SOIL_GUIDANCE = "Greenhouse creates green soil in its footprint.";
 const HOUSE_KIT_SOLAR_STATION_GUIDANCE =
   "Place the Solar Station first. Its blue support zone enables House Kit placement.";
 const HYDRO_RESTORE_LEAF_REWARD_INTERVAL = 3;
@@ -393,85 +393,9 @@ export function createGameplayInteractions({
   function canPlaceCraftedGreenhouse(storyState, inventory) {
     return Boolean(
       storyState?.flags?.greenhouseCrafted &&
-      !storyState.flags.greenhousePlaced &&
       Number(inventory?.[GREENHOUSE_ITEM_ID] || 0) > 0 &&
       hasItems(inventory, { [GREENHOUSE_ITEM_ID]: 1 })
     );
-  }
-
-  function findRestoredGreenGroundCellAtPosition(position, groundPurifiedInstances = []) {
-    if (!Array.isArray(position)) {
-      return null;
-    }
-
-    return (groundPurifiedInstances || []).find((groundCell) => {
-      if (!groundCell || groundCell.active === false || !Array.isArray(groundCell.offset)) {
-        return false;
-      }
-
-      const tileSpan = Math.max(0.25, Number(groundCell.tileSpan) || 1.425);
-      const halfSpan = tileSpan * 0.5;
-      return (
-        Math.abs(position[0] - groundCell.offset[0]) <= halfSpan &&
-        Math.abs(position[2] - groundCell.offset[2]) <= halfSpan
-      );
-    }) || null;
-  }
-
-  function hasRestoredGreenGroundCellNear(position, groundPurifiedInstances = [], tileSpan = 1.425) {
-    const halfSpan = Math.max(0.25, Number(tileSpan) || 1.425) * 0.5;
-    return (groundPurifiedInstances || []).some((groundCell) => {
-      if (!groundCell || groundCell.active === false || !Array.isArray(groundCell.offset)) {
-        return false;
-      }
-
-      return (
-        Math.abs(position[0] - groundCell.offset[0]) <= halfSpan &&
-        Math.abs(position[2] - groundCell.offset[2]) <= halfSpan
-      );
-    });
-  }
-
-  function isGreenhouseFootprintOnRestoredGreenGround(position, groundPurifiedInstances = []) {
-    const centerCell = findRestoredGreenGroundCellAtPosition(position, groundPurifiedInstances);
-    if (!centerCell) {
-      return false;
-    }
-
-    const tileSpan = Math.max(0.25, Number(centerCell.tileSpan) || 1.425);
-    for (let z = -1; z <= 1; z += 1) {
-      for (let x = -2; x <= 2; x += 1) {
-        const footprintPosition = [
-          centerCell.offset[0] + x * tileSpan,
-          centerCell.offset[1] || 0,
-          centerCell.offset[2] + z * tileSpan
-        ];
-
-        if (!hasRestoredGreenGroundCellNear(footprintPosition, groundPurifiedInstances, tileSpan)) {
-          return false;
-        }
-      }
-    }
-
-    return true;
-  }
-
-  function canPlaceGreenhouseOnRestoredGreenGround(playerPosition, groundPurifiedInstances = []) {
-    if (!Array.isArray(playerPosition)) {
-      return false;
-    }
-
-    const placement = buildGreenhousePlacement(playerPosition);
-    return isGreenhouseFootprintOnRestoredGreenGround(placement.position, groundPurifiedInstances);
-  }
-
-  function ensureGreenhousePlacementArea(playerPosition, groundPurifiedInstances = []) {
-    if (canPlaceGreenhouseOnRestoredGreenGround(playerPosition, groundPurifiedInstances)) {
-      return true;
-    }
-
-    pushNotice("Greenhouse needs restored green ground. Restore the target area with Hydro Jet first.");
-    return false;
   }
 
   function pushMissedHarvestNotice({
@@ -1429,10 +1353,6 @@ export function createGameplayInteractions({
       return false;
     }
 
-    if (storyState.flags.greenhousePlaced) {
-      return false;
-    }
-
     if (Number(inventory[GREENHOUSE_ITEM_ID] || 0) > 0) {
       storyState.flags.greenhouseCrafted = true;
       onGreenhousePlacementRequested({ source: "workbench" });
@@ -1564,14 +1484,12 @@ export function createGameplayInteractions({
 
     if (workbenchRecipes[GREENHOUSE_ITEM_ID]) {
       const greenhouseInBag = Number(inventory?.[GREENHOUSE_ITEM_ID] || 0) > 0;
-      const greenhousePrepared =
-        flags.greenhousePlaced ||
-        greenhouseInBag;
       recipeOptions.push({
         recipe: workbenchRecipes[GREENHOUSE_ITEM_ID],
-        disabled: Boolean(flags.greenhousePlaced),
-        status: flags.greenhousePlaced ? "Placed" : greenhouseInBag ? "Ready to place" : null,
-        actionLabel: greenhousePrepared ? "Place Greenhouse" : "Prepare Greenhouse"
+        disabled: false,
+        status: greenhouseInBag ? "Ready to place" : null,
+        actionLabel: greenhouseInBag ? "Place Greenhouse" : "Prepare Greenhouse",
+        guidance: GREENHOUSE_SOIL_GUIDANCE
       });
     }
 
@@ -2296,25 +2214,6 @@ export function createGameplayInteractions({
       );
     }
 
-    if (canPlaceCraftedGreenhouse(storyState, inventory)) {
-      missedInteractAttempts = 0;
-      if (!ensureGreenhousePlacementArea(playerPosition, groundPurifiedInstances)) {
-        return false;
-      }
-      onGreenhousePlacementRequested({
-        playerPosition
-      });
-      return true;
-    }
-
-    if (canPlaceCraftedCampfire(storyState, inventory)) {
-      missedInteractAttempts = 0;
-      onCampfireSpitOutRequested({
-        playerPosition
-      });
-      return true;
-    }
-
     const nearbyTarget = findNearbyInteractable(
       playerPosition,
       npcActors,
@@ -2329,6 +2228,33 @@ export function createGameplayInteractions({
       bulbasaurEncounter,
       groundFlowerPatches
     );
+    const greenhouseReadyToPlace = canPlaceCraftedGreenhouse(storyState, inventory);
+
+    if (
+      greenhouseReadyToPlace &&
+      nearbyTarget?.target?.kind === "station" &&
+      nearbyTarget.target.id === "workbench"
+    ) {
+      missedInteractAttempts = 0;
+      return handleStationInteraction(nearbyTarget.target.id, storyState, inventory);
+    }
+
+    if (greenhouseReadyToPlace) {
+      missedInteractAttempts = 0;
+      onGreenhousePlacementRequested({
+        playerPosition
+      });
+      return true;
+    }
+
+    if (canPlaceCraftedCampfire(storyState, inventory)) {
+      missedInteractAttempts = 0;
+      onCampfireSpitOutRequested({
+        playerPosition
+      });
+      return true;
+    }
+
     if (!nearbyTarget?.target) {
       if (isLeppaTreeWaterHintAvailable(playerPosition, leppaTree, storyState)) {
         missedInteractAttempts = 0;
@@ -2687,9 +2613,6 @@ export function createGameplayInteractions({
     }
 
     if (nearbyHarvestTarget?.greenhousePlacement) {
-      if (!ensureGreenhousePlacementArea(playerPosition, groundPurifiedInstances)) {
-        return false;
-      }
       onGreenhousePlacementRequested({
         playerPosition
       });

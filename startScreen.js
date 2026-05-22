@@ -2,6 +2,7 @@ import {
   clearOverlayTransition,
   playOverlayTransition
 } from "./app/ui/overlayTransition.js";
+import { createStartScreenUniverseBackground } from "./app/ui/startScreenUniverseBackground.js";
 import startTitleImageSrc from "./app/ui/images/Logo.png";
 
 const START_TITLE = "Small Island";
@@ -59,11 +60,26 @@ export function createStartScreen({
     transitioning: false
   };
   let transitionToken = 0;
+  let universeBackground = null;
 
   function syncUiMode() {
     if (uiLayer instanceof HTMLElement) {
       uiLayer.dataset.mode = state.active ? "start" : "game";
     }
+  }
+  function destroyUniverseBackground() {
+    universeBackground?.destroy?.();
+    universeBackground = null;
+  }
+  function mountUniverseBackground() {
+    const shell = root.querySelector(".start-shell");
+    if (!(shell instanceof HTMLElement)) {
+      return;
+    }
+
+    universeBackground = createStartScreenUniverseBackground({
+      root: shell
+    });
   }
   function buildRenderContext(root, state, START_TITLE) {
     return {
@@ -115,6 +131,7 @@ export function createStartScreen({
   }
   function render() {
     const renderContext = buildRenderContext(root, state, START_TITLE);
+    destroyUniverseBackground();
     clearOverlayTransition(root);
     syncUiMode();
     renderContext.root.hidden = !renderContext.state.active;
@@ -131,6 +148,10 @@ export function createStartScreen({
           </section>
         </div>
       ` : "";
+
+    if (renderContext.state.active) {
+      mountUniverseBackground();
+    }
 
     const titleImage = renderContext.root.querySelector(".start-card__title-image");
     const titleFallback = renderContext.root.querySelector(".start-card__title");

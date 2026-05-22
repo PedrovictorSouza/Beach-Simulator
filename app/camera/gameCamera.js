@@ -374,8 +374,26 @@ export function createSandbotsCamera({
     state.distance = Math.max(2.5, nextDistance);
   }
 
-  function setPose({ target: targetPosition, direction: nextDirection, zoom: nextZoom, distance: nextDistance }) {
+  function setProjectionMode(nextProjectionMode) {
+    state.projectionMode = nextProjectionMode === "orthographic" ? "orthographic" : "perspective";
+  }
+
+  function getProjectionMode() {
+    return state.projectionMode;
+  }
+
+  function setPose({
+    target: targetPosition,
+    direction: nextDirection,
+    zoom: nextZoom,
+    distance: nextDistance,
+    projectionMode: nextProjectionMode
+  }) {
     state.poseTransition = null;
+
+    if (typeof nextProjectionMode === "string") {
+      setProjectionMode(nextProjectionMode);
+    }
 
     if (targetPosition) {
       setTarget(targetPosition);
@@ -441,6 +459,8 @@ export function createSandbotsCamera({
     setDirection,
     setZoom,
     setDistance,
+    setProjectionMode,
+    getProjectionMode,
     setPose,
     getPose,
   };

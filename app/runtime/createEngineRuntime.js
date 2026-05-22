@@ -57,7 +57,7 @@ export function createEngineRuntime({
 
   const gl = worldCanvas.getContext("webgl", {
     antialias: false,
-    alpha: false,
+    alpha: true,
     premultipliedAlpha: false,
     preserveDrawingBuffer: false
   }) || (shouldUseNoopWebGlForLaunchMode(launchMode) ? createNoopWebGlContext() : null);

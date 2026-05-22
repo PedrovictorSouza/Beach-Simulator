@@ -15,10 +15,14 @@ import {
 function createRecordingGl() {
   const gl = createNoopWebGlContext();
   const calls = {
+    clearColor: [],
     uniform1f: [],
     uniform3fv: []
   };
 
+  gl.clearColor = vi.fn((red, green, blue, alpha) => {
+    calls.clearColor.push([red, green, blue, alpha]);
+  });
   gl.uniform1f = vi.fn((location, value) => {
     calls.uniform1f.push([location?.name, value]);
   });
@@ -80,6 +84,15 @@ function lastUniform(calls, name) {
 }
 
 describe("worldRenderer PSX distance fog", () => {
+  it("clears the scene pass with a transparent color buffer", () => {
+    const { gl, calls } = createRecordingGl();
+    const renderer = createRenderer(gl);
+
+    renderer.drawScene(new Float32Array(16), [], null);
+
+    expect(calls.clearColor.at(-1)).toEqual([0, 0, 0, 0]);
+  });
+
   it("applies fog uniforms only during the 3D scene pass", () => {
     const { gl, calls } = createRecordingGl();
     const renderer = createRenderer(gl);

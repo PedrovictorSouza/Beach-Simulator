@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
+import { FIRST_MISSION_COMPLETION_POP_TEXT } from "../app/ui/firstMissionCompletionPop.js";
 import { createWorldSpeechController } from "../app/ui/worldSpeechController.js";
 
 describe("createWorldSpeechController", () => {
@@ -156,5 +157,31 @@ describe("createWorldSpeechController", () => {
 
     const taskPop = mount.querySelector("[data-world-speech-variant='task-pop']");
     expect(taskPop?.dataset.taskPopSize).toBe("large");
+  });
+
+  it("renders the first mission completion pop letter by letter", () => {
+    const mount = document.createElement("div");
+    const controller = createWorldSpeechController({ mount });
+
+    controller.showTaskPop({
+      text: FIRST_MISSION_COMPLETION_POP_TEXT,
+      worldPosition: [0, 0, 0]
+    });
+
+    const taskPop = mount.querySelector("[data-world-speech-variant='task-pop']");
+    const letters = taskPop?.querySelectorAll(".first-mission-completion-pop__letter");
+    const style = document.getElementById("first-mission-completion-pop-style");
+
+    expect(taskPop?.dataset.taskPopKind).toBe("first-mission");
+    expect(letters).toHaveLength(Array.from(FIRST_MISSION_COMPLETION_POP_TEXT).length);
+    expect(style?.textContent).toContain("border: 2px solid #000000");
+
+    controller.showTaskPop({
+      text: "HYDRO BOT IS ONLINE!",
+      worldPosition: [0, 0, 0]
+    });
+
+    expect(taskPop?.dataset.taskPopKind).toBeUndefined();
+    expect(taskPop?.querySelector(".first-mission-completion-pop")).toBeNull();
   });
 });

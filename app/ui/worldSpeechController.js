@@ -2,6 +2,10 @@ import {
   curveWorldPosition,
   resolveWorldCurvatureOrigin
 } from "../../rendering/worldCurvature.js";
+import {
+  installFirstMissionCompletionPopStyles,
+  renderFirstMissionCompletionPop
+} from "./firstMissionCompletionPop.js";
 
 const LARGE_TASK_POP_MESSAGES = new Set([
   "HYDRO BOT IS ONLINE!",
@@ -118,6 +122,7 @@ export function createWorldSpeechController({ mount } = {}) {
   const documentRef = mount.ownerDocument || document;
   const windowRef = mount.ownerDocument?.defaultView || globalThis;
   installDryGrassHintStyles(documentRef);
+  installFirstMissionCompletionPopStyles(documentRef);
 
   const layer = documentRef.createElement("div");
   layer.dataset.worldSpeechLayer = "true";
@@ -319,7 +324,17 @@ export function createWorldSpeechController({ mount } = {}) {
     state.taskPopActive = true;
     state.taskPopAnchorHeight = anchorHeight;
     state.taskPopWorldPosition = worldPosition ? [...worldPosition] : [0, 0, 0];
-    taskPop.bubble.textContent = message;
+    const renderedFirstMissionPop = renderFirstMissionCompletionPop({
+      documentRef,
+      container: taskPop.bubble,
+      text: message
+    });
+    if (renderedFirstMissionPop) {
+      taskPop.speech.dataset.taskPopKind = "first-mission";
+    } else {
+      delete taskPop.speech.dataset.taskPopKind;
+      taskPop.bubble.textContent = message;
+    }
     taskPop.speech.dataset.taskPopSize =
       LARGE_TASK_POP_MESSAGES.has(message.toUpperCase()) ? "large" : "default";
     taskPop.speech.hidden = false;

@@ -166,7 +166,7 @@ export function createWorldRenderer({
 
   function clearScenePass() {
     gl.viewport(0, 0, worldCanvas.width, worldCanvas.height);
-    gl.clearColor(0.5294, 0.8078, 0.9216, 1);
+    gl.clearColor(0, 0, 0, 0);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
   }
 

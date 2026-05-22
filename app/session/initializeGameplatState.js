@@ -116,6 +116,7 @@ export function initializeGameplayState(
   session.leppaBerryDrops = [];
   session.logChair = null;
   session.greenhouse = null;
+  session.greenhouses = [];
   session.leafDen = null;
   session.playerHouses = [];
   session.leafDenFurniture = [];

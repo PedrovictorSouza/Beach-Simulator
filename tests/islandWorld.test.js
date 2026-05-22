@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BULBASAUR_TALK_INTERACT_DISTANCE,
+  HELPER_BOT_TALK_INTERACT_DISTANCE,
   buildCampfirePlacement,
   buildGreenhousePlacement,
   createCollisionChecker,
@@ -70,6 +71,33 @@ describe("findNearbyInteractable", () => {
   it("detects the Workbench from outside its solid collider footprint", () => {
     const result = findNearbyInteractable(
       [WORKBENCH_POSITION[0] + 4.6, 0, WORKBENCH_POSITION[2]],
+      [],
+      [
+        {
+          id: "workbench",
+          label: "Workbench",
+          type: "station",
+          position: [...WORKBENCH_POSITION],
+          interactDistance: WORKBENCH_INTERACT_DISTANCE,
+          activeWhen: () => true
+        }
+      ],
+      { flags: {} }
+    );
+
+    expect(result).toEqual({
+      target: {
+        kind: "station",
+        id: "workbench",
+        label: "Workbench"
+      },
+      distance: expect.any(Number)
+    });
+  });
+
+  it("detects the Workbench with room behind the Grow Bot guide stop", () => {
+    const result = findNearbyInteractable(
+      [WORKBENCH_POSITION[0], 0, WORKBENCH_POSITION[2] - 6.2],
       [],
       [
         {
@@ -411,7 +439,12 @@ describe("findNearbyInteractable", () => {
       label: "Check on Grow Bot",
       cellId: "ground-3-1"
     });
-    expect(resultNearGrass).toBeNull();
+    expect(resultNearGrass?.target).toEqual({
+      kind: "grassEncounter",
+      id: "rustlingGrass",
+      label: "Check on Grow Bot",
+      cellId: "ground-3-1"
+    });
   });
 
   it("detects Charmander's Leafage rustling grass encounter", () => {
@@ -628,7 +661,16 @@ describe("findNearbyInteractable", () => {
       },
       distance: expect.any(Number)
     });
-    expect(resultNearGrass).toBeNull();
+    expect(resultNearGrass).toEqual({
+      target: {
+        kind: "bulbasaurMission",
+        id: "bulbasaurDryGrassMission",
+        label: "Talk to Grow Bot",
+        cellId: "ground-3-1",
+        position: [12.2, 0.02, -2.1]
+      },
+      distance: expect.any(Number)
+    });
   });
 
   it("keeps Bulbasaur talk available from the opened repair box position", () => {
@@ -716,7 +758,7 @@ describe("findNearbyInteractable", () => {
 
   it("detects Bulbasaur request turn-in after 10 grass patches are watered", () => {
     const result = findNearbyInteractable(
-      [8.1, 0, -3.9],
+      [8.4 + HELPER_BOT_TALK_INTERACT_DISTANCE - 0.05, 0, -4.2],
       [],
       [],
       {
@@ -1417,7 +1459,7 @@ describe("findNearbyInteractable", () => {
     };
 
     expect(findNearbyInteractable(
-      [2, 0, 2],
+      [2 + HELPER_BOT_TALK_INTERACT_DISTANCE - 0.05, 0, 2],
       [],
       [],
       storyState,
