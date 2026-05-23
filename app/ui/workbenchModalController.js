@@ -25,6 +25,8 @@ export function createWorkbenchModalController({
   let selectedRecipeIndex = 0;
   let onConfirm = null;
   let open = false;
+  let buildConfirmationActive = false;
+  let buildConfirmationTimer = null;
 
   function getDocument() {
     return mount?.ownerDocument || globalThis.document || null;
@@ -57,6 +59,15 @@ export function createWorkbenchModalController({
       return true;
     }
 
+    if (command === MODAL_COMMANDS.CLOSE) {
+      close();
+      return true;
+    }
+
+    if (buildConfirmationActive) {
+      return true;
+    }
+
     if (command === MODAL_COMMANDS.NEXT) {
       moveSelection(1);
       return true;
@@ -64,11 +75,6 @@ export function createWorkbenchModalController({
 
     if (command === MODAL_COMMANDS.PREVIOUS) {
       moveSelection(-1);
-      return true;
-    }
-
-    if (command === MODAL_COMMANDS.CLOSE) {
-      close();
       return true;
     }
 
@@ -126,6 +132,11 @@ export function createWorkbenchModalController({
       return;
     }
 
+    if (buildConfirmationTimer) {
+      globalThis.clearTimeout?.(buildConfirmationTimer);
+      buildConfirmationTimer = null;
+    }
+    buildConfirmationActive = false;
     root.hidden = true;
     root.style.display = "none";
     root.replaceChildren();
@@ -186,7 +197,7 @@ export function createWorkbenchModalController({
   }
 
   function moveSelection(direction) {
-    if (recipeOptions.length <= 1) {
+    if (buildConfirmationActive || recipeOptions.length <= 1) {
       return;
     }
 
@@ -255,6 +266,7 @@ export function createWorkbenchModalController({
 
     if (
       !open ||
+      buildConfirmationActive ||
       selectedOption?.disabled ||
       !confirmRecipe ||
       typeof confirmHandler !== "function"
@@ -264,7 +276,11 @@ export function createWorkbenchModalController({
 
     const crafted = Boolean(confirmHandler(confirmRecipe));
     if (crafted) {
-      close();
+      buildConfirmationActive = true;
+      render();
+      buildConfirmationTimer = globalThis.setTimeout?.(() => {
+        close();
+      }, 620) || null;
       return true;
     }
 
@@ -279,6 +295,11 @@ export function createWorkbenchModalController({
     }
     const selectedOption = recipeOptions[selectedRecipeIndex] || recipeOptions[0];
     const selectedRecipe = selectedOption?.recipe || recipeOptions[0]?.recipe;
+    const buildActionLabel = buildConfirmationActive ?
+      "BUILT" :
+      selectedOption?.disabled ?
+        "LOCKED" :
+        "BUILD";
 
     currentRoot.replaceChildren();
 
@@ -448,6 +469,10 @@ export function createWorkbenchModalController({
       recipeCard.append(recipeCopy);
 
       recipeCard.addEventListener("click", () => {
+        if (buildConfirmationActive) {
+          return;
+        }
+
         selectRecipeIndex(index);
         if (!confirm()) {
           render();
@@ -458,7 +483,9 @@ export function createWorkbenchModalController({
     });
 
     const selectedRequirementText = selectedOption?.status || getRecipeRequirementCopy(selectedRecipe);
-    const selectedRecipeGuidanceText = getWorkbenchRecipeGuidance(selectedOption);
+    const selectedRecipeGuidanceText = buildConfirmationActive ?
+      "Built. Choose a site in the world." :
+      getWorkbenchRecipeGuidance(selectedOption);
     const recipeDetails = createElement("div", "workbench-modal__recipe-details");
     applyElementStyles(recipeDetails, {
       display: "block",
@@ -533,8 +560,15 @@ export function createWorkbenchModalController({
 
     const hint = createElement("button", "workbench-modal__hint");
     hint.type = "button";
-    hint.disabled = Boolean(selectedOption?.disabled);
-    hint.setAttribute("aria-label", selectedOption?.disabled ? "Build unavailable" : "Build selected Workbench recipe");
+    hint.disabled = Boolean(selectedOption?.disabled || buildConfirmationActive);
+    hint.setAttribute(
+      "aria-label",
+      buildConfirmationActive ?
+        "Build complete" :
+        selectedOption?.disabled ?
+          "Build unavailable" :
+          "Build selected Workbench recipe"
+    );
     applyElementStyles(hint, {
       margin: "0",
       border: "0",
@@ -549,7 +583,7 @@ export function createWorkbenchModalController({
       fontSize: "13px",
       lineHeight: "1",
       padding: "12px 18px",
-      cursor: selectedOption?.disabled ? "default" : "pointer",
+      cursor: selectedOption?.disabled || buildConfirmationActive ? "default" : "pointer",
       letterSpacing: "0.18em",
       textTransform: "uppercase",
       position: "relative",
@@ -558,11 +592,11 @@ export function createWorkbenchModalController({
     const actionHint = createElement(
       "span",
       "workbench-modal__hint-action",
-      selectedOption?.disabled ? "LOCKED" : "BUILD"
+      buildActionLabel
     );
     applyElementStyles(actionHint, {
       fontFamily: "'Super Mario World', var(--game-ui-font, monospace)",
-      color: selectedOption?.disabled ? "#888888" : "#00ff9d"
+      color: selectedOption?.disabled && !buildConfirmationActive ? "#888888" : "#00ff9d"
     });
     const closeHint = createElement("button", "workbench-modal__hint-close", "B / Esc Close");
     closeHint.type = "button";
@@ -586,7 +620,7 @@ export function createWorkbenchModalController({
     });
     hint.append(actionHint);
     hint.addEventListener("click", () => {
-      if (!selectedOption?.disabled) {
+      if (!selectedOption?.disabled && !buildConfirmationActive) {
         confirm();
       }
     });
@@ -609,6 +643,11 @@ export function createWorkbenchModalController({
 
   return {
     open(options = {}) {
+      if (buildConfirmationTimer) {
+        globalThis.clearTimeout?.(buildConfirmationTimer);
+        buildConfirmationTimer = null;
+      }
+      buildConfirmationActive = false;
       recipeOptions = normalizeRecipeOptions(options);
       if (!recipeOptions.length) {
         return false;

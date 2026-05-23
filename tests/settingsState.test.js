@@ -26,7 +26,9 @@ describe("settingsState", () => {
   });
 
   it("creates default settings state from the schema", () => {
-    expect(createDefaultSettingsState()).toEqual({
+    const state = createDefaultSettingsState();
+
+    expect(state).toMatchObject({
       camera: {
         followStrength: 0.72,
         invertLookX: false,
@@ -69,6 +71,19 @@ describe("settingsState", () => {
         }
       }
     });
+    expect(state.controls.schemaVersion).toBe(2);
+    expect(state.controls.input.keyboard.primaryAction).toEqual([{
+      type: "keyboard",
+      code: "Enter"
+    }]);
+    expect(state.controls.input.gamepad).toMatchObject({
+      layout: "auto",
+      stickPreset: "leftMoveRightLook"
+    });
+    expect(state.controls.input.gamepad.bindings.primaryAction).toEqual([{
+      type: "gamepadButton",
+      button: 6
+    }]);
   });
 
   it("returns a fresh mutable state object on every call", () => {
@@ -92,7 +107,9 @@ describe("settingsState", () => {
         null
     };
 
-    expect(loadSettingsState(storage)).toEqual({
+    const state = loadSettingsState(storage);
+
+    expect(state).toMatchObject({
       camera: {
         followStrength: 0.72,
         invertLookX: false,
@@ -135,6 +152,11 @@ describe("settingsState", () => {
         }
       }
     });
+    expect(state.controls.schemaVersion).toBe(2);
+    expect(state.controls.input.keyboard.bag).toEqual([{
+      type: "keyboard",
+      code: "KeyZ"
+    }]);
   });
 
   it("saves settings state to storage", () => {

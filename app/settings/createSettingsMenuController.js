@@ -7,17 +7,13 @@ import {
   normalizeKeyboardControls
 } from "../../input/gameInputBindings.js";
 import {
-  getInventoryPresentationOrder,
-  getInventorySlotRole,
-  getInventorySlotRoleLabel
-} from "../ui/inventoryPresentation.js";
-import {
-  SANDBOTS_BOT_NAMES,
-  SANDBOTS_ITEM_NAMES
-} from "../story/sandbotsLexicon.js";
+  createSettingsBagDto,
+  createSettingsBotsDto,
+  getSettingsMenuBotContract,
+  isSettingsMenuLeafDenValidHome
+} from "./settingsMenuDtos.js";
 
 const SETTINGS_MENU_TITLE = "Bag";
-const SETTINGS_MENU_HINT = "Colony log online. LB/RB or Left/Right tabs | A/Enter Select | B/Esc Close";
 const MENU_TABS = Object.freeze(["bag", "pokemons", "controls", "settings"]);
 const MENU_TAB_LABELS = Object.freeze({
   bag: "Bag",
@@ -28,58 +24,37 @@ const MENU_TAB_LABELS = Object.freeze({
 const SELECTED_POKEMON_OVERLAY_URL = new URL("../ui/images/selected.png", import.meta.url).href;
 const RESTART_NAVIGATION_ITEM_ID = "__restartGame";
 const SETTINGS_MENU_PANEL_ID = "settings-menu-panel";
-const SETTINGS_MENU_HINT_ID = "settings-menu-hint";
 const SETTINGS_MENU_STATUS_ID = "settings-menu-status";
-const POKEMON_ROSTER = Object.freeze([
-  {
-    id: "squirtle",
-    name: SANDBOTS_BOT_NAMES.hydro,
-    element: "Hydro",
-    ability: SANDBOTS_ITEM_NAMES.hydroTool,
-    abilityDescription: `${SANDBOTS_ITEM_NAMES.hydroTool} restores dry ground, revives thirsty trees, and turns dead ground green again.`,
-    imageUrl: new URL("../ui/images/Robot-1-thumb.png", import.meta.url).href,
-    color: "#75c6ee",
-    ink: "#ffffff",
-    revealedFlag: "squirtleRobotReactivated",
-    followingFlag: "squirtleFollowing"
-  },
-  {
-    id: "bulbasaur",
-    name: SANDBOTS_BOT_NAMES.grow,
-    element: "Growth",
-    ability: SANDBOTS_ITEM_NAMES.growTool,
-    abilityDescription: `${SANDBOTS_ITEM_NAMES.growTool} places ${SANDBOTS_BOT_NAMES.grow}'s selected plant kit on valid ground, such as tall grass or Garden-1.`,
-    imageUrl: new URL("../ui/images/Robot-2-thumb.png", import.meta.url).href,
-    color: "#7ed36d",
-    ink: "#ffffff",
-    revealedFlag: "bulbasaurRevealed",
-    followingFlag: "bulbasaurFollowing"
-  },
-  {
-    id: "charmander",
-    name: SANDBOTS_BOT_NAMES.thermal,
-    element: "Thermal",
-    ability: SANDBOTS_ITEM_NAMES.thermalTool,
-    abilityDescription: `${SANDBOTS_ITEM_NAMES.thermalTool} spends Carbon charges to burn white ground into dead ground so ${SANDBOTS_ITEM_NAMES.hydroTool} can restore it later.`,
-    imageUrl: new URL("../ui/images/Robot-3-thumb.png", import.meta.url).href,
-    color: "#ff8a3d",
-    ink: "#ffffff",
-    revealedFlag: "charmanderRevealed",
-    followingFlag: "charmanderFollowing"
-  },
-  {
-    id: "timburr",
-    name: SANDBOTS_BOT_NAMES.builder,
-    element: "Build",
-    ability: "Construction",
-    abilityDescription: `Construction lets ${SANDBOTS_BOT_NAMES.builder} help finish building kits that need heavy support.`,
-    color: "#c5945d",
-    ink: "#ffffff",
-    glyph: "T",
-    revealedFlag: "timburrRevealed",
-    followingFlag: "timburrFollowing"
-  }
-]);
+const SETTINGS_CLOSE_BUTTON_IMAGE_URL = new URL("../ui/images/close-btn-micro.png", import.meta.url).href;
+const GAMEPAD_ACTION_ALIASES = Object.freeze({
+  a: "confirm",
+  accept: "confirm",
+  buttonSouth: "confirm",
+  confirm: "confirm",
+  primary: "confirm",
+  b: "cancel",
+  back: "cancel",
+  buttonEast: "cancel",
+  cancel: "cancel",
+  close: "cancel",
+  down: "down",
+  dpadDown: "down",
+  left: "left",
+  dpadLeft: "left",
+  lb: "prevTab",
+  l1: "prevTab",
+  leftShoulder: "prevTab",
+  previousTab: "prevTab",
+  prevTab: "prevTab",
+  rb: "nextTab",
+  r1: "nextTab",
+  rightShoulder: "nextTab",
+  nextTab: "nextTab",
+  right: "right",
+  dpadRight: "right",
+  up: "up",
+  dpadUp: "up"
+});
 
 function createElement(documentRef, tagName, className = "", text = "") {
   const element = documentRef.createElement(tagName);
@@ -111,52 +86,47 @@ function escapeHtml(value) {
     .replace(/'/g, "&#39;");
 }
 
-function renderBagSlot(itemId, inventory, itemDefs) {
-  const item = itemDefs[itemId] || {};
-  const count = inventory[itemId] || 0;
-  const label = item.bagLabel || item.label || itemId;
-  const glyph = item.glyph || item.shortLabel?.[0] || label[0] || "?";
-  const slotRole = getInventorySlotRole(item);
-  const slotRoleLabel = getInventorySlotRoleLabel(item);
+function normalizeGamepadAction(action) {
+  const rawAction = typeof action === "string" ?
+    action :
+    (action?.action || action?.id || action?.type || "");
+  return GAMEPAD_ACTION_ALIASES[String(rawAction)] || null;
+}
 
+function renderBagSlot(slot) {
   return `
     <div
       class="inventory-slot settings-menu__bag-slot"
       data-filled="true"
       data-empty="false"
-      data-slot-role="${escapeHtml(slotRole)}"
+      data-slot-role="${escapeHtml(slot.slotRole)}"
+      data-icon-kind="${escapeHtml(slot.iconKind)}"
       style="aspect-ratio:auto; min-height:86px; padding:8px; align-content:center; gap:4px;"
-      title="${escapeHtml(item.description || label)}"
+      title="${escapeHtml(slot.title)}"
     >
-      <span class="inventory-slot__role">${escapeHtml(slotRoleLabel)}</span>
+      <span class="inventory-slot__role">${escapeHtml(slot.slotRoleLabel)}</span>
       <div
         class="inventory-slot__icon"
-        style="--slot-color:${escapeHtml(item.color || "rgba(255, 255, 255, 0.08)")}; --slot-ink:${escapeHtml(item.ink || "#fff1e8")}"
+        style="--slot-color:${escapeHtml(slot.color)}; --slot-ink:${escapeHtml(slot.ink)}"
         aria-hidden="true"
       >
-        ${escapeHtml(glyph)}
+        ${slot.imageUrl ? `
+          <img
+            class="inventory-slot__image"
+            src="${escapeHtml(slot.imageUrl)}"
+            alt=""
+            loading="eager"
+            decoding="async"
+          >
+        ` : escapeHtml(slot.glyph)}
       </div>
       <span
         class="settings-menu__bag-name"
         style="font-size:10px; line-height:1.1; text-align:center; color:#ffffff;"
-      >${escapeHtml(label)}</span>
-      <span class="inventory-count">${escapeHtml(count)}</span>
+      >${escapeHtml(slot.label)}</span>
+      <span class="inventory-count">${escapeHtml(slot.count)}</span>
     </div>
   `;
-}
-
-function isPokemonCaptured(pokemon, storyState = {}) {
-  const flags = storyState?.flags || {};
-  const reactivatedIds = Array.isArray(flags.reactivatedHelperRobotIds) ?
-    flags.reactivatedHelperRobotIds :
-    [];
-
-  return Boolean(
-    flags[pokemon.revealedFlag] ||
-    flags[`${pokemon.id}RobotReactivated`] ||
-    flags[pokemon.followingFlag] ||
-    reactivatedIds.includes(pokemon.id)
-  );
 }
 
 function renderPokemonPortrait(pokemon) {
@@ -193,28 +163,16 @@ function renderPokemonSelectedOverlay(selected) {
   `;
 }
 
-function isLeafDenValidHome(storyState = {}) {
-  const flags = storyState?.flags || {};
-  return Boolean(
-    flags.leafDenBuilt &&
-    Number(flags.leafDenFurniturePlacedCount || 0) >= 3
-  );
-}
-
-function renderPokemonCard(pokemon, storyState = {}, { selected = false } = {}) {
-  const flags = storyState?.flags || {};
-  const following = Boolean(flags[pokemon.followingFlag]);
-  const currentHomeId = flags.creatureHomeAssignments?.[pokemon.id] || pokemon.currentHomeId || null;
-  const leafDenMoveInAvailable = isLeafDenValidHome(storyState) && currentHomeId !== "leafDen";
-  const borderColor = selected ? "#ffccaa" : following ? "#ffffff" : "rgba(255,255,255,.54)";
+function renderPokemonCard(pokemon, { selected = false } = {}) {
+  const borderColor = selected ? "#ffccaa" : pokemon.following ? "#ffffff" : "rgba(255,255,255,.54)";
 
   return `
     <article
       class="settings-menu__pokemon-card"
       data-pokemon-id="${escapeHtml(pokemon.id)}"
-      data-following="${following ? "true" : "false"}"
+      data-following="${pokemon.following ? "true" : "false"}"
       data-selected="${selected ? "true" : "false"}"
-      data-current-home-id="${escapeHtml(currentHomeId || "")}"
+      data-current-home-id="${escapeHtml(pokemon.currentHomeId || "")}"
       tabindex="0"
       style="min-height:172px;border:3px solid ${borderColor};box-shadow:${selected ? "0 0 0 3px rgba(255, 204, 170, .4)" : "none"};background:rgba(8,10,18,.78);display:grid;grid-template-rows:92px auto;overflow:hidden;cursor:pointer;"
     >
@@ -228,7 +186,7 @@ function renderPokemonCard(pokemon, storyState = {}, { selected = false } = {}) 
       </div>
       <div style="display:grid;gap:8px;padding:10px;align-content:start;">
         <strong style="font-size:18px;line-height:1;color:#ffffff;">${escapeHtml(pokemon.name)}</strong>
-        ${leafDenMoveInAvailable ? `
+        ${pokemon.leafDenMoveInAvailable ? `
           <button
             class="settings-menu__pokemon-move-in"
             type="button"
@@ -239,7 +197,7 @@ function renderPokemonCard(pokemon, storyState = {}, { selected = false } = {}) 
             style="width:28px;height:18px;border:2px solid #9fdcff;background:#0d2c45;cursor:pointer;"
           ></button>
         ` : ""}
-        ${following ? `
+        ${pokemon.following ? `
           <button
             class="settings-menu__pokemon-dismiss"
             type="button"
@@ -273,7 +231,6 @@ export function createSettingsMenuController({
   let activeTabId = "bag";
   let activeGroupId = schema[0]?.id || null;
   let root = null;
-  let titleElement = null;
   let bagGrid = null;
   let bagEmptyState = null;
   let bagPanel = null;
@@ -316,9 +273,6 @@ export function createSettingsMenuController({
   }
 
   function syncTabState() {
-    if (titleElement) {
-      titleElement.textContent = MENU_TAB_LABELS[activeTabId] || SETTINGS_MENU_TITLE;
-    }
     if (bagPanel) {
       bagPanel.hidden = activeTabId !== "bag";
     }
@@ -336,8 +290,7 @@ export function createSettingsMenuController({
       button.dataset.active = active ? "true" : "false";
       button.setAttribute("aria-selected", active ? "true" : "false");
       button.tabIndex = active ? 0 : -1;
-      button.style.background = active ? "rgba(255, 204, 170, 0.28)" : "rgba(255, 255, 255, 0.1)";
-      button.style.borderColor = active ? "#ffccaa" : "rgba(255, 255, 255, 0.55)";
+      button.style.color = active ? "#ffd35f" : "#ffffff";
     }
     syncNavigationStatus();
   }
@@ -347,7 +300,7 @@ export function createSettingsMenuController({
       return;
     }
 
-    statusElement.textContent = `${MENU_TAB_LABELS[activeTabId] || SETTINGS_MENU_TITLE} tab selected. ${SETTINGS_MENU_HINT}`;
+    statusElement.textContent = `${MENU_TAB_LABELS[activeTabId] || SETTINGS_MENU_TITLE} tab selected.`;
   }
 
   function syncRestartConfirmationState() {
@@ -397,8 +350,8 @@ export function createSettingsMenuController({
     }
 
     if (inventory) {
-      const itemIds = getInventoryPresentationOrder(inventory, inventoryOrder, itemDefs);
-      bagGrid.innerHTML = itemIds.map((itemId) => renderBagSlot(itemId, inventory, itemDefs)).join("");
+      const bagDto = createSettingsBagDto({ inventory, inventoryOrder, itemDefs });
+      bagGrid.innerHTML = bagDto.slots.map((slot) => renderBagSlot(slot)).join("");
     } else {
       const sourceGrid = documentRef.getElementById?.("inventory-grid");
       bagGrid.innerHTML = sourceGrid?.innerHTML?.trim() || "";
@@ -411,9 +364,10 @@ export function createSettingsMenuController({
   }
 
   function getCapturedPokemon() {
-    return POKEMON_ROSTER.filter((pokemon) => {
-      return isPokemonCaptured(pokemon, storyState);
-    });
+    return createSettingsBotsDto({
+      storyState,
+      selectedBotId: selectedPokemonId
+    }).bots;
   }
 
   function syncPokemonAbilityPanel(capturedPokemon = getCapturedPokemon()) {
@@ -447,7 +401,7 @@ export function createSettingsMenuController({
     }
 
     pokemonGrid.innerHTML = capturedPokemon
-      .map((pokemon) => renderPokemonCard(pokemon, storyState, {
+      .map((pokemon) => renderPokemonCard(pokemon, {
         selected: pokemon.id === selectedPokemonId
       }))
       .join("");
@@ -494,7 +448,7 @@ export function createSettingsMenuController({
   }
 
   function dismissPokemonFollower(pokemonId) {
-    const pokemon = POKEMON_ROSTER.find((entry) => entry.id === pokemonId);
+    const pokemon = getSettingsMenuBotContract(pokemonId);
     const flags = storyState?.flags;
     if (!pokemon || !flags?.[pokemon.followingFlag]) {
       return false;
@@ -517,8 +471,8 @@ export function createSettingsMenuController({
   }
 
   function movePokemonIntoHome(pokemonId, homeId) {
-    const pokemon = POKEMON_ROSTER.find((entry) => entry.id === pokemonId);
-    if (!pokemon || homeId !== "leafDen" || !isLeafDenValidHome(storyState)) {
+    const pokemon = getSettingsMenuBotContract(pokemonId);
+    if (!pokemon || homeId !== "leafDen" || !isSettingsMenuLeafDenValidHome(storyState)) {
       return false;
     }
 
@@ -1045,7 +999,6 @@ export function createSettingsMenuController({
     root.setAttribute("role", "dialog");
     root.setAttribute("aria-modal", "true");
     root.setAttribute("aria-label", SETTINGS_MENU_TITLE);
-    root.setAttribute("aria-describedby", SETTINGS_MENU_HINT_ID);
     root.hidden = true;
 
     Object.assign(root.style, {
@@ -1081,17 +1034,32 @@ export function createSettingsMenuController({
     });
 
     const header = createElement(documentRef, "header", "settings-menu__header");
-    const title = createElement(documentRef, "strong", "settings-menu__title", SETTINGS_MENU_TITLE);
-    titleElement = title;
-    const hint = createElement(documentRef, "span", "settings-menu__hint", SETTINGS_MENU_HINT);
-    hint.id = SETTINGS_MENU_HINT_ID;
     const closeButton = createElement(documentRef, "button", "settings-menu__close", "Close");
     closeButton.type = "button";
     closeButton.dataset.settingsAction = "close";
+    closeButton.setAttribute("aria-label", "Close");
+    Object.assign(closeButton.style, {
+      width: "80px",
+      height: "80px",
+      padding: "0",
+      border: "0",
+      backgroundColor: "transparent",
+      backgroundImage: `url("${SETTINGS_CLOSE_BUTTON_IMAGE_URL}")`,
+      backgroundSize: "100% 100%",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",
+      color: "transparent",
+      fontSize: "0",
+      lineHeight: "0",
+      textShadow: "none",
+      textIndent: "-9999px",
+      overflow: "hidden",
+      imageRendering: "pixelated"
+    });
     closeButton.addEventListener("click", () => {
       close();
     });
-    header.append(title, hint, closeButton);
+    header.append(closeButton);
     panel.append(header);
 
     const tabs = createElement(documentRef, "nav", "settings-menu__tabs");
@@ -1112,10 +1080,15 @@ export function createSettingsMenuController({
       tabButton.setAttribute("aria-controls", `settings-menu-panel-${tabId}`);
       Object.assign(tabButton.style, {
         padding: "10px 12px",
-        border: "2px solid rgba(255, 255, 255, 0.55)",
-        background: "rgba(255, 255, 255, 0.1)",
+        border: "0",
+        background: "transparent",
+        backgroundImage: "none",
+        boxShadow: "none",
         color: "#ffffff",
         font: "inherit",
+        transform: "none",
+        animation: "none",
+        transition: "none",
         cursor: "pointer"
       });
       tabButton.addEventListener("click", () => {
@@ -1398,6 +1371,127 @@ export function createSettingsMenuController({
     return true;
   }
 
+  function handleCancelAction() {
+    if (pendingKeyboardActionId) {
+      pendingKeyboardActionId = null;
+      syncKeyboardControlsGrid();
+      return true;
+    }
+
+    if (restartConfirmOpen) {
+      setRestartConfirmationOpen(false, { focus: true });
+      return true;
+    }
+
+    return close();
+  }
+
+  function moveRestartConfirmFocus() {
+    const focusedConfirm = documentRef.activeElement === restartConfirmButton;
+    focusElement(focusedConfirm ? restartCancelButton : restartConfirmButton);
+    return true;
+  }
+
+  function handleDirectionalAction(actionId) {
+    const focusedTabId = getFocusedTabId();
+    if (focusedTabId) {
+      if (actionId === "left") {
+        return moveActiveTab(-1);
+      }
+
+      if (actionId === "right") {
+        return moveActiveTab(1);
+      }
+
+      if (actionId === "down") {
+        return focusActiveTabContent();
+      }
+
+      return true;
+    }
+
+    if (activeTabId === "pokemons") {
+      if (actionId === "left" || actionId === "up") {
+        moveSelectedPokemon(-1);
+      } else if (actionId === "right" || actionId === "down") {
+        moveSelectedPokemon(1);
+      }
+      return true;
+    }
+
+    if (activeTabId === "controls") {
+      if (actionId === "left" || actionId === "up") {
+        moveFocusedControlsItem(-1);
+      } else if (actionId === "right" || actionId === "down") {
+        moveFocusedControlsItem(1);
+      }
+      return true;
+    }
+
+    if (activeTabId !== "settings") {
+      return true;
+    }
+
+    if (actionId === "left" || actionId === "right") {
+      return adjustFocusedRange(actionId === "left" ? -1 : 1);
+    }
+
+    if (actionId === "up" || actionId === "down") {
+      const direction = actionId === "up" ? -1 : 1;
+      if (!moveFocusedSetting(direction)) {
+        moveActiveItem(direction);
+      }
+      return true;
+    }
+
+    return false;
+  }
+
+  function handleGamepadAction(action) {
+    if (!open) {
+      return false;
+    }
+
+    const actionId = normalizeGamepadAction(action);
+    if (!actionId) {
+      return false;
+    }
+
+    if (actionId === "cancel") {
+      return handleCancelAction();
+    }
+
+    if (pendingKeyboardActionId) {
+      return true;
+    }
+
+    if (restartConfirmOpen) {
+      if (actionId === "confirm") {
+        return activateFocusedElement();
+      }
+
+      if (actionId === "left" || actionId === "right" || actionId === "up" || actionId === "down") {
+        return moveRestartConfirmFocus();
+      }
+
+      return true;
+    }
+
+    if (actionId === "prevTab") {
+      return moveActiveTab(-1);
+    }
+
+    if (actionId === "nextTab") {
+      return moveActiveTab(1);
+    }
+
+    if (actionId === "confirm") {
+      return activateFocusedElement();
+    }
+
+    return handleDirectionalAction(actionId);
+  }
+
   function handleKeydown(event) {
     if (!open) {
       return false;
@@ -1557,6 +1651,7 @@ export function createSettingsMenuController({
     open: show,
     close,
     isOpen: () => open,
+    handleGamepadAction,
     handleKeydown,
     setActiveTab,
     setActiveGroup

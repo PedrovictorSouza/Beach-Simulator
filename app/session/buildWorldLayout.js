@@ -95,6 +95,9 @@ function buildElevatedTerrainSafeZones() {
   ];
 }
 
+const WORKBENCH_SOLID_COLLIDER_PADDING = 0.32;
+const WORKBENCH_RAMP_COLLIDER_PADDING = 0.12;
+
 function createBuildingCollider(id, position, size, surfaceY, offset = [0, 0], padding = 0.12) {
   return {
     id,
@@ -110,7 +113,7 @@ function createBuildingCollider(id, position, size, surfaceY, offset = [0, 0], p
   };
 }
 
-function buildBuildingColliders() {
+export function buildBuildingColliders() {
   return [
     createBuildingCollider(
       "pokemon-center-workshop-solid-collider",
@@ -126,7 +129,7 @@ function buildBuildingColliders() {
       [7.9, 3.0, 4.5],
       3,
       [0, 0.95],
-      0.08
+      WORKBENCH_SOLID_COLLIDER_PADDING
     ),
     createBuildingCollider(
       "workbench-left-side-solid-collider",
@@ -134,7 +137,7 @@ function buildBuildingColliders() {
       [2.1, 3.0, 2.6],
       3,
       [-2.95, -2.75],
-      0.08
+      WORKBENCH_SOLID_COLLIDER_PADDING
     ),
     createBuildingCollider(
       "workbench-right-side-solid-collider",
@@ -142,7 +145,7 @@ function buildBuildingColliders() {
       [2.1, 3.0, 2.6],
       3,
       [2.95, -2.75],
-      0.08
+      WORKBENCH_SOLID_COLLIDER_PADDING
     ),
     createBuildingCollider(
       "workbench-ramp-collider",
@@ -150,7 +153,7 @@ function buildBuildingColliders() {
       [3.6, 0.16, 2.2],
       0.16,
       [0, -3.0],
-      0.04
+      WORKBENCH_RAMP_COLLIDER_PADDING
     )
   ];
 }

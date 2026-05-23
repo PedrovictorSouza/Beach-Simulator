@@ -1,5 +1,6 @@
 import { createQuestLog } from "./createQuestLog.js";
 import {
+  getInventoryItemImageUrl,
   getInventoryPresentationOrder,
   getInventorySlotRole
 } from "./inventoryPresentation.js";
@@ -21,12 +22,6 @@ const ACTIVE_COMPANION_THUMBNAILS = Object.freeze({
 });
 const ACTIVE_COMPANION_ARROW_ICON_URL = new URL("./images/arrow.png", import.meta.url).href;
 const ACTIVE_COMPANION_LT_ICON_URL = new URL("./images/Lt-thumb.png", import.meta.url).href;
-const INVENTORY_ITEM_IMAGES = Object.freeze({
-  leaves: new URL("../../Objects/leave.png", import.meta.url).href,
-  wood: new URL("../../Objects/wood.png", import.meta.url).href,
-  gear: new URL("./images/gear.png", import.meta.url).href,
-  carbon: new URL("../Commodities/carbon/carvao.png", import.meta.url).href
-});
 const SUPPLY_HUD_EXCLUDED_SLOT_ROLES = Object.freeze([
   "currency",
   "key",
@@ -404,7 +399,7 @@ export function createGameHudController({
   }
 
   function renderInventorySlotIconHtml(itemId, item) {
-    const imageUrl = INVENTORY_ITEM_IMAGES[itemId];
+    const imageUrl = getInventoryItemImageUrl(itemId);
 
     if (imageUrl) {
       return `
@@ -1074,7 +1069,7 @@ export function createGameHudController({
           data-empty="false"
           data-item-id="${escapeHtml(itemId)}"
           data-slot-role="${escapeHtml(slotRole)}"
-          data-icon-kind="${INVENTORY_ITEM_IMAGES[itemId] ? "image" : "glyph"}"
+          data-icon-kind="${getInventoryItemImageUrl(itemId) ? "image" : "glyph"}"
         >
           <div
             class="inventory-slot__icon"

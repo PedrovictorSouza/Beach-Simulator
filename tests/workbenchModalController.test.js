@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createWorkbenchModalController } from "../app/ui/workbenchModalController.js";
 import {
   getWorkbenchRecipePresentation,
@@ -26,6 +26,10 @@ function createController() {
 }
 
 describe("createWorkbenchModalController", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it("uses a stable presentation contract for Workbench recipes", () => {
     expect(listWorkbenchRecipePresentations().map((presentation) => presentation.recipeId)).toEqual([
       "greenhouse",
@@ -184,6 +188,7 @@ describe("createWorkbenchModalController", () => {
   });
 
   it("shows the construction recipes and crafts the selected solar station recipe", () => {
+    vi.useFakeTimers();
     const { controller, mount } = createController();
     const craftGreenhouse = vi.fn(() => true);
     const craftCampfire = vi.fn(() => true);
@@ -309,6 +314,16 @@ describe("createWorkbenchModalController", () => {
     expect(craftCampfire).not.toHaveBeenCalled();
     expect(craftStrawBed).toHaveBeenCalledTimes(1);
     expect(craftHouse).not.toHaveBeenCalled();
+    expect(controller.isOpen()).toBe(true);
+    expect(mount.querySelector(".workbench-modal__hint-action")?.textContent).toBe("BUILT");
+    expect(mount.querySelector(".workbench-modal__recipe-guidance")?.textContent).toContain(
+      "Built. Choose a site"
+    );
+
+    vi.advanceTimersByTime(620);
+
+    expect(controller.isOpen()).toBe(false);
+    vi.useRealTimers();
   });
 
   it("lets directional navigation select locked recipes and shows locked instead of build", () => {

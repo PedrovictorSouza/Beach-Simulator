@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { buildBuildingColliders } from "../app/session/buildWorldLayout.js";
 import {
   BULBASAUR_TALK_INTERACT_DISTANCE,
   HELPER_BOT_TALK_INTERACT_DISTANCE,
@@ -120,6 +121,38 @@ describe("findNearbyInteractable", () => {
       },
       distance: expect.any(Number)
     });
+  });
+
+  it("detects the Workbench from forgiving side and ramp approaches", () => {
+    const workbench = {
+      id: "workbench",
+      label: "Workbench",
+      type: "station",
+      position: [...WORKBENCH_POSITION],
+      interactDistance: WORKBENCH_INTERACT_DISTANCE,
+      activeWhen: () => true
+    };
+
+    for (const playerPosition of [
+      [WORKBENCH_POSITION[0] + 7.95, 0, WORKBENCH_POSITION[2]],
+      [WORKBENCH_POSITION[0] - 7.95, 0, WORKBENCH_POSITION[2]],
+      [WORKBENCH_POSITION[0], 0, WORKBENCH_POSITION[2] - 8.05],
+      [WORKBENCH_POSITION[0] + 5.75, 0, WORKBENCH_POSITION[2] - 5.75]
+    ]) {
+      expect(findNearbyInteractable(
+        playerPosition,
+        [],
+        [workbench],
+        { flags: {} }
+      )).toEqual({
+        target: {
+          kind: "station",
+          id: "workbench",
+          label: "Workbench"
+        },
+        distance: expect.any(Number)
+      });
+    }
   });
 
   it("detects the Ruined Colony Terminal from outside its solid collider footprint", () => {
@@ -1571,7 +1604,7 @@ describe("findNearbyInteractable", () => {
     })).toBe("[X / Enter] Place the Colony Flag on the House");
   });
 
-  it("uses A or E copy for Workbench interaction prompts", () => {
+  it("uses A, E, or X copy for Workbench interaction prompts", () => {
     expect(buildNearbyPrompt({
       interactTarget: {
         target: {
@@ -1585,7 +1618,7 @@ describe("findNearbyInteractable", () => {
         actionLabel: "Interact"
       },
       getItemLabel: (itemId) => itemId
-    })).toBe("[E / X] Workbench");
+    })).toBe("[A / E / X] Workbench");
   });
 
   it("normalizes legacy prompt copy at the world prompt boundary", () => {
@@ -1954,6 +1987,37 @@ describe("createCollisionChecker", () => {
     expect(isBlocked([-5, 0, 0])).toEqual({
       blocked: false,
       landingY: 0.16
+    });
+  });
+
+  it("keeps Workbench solid collision forgiving around its visual edges", () => {
+    const workbenchColliders = buildBuildingColliders()
+      .filter((collider) => collider.id.startsWith("workbench-"));
+    const isBlocked = createCollisionChecker(
+      { size: [1, 1, 1] },
+      { size: [1, 1, 1] },
+      [],
+      () => [],
+      () => workbenchColliders,
+      2000
+    );
+    const mainCollider = workbenchColliders.find((collider) => collider.id === "workbench-solid-collider");
+    const leftSideCollider = workbenchColliders.find((collider) => collider.id === "workbench-left-side-solid-collider");
+    const rampCollider = workbenchColliders.find((collider) => collider.id === "workbench-ramp-collider");
+
+    expect(isBlocked([
+      mainCollider.position[0] + mainCollider.size[0] * 0.5 + 0.2,
+      0,
+      mainCollider.position[2]
+    ])).toBe(true);
+    expect(isBlocked([
+      leftSideCollider.position[0],
+      0,
+      leftSideCollider.position[2] - leftSideCollider.size[2] * 0.5 - 0.2
+    ])).toBe(true);
+    expect(isBlocked(rampCollider.position)).toEqual({
+      blocked: false,
+      landingY: rampCollider.surfaceY
     });
   });
 

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createFreeBlockBuildController,
   createFreeBlockBuildState,
+  createFreeBlockModelInstance,
   FREE_BLOCK_TYPES,
   resolveFreeBlockTargetCell
 } from "../app/gameplay/freeBlockBuildSystem.js";
@@ -63,6 +64,26 @@ describe("free block build system", () => {
       placed: true
     });
     expect(buildState.placeFloorBlock({ x: 1, y: 1 })).toEqual({
+      placed: false,
+      reason: "duplicate-floor",
+      blockType: FREE_BLOCK_TYPES.FLOOR,
+      block: null
+    });
+  });
+
+  it("validates floor placement without mutating the build state", () => {
+    const buildState = createBuildState();
+
+    expect(buildState.canPlaceFloorBlock({ x: 1, y: 1 })).toEqual({
+      placed: true,
+      reason: null,
+      blockType: FREE_BLOCK_TYPES.FLOOR,
+      block: null
+    });
+    expect(buildState.getCompletionState().floorCount).toBe(0);
+
+    buildState.placeFloorBlock({ x: 1, y: 1 });
+    expect(buildState.canPlaceFloorBlock({ x: 1, y: 1 })).toEqual({
       placed: false,
       reason: "duplicate-floor",
       blockType: FREE_BLOCK_TYPES.FLOOR,
@@ -183,6 +204,71 @@ describe("free block build system", () => {
       targetCell: { x: 3, y: 2 }
     });
     expect(buildState.getCompletionState().floorCount).toBe(0);
+  });
+
+  it("validates selected block targets through the placement controller", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 8,
+      height: 8
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 8,
+        height: 8
+      }
+    });
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState
+    });
+
+    expect(controller.validateSelectedBlockTarget({
+      playerPosition: [2.5, 0, 2.5],
+      playerYaw: 0
+    })).toMatchObject({
+      handled: true,
+      valid: true,
+      reason: null,
+      blockType: FREE_BLOCK_TYPES.FLOOR,
+      targetCell: { x: 3, y: 2 }
+    });
+
+    buildState.placeFloorBlock({ x: 3, y: 2 });
+    expect(controller.validateSelectedBlockTarget({
+      playerPosition: [2.5, 0, 2.5],
+      playerYaw: 0
+    })).toMatchObject({
+      handled: true,
+      valid: false,
+      reason: "duplicate-floor",
+      targetCell: { x: 3, y: 2 }
+    });
+  });
+
+  it("sizes free block model instances to the grid cell and keeps them on the ground", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1.25,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 8,
+      height: 8,
+      visualOffsetY: 0.03
+    });
+    const instance = createFreeBlockModelInstance({
+      block: { id: "freeBuild:floor:2:3", cell: { x: 2, y: 3 } },
+      gridSystem
+    });
+
+    expect(instance).toMatchObject({
+      id: "freeBuild:floor:2:3",
+      offset: [3.125, 0.03, 4.375],
+      scale: 1.25,
+      blockType: FREE_BLOCK_TYPES.FLOOR,
+      freeBlockCell: { x: 2, y: 3 }
+    });
   });
 
   it("allows new block definitions without changing placement controller branching", () => {

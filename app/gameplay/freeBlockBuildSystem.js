@@ -16,8 +16,8 @@ const DEFAULT_BUILD_BOUNDS = Object.freeze({
   maxY: 255
 });
 const DEFAULT_FREE_BLOCK_FORWARD_DISTANCE = 1;
-const DEFAULT_FREE_BLOCK_INSTANCE_SCALE = 0.54;
-const DEFAULT_FREE_BLOCK_INSTANCE_GROUND_LIFT = 0.28;
+const DEFAULT_FREE_BLOCK_INSTANCE_SCALE = 1;
+const DEFAULT_FREE_BLOCK_INSTANCE_GROUND_LIFT = 0;
 
 function finiteNumberOr(value, fallback) {
   const number = Number(value);
@@ -145,7 +145,7 @@ export function createFreeBlockModelInstance({
   block,
   gridSystem,
   blockType = FREE_BLOCK_TYPES.FLOOR,
-  scale = DEFAULT_FREE_BLOCK_INSTANCE_SCALE,
+  scale = null,
   groundLift = DEFAULT_FREE_BLOCK_INSTANCE_GROUND_LIFT
 } = {}) {
   if (!gridSystem || typeof gridSystem.cellToWorld !== "function") {
@@ -153,6 +153,11 @@ export function createFreeBlockModelInstance({
   }
 
   const cell = normalizeCell(block?.cell || block?.targetCell || block);
+  const defaultScale = finiteNumberOr(gridSystem.cellSize, DEFAULT_FREE_BLOCK_INSTANCE_SCALE);
+  const resolvedScale = scale === null || scale === undefined ?
+    defaultScale :
+    finiteNumberOr(scale, defaultScale);
+  const resolvedGroundLift = finiteNumberOr(groundLift, DEFAULT_FREE_BLOCK_INSTANCE_GROUND_LIFT);
   const worldPosition = gridSystem.cellToWorld(cell, {
     center: true,
     includeVisualOffset: true
@@ -162,10 +167,10 @@ export function createFreeBlockModelInstance({
     id: block?.id || `free-block:${blockType}:${cellKey(cell)}`,
     offset: [
       worldPosition.x,
-      worldPosition.y + groundLift,
+      worldPosition.y + resolvedGroundLift,
       worldPosition.z
     ],
-    scale,
+    scale: resolvedScale,
     yaw: 0,
     pitch: 0,
     roll: 0,
@@ -199,7 +204,7 @@ export function createFreeBlockBuildState({
     return floorBlocks.get(cellKey(normalizeCell(cell))) || null;
   }
 
-  function placeFloorBlock(cell) {
+  function canPlaceFloorBlock(cell) {
     const normalizedCell = cloneCell(cell);
     const key = cellKey(normalizedCell);
 
@@ -215,8 +220,24 @@ export function createFreeBlockBuildState({
       return createRejectedResult(FREE_BLOCK_TYPES.FLOOR, "blocked-cell");
     }
 
+    return {
+      placed: true,
+      reason: null,
+      blockType: FREE_BLOCK_TYPES.FLOOR,
+      block: null
+    };
+  }
+
+  function placeFloorBlock(cell) {
+    const normalizedCell = cloneCell(cell);
+    const canPlace = canPlaceFloorBlock(normalizedCell);
+
+    if (!canPlace.placed) {
+      return canPlace;
+    }
+
     const block = createFloorBlock({ buildId, cell: normalizedCell });
-    floorBlocks.set(key, block);
+    floorBlocks.set(cellKey(normalizedCell), block);
     return {
       placed: true,
       reason: null,
@@ -285,6 +306,7 @@ export function createFreeBlockBuildState({
   return Object.freeze({
     buildId,
     bounds: cloneBounds(buildBounds),
+    canPlaceFloorBlock,
     placeFloorBlock,
     removeFloorBlock,
     getBlockAtCell,
@@ -304,6 +326,18 @@ function createDefaultFloorPlacementDefinition({
 }) {
   return {
     blockType: FREE_BLOCK_TYPES.FLOOR,
+    canPlace(context = {}) {
+      const targetCell = normalizeCell(context.targetCell);
+      const result = buildState.canPlaceFloorBlock(targetCell);
+      return {
+        handled: true,
+        valid: Boolean(result.placed),
+        reason: result.reason,
+        blockType: FREE_BLOCK_TYPES.FLOOR,
+        targetCell,
+        completionState: buildState.getCompletionState()
+      };
+    },
     place(context = {}) {
       const targetCell = normalizeCell(context.targetCell);
       const result = buildState.placeFloorBlock(targetCell);
@@ -443,6 +477,51 @@ export function createFreeBlockBuildController({
     });
   }
 
+  function validateSelectedBlockTarget(options = {}) {
+    const definition = definitions.get(selectedBlockType);
+    if (!definition) {
+      return {
+        handled: false,
+        valid: false,
+        reason: "unknown-block-type",
+        blockType: selectedBlockType,
+        targetCell: null,
+        completionState: buildState.getCompletionState()
+      };
+    }
+
+    const resolvedTargetCell = resolveTargetCell(options);
+    if (!resolvedTargetCell) {
+      return {
+        handled: true,
+        valid: false,
+        reason: "missing-target-cell",
+        blockType: selectedBlockType,
+        targetCell: null,
+        completionState: buildState.getCompletionState()
+      };
+    }
+
+    if (typeof definition.canPlace === "function") {
+      return definition.canPlace({
+        gridSystem,
+        buildState,
+        targetCell: resolvedTargetCell,
+        ...options,
+        selectedBlockType
+      });
+    }
+
+    return {
+      handled: true,
+      valid: true,
+      reason: null,
+      blockType: selectedBlockType,
+      targetCell: resolvedTargetCell,
+      completionState: buildState.getCompletionState()
+    };
+  }
+
   function resolveSelectedBlockTarget(options = {}) {
     const targetCell = resolveTargetCell(options);
 
@@ -504,6 +583,7 @@ export function createFreeBlockBuildController({
     getSelectedBlockType() {
       return selectedBlockType;
     },
+    validateSelectedBlockTarget,
     resolveSelectedBlockTarget,
     placeSelectedBlockAtTarget,
     removeBlockAtTarget,

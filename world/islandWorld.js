@@ -1693,12 +1693,15 @@ export function buildNearbyPrompt({
   const questTitle = normalizeWorldPromptCopy(quest?.title || "Explore");
   const questActionLabel = normalizeWorldPromptCopy(quest?.actionLabel || "Interact");
   const formatInteractPrompt = (detail) => {
+    const promptPrefix = interactTarget?.target?.id === "workbench" ?
+      "[A / E / X]" :
+      interactPromptPrefix;
     const promptDetail = normalizeWorldPromptCopy(detail || "");
     if (!promptDetail || promptDetail === targetLabel || promptDetail === "Explore") {
-      return `${interactPromptPrefix} ${targetLabel}`;
+      return `${promptPrefix} ${targetLabel}`;
     }
 
-    return `${interactPromptPrefix} ${targetLabel} • ${promptDetail}`;
+    return `${promptPrefix} ${targetLabel} • ${promptDetail}`;
   };
 
   if (transientMessage) {

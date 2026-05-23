@@ -6055,16 +6055,26 @@ export function createApplicationRuntime({
     onCampfireCrafted() {
       uiRuntime.bagUiRuntime.handleItemCollected(CAMPFIRE_ITEM_ID, storyState);
       storyBeats.complete(STORY_BEAT_IDS.CAMPFIRE_CREATED);
-      setPendingPlacementIntent({
-        itemId: CAMPFIRE_ITEM_ID,
-        placeableId: GRID_PLACEABLE_IDS.TRAIN_HOUSE,
-        label: SANDBOTS_ITEM_NAMES.thermalCabin
-      });
+      const placementAnchor = gameSession?.playerCharacter?.getPosition?.() || null;
+      if (Array.isArray(placementAnchor)) {
+        startCampfirePlacementPreview(placementAnchor);
+      } else {
+        setPendingPlacementIntent({
+          itemId: CAMPFIRE_ITEM_ID,
+          placeableId: GRID_PLACEABLE_IDS.TRAIN_HOUSE,
+          label: SANDBOTS_ITEM_NAMES.thermalCabin
+        });
+      }
       syncQuestPanels();
     },
     onGreenhouseCrafted() {
       uiRuntime.bagUiRuntime.handleItemCollected(GREENHOUSE_ITEM_ID, storyState);
-      requestGreenhousePlacementIntent();
+      const placementAnchor = gameSession?.playerCharacter?.getPosition?.() || null;
+      if (Array.isArray(placementAnchor)) {
+        startGreenhousePlacementPreview(placementAnchor);
+      } else {
+        requestGreenhousePlacementIntent();
+      }
       syncQuestPanels();
     },
     onGreenhousePlacementRequested({ playerPosition } = {}) {

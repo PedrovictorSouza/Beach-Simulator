@@ -55,6 +55,8 @@ const PLAYER_DUST_CLOUD_DRAW_DISTANCE = 34;
 const PLAYER_DUST_CLOUD_BRIGHTNESS = 0.94;
 const BEE_FIELD_DRAW_DISTANCE = 72;
 const CHARMANDER_MODEL_SCALE = 0.75;
+const BUILDER_MODEL_FACE_YAW_OFFSET = 0;
+const BUILDER_MODEL_SCALE = 0.58;
 const SOLAR_ENERGY_INSTANCE_LAYOUT = Object.freeze([
   { offset: [-74, 0, -58], scale: 0.92, yaw: 0.18 },
   { offset: [-46, 0, -84], scale: 0.84, yaw: -0.28 },
@@ -330,6 +332,7 @@ export function buildSceneAssembly(session, assets) {
     workbenchModel,
     workshopModel,
     boxModel,
+    woodWallModel,
     carbonOreModel,
     gearModel,
     cloudModel,
@@ -343,6 +346,7 @@ export function buildSceneAssembly(session, assets) {
     robot1Model,
     robot2Model,
     charmanderModel,
+    builderModel,
     beeModel,
     gameplayOpeningShipModel,
     characterFactory
@@ -691,11 +695,29 @@ export function buildSceneAssembly(session, assets) {
   }
 
   session.freeBlockInstances ||= [];
-  if (boxModel) {
+  const freeBlockModel = woodWallModel || boxModel;
+  if (freeBlockModel) {
     session.sceneObjects.push(withTerrainSupportDrawDistance({
-      model: boxModel,
+      model: freeBlockModel,
       instances: session.freeBlockInstances,
       brightness: 0.96
+    }));
+    session.freeBlockPreviewInstance ||= {
+      id: "free-block-build-preview",
+      offset: [0, 0, 0],
+      scale: 1,
+      yaw: 0,
+      pitch: 0,
+      roll: 0,
+      alpha: 0.58,
+      tint: [0.36, 1.35, 0.46],
+      tintStrength: 0.36,
+      active: false
+    };
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: freeBlockModel,
+      instances: [session.freeBlockPreviewInstance],
+      brightness: 1.08
     }));
   }
 
@@ -735,6 +757,23 @@ export function buildSceneAssembly(session, assets) {
     session.sceneObjects.push(withTerrainSupportDrawDistance({
       model: charmanderModel,
       instances: [session.charmanderEncounter.modelInstance],
+      brightness: 1
+    }));
+  }
+
+  if (builderModel && session.timburrEncounter) {
+    session.timburrEncounter.model = builderModel;
+    session.timburrEncounter.modelFaceYawOffset = BUILDER_MODEL_FACE_YAW_OFFSET;
+    session.timburrEncounter.modelBaseScale = BUILDER_MODEL_SCALE;
+    session.timburrEncounter.modelInstance = {
+      offset: session.timburrEncounter.position || [0, 0.04, 0],
+      scale: BUILDER_MODEL_SCALE,
+      yaw: BUILDER_MODEL_FACE_YAW_OFFSET,
+      active: false
+    };
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: builderModel,
+      instances: [session.timburrEncounter.modelInstance],
       brightness: 1
     }));
   }

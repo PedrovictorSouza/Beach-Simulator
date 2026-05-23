@@ -1,7 +1,4 @@
-import {
-  createDefaultKeyboardControls,
-  normalizeKeyboardControls
-} from "../../input/gameInputBindings.js";
+import { normalizeControlsState } from "../../input/inputActionBindings.js";
 
 export const SETTINGS_GROUP_IDS = Object.freeze({
   CAMERA: "camera",
@@ -165,9 +162,7 @@ export function createDefaultSettingsState(schema = SETTINGS_SCHEMA) {
       )
     ])
     ),
-    [SETTINGS_GROUP_IDS.CONTROLS]: {
-      keyboard: createDefaultKeyboardControls()
-    }
+    [SETTINGS_GROUP_IDS.CONTROLS]: normalizeControlsState()
   };
 }
 
@@ -196,9 +191,9 @@ export function mergeSettingsState(persistedSettings = {}, schema = SETTINGS_SCH
     }
   }
 
-  defaults[SETTINGS_GROUP_IDS.CONTROLS] = {
-    keyboard: normalizeKeyboardControls(persistedSettings?.[SETTINGS_GROUP_IDS.CONTROLS]?.keyboard)
-  };
+  defaults[SETTINGS_GROUP_IDS.CONTROLS] = normalizeControlsState(
+    persistedSettings?.[SETTINGS_GROUP_IDS.CONTROLS]
+  );
 
   return defaults;
 }

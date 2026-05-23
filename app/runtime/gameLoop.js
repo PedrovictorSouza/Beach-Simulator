@@ -421,6 +421,8 @@ const CHARMANDER_MODEL_FACE_YAW_OFFSET = 0;
 const ROBOT_MODEL_SCALE = 0.5;
 const BULBASAUR_ROBOT_MODEL_SCALE = ROBOT_MODEL_SCALE * 1.3;
 const CHARMANDER_MODEL_SCALE = 0.75;
+const TIMBURR_MODEL_FACE_YAW_OFFSET = 0;
+const TIMBURR_MODEL_SCALE = 0.58;
 const ROBOT_REPAIR_BOX_FLOAT_HEIGHT = 0.74;
 const ROBOT_REPAIR_BOX_BOB_HEIGHT = 0.06;
 const ROBOT_REPAIR_BOX_BOB_SPEED = 2.2;
@@ -456,6 +458,14 @@ const BULBASAUR_LEAFAGE_STAND_DISTANCE = 1.04;
 const BULBASAUR_LEAFAGE_ARRIVE_DISTANCE = 0.08;
 const BULBASAUR_LEAFAGE_CAST_DURATION = 0.58;
 const BULBASAUR_LEAFAGE_IMPACT_TIME = 0.22;
+const BULBASAUR_LEAFAGE_PARTICLE_COUNT = 24;
+const BULBASAUR_LEAFAGE_STREAM_WIDTH = 0.18;
+const BULBASAUR_LEAFAGE_ARC_HEIGHT = 0.46;
+const BULBASAUR_LEAFAGE_PARTICLE_SIZE_MIN = 0.18;
+const BULBASAUR_LEAFAGE_PARTICLE_SIZE_MAX = 0.34;
+const BULBASAUR_LEAFAGE_BURST_PARTICLE_COUNT = 18;
+const BULBASAUR_LEAFAGE_BURST_DURATION = 0.46;
+const BULBASAUR_LEAFAGE_BURST_RADIUS = 0.72;
 const PLAYER_MODEL_SCALE = 0.75;
 const PLAYER_MODEL_FACE_YAW_OFFSET = 0;
 const PLAYER_MODEL_TURN_SPEED = 14;
@@ -4048,6 +4058,10 @@ export function startGameLoop({
     return (session.charmanderEncounter?.modelInstance?.yaw || 0) - CHARMANDER_MODEL_FACE_YAW_OFFSET;
   }
 
+  function getBulbasaurLogicalFacingYaw() {
+    return (session.bulbasaurEncounter?.modelInstance?.yaw || 0) - BULBASAUR_MODEL_FACE_YAW_OFFSET;
+  }
+
   function getGroundCellCenterPosition(groundCell) {
     const offset = groundCell?.offset || [0, 0, 0];
     return [
@@ -4940,8 +4954,24 @@ export function startGameLoop({
     }
   }
 
+  function syncTimburrModelInstance() {
+    const encounter = session.timburrEncounter;
+
+    if (!encounter?.modelInstance) {
+      return;
+    }
+
+    encounter.modelInstance.active = Boolean(encounter.visible && Array.isArray(encounter.position));
+    encounter.modelInstance.scale = Number(encounter.modelBaseScale || TIMBURR_MODEL_SCALE);
+
+    if (Array.isArray(encounter.position)) {
+      encounter.modelInstance.offset = [...encounter.position];
+    }
+  }
+
   function syncCompanionRepairModules() {
     syncCharmanderModelInstance();
+    syncTimburrModelInstance();
     syncDismantledEncounterModule(session.timburrEncounter);
   }
 
@@ -5754,6 +5784,13 @@ export function startGameLoop({
     };
   }
 
+  function isBuildBlockFieldMoveEquipped() {
+    return Boolean(
+      controls.playerSkills?.buildBlock &&
+      controls.getActiveMoveId?.() === "buildBlock"
+    );
+  }
+
   function getFreeBlockBuildController() {
     const gridConfig = getFreeBlockBuildGridConfig();
     const gridSignature = JSON.stringify(gridConfig);
@@ -5871,11 +5908,80 @@ export function startGameLoop({
       center: true,
       includeVisualOffset: true
     });
+    const validation = controller?.validateSelectedBlockTarget?.({
+      targetCell: target.targetCell
+    }) || {
+      valid: true,
+      reason: null
+    };
+    const targetPosition = [worldPosition.x, worldPosition.y, worldPosition.z];
+    const blockedByConstruction = isCompanionPositionBlockedByConstruction(targetPosition);
 
     return {
       targetCell: target.targetCell,
-      targetPosition: [worldPosition.x, worldPosition.y, worldPosition.z]
+      targetPosition,
+      valid: Boolean(validation.valid && !blockedByConstruction),
+      reason: validation.reason || (blockedByConstruction ? "blocked-cell" : null)
     };
+  }
+
+  function getFreeBlockPreviewTarget(playerPosition = null) {
+    const action = session.timburrBuildBlockAction;
+    if (
+      action &&
+      !action.impactApplied &&
+      action.targetCell &&
+      Array.isArray(action.targetPosition)
+    ) {
+      return {
+        targetCell: action.targetCell,
+        targetPosition: action.targetPosition,
+        valid: true,
+        reason: null
+      };
+    }
+
+    return resolveFreeBlockBuildTarget(playerPosition);
+  }
+
+  function syncFreeBlockBuildPreview({ active, playerPosition, nowSeconds = 0 } = {}) {
+    const instance = session.freeBlockPreviewInstance;
+    if (!instance) {
+      return null;
+    }
+
+    if (!active || !Array.isArray(playerPosition)) {
+      instance.active = false;
+      return null;
+    }
+
+    const target = getFreeBlockPreviewTarget(playerPosition);
+    if (!target?.targetCell || !Array.isArray(target.targetPosition)) {
+      instance.active = false;
+      return null;
+    }
+
+    const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
+    const pulse = (Math.sin(nowSeconds * 8) + 1) * 0.5;
+    const valid = target.valid !== false;
+
+    instance.active = true;
+    instance.offset = [
+      target.targetPosition[0],
+      target.targetPosition[1],
+      target.targetPosition[2]
+    ];
+    instance.scale = gridSystem.cellSize;
+    instance.yaw = 0;
+    instance.pitch = 0;
+    instance.roll = 0;
+    instance.alpha = valid ? 0.58 + pulse * 0.12 : 0.42 + pulse * 0.08;
+    instance.tint = valid ? [0.36, 1.35, 0.46] : [1.8, 0.32, 0.28];
+    instance.tintStrength = valid ? 0.34 + pulse * 0.12 : 0.5 + pulse * 0.16;
+    instance.freeBlockCell = target.targetCell;
+    instance.freeBlockPreviewValid = valid;
+    instance.freeBlockPreviewReason = target.reason || null;
+    return target;
   }
 
   function startTimburrBuildBlockAction({ playerPosition }) {
@@ -5900,6 +6006,9 @@ export function startGameLoop({
     const target = resolveFreeBlockBuildTarget(playerPosition);
     if (!target) {
       return "unavailable";
+    }
+    if (!target.valid) {
+      return "invalid";
     }
 
     const approachPosition = getTimburrBuildBlockApproachPosition(
@@ -5951,6 +6060,7 @@ export function startGameLoop({
       const travel = Math.min(TIMBURR_BUILD_BLOCK_SPEED * deltaTime, distance);
 
       if (distance > TIMBURR_BUILD_BLOCK_ARRIVE_DISTANCE && travel > 0) {
+        const previousPosition = [...timburr.position];
         const nextPosition = [
           timburr.position[0] + (deltaX / distance) * travel,
           0.04,
@@ -5960,6 +6070,13 @@ export function startGameLoop({
           session.timburrBuildBlockAction = null;
           cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.builder);
           return;
+        }
+        if (timburr.modelInstance) {
+          timburr.modelInstance.yaw = getRobotModelYawToward(
+            previousPosition,
+            timburr.position,
+            Number(timburr.modelFaceYawOffset ?? TIMBURR_MODEL_FACE_YAW_OFFSET)
+          );
         }
       } else {
         if (isCompanionPositionBlockedByConstruction(action.approachPosition)) {
@@ -7475,6 +7592,105 @@ export function startGameLoop({
           ],
           alpha: fade * 0.9,
           rotation: angle + burstProgress * 1.2,
+          uvRect
+        });
+      }
+    }
+
+    return billboards;
+  }
+
+  function getBulbasaurGrowEmitterPosition() {
+    const bulbasaur = session.bulbasaurEncounter;
+    const position = bulbasaur?.position || bulbasaur?.modelInstance?.offset || [0, 0, 0];
+    const yaw = getBulbasaurLogicalFacingYaw();
+
+    return [
+      position[0] + Math.sin(yaw) * 0.3,
+      (position[1] || 0) + 0.72,
+      position[2] + Math.cos(yaw) * 0.3
+    ];
+  }
+
+  function getBulbasaurLeafageBillboards(action, texture, uvRect) {
+    if (!action || action.phase !== "cast" || !texture || !Array.isArray(action.targetPosition)) {
+      return [];
+    }
+
+    const castElapsed = Math.max(0, Number(action.castElapsed || 0));
+    const progress = clamp01(castElapsed / BULBASAUR_LEAFAGE_CAST_DURATION);
+    const emitterPosition = getBulbasaurGrowEmitterPosition();
+    const targetPosition = action.targetPosition;
+    const streamDirectionX = targetPosition[0] - emitterPosition[0];
+    const streamDirectionZ = targetPosition[2] - emitterPosition[2];
+    const streamLength = Math.hypot(streamDirectionX, streamDirectionZ) || 1;
+    const sideX = -streamDirectionZ / streamLength;
+    const sideZ = streamDirectionX / streamLength;
+    const billboards = [];
+
+    for (let index = 0; index < BULBASAUR_LEAFAGE_PARTICLE_COUNT; index += 1) {
+      const seed = index + 1;
+      const pathProgress = (progress * 1.48 + index * 0.041) % 1;
+      const lane = ((index % 5) - 2) * BULBASAUR_LEAFAGE_STREAM_WIDTH;
+      const sideWobble = Math.sin(castElapsed * 18 + seed * 1.73) * 0.08;
+      const pathLift = Math.sin(pathProgress * Math.PI) * BULBASAUR_LEAFAGE_ARC_HEIGHT;
+      const baseSize = lerp(
+        BULBASAUR_LEAFAGE_PARTICLE_SIZE_MIN,
+        BULBASAUR_LEAFAGE_PARTICLE_SIZE_MAX,
+        hashUnit(seed + 0.37)
+      );
+      const fadeIn = clamp01(castElapsed / 0.08);
+      const fadeOut = clamp01((BULBASAUR_LEAFAGE_CAST_DURATION - castElapsed) / 0.18);
+
+      billboards.push({
+        texture,
+        position: [
+          emitterPosition[0] +
+            (targetPosition[0] - emitterPosition[0]) * pathProgress +
+            sideX * (lane + sideWobble),
+          emitterPosition[1] +
+            (targetPosition[1] - emitterPosition[1]) * pathProgress +
+            pathLift +
+            (hashUnit(seed + 0.57) - 0.5) * 0.08,
+          emitterPosition[2] +
+            (targetPosition[2] - emitterPosition[2]) * pathProgress +
+            sideZ * (lane + sideWobble)
+        ],
+        size: [
+          baseSize * (0.82 + Math.sin(pathProgress * Math.PI) * 0.62),
+          baseSize * (0.82 + hashUnit(seed + 0.77) * 0.5)
+        ],
+        alpha: fadeIn * fadeOut * (0.72 + hashUnit(seed + 0.91) * 0.28),
+        rotation: castElapsed * (2.8 + hashUnit(seed + 1.11) * 3.2) + seed,
+        uvRect
+      });
+    }
+
+    const burstElapsed = castElapsed - BULBASAUR_LEAFAGE_IMPACT_TIME;
+    if (burstElapsed >= 0) {
+      const burstProgress = clamp01(burstElapsed / BULBASAUR_LEAFAGE_BURST_DURATION);
+      const burstRadius = easeOutCubic(burstProgress) * BULBASAUR_LEAFAGE_BURST_RADIUS;
+      const burstLift = Math.sin(burstProgress * Math.PI) * 0.24;
+      const fade = 1 - burstProgress;
+
+      for (let index = 0; index < BULBASAUR_LEAFAGE_BURST_PARTICLE_COUNT; index += 1) {
+        const angle = index * 2.39996 + progress * 2.6;
+        const radius = burstRadius * (0.32 + (index % 4) * 0.18);
+        const size = 0.18 + (index % 3) * 0.04;
+
+        billboards.push({
+          texture,
+          position: [
+            targetPosition[0] + Math.cos(angle) * radius,
+            targetPosition[1] + 0.1 + burstLift + (index % 2) * 0.018,
+            targetPosition[2] + Math.sin(angle) * radius
+          ],
+          size: [
+            size * (1.1 + burstProgress * 1.35),
+            size * (1.1 + Math.sin(burstProgress * Math.PI) * 0.75)
+          ],
+          alpha: fade * 0.92,
+          rotation: angle + burstProgress * 1.8,
           uvRect
         });
       }
@@ -9088,7 +9304,8 @@ export function startGameLoop({
 
     if (isLeafDenConstructionActive()) {
       moveConstructionHelperToLeafDen(encounter, {
-        offset: [1.04, 0, -0.76]
+        offset: [1.04, 0, -0.76],
+        modelFaceYawOffset: Number(encounter.modelFaceYawOffset ?? TIMBURR_MODEL_FACE_YAW_OFFSET)
       });
       return;
     }
@@ -9111,7 +9328,8 @@ export function startGameLoop({
           activeMoveId,
           defaultDistance: TIMBURR_FOLLOW_DISTANCE,
           formationIndex
-        })
+        }),
+        modelFaceYawOffset: Number(encounter.modelFaceYawOffset ?? TIMBURR_MODEL_FACE_YAW_OFFSET)
       });
     }
   }
@@ -9729,10 +9947,14 @@ export function startGameLoop({
       session.playerCharacter &&
       controls.consumeFreeBlockBuildRequest?.()
     ) {
-      if (buildBlockEquipped) {
-        startTimburrBuildBlockAction({
+      if (isBuildBlockFieldMoveEquipped()) {
+        const buildRequestResult = startTimburrBuildBlockAction({
           playerPosition: session.playerCharacter.getPosition()
         });
+        if (buildRequestResult === "invalid") {
+          playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
+          hud?.pushNotice?.("Block can't be placed there.");
+        }
       } else {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
       }
@@ -9851,9 +10073,23 @@ export function startGameLoop({
       activeMoveId === "fire"
     );
     const buildBlockEquipped = Boolean(
-      controls.playerSkills?.buildBlock &&
-      activeMoveId === "buildBlock"
+      isBuildBlockFieldMoveEquipped()
     );
+    syncFreeBlockBuildPreview({
+      active: Boolean(
+        buildBlockEquipped &&
+        session.playerCharacter &&
+        !cinematicActive &&
+        !gameplayOpeningCameraActive &&
+        !tutorialActive &&
+        !pokedexModalOpen &&
+        !skillLearnActive &&
+        !scriptedInteractionActive &&
+        !dialogueActive
+      ),
+      playerPosition: session.playerCharacter?.getPosition?.(),
+      nowSeconds: now * 0.001
+    });
     const isWaterGunTreeTarget = (target) => Boolean(
       waterGunEquipped &&
       target?.palm
@@ -10247,6 +10483,9 @@ export function startGameLoop({
           } else if (timburrBuildBlockResult === "unavailable") {
             playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
             hud?.pushNotice?.(`${SANDBOTS_BOT_NAMES.builder} needs to be nearby.`);
+          } else if (timburrBuildBlockResult === "invalid") {
+            playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
+            hud?.pushNotice?.("Block can't be placed there.");
           } else if (timburrBuildBlockResult === "busy") {
             playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
           }
@@ -12499,6 +12738,13 @@ export function startGameLoop({
       )
     );
     nextFrame.render.genericBillboards.push(
+      ...getBulbasaurLeafageBillboards(
+        session.bulbasaurLeafageAction,
+        session.natureRevivalSparkTexture,
+        rendering.fullUvRect
+      )
+    );
+    nextFrame.render.genericBillboards.push(
       ...getSquirtleChargingBillboards(
         session.squirtleChargingParticleTexture,
         rendering.fullUvRect,
@@ -12529,12 +12775,14 @@ export function startGameLoop({
         uvRect: rendering.fullUvRect
       });
     }
-    nextFrame.render.genericBillboards.push({
-      texture: session.timburrEncounter?.visible ? session.timburrEncounter.texture : null,
-      position: session.timburrEncounter?.visible ? session.timburrEncounter.position : null,
-      size: session.timburrEncounter?.visible ? session.timburrEncounter.size : null,
-      uvRect: rendering.fullUvRect
-    });
+    if (!session.timburrEncounter?.modelInstance) {
+      nextFrame.render.genericBillboards.push({
+        texture: session.timburrEncounter?.visible ? session.timburrEncounter.texture : null,
+        position: session.timburrEncounter?.visible ? session.timburrEncounter.position : null,
+        size: session.timburrEncounter?.visible ? session.timburrEncounter.size : null,
+        uvRect: rendering.fullUvRect
+      });
+    }
     nextFrame.render.genericBillboards.push(
       ...getNatureRevivalBillboards(
         session.natureRevivalEffects,

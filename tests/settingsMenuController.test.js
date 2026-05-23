@@ -29,9 +29,16 @@ describe("createSettingsMenuController", () => {
     expect(mount.querySelector('[data-settings-tab-panel="settings"]')?.hidden).toBe(true);
     expect(mount.querySelectorAll("[data-settings-tab]")).toHaveLength(4);
     expect(mount.querySelectorAll("[data-settings-group-button]")).toHaveLength(4);
+    expect(mount.querySelector(".settings-menu__title")).toBeNull();
+    expect(mount.querySelector(".settings-menu__hint")).toBeNull();
+    expect(
+      Array.from(mount.querySelector(".settings-menu__header")?.children || []).map(
+        (element) => element.getAttribute("data-settings-action") || element.className
+      )
+    ).toEqual(["close"]);
     expect(mount.textContent).toContain("Bots");
     expect(mount.textContent).not.toContain("Pokemons");
-    expect(mount.textContent).toContain("Colony log online");
+    expect(mount.textContent).not.toContain("Colony log online");
     expect(mount.textContent).toContain("Camera");
     expect(mount.textContent).toContain("Follow Strength");
 
@@ -99,6 +106,11 @@ describe("createSettingsMenuController", () => {
     });
 
     controller.open();
+    const closeButton = mount.querySelector("[data-settings-action='close']");
+    expect(closeButton?.getAttribute("aria-label")).toBe("Close");
+    expect(closeButton?.style.backgroundImage).toContain("close-btn-micro.png");
+    expect(closeButton?.style.width).toBe("80px");
+    expect(closeButton?.style.height).toBe("80px");
     mount.querySelector("[data-settings-action='close']")?.dispatchEvent(
       new MouseEvent("click", { bubbles: true })
     );
@@ -124,18 +136,29 @@ describe("createSettingsMenuController", () => {
 
     expect(menu?.getAttribute("role")).toBe("dialog");
     expect(menu?.getAttribute("aria-modal")).toBe("true");
-    expect(menu?.getAttribute("aria-describedby")).toBe("settings-menu-hint");
+    expect(menu?.hasAttribute("aria-describedby")).toBe(false);
     expect(bagTab?.getAttribute("role")).toBe("tab");
     expect(bagTab?.getAttribute("aria-controls")).toBe("settings-menu-panel-bag");
     expect(bagTab?.tabIndex).toBe(0);
     expect(pokemonsTab?.tabIndex).toBe(-1);
     expect(document.activeElement).toBe(bagTab);
+    expect(bagTab?.style.background).toBe("transparent");
+    expect(bagTab?.style.backgroundImage).toBe("none");
+    expect(bagTab?.style.borderWidth).toBe("0px");
+    expect(bagTab?.style.boxShadow).toBe("none");
+    expect(bagTab?.style.transform).toBe("none");
+    expect(bagTab?.style.animation).toBe("none");
+    expect(bagTab?.style.transition).toBe("none");
+    expect(bagTab?.style.color).toBe("rgb(255, 211, 95)");
+    expect(pokemonsTab?.style.color).toBe("rgb(255, 255, 255)");
 
     expect(controller.handleKeydown(new KeyboardEvent("keydown", { code: "ArrowRight" }))).toBe(true);
     expect(mount.querySelector('[data-settings-tab-panel="pokemons"]')?.hidden).toBe(false);
     expect(document.activeElement).toBe(pokemonsTab);
     expect(bagTab?.tabIndex).toBe(-1);
     expect(pokemonsTab?.tabIndex).toBe(0);
+    expect(bagTab?.style.color).toBe("rgb(255, 255, 255)");
+    expect(pokemonsTab?.style.color).toBe("rgb(255, 211, 95)");
 
     expect(controller.handleKeydown(new KeyboardEvent("keydown", { code: "Home" }))).toBe(true);
     expect(mount.querySelector('[data-settings-tab-panel="bag"]')?.hidden).toBe(false);
@@ -235,6 +258,7 @@ describe("createSettingsMenuController", () => {
     document.body.append(mount);
     const inventory = {
       campfire: 1,
+      gear: 5,
       wood: 3,
       leaves: 2,
       squirtleFollowing: 1
@@ -258,6 +282,15 @@ describe("createSettingsMenuController", () => {
         ink: "#fff1e8",
         slotRole: "material"
       },
+      gear: {
+        id: "gear",
+        bagLabel: "Gear",
+        bagDetailsEligible: true,
+        glyph: "G",
+        color: "#c7ccd7",
+        ink: "#11151d",
+        slotRole: "material"
+      },
       leaves: {
         id: "leaves",
         bagLabel: "Leaves",
@@ -278,7 +311,7 @@ describe("createSettingsMenuController", () => {
       schema: SETTINGS_SCHEMA,
       settingsState: createDefaultSettingsState(),
       inventory,
-      inventoryOrder: ["wood", "leaves", "squirtleFollowing", "campfire"],
+      inventoryOrder: ["wood", "gear", "leaves", "squirtleFollowing", "campfire"],
       itemDefs
     });
 
@@ -286,11 +319,23 @@ describe("createSettingsMenuController", () => {
 
     const bagGrid = mount.querySelector("[data-settings-bag-grid]");
     expect(mount.querySelector('[data-settings-tab-panel="bag"]')?.hidden).toBe(false);
-    expect(bagGrid?.querySelectorAll('[data-filled="true"]')).toHaveLength(3);
+    expect(bagGrid?.querySelectorAll('[data-filled="true"]')).toHaveLength(4);
+    const campfireSlot = bagGrid?.querySelector('[title="Thermal Cabin"]');
+    const woodSlot = Array.from(bagGrid?.querySelectorAll(".settings-menu__bag-slot") || [])
+      .find((slot) => slot.textContent?.includes("Sturdy stick"));
+    const gearSlot = Array.from(bagGrid?.querySelectorAll(".settings-menu__bag-slot") || [])
+      .find((slot) => slot.textContent?.includes("Gear"));
     expect(bagGrid?.textContent).toContain("Thermal Cabin");
     expect(bagGrid?.textContent).toContain("Sturdy stick");
+    expect(bagGrid?.textContent).toContain("Gear");
     expect(bagGrid?.textContent).toContain("Leaves");
     expect(bagGrid?.textContent).toContain("3");
+    expect(campfireSlot?.dataset.iconKind).toBe("glyph");
+    expect(campfireSlot?.querySelector(".inventory-slot__image")).toBeNull();
+    expect(woodSlot?.dataset.iconKind).toBe("image");
+    expect(woodSlot?.querySelector(".inventory-slot__image")?.getAttribute("src")).toContain("Objects/wood.png");
+    expect(gearSlot?.dataset.iconKind).toBe("image");
+    expect(gearSlot?.querySelector(".inventory-slot__image")?.getAttribute("src")).toContain("images/gear.png");
     expect(bagGrid?.textContent).not.toContain("Squirtle");
     expect(mount.querySelector(".settings-menu__bag-empty")?.hidden).toBe(true);
 
@@ -502,6 +547,72 @@ describe("createSettingsMenuController", () => {
 
     expect(controller.handleKeydown(new KeyboardEvent("keydown", { code: "PageUp" }))).toBe(true);
     expect(mount.querySelector('[data-settings-tab-panel="controls"]')?.hidden).toBe(false);
+  });
+
+  it("handles canonical gamepad menu actions with real DOM focus", () => {
+    const mount = document.createElement("div");
+    document.body.append(mount);
+    const onClose = vi.fn();
+    const controller = createSettingsMenuController({
+      mount,
+      schema: SETTINGS_SCHEMA,
+      settingsState: createDefaultSettingsState(),
+      onClose
+    });
+
+    controller.open();
+
+    expect(document.activeElement).toBe(mount.querySelector('[data-settings-tab="bag"]'));
+    expect(controller.handleGamepadAction("right")).toBe(true);
+    expect(mount.querySelector('[data-settings-tab-panel="pokemons"]')?.hidden).toBe(false);
+    expect(document.activeElement).toBe(mount.querySelector('[data-settings-tab="pokemons"]'));
+
+    expect(controller.handleGamepadAction("nextTab")).toBe(true);
+    expect(mount.querySelector('[data-settings-tab-panel="controls"]')?.hidden).toBe(false);
+
+    expect(controller.handleGamepadAction({ action: "prevTab" })).toBe(true);
+    expect(mount.querySelector('[data-settings-tab-panel="pokemons"]')?.hidden).toBe(false);
+
+    expect(controller.handleGamepadAction("b")).toBe(true);
+    expect(controller.isOpen()).toBe(false);
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(controller.handleGamepadAction("b")).toBe(false);
+
+    mount.remove();
+  });
+
+  it("uses gamepad actions to focus and adjust Settings controls", () => {
+    const mount = document.createElement("div");
+    document.body.append(mount);
+    const settingsState = createDefaultSettingsState();
+    const onChange = vi.fn();
+    const controller = createSettingsMenuController({
+      mount,
+      schema: SETTINGS_SCHEMA,
+      settingsState,
+      onChange
+    });
+
+    controller.open();
+    controller.setActiveTab("settings", { focus: true });
+
+    expect(document.activeElement).toBe(mount.querySelector('[data-settings-group-button="camera"]'));
+
+    expect(controller.handleGamepadAction("down")).toBe(true);
+    expect(document.activeElement).toBe(mount.querySelector('[data-settings-group-button="volume"]'));
+
+    expect(controller.handleGamepadAction("a")).toBe(true);
+    expect(document.activeElement).toBe(mount.querySelector('[data-settings-control="volume.master"]'));
+
+    expect(controller.handleGamepadAction("right")).toBe(true);
+    expect(settingsState.volume.master).toBe(0.82);
+    expect(onChange).toHaveBeenCalledWith(settingsState, expect.objectContaining({
+      groupId: "volume",
+      settingId: "master",
+      value: 0.82
+    }));
+
+    mount.remove();
   });
 
   it("rebounds keyboard controls from the Controls tab and can reset them", () => {

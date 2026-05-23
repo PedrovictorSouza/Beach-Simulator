@@ -16,6 +16,9 @@ const WORKSHOP_MODEL_TEXTURE_PATH = new URL("../../buildings/workshop/workshop.p
 const BOX_MODEL_GLTF_PATH = new URL("../../buildings/Box/box.gltf", import.meta.url).href;
 const BOX_MODEL_BIN_PATH = new URL("../../buildings/Box/box.bin", import.meta.url).href;
 const BOX_MODEL_TEXTURE_PATH = new URL("../../buildings/Box/box.png", import.meta.url).href;
+const WOOD_WALL_MODEL_GLTF_PATH = "/assets/commodities/wood-wall/wood-floor.gltf";
+const WOOD_WALL_MODEL_BIN_PATH = "/assets/commodities/wood-wall/wood-floor.bin";
+const WOOD_WALL_MODEL_TEXTURE_PATH = "/assets/commodities/wood-wall/wood-floor.png";
 const CLOUD_MODEL_GLTF_PATH = new URL("../../buildings/cloud/cloud.gltf", import.meta.url).href;
 const CLOUD_MODEL_BIN_PATH = new URL("../../buildings/cloud/cloud.bin", import.meta.url).href;
 const CLOUD_MODEL_TEXTURE_PATH = new URL("../../buildings/cloud/cloud.png", import.meta.url).href;
@@ -168,6 +171,7 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     workbenchModel,
     workshopModel,
     boxModel,
+    woodWallModel,
     deadTreeModel,
     tree2Model,
     leppaTreeDeadModel,
@@ -252,6 +256,14 @@ export async function loadTerrainAssets({ gl, setStatus }) {
       binPath: BOX_MODEL_BIN_PATH,
       texturePath: BOX_MODEL_TEXTURE_PATH,
       normalizedSize: 2.05,
+      onStatus: setStatus
+    }),
+    loadTexturedModel({
+      gl,
+      gltfPath: WOOD_WALL_MODEL_GLTF_PATH,
+      binPath: WOOD_WALL_MODEL_BIN_PATH,
+      texturePath: WOOD_WALL_MODEL_TEXTURE_PATH,
+      normalizedSize: 1,
       onStatus: setStatus
     }),
     loadTexturedModel({
@@ -372,6 +384,7 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     workbenchModel,
     workshopModel,
     boxModel,
+    woodWallModel,
     deadTreeModel,
     tree2Model,
     leppaTreeDeadModel,

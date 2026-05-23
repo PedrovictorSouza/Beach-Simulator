@@ -33,6 +33,13 @@ const FOLLOWER_SUPPLY_EXCLUDED_ITEM_IDS = new Set([
   "timburrFollowing"
 ]);
 
+const INVENTORY_ITEM_IMAGES = Object.freeze({
+  leaves: new URL("../../Objects/leave.png", import.meta.url).href,
+  wood: new URL("../../Objects/wood.png", import.meta.url).href,
+  gear: new URL("./images/gear.png", import.meta.url).href,
+  carbon: new URL("../Commodities/carbon/carvao.png", import.meta.url).href
+});
+
 function normalizeExclusionSet(value) {
   if (!value) {
     return null;
@@ -48,6 +55,10 @@ export function getInventorySlotRole(item = {}) {
 export function getInventorySlotRoleLabel(item = {}) {
   const role = getInventorySlotRole(item);
   return item.slotRoleLabel || INVENTORY_SLOT_ROLE_LABELS[role] || INVENTORY_SLOT_ROLE_LABELS.other;
+}
+
+export function getInventoryItemImageUrl(itemId) {
+  return INVENTORY_ITEM_IMAGES[itemId] || "";
 }
 
 export function getInventoryPresentationOrder(
