@@ -103,6 +103,35 @@ describe("createWorldSpeechController", () => {
     expect(prompt?.textContent).toBe("");
   });
 
+  it("renders counter prompts with scalable letter pop markup", () => {
+    const mount = document.createElement("div");
+    const controller = createWorldSpeechController({ mount });
+    const promptText = "Carbon x28 - Thermal fuel";
+
+    controller.showPrompt({
+      text: promptText,
+      promptKind: "counter",
+      worldPosition: [1, 0, 2]
+    });
+
+    const prompt = mount.querySelector('[data-world-speech-variant="player-prompt"]');
+    const bubble = prompt?.querySelector(".act-two-tutorial__speech-bubble");
+    const letterPop = bubble?.querySelector(".world-prompt-letter-pop");
+    const letters = [...(bubble?.querySelectorAll(".world-prompt-letter-pop__char") || [])];
+    const words = [...(bubble?.querySelectorAll(".world-prompt-letter-pop__word") || [])];
+    const styleText = document.getElementById("world-prompt-letter-pop-style")?.textContent || "";
+
+    expect(prompt?.dataset.worldPromptKind).toBe("counter");
+    expect(letterPop?.getAttribute("aria-label")).toBe(promptText);
+    expect(bubble?.textContent).toBe(promptText);
+    expect(letters).toHaveLength(Array.from(promptText.replace(/\s+/g, "")).length);
+    expect(words).toHaveLength(5);
+    expect(letters[0].style.getPropertyValue("--letter-index")).toBe("0");
+    expect(styleText).toContain("font-size: 68px");
+    expect(styleText).toContain("max-width: min(760px, calc(100vw - 64px))");
+    expect(styleText).toContain("text-align: center");
+  });
+
   it("keeps text prompts visible during their exit motion", () => {
     vi.useFakeTimers();
     try {

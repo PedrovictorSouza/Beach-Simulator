@@ -2,6 +2,7 @@ export const FIELD_ABILITY_COMPANION_BY_ID = {
   waterGun: "squirtle",
   leafage: "bulbasaur",
   fire: "charmander",
+  buildBlock: "timburr",
 } as const;
 
 export type FieldAbilityId = keyof typeof FIELD_ABILITY_COMPANION_BY_ID;

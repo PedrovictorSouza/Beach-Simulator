@@ -14,6 +14,30 @@
         font-display: block;
 }
 
+@font-face {
+        font-family: "Monster Friend Fore";
+        src: url("../app/fonts/MonsterFriendFore.otf") format("opentype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+}
+
+@font-face {
+        font-family: "Mario Kart DS";
+        src: url("../app/ui/fonts/Mario-Kart-DS.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+}
+
+@font-face {
+        font-family: "Super Mario World";
+        src: url("../app/ui/fonts/Super-Mario-World.ttf") format("truetype");
+        font-weight: 400;
+        font-style: normal;
+        font-display: block;
+}
+
 :root {
         color-scheme: dark;
         --bg: #1d2b53;
@@ -33,6 +57,7 @@
         --hud-scale: 1;
         --overlay-scale: 1;
         --guide-scale: 1;
+        --ui-button-bg-image: url("../app/ui/images/btn.png");
       }
 
       * {
@@ -218,7 +243,7 @@
         max-width: 8ch;
         margin: 0;
         font-size: 80px;
-        line-height: 0.44;
+        line-height: 1;
         letter-spacing: -0.06em;
         color: #ffffff;
         text-shadow:
@@ -689,13 +714,13 @@
       .memory-frame__meta strong,
       .trainer-editor__copy strong {
         font-size: clamp(13px, 1.2vw, 17px);
-        line-height: 0.54;
+        line-height: 1;
       }
 
       .memory-frame__meta p {
         margin: 0;
         font-size: 7.5px;
-        line-height: 0.8;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -990,7 +1015,7 @@
 
       .cinematic-shell__title strong {
         font-size: clamp(15px, 2vw, 26px);
-        line-height: 0.51;
+        line-height: 1;
         font-weight: 700;
       }
 
@@ -1006,7 +1031,7 @@
         color: #ffffff;
         font-family: var(--game-ui-font);
         font-size: 8px;
-        line-height: 0.5;
+        line-height: 1;
         text-align: center;
         text-shadow: 0 3px 0 rgba(0, 0, 0, 0.42);
         transition: opacity 110ms ease, transform 110ms ease;
@@ -1086,7 +1111,7 @@
         box-shadow: none;
         color: #ffffff;
         font-size: clamp(10px, 1vw, 15px);
-        line-height: 0.6;
+        line-height: 1;
         text-align: center;
         text-shadow:
           2px 0 0 #050307,
@@ -1138,13 +1163,13 @@
 
       .act-two-tutorial__title {
         font-size: clamp(12px, 1.2vw, 18px);
-        line-height: 0.52;
+        line-height: 1;
       }
 
       .act-two-tutorial__copy {
         margin: 0;
         font-size: 9px;
-        line-height: 0.725;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -1188,7 +1213,7 @@
         background: linear-gradient(180deg, rgba(135, 208, 234, 0.96), rgba(90, 170, 205, 0.94));
         box-shadow: 0 8px 22px rgba(7, 18, 42, 0.18);
         font-size: 9px;
-        line-height: 0.5;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -1214,7 +1239,7 @@
         width: min(72%, 760px);
         margin: 0;
         font-size: clamp(12px, 1.25vw, 20px);
-        line-height: 0.64;
+        line-height: 1;
       }
 
       .act-two-dialogue__body[data-speakerless="true"] .act-two-dialogue__text {
@@ -1275,7 +1300,7 @@
         color: #ffffff;
         font: inherit;
         font-size: 7px;
-        line-height: 0.675;
+        line-height: 1;
       }
 
       .act-two-dialogue__ai-textarea--instruction {
@@ -1408,7 +1433,7 @@
         box-shadow: 0 18px 38px rgba(10, 16, 38, 0.2);
         color: #ffffff;
         font-size: 16px;
-        line-height: 0.5;
+        line-height: 1;
         font-weight: 700;
       }
 
@@ -1475,7 +1500,7 @@
 
       .name-entry__prompt strong {
         font-size: clamp(17px, 1.85vw, 30px);
-        line-height: 0.52;
+        line-height: 1;
         font-weight: 500;
       }
 
@@ -1505,7 +1530,7 @@
         align-items: center;
         gap: 6px;
         font-size: clamp(19px, 2vw, 31px);
-        line-height: 0.5;
+        line-height: 1;
         letter-spacing: 0.04em;
         color: #ffffff;
       }
@@ -1724,7 +1749,7 @@
 
       .pokedex-entry__heading strong {
         font-size: clamp(15.2px, 1.6vw, 24.8px);
-        line-height: 0.5;
+        line-height: 1;
         font-weight: 500;
       }
 
@@ -1779,7 +1804,7 @@
         padding-top: 18px;
         border-top: 50px solid rgb(255 255 255 / 94%);
         font-size: clamp(8.8px, 0.88vw, 13.6px);
-        line-height: 0.775;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -1796,7 +1821,7 @@
 
       .pokedex-entry__species {
         font-size: clamp(11.2px, 1.2vw, 16.8px);
-        line-height: 0.55;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -1847,7 +1872,7 @@
 
       .pokedex-entry__stat strong {
         font-size: clamp(9.6px, 0.96vw, 13.6px);
-        line-height: 0.55;
+        line-height: 1;
         font-weight: 500;
       }
 
@@ -1918,7 +1943,7 @@
         color: #ffffff;
         font-size: 48px;
         font-weight: 700;
-        line-height: 0.5;
+        line-height: 1;
       }
 
       .pokedex-entry__where-count {
@@ -1975,7 +2000,7 @@
         color: #ffffff;
         font-size: 8.8px;
         font-weight: 700;
-        line-height: 0.5;
+        line-height: 1;
         box-shadow:
           inset 0 0 0 2px rgba(255, 255, 255, 0.2),
           0 6px 14px rgba(44, 48, 61, 0.16);
@@ -2184,7 +2209,7 @@
       .pokedex-entry__info-card p {
         margin: 0;
         font-size: 9.6px;
-        line-height: 0.675;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -2252,14 +2277,14 @@
       .pokedex-entry__request-card h3 {
         margin: 0;
         font-size: clamp(12px, 1.2vw, 18.4px);
-        line-height: 0.525;
+        line-height: 1;
         color: #ffffff;
       }
 
       .pokedex-entry__request-card p {
         margin: 0;
         font-size: 8.8px;
-        line-height: 0.675;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -2280,7 +2305,7 @@
       .pokedex-entry__request-row strong {
         color: #ffffff;
         font-size: 8px;
-        line-height: 0.65;
+        line-height: 1;
       }
 
       .pokedex-entry__art {
@@ -3298,7 +3323,7 @@
 
       .intro-confirm-card__copy strong {
         font-size: 10px;
-        line-height: 0.64;
+        line-height: 1;
       }
 
       .intro-confirm-card__actions {
@@ -4069,7 +4094,7 @@
         width: calc(min(var(--status-width), calc(100% - var(--ui-gap) * 2)) / var(--hud-scale));
         padding: 14px 16px;
         font-size: 6.5px;
-        line-height: 0.725;
+        line-height: 1;
         color: #ffffff;
         background: rgba(9, 12, 18, 0.72);
         border: 1px solid rgba(255, 255, 255, 0.08);
@@ -4235,7 +4260,7 @@
         overflow: hidden;
         color: #ffffff;
         font-size: 4.5px;
-        line-height: 0.5;
+        line-height: 1;
         letter-spacing: 0.04em;
         text-transform: none;
         text-overflow: ellipsis;
@@ -4262,8 +4287,9 @@
         position: absolute;
         right: 4px;
         bottom: 1px;
+        font-family: "Monster Friend Fore", var(--game-ui-font, monospace);
         font-size: clamp(5.5px, 0.5vw + 4.5px, 8.5px);
-        line-height: 0.5;
+        line-height: 1;
         font-weight: 700;
         color: #ffffff;
       }
@@ -4295,7 +4321,7 @@
 
       .settings-menu__title {
         font-size: clamp(11px, 1vw, 16px);
-        line-height: 0.5;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -4304,7 +4330,7 @@
         max-width: 72ch;
         color: #ffffff;
         font-size: 6px;
-        line-height: 0.675;
+        line-height: 1;
         text-transform: none;
       }
 
@@ -4472,7 +4498,7 @@
       .settings-menu__setting-label {
         min-width: 0;
         color: #ffffff;
-        line-height: 0.6;
+        line-height: 1;
       }
 
       .settings-menu__setting-value {
@@ -4650,7 +4676,7 @@
 
       .mission-card__copy {
         font-size: 7px;
-        line-height: 0.75;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -4803,7 +4829,7 @@
 
       .guide-brand__title {
         font-size: 10px;
-        line-height: 0.55;
+        line-height: 1;
       }
 
       .guide-brand__copy,
@@ -4814,7 +4840,7 @@
       .empty-state p {
         margin: 0;
         font-size: 6px;
-        line-height: 0.775;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -4890,7 +4916,7 @@
       .detail-title {
         margin: 0;
         font-size: 13px;
-        line-height: 0.52;
+        line-height: 1;
       }
 
       .guide-close,
@@ -5033,13 +5059,13 @@
       .guide-home-card h3 {
         margin: 8px 0 6px;
         font-size: 9px;
-        line-height: 0.57;
+        line-height: 1;
       }
 
       .recipe-card__copy {
         margin: 0 0 12px;
         font-size: 6px;
-        line-height: 0.75;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -5123,7 +5149,7 @@
       .guide-bundle-card__title,
       .playbook-card__title {
         margin: 8px 0 6px;
-        line-height: 0.575;
+        line-height: 1;
       }
 
       .guides-hero__title,
@@ -5142,7 +5168,7 @@
       .playbook-tip p {
         margin: 0;
         font-size: 6px;
-        line-height: 0.8;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -5162,7 +5188,7 @@
 
       .playbook-tip strong {
         font-size: 7px;
-        line-height: 0.65;
+        line-height: 1;
       }
 
       .guides-cta {
@@ -5216,7 +5242,7 @@
       .article-section__title {
         margin: 8px 0 6px;
         font-size: 10px;
-        line-height: 0.575;
+        line-height: 1;
       }
 
       .toolkit-card__copy,
@@ -5227,7 +5253,7 @@
       .article-related-card p {
         margin: 0;
         font-size: 6px;
-        line-height: 0.8;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -5288,13 +5314,13 @@
 
       .article-anchor__copy strong {
         font-size: 8px;
-        line-height: 0.6;
+        line-height: 1;
       }
 
       .article-anchor__copy p {
         margin: 0;
         font-size: 6px;
-        line-height: 0.775;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -5304,7 +5330,7 @@
         display: grid;
         gap: 8px;
         font-size: 6px;
-        line-height: 0.775;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -5314,7 +5340,7 @@
         border: 1px solid rgba(255, 204, 170, 0.14);
         background: rgba(255, 204, 170, 0.06);
         font-size: 6px;
-        line-height: 0.775;
+        line-height: 1;
       }
 
       .article-formula-wrap {
@@ -5338,7 +5364,7 @@
         background: rgba(10, 14, 24, 0.96);
         color: #ffffff;
         font-size: 6px;
-        line-height: 0.775;
+        line-height: 1;
       }
 
       .article-note,
@@ -5351,7 +5377,7 @@
       .article-note strong,
       .article-related-card strong {
         font-size: 7px;
-        line-height: 0.65;
+        line-height: 1;
       }
 
       .article-link-card,
@@ -5392,7 +5418,7 @@
         display: grid;
         gap: 10px;
         font-size: 6px;
-        line-height: 0.775;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -5433,7 +5459,7 @@
       .detail-faq__item p {
         margin: 0;
         font-size: 6px;
-        line-height: 0.775;
+        line-height: 1;
         color: #ffffff;
       }
 
@@ -5468,7 +5494,7 @@
         max-width: 140px;
         padding: 7px 9px;
         font-size: 5.5px;
-        line-height: 0.65;
+        line-height: 1;
       }
 
       .map-point[data-kind="Shelter"] {
@@ -5511,7 +5537,7 @@
         border-bottom: 1px solid rgba(255, 255, 255, 0.05);
         vertical-align: top;
         font-size: 6px;
-        line-height: 0.75;
+        line-height: 1;
         text-align: left;
       }
 
@@ -5753,6 +5779,36 @@
         .database-table td {
           padding: 10px;
         }
+      }
+
+      :where(
+        .start-card__button,
+        .intro-room-debug button,
+        .intro-confirm-button,
+        .pokedex-entry__close,
+        .pokedex-entry__tabs button,
+        .hud-alert,
+        .act-two-dialogue button,
+        .settings-menu button,
+        .guide-nav__button,
+        .guide-filter,
+        .guide-jump,
+        .guide-close,
+        .detail-action,
+        .database-row-button,
+        .recipe-card__button,
+        .toolkit-card__button,
+        .article-shelf-card__button,
+        .article-outline__button,
+        .workbench-modal__hint,
+        .workbench-modal__hint-close,
+        .pokemon-center-pc-modal__nav
+      ) {
+        background-image: var(--ui-button-bg-image);
+        background-size: 100% 100%;
+        background-position: center;
+        background-repeat: no-repeat;
+        image-rendering: pixelated;
       }
 
       @media (max-height: 720px) {

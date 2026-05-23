@@ -15,6 +15,7 @@ const CORE_FIELD_MOVE_ABILITY_IDS = [
   "waterGun",
   "leafage",
   "fire",
+  "buildBlock",
   "cut",
   "rockSmash",
   "rototiller",
@@ -66,6 +67,9 @@ describe("small island move data", () => {
     expect(formatActiveMoveGuidanceByAbilityId("waterGun", {
       pendingWaterGunCount: 2
     })).toBe("Hydro Jet: Hydro Bot has 2 tiles queued.");
+    expect(formatActiveMoveGuidanceByAbilityId("buildBlock")).toBe(
+      "Build: ask Builder Bot to place a floor block."
+    );
     expect(formatActiveMoveGuidanceByAbilityId("unknown")).toBeNull();
   });
 
@@ -86,6 +90,9 @@ describe("small island move data", () => {
     ]);
     expect(getSmallIslandMoveById("fire").firstUseCompleteFlags).toEqual([
       "fireWhiteGroundBurned"
+    ]);
+    expect(getSmallIslandMoveById("build-block").firstUseCompleteFlags).toEqual([
+      "firstFreeBlockPlaced"
     ]);
 
     expect(formatActiveMoveGuidanceByAbilityId("waterGun", {
@@ -124,6 +131,9 @@ describe("small island move data", () => {
     })).toBe("[Enter] Mark dry ground for Hydro Bot • 3 queued");
     expect(formatMoveTargetPromptByAbilityId("fire", "ground")).toBe(
       "[Enter] Use Thermal Torch on white ground"
+    );
+    expect(formatMoveTargetPromptByAbilityId("buildBlock", "ground")).toBe(
+      "[Enter] Ask Builder Bot to build"
     );
     expect(formatMoveTargetPromptByAbilityId("leafage", "unknown")).toBeNull();
   });

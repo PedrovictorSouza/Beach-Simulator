@@ -20,6 +20,7 @@ const HYDRO_SYSTEM_QUEST_IDS = new Set([
 const HYDRO_LEGACY_QUEST_IDS = new Set(["findPokemon"]);
 
 const DEFAULT_RUNTIME_FIELD_ABILITY_COST_KINDS = Object.freeze({
+  buildBlock: "none",
   fire: "materialCharges",
   leafage: "none",
   waterGun: "stamina",

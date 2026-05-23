@@ -80,7 +80,6 @@ function shouldRenderQuestSummaryTitle(quest) {
 function renderQuestSummaryHtml(quest) {
   if (!quest) {
     return `
-      <div class="hud-task-title">Free Roam</div>
       <div class="hud-task-subtitle">Keep restoring the island and checking in with helpers.</div>
     `;
   }

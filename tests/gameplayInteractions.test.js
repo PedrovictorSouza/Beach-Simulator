@@ -11,6 +11,7 @@ import {
   CAMPFIRE_ITEM_ID,
   CARBON_ITEM_ID,
   DITTO_FLAG_ITEM_ID,
+  GEAR_ITEM_ID,
   GREENHOUSE_ITEM_ID,
   LEAF_DEN_KIT_ITEM_ID,
   LEAVES_ITEM_ID,
@@ -3817,7 +3818,7 @@ describe("createGameplayInteractions", () => {
       pushNotice: vi.fn()
     });
     const inventory = {
-      wood: 3
+      [GEAR_ITEM_ID]: 10
     };
     const storyState = {
       questIndex: 2,
@@ -3838,7 +3839,7 @@ describe("createGameplayInteractions", () => {
     });
 
     expect(result).toBe(true);
-    expect(inventory.wood).toBe(3);
+    expect(inventory[GEAR_ITEM_ID]).toBe(10);
     expect(inventory[CAMPFIRE_ITEM_ID]).toBeUndefined();
     expect(storyState.flags.campfireCrafted).toBe(false);
     expect(syncInventoryUi).not.toHaveBeenCalled();
@@ -3894,7 +3895,7 @@ describe("createGameplayInteractions", () => {
       pushNotice: vi.fn()
     });
     const inventory = {
-      wood: 3
+      [GEAR_ITEM_ID]: 10
     };
     const storyState = {
       questIndex: 2,
@@ -3912,7 +3913,7 @@ describe("createGameplayInteractions", () => {
     });
 
     expect(result).toBe(true);
-    expect(inventory.wood).toBe(0);
+    expect(inventory[GEAR_ITEM_ID]).toBe(0);
     expect(inventory[CAMPFIRE_ITEM_ID]).toBe(1);
     expect(storyState.flags.campfireCrafted).toBe(true);
     expect(syncInventoryUi).toHaveBeenCalledWith(inventory);
@@ -3949,7 +3950,7 @@ describe("createGameplayInteractions", () => {
       pushNotice
     });
     const inventory = {
-      wood: 3
+      [GEAR_ITEM_ID]: 10
     };
     const storyState = {
       questIndex: 2,
@@ -3966,7 +3967,7 @@ describe("createGameplayInteractions", () => {
     });
 
     expect(result).toBe(false);
-    expect(inventory.wood).toBe(3);
+    expect(inventory[GEAR_ITEM_ID]).toBe(10);
     expect(inventory[CAMPFIRE_ITEM_ID]).toBeUndefined();
     expect(storyState.flags.campfireCrafted).toBe(false);
     expect(syncInventoryUi).not.toHaveBeenCalled();
@@ -3988,7 +3989,9 @@ describe("createGameplayInteractions", () => {
       syncInventoryUi,
       pushNotice: vi.fn()
     });
-    const inventory = {};
+    const inventory = {
+      [GEAR_ITEM_ID]: 5
+    };
     const storyState = {
       questIndex: 2,
       flags: {
@@ -4003,6 +4006,7 @@ describe("createGameplayInteractions", () => {
     });
 
     expect(result).toBe(true);
+    expect(inventory[GEAR_ITEM_ID]).toBe(0);
     expect(inventory[GREENHOUSE_ITEM_ID]).toBe(1);
     expect(storyState.flags.greenhouseCrafted).toBe(true);
     expect(syncInventoryUi).toHaveBeenCalledWith(inventory);
@@ -4066,7 +4070,9 @@ describe("createGameplayInteractions", () => {
       syncInventoryUi,
       pushNotice: vi.fn()
     });
-    const inventory = {};
+    const inventory = {
+      [GEAR_ITEM_ID]: 5
+    };
     const storyState = {
       questIndex: 2,
       flags: {
@@ -4081,6 +4087,7 @@ describe("createGameplayInteractions", () => {
     });
 
     expect(result).toBe(true);
+    expect(inventory[GEAR_ITEM_ID]).toBe(0);
     expect(inventory[GREENHOUSE_ITEM_ID]).toBe(1);
     expect(storyState.flags.greenhousePlaced).toBe(true);
     expect(syncInventoryUi).toHaveBeenCalledWith(inventory);
@@ -4301,18 +4308,18 @@ describe("createGameplayInteractions", () => {
 
   it("shows concrete Workbench material progress when a protocol is missing supplies", () => {
     const pushNotice = vi.fn();
-    const formatRequirementSummary = vi.fn(() => "3 Wood");
+    const formatRequirementSummary = vi.fn(() => "10 Gear");
     const interactions = createInteractions({
       placeholderRecipes: PLACEHOLDER_RECIPES,
       hasItems: vi.fn(() => false),
       formatRequirementSummary,
       getItemLabel: (itemId) => ({
-        wood: "Wood"
+        [GEAR_ITEM_ID]: "Gear"
       })[itemId] || itemId,
       pushNotice
     });
     const inventory = {
-      wood: 1
+      [GEAR_ITEM_ID]: 1
     };
     const storyState = {
       questIndex: 2,
@@ -4324,9 +4331,9 @@ describe("createGameplayInteractions", () => {
     };
 
     expect(interactions.craftCampfireAtWorkbench({ storyState, inventory })).toBe(false);
-    expect(inventory.wood).toBe(1);
+    expect(inventory[GEAR_ITEM_ID]).toBe(1);
     expect(storyState.flags.campfireCrafted).toBe(false);
-    expect(pushNotice).toHaveBeenCalledWith("Missing: Wood 1/3");
+    expect(pushNotice).toHaveBeenCalledWith("Missing: Gear 1/10");
     expect(formatRequirementSummary).not.toHaveBeenCalled();
   });
 
@@ -4356,7 +4363,7 @@ describe("createGameplayInteractions", () => {
       pushNotice: vi.fn()
     });
     const inventory = {
-      [LEAVES_ITEM_ID]: 2
+      [GEAR_ITEM_ID]: 20
     };
     const storyState = {
       questIndex: 2,
@@ -4401,11 +4408,11 @@ describe("createGameplayInteractions", () => {
         })
       ]
     });
-    expect(inventory[LEAVES_ITEM_ID]).toBe(2);
+    expect(inventory[GEAR_ITEM_ID]).toBe(20);
     expect(inventory[STRAW_BED_ITEM_ID]).toBeUndefined();
 
     expect(interactions.craftStrawBedAtWorkbench({ storyState, inventory })).toBe(true);
-    expect(inventory[LEAVES_ITEM_ID]).toBe(0);
+    expect(inventory[GEAR_ITEM_ID]).toBe(0);
     expect(inventory[STRAW_BED_ITEM_ID]).toBe(1);
     expect(storyState.flags.strawBedCrafted).toBe(true);
     expect(syncInventoryUi).toHaveBeenCalledWith(inventory);
@@ -4453,7 +4460,7 @@ describe("createGameplayInteractions", () => {
       pushNotice: vi.fn()
     });
     const inventory = {
-      wood: 3
+      [GEAR_ITEM_ID]: 10
     };
     const storyState = {
       questIndex: 2,
@@ -4493,7 +4500,7 @@ describe("createGameplayInteractions", () => {
     });
 
     expect(interactions.craftCampfireAtWorkbench({ storyState, inventory })).toBe(true);
-    expect(inventory.wood).toBe(0);
+    expect(inventory[GEAR_ITEM_ID]).toBe(0);
     expect(inventory[CAMPFIRE_ITEM_ID]).toBe(1);
     expect(onCampfireCrafted).toHaveBeenCalledWith({
       recipe: expect.objectContaining({
@@ -4622,7 +4629,7 @@ describe("createGameplayInteractions", () => {
       pushNotice: vi.fn()
     });
     const inventory = {
-      [LEAVES_ITEM_ID]: 2,
+      [GEAR_ITEM_ID]: 20,
       [STRAW_BED_ITEM_ID]: 1
     };
     const storyState = {
@@ -4656,7 +4663,7 @@ describe("createGameplayInteractions", () => {
 
     expect(interactions.craftStrawBedAtWorkbench({ storyState, inventory })).toBe(true);
     expect(onStrawBedPlacementRequested).toHaveBeenCalledWith({ source: "workbench" });
-    expect(inventory[LEAVES_ITEM_ID]).toBe(2);
+    expect(inventory[GEAR_ITEM_ID]).toBe(20);
     expect(inventory[STRAW_BED_ITEM_ID]).toBe(1);
     expect(onStrawBedCrafted).not.toHaveBeenCalled();
     expect(questSystem.emit).not.toHaveBeenCalled();

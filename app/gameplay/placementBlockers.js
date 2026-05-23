@@ -127,7 +127,7 @@ export function createPlayerConstructionTerrainColliders({
   height = 2.4,
   padding = 0.12
 } = {}) {
-  return createPlayerConstructionPlacementBlockers({
+  const constructionColliders = createPlayerConstructionPlacementBlockers({
     session,
     storyState,
     footprints
@@ -150,6 +150,24 @@ export function createPlayerConstructionTerrainColliders({
       padding: Math.max(0, Number(padding) || 0)
     };
   });
+
+  const freeBlockColliders = (session.freeBlockInstances || [])
+    .filter((instance) => instance?.active !== false && Array.isArray(instance?.offset))
+    .map((instance) => ({
+      id: `free-block-collider:${instance.id || `${instance.offset[0]}:${instance.offset[2]}`}`,
+      kind: "freeBlock",
+      position: [
+        Number(instance.offset[0]),
+        0,
+        Number(instance.offset[2])
+      ],
+      size: [1, 0.86, 1],
+      surfaceY: 0.86,
+      blocksPlayer: true,
+      padding: 0.08
+    }));
+
+  return [...constructionColliders, ...freeBlockColliders];
 }
 
 export function isPositionInsideTerrainColliderFootprint(position, collider) {

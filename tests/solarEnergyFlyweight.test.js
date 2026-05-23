@@ -109,6 +109,8 @@ describe("solar energy map flyweights", () => {
     expect(session.greenhouseModelInstances[0]).toMatchObject({
       id: "greenhouse-model-0",
       offset: [4, 0.02, -3],
+      scale: 1.725,
+      greenhouseBaseScale: 1.725,
       active: true
     });
     expect(session.greenhouseModelInstances[1]).toMatchObject({
@@ -118,6 +120,8 @@ describe("solar energy map flyweights", () => {
     });
     expect(session.greenhouseModelInstance).toMatchObject({
       id: "greenhouse-preview-model",
+      scale: 1.725,
+      greenhouseBaseScale: 1.725,
       active: false
     });
   });

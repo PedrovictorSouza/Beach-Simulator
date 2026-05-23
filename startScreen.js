@@ -2,6 +2,7 @@ import {
   clearOverlayTransition,
   playOverlayTransition
 } from "./app/ui/overlayTransition.js";
+import { START_SLOT_ACTION } from "./app/start/startSlotContract.js";
 import { createStartScreenUniverseBackground } from "./app/ui/startScreenUniverseBackground.js";
 import startTitleImageSrc from "./app/ui/images/Logo.png";
 
@@ -12,7 +13,7 @@ const START_SCREEN_VIEW = Object.freeze({
   SLOTS: "slots"
 });
 const DEFAULT_START_SELECTION = Object.freeze({
-  action: "newGame",
+  action: START_SLOT_ACTION.NEW_GAME,
   slotId: "slot-1"
 });
 
@@ -34,9 +35,9 @@ function normalizeSaveSlots(saveSlots) {
     .filter((slot) => slot && typeof slot === "object")
     .map((slot, index) => ({
       id: String(slot.id || `slot-${index + 1}`),
-      action: slot.action || "newGame",
+      action: slot.action || START_SLOT_ACTION.NEW_GAME,
       slotId: slot.slotId || slot.id || `slot-${index + 1}`,
-      label: slot.label || (slot.action === "continue" ? "Continue" : "New Game"),
+      label: slot.label || (slot.action === START_SLOT_ACTION.CONTINUE ? "Continue" : "New Game"),
       detail: slot.detail || ""
     }));
 }

@@ -1,5 +1,6 @@
 const MATERIAL_IDS = [
   "wood",
+  "gear",
   "leaves",
   "carbon",
   "flaxFiber",
@@ -24,6 +25,11 @@ export const MATERIAL_DEFS = {
     id: "wood",
     label: "Wood",
     bagLabel: "Sturdy stick",
+  },
+  gear: {
+    id: "gear",
+    label: "Gear",
+    bagLabel: "Gear",
   },
   leaves: {
     id: "leaves",

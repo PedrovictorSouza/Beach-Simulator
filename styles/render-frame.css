@@ -121,7 +121,7 @@
   color: #fff1e8;
   font-family: var(--game-ui-font, "Super Mario World", monospace);
   font-size: 64px;
-  line-height: 0.5;
+  line-height: 1;
   letter-spacing: 0;
   text-shadow:
     6px 0 0 #050307,

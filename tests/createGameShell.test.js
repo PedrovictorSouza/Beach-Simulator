@@ -15,6 +15,7 @@ describe("createGameShell", () => {
     const gameStage = document.getElementById("game-stage");
     const renderFrame = document.getElementById("render-frame");
     const startOverlay = document.getElementById("start-overlay");
+    const inputModalityPanel = document.getElementById("input-modality-panel");
     const universeBackground = gameStage?.querySelector(".gameplay-universe-background");
 
     expect(gameStage?.contains(renderFrame)).toBe(true);
@@ -22,5 +23,7 @@ describe("createGameShell", () => {
     expect(gameStage?.firstElementChild).toBe(universeBackground);
     expect(renderFrame?.contains(startOverlay)).toBe(true);
     expect(startOverlay?.parentElement).toBe(renderFrame);
+    expect(inputModalityPanel?.textContent).toBe("INPUT KEYBOARD");
+    expect(inputModalityPanel?.parentElement?.id).toBe("ui-layer");
   });
 });

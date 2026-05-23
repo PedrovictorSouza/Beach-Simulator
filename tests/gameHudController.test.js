@@ -581,7 +581,7 @@ describe("createGameHudController", () => {
           guidance: "Restore one nearby patch."
         })
       },
-      playerSkillOrder: ["waterGun", "leafage"],
+      playerSkillOrder: ["waterGun", "leafage", "fire"],
       playerSkillDefs: {
         waterGun: {
           shortLabel: "Water",
@@ -594,10 +594,16 @@ describe("createGameHudController", () => {
           glyph: "L",
           color: "#7ed36d",
           ink: "#0b2610"
+        },
+        fire: {
+          shortLabel: "Heat",
+          glyph: "H",
+          color: "#ff9d33",
+          ink: "#2a1000"
         }
       }
     });
-    const unlockedSkills = { waterGun: true, leafage: true };
+    const unlockedSkills = { waterGun: true, leafage: true, fire: true };
 
     controller.syncSkillsUi(unlockedSkills, "waterGun", {
       flags: {}
@@ -615,7 +621,20 @@ describe("createGameHudController", () => {
         ?.querySelector(".active-companion-hud__portrait-image")
         ?.getAttribute("src")
     ).toContain("Robot-1-thumb.png");
-    expect(companionHudElement?.querySelectorAll(".active-companion-hud__portrait-image")).toHaveLength(1);
+    expect(companionHudElement?.querySelectorAll(".active-companion-hud__portrait-image")).toHaveLength(3);
+    expect(companionHudElement?.querySelectorAll(".active-companion-hud__portrait[data-carousel-slot='active']")).toHaveLength(1);
+    expect(companionHudElement?.querySelectorAll(".active-companion-hud__portrait[data-carousel-slot='previous']")).toHaveLength(1);
+    expect(companionHudElement?.querySelectorAll(".active-companion-hud__portrait[data-carousel-slot='next']")).toHaveLength(1);
+    expect(
+      companionHudElement
+        ?.querySelector(".active-companion-hud__portrait[data-carousel-slot='previous'] .active-companion-hud__portrait-image")
+        ?.getAttribute("src")
+    ).toContain("Robot-3-thumb.png");
+    expect(
+      companionHudElement
+        ?.querySelector(".active-companion-hud__portrait[data-carousel-slot='next'] .active-companion-hud__portrait-image")
+        ?.getAttribute("src")
+    ).toContain("Robot-2-thumb.png");
     expect(companionHudElement?.querySelector(".active-companion-hud__switch-button")).toBeNull();
     expect(companionHudElement?.querySelector(".active-companion-hud__switch-icon")).toBeNull();
     expect(companionHudElement?.textContent).toContain("Water");
@@ -651,7 +670,17 @@ describe("createGameHudController", () => {
         ?.querySelector(".active-companion-hud__portrait-image")
         ?.getAttribute("src")
     ).toContain("Robot-2-thumb.png");
-    expect(companionHudElement?.querySelectorAll(".active-companion-hud__portrait-image")).toHaveLength(1);
+    expect(companionHudElement?.querySelectorAll(".active-companion-hud__portrait-image")).toHaveLength(3);
+    expect(
+      companionHudElement
+        ?.querySelector(".active-companion-hud__portrait[data-carousel-slot='previous'] .active-companion-hud__portrait-image")
+        ?.getAttribute("src")
+    ).toContain("Robot-1-thumb.png");
+    expect(
+      companionHudElement
+        ?.querySelector(".active-companion-hud__portrait[data-carousel-slot='next'] .active-companion-hud__portrait-image")
+        ?.getAttribute("src")
+    ).toContain("Robot-3-thumb.png");
     expect(companionHudElement?.textContent).toContain("Leaf");
     expect(companionHudElement?.textContent).toContain("Grow Bot");
     expect(

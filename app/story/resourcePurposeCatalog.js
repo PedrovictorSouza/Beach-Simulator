@@ -2,6 +2,7 @@ import {
   CAMPFIRE_ITEM_ID,
   CARBON_ITEM_ID,
   DITTO_FLAG_ITEM_ID,
+  GEAR_ITEM_ID,
   ITEM_DEFS,
   LEAF_DEN_KIT_ITEM_ID,
   LEAVES_ITEM_ID,
@@ -80,6 +81,7 @@ function normalizePickupCount(count) {
 
 export const EARLY_RESOURCE_PURPOSE_ITEM_IDS = Object.freeze([
   WATER_GUN_POWER_ITEM_ID,
+  GEAR_ITEM_ID,
   "wood",
   LEPPA_BERRY_ITEM_ID,
   LOG_CHAIR_ITEM_ID,
@@ -102,6 +104,12 @@ const EARLY_RESOURCE_PURPOSES = Object.freeze([
     purposes: [RESOURCE_PURPOSE.TOOL, RESOURCE_PURPOSE.RESTORATION],
     playerFacingPurpose: "Powers Hydro Jet so dry ground can be restored.",
     pickupPurpose: "Hydro Jet power"
+  }),
+  freezeEntry({
+    itemId: GEAR_ITEM_ID,
+    purposes: [RESOURCE_PURPOSE.BUILD, RESOURCE_PURPOSE.TOOL],
+    playerFacingPurpose: "Feeds Workbench protocols that turn recovered machine parts into colony structures.",
+    pickupPurpose: "Workbench builds"
   }),
   freezeEntry({
     itemId: "wood",

@@ -29,7 +29,9 @@ export const RECIPE_DEFS = {
     id: "greenhouse",
     title: "Greenhouse",
     stationId: "workbench",
-    ingredients: {},
+    ingredients: {
+      gear: 5,
+    },
     output: {
       greenhouse: 1,
     },
@@ -40,7 +42,7 @@ export const RECIPE_DEFS = {
     title: "Thermal Cabin",
     stationId: "workbench",
     ingredients: {
-      wood: 3,
+      gear: 10,
     },
     output: {
       campfire: 1,
@@ -52,7 +54,7 @@ export const RECIPE_DEFS = {
     title: "Solar Station",
     stationId: "workbench",
     ingredients: {
-      leaves: 2,
+      gear: 20,
     },
     output: {
       strawBed: 1,

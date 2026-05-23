@@ -16,6 +16,7 @@ export const SIMPLE_WOODEN_DIY_RECIPES_ITEM_ID = "simpleWoodenDiyRecipes";
 export const GREENHOUSE_ITEM_ID = "greenhouse";
 export const CAMPFIRE_ITEM_ID = "campfire";
 export const LIFE_COINS_ITEM_ID = "lifeCoins";
+export const GEAR_ITEM_ID = "gear";
 export const LEAVES_ITEM_ID = "leaves";
 export const CARBON_ITEM_ID = "carbon";
 export const NITROGEN_ITEM_ID = "nitrogen";
@@ -121,6 +122,16 @@ export const ITEM_DEFS = {
     ink: "#fff1e8",
     slotRole: "material",
     description: "A branch that fell off a tree somewhere. Perfect for making various toys and everyday items."
+  },
+  [GEAR_ITEM_ID]: {
+    ...MATERIAL_DEFS[GEAR_ITEM_ID],
+    bagDetailsEligible: true,
+    shortLabel: "Gear",
+    glyph: "G",
+    color: "#c7ccd7",
+    ink: "#11151d",
+    slotRole: "material",
+    description: "A reusable machine part for Workbench construction protocols."
   },
   [LEPPA_BERRY_ITEM_ID]: {
     id: LEPPA_BERRY_ITEM_ID,
@@ -409,6 +420,7 @@ export const ITEM_DEFS = {
 export const INVENTORY_ORDER = [
   WATER_GUN_POWER_ITEM_ID,
   "wood",
+  GEAR_ITEM_ID,
   LEPPA_BERRY_ITEM_ID,
   LOG_CHAIR_ITEM_ID,
   SIMPLE_WOODEN_DIY_RECIPES_ITEM_ID,
@@ -652,6 +664,28 @@ export const CARBON_ORE_ATMOSPHERE_COVERAGE_RATIO = 0.3;
 const CARBON_ORE_GRID_SPACING = 18;
 const CARBON_ORE_RESPAWN_DURATION = 24;
 const CARBON_ORE_PICKUP_RADIUS = 1.48;
+const GEAR_SUPPLY_RESPAWN_DURATION = 18;
+const GEAR_SUPPLY_PICKUP_RADIUS = 1.32;
+const GEAR_SUPPLY_MODEL_FACE_YAW_OFFSET = 0;
+const GEAR_SUPPLY_SPIN_YAW_SPEED = Math.PI * 2.25;
+const GEAR_SUPPLY_GROUND_Y = 0.02;
+const GEAR_SUPPLY_INNER_MOUNTAIN_TOP_Y = 7.145;
+const GEAR_SUPPLY_INNER_PLATEAU_TOP_Y = 5.72;
+const GEAR_SUPPLY_OUTER_MOUNTAIN_TOP_Y = 17.12;
+const GEAR_SUPPLY_LAYOUT = Object.freeze([
+  Object.freeze({ position: [5.8, GEAR_SUPPLY_GROUND_Y, -1.2], scale: 0.88, yaw: 0.12 }),
+  Object.freeze({ position: [23.8, GEAR_SUPPLY_GROUND_Y, 5.6], scale: 0.86, yaw: 0.24 }),
+  Object.freeze({ position: [-30.4, GEAR_SUPPLY_GROUND_Y, 8.8], scale: 0.88, yaw: 0.6 }),
+  Object.freeze({ position: [68.4, GEAR_SUPPLY_GROUND_Y, 14.6], scale: 0.9, yaw: 0.18 }),
+  Object.freeze({ position: [104.6, GEAR_SUPPLY_GROUND_Y, 38.2], scale: 0.88, yaw: 0.54 }),
+  Object.freeze({ position: [-126.4, GEAR_SUPPLY_GROUND_Y, 44.6], scale: 0.84, yaw: 0.32 }),
+  Object.freeze({ position: [-50, GEAR_SUPPLY_INNER_MOUNTAIN_TOP_Y, -46], scale: 0.82, yaw: -0.12, terrainSafeZone: false }),
+  Object.freeze({ position: [26, GEAR_SUPPLY_INNER_MOUNTAIN_TOP_Y, -54], scale: 0.84, yaw: 0.38, terrainSafeZone: false }),
+  Object.freeze({ position: [60, GEAR_SUPPLY_INNER_MOUNTAIN_TOP_Y, -12], scale: 0.86, yaw: -0.58, terrainSafeZone: false }),
+  Object.freeze({ position: [-62, GEAR_SUPPLY_INNER_MOUNTAIN_TOP_Y, -10], scale: 0.82, yaw: -0.34, terrainSafeZone: false }),
+  Object.freeze({ position: [42, GEAR_SUPPLY_INNER_PLATEAU_TOP_Y, 52], scale: 0.86, yaw: -0.48, terrainSafeZone: false }),
+  Object.freeze({ position: [-20, GEAR_SUPPLY_OUTER_MOUNTAIN_TOP_Y, 126], scale: 0.9, yaw: 0.44, terrainSafeZone: false })
+]);
 
 function hashUnit(value) {
   const hashed = Math.sin(value * 12.9898 + 78.233) * 43758.5453;
@@ -730,6 +764,34 @@ function createCarbonOreResourceNodes() {
   }
 
   return nodes;
+}
+
+function createGearSupplyResourceNode(layout, index) {
+  const position = [...layout.position];
+
+  return {
+    id: `gear-supply-${index + 1}`,
+    label: "Gear",
+    itemId: GEAR_ITEM_ID,
+    markerKey: GEAR_ITEM_ID,
+    position,
+    offset: [...position],
+    scale: layout.scale,
+    yaw: layout.yaw + GEAR_SUPPLY_MODEL_FACE_YAW_OFFSET,
+    spinYawSpeed: GEAR_SUPPLY_SPIN_YAW_SPEED,
+    terrainSafeZone: layout.terrainSafeZone,
+    active: true,
+    usesModelInstance: true,
+    yield: 1,
+    respawnDuration: GEAR_SUPPLY_RESPAWN_DURATION,
+    interactDistance: GEAR_SUPPLY_PICKUP_RADIUS,
+    pickupRadius: GEAR_SUPPLY_PICKUP_RADIUS,
+    activeWhen: () => true,
+  };
+}
+
+function createGearSupplyResourceNodes() {
+  return GEAR_SUPPLY_LAYOUT.map(createGearSupplyResourceNode);
 }
 
 export const TANGROWTH_OPENING_LINE = "CHOPPER";
@@ -849,6 +911,7 @@ export const WORLD_MARKER_STYLES = {
   pokemonCenter: { glyph: "+", color: "#d94a5b", ink: "#fff2f4" },
   pokemonCenterPc: { glyph: "i", color: "#7bc7ff", ink: "#0b1f32", shape: "circle" },
   [CARBON_ITEM_ID]: { glyph: "C", color: "#2f343d", ink: "#f2f7ff" },
+  [GEAR_ITEM_ID]: { glyph: "G", color: "#c7ccd7", ink: "#11151d" },
   challengeBoulder: { glyph: "B", color: "#8f98a3", ink: "#171b1f" },
 };
 
@@ -1368,6 +1431,7 @@ function createLeafPileResourceNode(id, position, activeWhen = isCraftingLeafPil
 }
 
 export const RESOURCE_NODE_DEFS = [
+  ...createGearSupplyResourceNodes(),
   ...createCarbonOreResourceNodes(),
   createLeafPileResourceNode("leaf-pile-1", [7.7, 0.02, -5.1]),
   createLeafPileResourceNode("leaf-pile-2", [9.4, 0.02, -6.7]),

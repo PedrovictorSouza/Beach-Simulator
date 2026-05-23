@@ -16,6 +16,7 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
         <canvas id="sprite-layer" class="layer" width="426" height="240"></canvas>
         <div class="ui-layer" id="ui-layer">
           <div class="fps-panel" id="fps-panel" aria-live="off">FPS --</div>
+          <div class="input-modality-panel" id="input-modality-panel" aria-live="polite">INPUT KEYBOARD</div>
           <div class="scene-transition-veil" id="scene-transition-veil" hidden aria-hidden="true"></div>
           <section class="skill-learn-overlay" id="skill-learn-overlay" hidden aria-label="Skill learned"></section>
           <section class="cinematic-overlay" id="cinematic-overlay" hidden aria-label="Act two cinematic"></section>

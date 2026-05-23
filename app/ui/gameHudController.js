@@ -16,13 +16,15 @@ import { renderInventoryCountHtml } from "./uiTextValue.ts";
 const ACTIVE_COMPANION_THUMBNAILS = Object.freeze({
   squirtle: new URL("./images/Robot-1-thumb.png", import.meta.url).href,
   bulbasaur: new URL("./images/Robot-2-thumb.png", import.meta.url).href,
-  charmander: new URL("./images/Robot-3-thumb.png", import.meta.url).href
+  charmander: new URL("./images/Robot-3-thumb.png", import.meta.url).href,
+  timburr: new URL("../buildings/Box/robot-1-thumb.png", import.meta.url).href
 });
 const ACTIVE_COMPANION_ARROW_ICON_URL = new URL("./images/arrow.png", import.meta.url).href;
 const ACTIVE_COMPANION_LT_ICON_URL = new URL("./images/Lt-thumb.png", import.meta.url).href;
 const INVENTORY_ITEM_IMAGES = Object.freeze({
   leaves: new URL("../../Objects/leave.png", import.meta.url).href,
   wood: new URL("../../Objects/wood.png", import.meta.url).href,
+  gear: new URL("./images/gear.png", import.meta.url).href,
   carbon: new URL("../Commodities/carbon/carvao.png", import.meta.url).href
 });
 const SUPPLY_HUD_EXCLUDED_SLOT_ROLES = Object.freeze([
@@ -292,6 +294,93 @@ export function createGameHudController({
     }
 
     return companionHudElement;
+  }
+
+  function getUnlockedCompanionSkillIds(skills) {
+    return playerSkillOrder.filter((skillId) => {
+      if (!skills?.[skillId]) {
+        return false;
+      }
+
+      const ability = getCompanionAbilityByAbilityId(skillId);
+      return Boolean(ability?.companionId && ACTIVE_COMPANION_THUMBNAILS[ability.companionId]);
+    });
+  }
+
+  function getActiveCompanionCarouselEntries(skills, activeSkillId) {
+    const unlockedSkillIds = getUnlockedCompanionSkillIds(skills);
+    const activeIndex = unlockedSkillIds.indexOf(activeSkillId);
+
+    if (activeIndex < 0) {
+      return [];
+    }
+
+    const activeAbility = getCompanionAbilityByAbilityId(activeSkillId);
+    const entries = [
+      {
+        ability: activeAbility,
+        slot: "active"
+      }
+    ];
+
+    if (unlockedSkillIds.length >= 3) {
+      entries.push({
+        ability: getCompanionAbilityByAbilityId(unlockedSkillIds[(activeIndex - 1 + unlockedSkillIds.length) % unlockedSkillIds.length]),
+        slot: "previous"
+      });
+      entries.push({
+        ability: getCompanionAbilityByAbilityId(unlockedSkillIds[(activeIndex + 1) % unlockedSkillIds.length]),
+        slot: "next"
+      });
+    } else if (unlockedSkillIds.length === 2) {
+      entries.push({
+        ability: getCompanionAbilityByAbilityId(unlockedSkillIds[(activeIndex + 1) % unlockedSkillIds.length]),
+        slot: "next"
+      });
+    }
+
+    return entries.filter((entry) => entry.ability?.companionId);
+  }
+
+  function renderRobotCarouselHtml(skills, activeSkillId) {
+    const entries = getActiveCompanionCarouselEntries(skills, activeSkillId);
+
+    if (!entries.length) {
+      return "";
+    }
+
+    const portraitsHtml = entries.map(({ ability, slot }) => {
+      const companionId = ability.companionId;
+      const normalizedCompanionId = escapeHtml(companionId || "unknown");
+      const thumbnailUrl = ACTIVE_COMPANION_THUMBNAILS[companionId] || ACTIVE_COMPANION_THUMBNAILS.squirtle;
+
+      return `
+        <span
+          class="active-companion-hud__portrait"
+          data-carousel-slot="${escapeHtml(slot)}"
+          data-companion-id="${normalizedCompanionId}"
+        >
+          <img
+            class="active-companion-hud__portrait-image"
+            src="${escapeHtml(thumbnailUrl)}"
+            alt=""
+            data-companion-id="${normalizedCompanionId}"
+            loading="eager"
+            decoding="async"
+          >
+        </span>
+      `;
+    }).join("");
+
+    return `
+      <span
+        class="active-companion-hud__portrait-stack"
+        aria-hidden="true"
+        data-companion-count="${entries.length}"
+      >
+        ${portraitsHtml}
+      </span>
+    `;
   }
 
   function renderRobotThumbnailHtml(companionId) {
@@ -638,7 +727,7 @@ export function createGameHudController({
     );
 
     const nextHtml = `
-      ${renderRobotThumbnailHtml(activeAbility.companionId)}
+      ${renderRobotCarouselHtml(skills, activeSkillId) || renderRobotThumbnailHtml(activeAbility.companionId)}
       <span class="active-companion-hud__text">
         <span class="active-companion-hud__move">${escapeHtml(skill.shortLabel || activeAbility.label)}</span>
         <span class="active-companion-hud__name">${escapeHtml(activeAbility.companionName)}</span>

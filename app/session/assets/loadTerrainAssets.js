@@ -22,6 +22,9 @@ const CLOUD_MODEL_TEXTURE_PATH = new URL("../../buildings/cloud/cloud.png", impo
 const CARBON_ORE_MODEL_GLTF_PATH = new URL("../../Commodities/carbon/carvao.gltf", import.meta.url).href;
 const CARBON_ORE_MODEL_BIN_PATH = new URL("../../Commodities/carbon/carvao.bin", import.meta.url).href;
 const CARBON_ORE_MODEL_TEXTURE_PATH = new URL("../../Commodities/carbon/carvao.png", import.meta.url).href;
+const GEAR_MODEL_GLTF_PATH = new URL("../../../gear/Gear.gltf", import.meta.url).href;
+const GEAR_MODEL_BIN_PATH = new URL("../../../gear/Gear.bin", import.meta.url).href;
+const GEAR_MODEL_TEXTURE_PATH = new URL("../../../gear/Gear.png", import.meta.url).href;
 const SOLAR_ENERGY_MODEL_GLTF_PATH = new URL("../../../solar-energy/solar-energy.gltf", import.meta.url).href;
 const SOLAR_ENERGY_MODEL_BIN_PATH = new URL("../../../solar-energy/solar-energy.bin", import.meta.url).href;
 const SOLAR_ENERGY_MODEL_TEXTURE_PATH = new URL("../../../solar-energy/solar-energy.png", import.meta.url).href;
@@ -174,6 +177,7 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     greenhouseModel,
     trainHouseModel,
     carbonOreModel,
+    gearModel,
     cloudModel,
     garden1Model,
     leafDenModel,
@@ -324,6 +328,14 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     }),
     loadTexturedModel({
       gl,
+      gltfPath: GEAR_MODEL_GLTF_PATH,
+      binPath: GEAR_MODEL_BIN_PATH,
+      texturePath: GEAR_MODEL_TEXTURE_PATH,
+      normalizedSize: 1.08,
+      onStatus: setStatus
+    }),
+    loadTexturedModel({
+      gl,
       gltfPath: CLOUD_MODEL_GLTF_PATH,
       binPath: CLOUD_MODEL_BIN_PATH,
       texturePath: CLOUD_MODEL_TEXTURE_PATH,
@@ -369,6 +381,7 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     greenhouseModel,
     trainHouseModel,
     carbonOreModel,
+    gearModel,
     cloudModel,
     garden1Model,
     leafDenModel,

@@ -57,6 +57,19 @@ describe("createQuestLog", () => {
     expect(summaryHtml).toContain("Talk to Chopper so he can explain");
   });
 
+  it("omits the Free Roam title from the active HUD summary fallback", () => {
+    const questLog = createQuestLog({
+      questSystem: {
+        getActiveQuest: () => null
+      }
+    });
+
+    const summaryHtml = questLog.renderActiveSummaryHtml();
+
+    expect(summaryHtml).not.toContain('<div class="hud-task-title">Free Roam</div>');
+    expect(summaryHtml).toContain("Keep restoring the island and checking in with helpers.");
+  });
+
   it("keeps field-action guidance out of the quest tracker summary", () => {
     const quest = SMALL_ISLAND_QUESTS.find((entry) => entry.id === "water-dry-grass");
     const questLog = createQuestLog({

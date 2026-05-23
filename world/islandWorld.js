@@ -1,5 +1,6 @@
 import {
   CARBON_ITEM_ID,
+  GEAR_ITEM_ID,
   LEAF_DEN_KIT_ITEM_ID,
   LEAVES_ITEM_ID,
   LEPPA_BERRY_ITEM_ID,
@@ -574,6 +575,16 @@ export function collectCarbonResourceNodes(playerPosition, resourceNodes, storyS
     storyState,
     inventory,
     CARBON_ITEM_ID
+  );
+}
+
+export function collectGearResourceNodes(playerPosition, resourceNodes, storyState, inventory) {
+  return collectResourceNodesByItemId(
+    playerPosition,
+    resourceNodes,
+    storyState,
+    inventory,
+    GEAR_ITEM_ID
   );
 }
 

@@ -1,3 +1,10 @@
+import {
+  MODAL_COMMANDS,
+  getWrappedModalIndex,
+  resolveModalCommand,
+  resolveModalPointerCommand
+} from "./modalCommandController.js";
+
 const EMPTY_MISSION = Object.freeze({
   id: "empty",
   title: "????",
@@ -74,13 +81,7 @@ const TERMINAL_STATUS_LEGEND_ITEMS = Object.freeze([
   Object.freeze({ label: "Yellow ready/to do", color: STATUS_PALETTES.todo.label }),
   Object.freeze({ label: "Dark locked", color: STATUS_PALETTES.locked.label })
 ]);
-const TERMINAL_MODAL_COMMANDS = Object.freeze({
-  NEXT: "next",
-  PREVIOUS: "previous",
-  CONFIRM: "confirm",
-  CLOSE: "close",
-  CONSUME: "consume"
-});
+const TERMINAL_MODAL_COMMANDS = MODAL_COMMANDS;
 const TERMINAL_MODAL_KEY_COMMANDS = Object.freeze({
   ArrowDown: TERMINAL_MODAL_COMMANDS.NEXT,
   ArrowRight: TERMINAL_MODAL_COMMANDS.NEXT,
@@ -123,6 +124,68 @@ function createElement(documentRef, tagName, className = "", text = "") {
   return element;
 }
 
+function ensureTerminalModalStyle(documentRef) {
+  if (!documentRef || documentRef.getElementById("pokemon-center-pc-modal-cf-style")) {
+    return;
+  }
+
+  const style = documentRef.createElement("style");
+  style.id = "pokemon-center-pc-modal-cf-style";
+  style.textContent = `
+@keyframes pokemonCenterPcModalScanSweep {
+  0% { left: -60%; opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+.pokemon-center-pc-modal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.14) 2px, rgba(0, 0, 0, 0.14) 4px);
+  pointer-events: none;
+  z-index: 2;
+}
+.pokemon-center-pc-modal__panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(0, 255, 157, 0.018) 20px, rgba(0, 255, 157, 0.018) 21px),
+    repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(0, 255, 157, 0.018) 20px, rgba(0, 255, 157, 0.018) 21px);
+  pointer-events: none;
+  opacity: 0.5;
+}
+.pokemon-center-pc-modal__panel::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, transparent, #00ff9d 20%, #00d4ff 50%, #00ff9d 80%, transparent);
+  box-shadow: 0 0 18px rgba(0, 255, 157, 0.65);
+}
+.pokemon-center-pc-modal__card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(255, 255, 255, 0.014) 18px, rgba(255, 255, 255, 0.014) 19px),
+    repeating-linear-gradient(90deg, transparent, transparent 18px, rgba(255, 255, 255, 0.014) 18px, rgba(255, 255, 255, 0.014) 19px);
+  pointer-events: none;
+  z-index: 2;
+}
+.pokemon-center-pc-modal__card:hover .pokemon-center-pc-modal__card-scan {
+  animation: pokemonCenterPcModalScanSweep 1.2s ease-out forwards;
+}
+.pokemon-center-pc-modal__card:hover .pokemon-center-pc-modal__card-image {
+  opacity: 0.82;
+  filter: saturate(0.58) brightness(0.86);
+}`;
+  documentRef.head?.append(style);
+}
+
 function createSilentTerminalAudio() {
   return {
     currentTime: 0,
@@ -135,12 +198,11 @@ function createSilentTerminalAudio() {
 }
 
 export function resolveTerminalModalCommand(eventOrCode) {
-  const code = typeof eventOrCode === "string" ? eventOrCode : eventOrCode?.code;
-  return TERMINAL_MODAL_KEY_COMMANDS[code] || TERMINAL_MODAL_COMMANDS.CONSUME;
+  return resolveModalCommand(eventOrCode, TERMINAL_MODAL_KEY_COMMANDS);
 }
 
 export function resolveTerminalModalPointerCommand(actionId) {
-  return TERMINAL_MODAL_POINTER_COMMANDS[actionId] || TERMINAL_MODAL_COMMANDS.CONSUME;
+  return resolveModalPointerCommand(actionId, TERMINAL_MODAL_POINTER_COMMANDS);
 }
 
 export function getTerminalStatusLegendItems() {
@@ -235,19 +297,22 @@ function renderTerminalStatusLegend() {
 function renderTerminalModalHeader({ builderCallsign, stats, selectedMissionIndex, totalMissions }) {
   const callsign = normalizeBuilderCallsign(builderCallsign);
   return `
-    <header style="display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:14px;align-items:start;margin-bottom:14px;">
-      <div style="display:grid;gap:7px;min-width:0;">
-        <strong style="font-size:26px;line-height:1;color:#ffffff;">Colony Terminal</strong>
+    <header style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:18px;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(0,255,157,0.16);">
+      <div style="display:grid;grid-template-columns:48px minmax(0,1fr);gap:16px;align-items:center;min-width:0;">
+        <div style="width:48px;height:48px;display:grid;place-items:center;border:1px solid rgba(0,255,157,0.48);background:rgba(0,0,0,0.72);box-shadow:0 0 18px rgba(0,255,157,0.22), inset 0 0 20px rgba(0,0,0,0.7);color:#00ff9d;font-size:24px;line-height:1;text-shadow:0 0 14px rgba(0,255,157,0.82);">⬡</div>
+        <div style="display:grid;gap:7px;min-width:0;">
+        <strong style="font-family:'Orbitron', var(--game-ui-font, monospace);font-size:30px;font-weight:900;line-height:1;color:#ffffff;letter-spacing:0.14em;text-transform:uppercase;text-shadow:0 0 26px rgba(0,255,157,0.36);">Colony Terminal</strong>
         ${callsign ? `
-          <span style="font-size:13px;line-height:1;color:#ffffff;">Builder ${escapeHtml(callsign)}</span>
+          <span style="font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:11px;line-height:1;color:#00d4ff;letter-spacing:0.16em;text-transform:uppercase;">Builder ${escapeHtml(callsign)}</span>
         ` : ""}
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:15px;line-height:1;color:#ffffff;">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:10px;line-height:1;color:#ffffff;letter-spacing:0.1em;text-transform:uppercase;">
           ${renderTerminalStatusSummary(stats)}
         </div>
+        </div>
       </div>
-      <div style="display:grid;gap:4px;text-align:right;">
-        <span style="font-size:13px;color:#ffffff;">Selected</span>
-        <strong style="font-size:24px;line-height:1;color:#ffffff;">${selectedMissionIndex + 1}/${totalMissions}</strong>
+      <div style="display:grid;gap:5px;text-align:right;border:1px solid rgba(0,255,157,0.16);border-top:2px solid rgba(0,255,157,0.5);background:rgba(0,0,0,0.42);padding:10px 12px;">
+        <span style="font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:8px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(0,255,157,0.56);">Selected</span>
+        <strong style="font-family:'Orbitron', var(--game-ui-font, monospace);font-size:22px;line-height:1;color:#00ff9d;text-shadow:0 0 10px rgba(0,255,157,0.54);">${selectedMissionIndex + 1}/${totalMissions}</strong>
       </div>
     </header>
   `;
@@ -255,27 +320,27 @@ function renderTerminalModalHeader({ builderCallsign, stats, selectedMissionInde
 
 function renderTerminalModalBody({ cardColumns, selectedMissionIndex, visibleMissionCards }) {
   return `
-    <div style="display:grid;grid-template-columns:46px minmax(0, 1fr) 46px;gap:12px;align-items:stretch;">
+    <div style="position:relative;z-index:1;display:grid;grid-template-columns:46px minmax(0, 1fr) 46px;gap:12px;align-items:stretch;">
       <button
         class="pokemon-center-pc-modal__nav"
         type="button"
         data-pc-action="previous"
         aria-label="Previous colony check"
-        style="border:3px solid #7bc7ff;background:#0d2c45;color:#ffffff;font:inherit;font-size:24px;cursor:pointer;min-height:48px;"
+        style="border:1px solid rgba(0,255,157,0.42);background:rgba(0,255,157,0.06);color:#00ff9d;font:inherit;font-size:24px;cursor:pointer;min-height:48px;box-shadow:0 0 14px rgba(0,255,157,0.12);"
       >&lt;</button>
       <div
         class="pokemon-center-pc-modal__cards"
         role="listbox"
         aria-label="Colony checks"
         aria-activedescendant="pokemon-center-pc-card-${selectedMissionIndex}"
-        style="display:grid;grid-template-columns:${cardColumns || "minmax(0, 1fr)"};gap:12px;align-items:stretch;min-width:0;"
+        style="display:grid;grid-template-columns:${cardColumns || "minmax(0, 1fr)"};gap:10px;align-items:stretch;min-width:0;"
       >${visibleMissionCards}</div>
       <button
         class="pokemon-center-pc-modal__nav"
         type="button"
         data-pc-action="next"
         aria-label="Next colony check"
-        style="border:3px solid #7bc7ff;background:#0d2c45;color:#ffffff;font:inherit;font-size:24px;cursor:pointer;min-height:48px;"
+        style="border:1px solid rgba(0,255,157,0.42);background:rgba(0,255,157,0.06);color:#00ff9d;font:inherit;font-size:24px;cursor:pointer;min-height:48px;box-shadow:0 0 14px rgba(0,255,157,0.12);"
       >&gt;</button>
     </div>
   `;
@@ -283,17 +348,17 @@ function renderTerminalModalBody({ cardColumns, selectedMissionIndex, visibleMis
 
 function renderTerminalModalFooter({ actionHint, actionReady, dotsHtml }) {
   return `
-    <footer style="display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:12px;align-items:center;margin-top:14px;">
+    <footer style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:12px;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid rgba(0,255,157,0.16);">
       <div style="display:grid;gap:7px;min-width:0;">
         <div class="pokemon-center-pc-modal__dots" aria-label="Colony check timeline" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-height:44px;overflow:auto;padding:2px 2px 5px 2px;">${dotsHtml}</div>
-        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:12px;line-height:1;color:#ffffff;">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:9px;line-height:1;color:#ffffff;letter-spacing:0.1em;text-transform:uppercase;">
           ${renderTerminalStatusLegend()}
         </div>
       </div>
-      <p style="margin:0;display:flex;gap:8px;align-items:center;justify-content:flex-end;flex-wrap:wrap;color:#ffffff;font-size:17px;line-height:1;">
-        <span style="color:#ffffff;">Left/Right Browse</span>
-        <span style="color:#ffffff;">${escapeHtml(actionHint)}</span>
-        <span style="color:#ffffff;">B / Esc Close</span>
+      <p style="margin:0;display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;color:#00ff9d;font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:11px;line-height:1;letter-spacing:0.14em;text-transform:uppercase;">
+        <span style="color:#888888;">Left/Right Browse</span>
+        <span style="color:${actionReady ? "#00ff9d" : "#00d4ff"};">${escapeHtml(actionHint)}</span>
+        <span style="color:#ff3366;text-shadow:0 0 10px rgba(255,51,102,0.42);">B / Esc Close</span>
       </p>
     </footer>
   `;
@@ -348,11 +413,7 @@ export function createTerminalMissionCardViewModel(mission = EMPTY_MISSION, inde
 }
 
 export function getWrappedTerminalMissionIndex(index = 0, totalMissions = 0) {
-  if (totalMissions <= 0) {
-    return 0;
-  }
-
-  return (index + totalMissions) % totalMissions;
+  return getWrappedModalIndex(index, totalMissions);
 }
 
 export function getInitialTerminalMissionIndex(missions = []) {
@@ -490,6 +551,7 @@ export function createPokemonCenterPcModalController({
     root.setAttribute("aria-label", "Colony Terminal colony checks");
     root.setAttribute("role", "dialog");
     root.setAttribute("aria-modal", "true");
+    ensureTerminalModalStyle(documentRef);
     Object.assign(root.style, {
       position: "absolute",
       inset: "0",
@@ -497,7 +559,7 @@ export function createPokemonCenterPcModalController({
       display: "none",
       placeItems: "center",
       pointerEvents: "auto",
-      background: "rgba(5, 8, 18, 0.44)",
+      background: "rgba(3, 5, 10, 0.84)",
       imageRendering: "pixelated"
     });
     mount.append(root);
@@ -579,7 +641,7 @@ export function createPokemonCenterPcModalController({
       const selected = index === selectedMissionIndex;
       const palette = getMissionPalette(mission.status);
       const fillColor = selected ?
-        "#ffffff" :
+        "#00ff9d" :
         mission.status === "locked" ?
           "#252b35" :
           palette.border;
@@ -591,7 +653,7 @@ export function createPokemonCenterPcModalController({
           data-selected="${selected ? "true" : "false"}"
           aria-label="Colony check ${index + 1}: ${escapeHtml(mission.title)}"
           style="
-            width:${selected ? "18px" : "12px"};height:12px;border:2px solid ${selected ? "#ffffff" : palette.border};
+            width:${selected ? "18px" : "12px"};height:12px;border:1px solid ${selected ? "#00ff9d" : palette.border};
             background:${fillColor};
             padding:0;cursor:pointer;
             opacity:${mission.status === "locked" ? "0.7" : "1"};
@@ -620,7 +682,7 @@ export function createPokemonCenterPcModalController({
         src="${escapeHtml(imageSrc)}"
         alt="${escapeHtml(imageAlt)}"
         decoding="async"
-        style="width:100%;height:100%;display:block;object-fit:cover;image-rendering:pixelated;"
+        style="width:100%;height:100%;display:block;object-fit:cover;image-rendering:pixelated;opacity:0.62;filter:saturate(0.34) brightness(0.72);transition:opacity 0.3s, filter 0.3s;"
       >` :
       `<span
         class="pokemon-center-pc-modal__card-image-placeholder"
@@ -642,10 +704,11 @@ export function createPokemonCenterPcModalController({
         aria-selected="${selected ? "true" : "false"}"
         aria-label="Colony check ${index + 1}, ${escapeHtml(statusLabel)}: ${escapeHtml(mission.title)}"
         style="
+          position:relative;
           min-height:${selected ? "258px" : "192px"};
-          border:${selected ? "4px solid #ffffff" : `3px solid ${palette.border}`};
-          box-shadow:${selected ? `0 0 0 3px ${palette.border}, 0 10px 0 rgba(0, 0, 0, 0.22)` : "0 4px 0 rgba(0, 0, 0, 0.22)"};
-          background:linear-gradient(180deg, ${palette.background} 0%, rgba(5, 8, 18, 0.92) 100%);
+          border:1px solid ${palette.border};
+          box-shadow:${selected ? `0 0 18px ${palette.border}55` : "none"};
+          background:linear-gradient(180deg, rgba(13,13,13,0.98) 0%, ${palette.background} 115%);
           color:#ffffff;
           padding:${selected ? "14px" : "11px"};
           display:grid;
@@ -656,20 +719,23 @@ export function createPokemonCenterPcModalController({
           font:inherit;
           cursor:pointer;
           opacity:${selected ? "1" : mission.status === "locked" ? "0.72" : "0.92"};
+          overflow:hidden;
         "
       >
-        <div style="display:grid;grid-template-rows:auto auto minmax(0, 1fr) auto;align-content:start;gap:${selected ? "9px" : "7px"};min-width:0;overflow:hidden;">
+        <span class="pokemon-center-pc-modal__card-scan" aria-hidden="true" style="position:absolute;top:0;left:-100%;bottom:0;width:60%;background:linear-gradient(90deg, transparent, rgba(0,255,157,0.08), transparent);pointer-events:none;z-index:4;opacity:0;"></span>
+        <span aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:2px;background:${palette.border};box-shadow:0 0 12px ${palette.border};z-index:3;opacity:${selected ? "0.95" : "0.58"};"></span>
+        <div style="position:relative;z-index:5;display:grid;grid-template-rows:auto auto minmax(0, 1fr) auto;align-content:start;gap:${selected ? "9px" : "7px"};min-width:0;overflow:hidden;">
           <div style="display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:8px;align-items:start;min-width:0;">
-            <span style="min-width:0;overflow-wrap:anywhere;font-size:${selected ? "14px" : "12px"};line-height:1.08;color:${palette.copy};">Check ${index + 1} · ${escapeHtml(missionSource)}</span>
-            <span style="flex:0 0 auto;border:2px solid ${palette.border};background:rgba(5, 8, 18, 0.42);padding:${selected ? "4px 6px" : "3px 5px"};font-size:${selected ? "13px" : "11px"};line-height:1;color:${palette.label};">${escapeHtml(statusLabel)}</span>
+            <span style="min-width:0;overflow-wrap:anywhere;font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:${selected ? "10px" : "9px"};line-height:1.08;letter-spacing:0.12em;text-transform:uppercase;color:${palette.copy};">Check ${index + 1} · ${escapeHtml(missionSource)}</span>
+            <span style="flex:0 0 auto;border:1px solid ${palette.border};background:rgba(5, 8, 18, 0.42);padding:${selected ? "4px 6px" : "3px 5px"};font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:${selected ? "10px" : "9px"};line-height:1;letter-spacing:0.08em;text-transform:uppercase;color:${palette.label};">${escapeHtml(statusLabel)}</span>
           </div>
-          <h2 style="margin:0;color:#ffffff;font-size:${selected ? "28px" : "20px"};line-height:1.02;overflow-wrap:anywhere;">${escapeHtml(mission.title)}</h2>
-          <p style="margin:0;color:${palette.copy};font-size:${selected ? "16px" : "13px"};line-height:${selected ? "1.18" : "1.12"};text-transform:none;overflow-wrap:anywhere;">${escapeHtml(mission.description)}</p>
+          <h2 style="margin:0;color:#ffffff;font-family:'Orbitron', var(--game-ui-font, monospace);font-size:${selected ? "24px" : "17px"};font-weight:900;line-height:1.08;letter-spacing:0.08em;text-transform:uppercase;overflow-wrap:anywhere;text-shadow:0 2px 12px rgba(0,0,0,0.8);">${escapeHtml(mission.title)}</h2>
+          <p style="margin:0;color:${palette.copy};font-size:${selected ? "15px" : "13px"};line-height:${selected ? "1.35" : "1.25"};text-transform:none;overflow-wrap:anywhere;">${escapeHtml(mission.description)}</p>
           ${selected ? `
-            <p style="margin:0;border:2px solid ${palette.border};background:rgba(5, 8, 18, 0.34);padding:8px;color:${palette.label};font-size:14px;line-height:1.14;text-transform:none;overflow-wrap:anywhere;">${escapeHtml(guidance)}</p>
+            <p style="margin:0;border:1px solid ${palette.border};background:rgba(5, 8, 18, 0.34);padding:8px;color:${palette.label};font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:12px;line-height:1.32;text-transform:none;overflow-wrap:anywhere;">${escapeHtml(guidance)}</p>
           ` : ""}
           ${detailRows.length ? `
-            <div style="display:grid;gap:5px;color:${palette.label};font-size:${selected ? "14px" : "12px"};line-height:1.08;overflow-wrap:anywhere;">
+            <div style="display:grid;gap:5px;color:${palette.label};font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:${selected ? "12px" : "10px"};line-height:1.18;overflow-wrap:anywhere;">
               ${detailRows.map((detail) => `<span>${escapeHtml(detail)}</span>`).join("")}
             </div>
           ` : ""}
@@ -678,9 +744,11 @@ export function createPokemonCenterPcModalController({
           class="pokemon-center-pc-modal__card-image-frame"
           data-pc-mission-image-slot="true"
           style="
+            position:relative;
+            z-index:5;
             min-height:${selected ? "184px" : "58px"};
             min-width:${selected ? "156px" : "58px"};
-            border:3px solid ${palette.border};
+            border:1px solid ${palette.border};
             background:rgba(5, 8, 18, 0.32);
             overflow:hidden;
             align-self:${selected ? "stretch" : "start"};
@@ -721,12 +789,16 @@ export function createPokemonCenterPcModalController({
       width: "96%",
       maxWidth: "1180px",
       minHeight: "360px",
-      border: "4px solid #7bc7ff",
-      boxShadow: "0 0 0 4px #0b1f32, 0 18px 0 rgba(0, 0, 0, 0.28)",
-      background: "#071525",
-      color: "#ffffff",
-      padding: "20px 22px",
-      fontFamily: "var(--game-ui-font, monospace)",
+      maxHeight: "calc(100vh - 56px)",
+      overflow: "auto",
+      position: "relative",
+      border: "1px solid rgba(0, 255, 157, 0.34)",
+      boxShadow: "0 0 40px rgba(0, 0, 0, 0.86), inset 0 0 80px rgba(0, 0, 0, 0.68)",
+      background: "#0d0d0d",
+      color: "#d0d0d0",
+      padding: "24px 28px 26px",
+      fontFamily: "'Rajdhani', var(--game-ui-font, monospace)",
+      letterSpacing: "0.02em",
       textTransform: "none"
     });
 

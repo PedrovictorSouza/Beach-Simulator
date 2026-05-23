@@ -139,6 +139,48 @@ export const COMPANION_ABILITIES = deepFreeze([
     narrativePurpose: "Turns restored ground into a social invitation for habitats and companions."
   },
   {
+    id: "timburr-build-block",
+    companionId: "timburr",
+    companionName: SANDBOTS_BOT_NAMES.builder,
+    element: "construction",
+    abilityId: "buildBlock",
+    moveId: "build-block",
+    label: "Build",
+    status: COMPANION_ABILITY_STATUS.ACTIVE,
+    kind: COMPANION_ABILITY_KIND.FIELD_MOVE,
+    unlock: {
+      source: "story-beat",
+      storyBeatId: "timburr-discovery",
+      storyFlag: "timburrRevealed",
+      when: `After ${SANDBOTS_BOT_NAMES.builder} wakes near the boulder-shaded tall grass.`
+    },
+    runtime: {
+      skillDefId: "buildBlock",
+      activeFieldMove: true
+    },
+    targets: [
+      "free-build-cell",
+      "ground-cell"
+    ],
+    worldEffects: [
+      "places floor blocks"
+    ],
+    design: {
+      benefit: "Lets the player start building simple floor blocks directly on the field grid.",
+      limit: "Only works after Builder Bot is registered and needs an open cell in front of the player.",
+      validTarget: "An unoccupied free-build cell in front of the player.",
+      prompt: "Face an open cell and ask Builder Bot to build.",
+      firstSafeUse: "An open ground cell near the recovered route after Builder Bot joins.",
+      safeFailure: "Blocked or occupied cells show the invalid tile feedback and keep the action available.",
+      feedback: "Builder Bot walks to the cell, the tile flashes, and the floor block appears.",
+      reward: "A floor block is added to the world and saved with the current island state.",
+      nextHook: "Later Builder Bot upgrades can add Break Block and richer construction parts.",
+      synergy: "Extends the same field-move carousel used by Hydro Jet, Bio-Grow, and Thermal Torch."
+    },
+    notes: "First construction field move. It uses Primary / Place through the active ability carousel.",
+    narrativePurpose: "Turns Builder Bot from a companion into the source of direct block construction."
+  },
+  {
     id: "scyther-cut",
     companionId: "scyther",
     companionName: "Cutter Bot",

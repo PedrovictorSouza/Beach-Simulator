@@ -76,6 +76,13 @@ export const FIELD_ABILITY_COSTS = {
       emptyNotice: `${SANDBOTS_BOT_NAMES.thermal} needs Carbon to use ${SANDBOTS_ITEM_NAMES.thermalTool}.`,
     },
   },
+  buildBlock: {
+    abilityId: "buildBlock",
+    companionId: "timburr",
+    cost: {
+      kind: "none",
+    },
+  },
 } as const satisfies FieldAbilityCostRegistry;
 
 export function getFieldAbilityCost(abilityId: FieldAbilityId): AbilityCost {

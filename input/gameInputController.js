@@ -31,6 +31,7 @@ const GAMEPAD_LOOK_SPEED = 2.35;
 const GAMEPAD_SHOULDER_CAMERA_TURN_SPEED = 1.85;
 const GAMEPAD_DEADZONE = 0.16;
 const GAMEPAD_SETTINGS_ANALOG_NAVIGATION_THRESHOLD = 0.45;
+const GAMEPAD_WORKBENCH_ANALOG_NAVIGATION_THRESHOLD = 0.45;
 const GAMEPAD_DIALOGUE_ANALOG_NAVIGATION_THRESHOLD = 0.45;
 const GAMEPAD_LEFT_SHOULDER_BUTTON = 4;
 const GAMEPAD_RIGHT_SHOULDER_BUTTON = 5;
@@ -276,6 +277,8 @@ export function createGameInputController({
   let gamepadSettingsNavigateRightAxisPressed = false;
   let gamepadSettingsNavigateUpAxisPressed = false;
   let gamepadSettingsNavigateDownAxisPressed = false;
+  let gamepadWorkbenchNavigateLeftAxisPressed = false;
+  let gamepadWorkbenchNavigateRightAxisPressed = false;
   let gamepadStartNavigateUpAxisPressed = false;
   let gamepadStartNavigateDownAxisPressed = false;
   let gamepadDialogueNavigateLeftAxisPressed = false;
@@ -292,6 +295,7 @@ export function createGameInputController({
   const cinematicSkipKeysDown = new Set();
   let cameraZoomCycleRequests = 0;
   let jumpRequests = 0;
+  let freeBlockBuildRequests = 0;
   let placementRotationRequests = 0;
   let destroyActionRequests = 0;
 
@@ -501,6 +505,10 @@ export function createGameInputController({
     return isKeyboardActionKey(event, GAME_INPUT_ACTION_IDS.JUMP);
   }
 
+  function isPlaceFreeBlockKey(event) {
+    return isKeyboardActionKey(event, GAME_INPUT_ACTION_IDS.PLACE_FREE_BLOCK);
+  }
+
   function isCinematicSkipKey(event) {
     return CINEMATIC_SKIP_KEY_CODES.has(event?.code);
   }
@@ -575,6 +583,7 @@ export function createGameInputController({
         isDestroyActionKey(event) ||
         isFollowerCallKey(event) ||
         isJumpKey(event) ||
+        isPlaceFreeBlockKey(event) ||
         isCameraZoomCycleKey(event)
       ) {
         event.preventDefault();
@@ -660,6 +669,7 @@ export function createGameInputController({
         isDestroyActionKey(event) ||
         isFollowerCallKey(event) ||
         isJumpKey(event) ||
+        isPlaceFreeBlockKey(event) ||
         isKeyboardActionKey(event, GAME_INPUT_ACTION_IDS.INTERACT) ||
         movementKey ||
         isRunKey(event) ||
@@ -668,6 +678,14 @@ export function createGameInputController({
       )) {
         event.preventDefault();
       }
+      return;
+    }
+
+    if (isPlaceFreeBlockKey(event) && !typingTarget) {
+      if (!event.repeat) {
+        freeBlockBuildRequests += 1;
+      }
+      event.preventDefault();
       return;
     }
 
@@ -887,6 +905,7 @@ export function createGameInputController({
     let settingsNavigateDownButtonPressed = false;
     let settingsNavigateAxisX = 0;
     let settingsNavigateAxisY = 0;
+    let workbenchNavigateAxisX = 0;
     let startNavigateAxisY = 0;
     let dialogueNavigateAxisX = 0;
     let dialogueNavigateAxisY = 0;
@@ -929,6 +948,8 @@ export function createGameInputController({
       gamepadSettingsNavigateRightAxisPressed = false;
       gamepadSettingsNavigateUpAxisPressed = false;
       gamepadSettingsNavigateDownAxisPressed = false;
+      gamepadWorkbenchNavigateLeftAxisPressed = false;
+      gamepadWorkbenchNavigateRightAxisPressed = false;
       gamepadStartNavigateUpAxisPressed = false;
       gamepadStartNavigateDownAxisPressed = false;
       gamepadDialogueNavigateLeftAxisPressed = false;
@@ -1004,14 +1025,18 @@ export function createGameInputController({
       nextMoveButtonPressed = nextMoveButtonPressed ||
         Boolean(gamepad.buttons?.[GAME_INPUT_BINDINGS.nextMove.gamepadButton]?.pressed);
 
-      if (isWorkbenchModalOpen()) {
-        continue;
-      }
-
       const moveX = applyDeadzone(Number(gamepad.axes?.[0] || 0));
       const moveY = applyDeadzone(Number(gamepad.axes?.[1] || 0));
       const lookX = applyDeadzone(Number(gamepad.axes?.[2] || 0));
       const lookY = applyDeadzone(Number(gamepad.axes?.[3] || 0));
+
+      if (isWorkbenchModalOpen()) {
+        if (Math.abs(moveX) > Math.abs(workbenchNavigateAxisX)) {
+          workbenchNavigateAxisX = moveX;
+        }
+        continue;
+      }
+
       const shoulderCameraTurn =
         (isGamepadButtonPressed(gamepad, GAMEPAD_RIGHT_SHOULDER_BUTTON) ? 1 : 0) -
         (isGamepadButtonPressed(gamepad, GAMEPAD_LEFT_SHOULDER_BUTTON) ? 1 : 0);
@@ -1059,6 +1084,10 @@ export function createGameInputController({
     }
 
     if (isWorkbenchModalOpen()) {
+      const workbenchNavigateLeftAxisPressed =
+        workbenchNavigateAxisX <= -GAMEPAD_WORKBENCH_ANALOG_NAVIGATION_THRESHOLD;
+      const workbenchNavigateRightAxisPressed =
+        workbenchNavigateAxisX >= GAMEPAD_WORKBENCH_ANALOG_NAVIGATION_THRESHOLD;
       clearGameFlowInput();
 
       if (bagButtonPressed && !gamepadBagButtonPressed) {
@@ -1069,11 +1098,29 @@ export function createGameInputController({
         handleWorkbenchModalKeydown(createJumpButtonEvent());
       }
 
-      if (previousMoveButtonPressed && !gamepadPreviousMoveButtonPressed) {
+      if (
+        (
+          previousMoveButtonPressed &&
+          !gamepadPreviousMoveButtonPressed
+        ) ||
+        (
+          workbenchNavigateLeftAxisPressed &&
+          !gamepadWorkbenchNavigateLeftAxisPressed
+        )
+      ) {
         handleWorkbenchModalKeydown(createPokedexPageButtonEvent(-1));
       }
 
-      if (nextMoveButtonPressed && !gamepadNextMoveButtonPressed) {
+      if (
+        (
+          nextMoveButtonPressed &&
+          !gamepadNextMoveButtonPressed
+        ) ||
+        (
+          workbenchNavigateRightAxisPressed &&
+          !gamepadWorkbenchNavigateRightAxisPressed
+        )
+      ) {
         handleWorkbenchModalKeydown(createPokedexPageButtonEvent(1));
       }
 
@@ -1101,6 +1148,8 @@ export function createGameInputController({
       gamepadSettingsNavigateDownButtonPressed = settingsNavigateDownButtonPressed;
       gamepadSettingsNavigateUpAxisPressed = false;
       gamepadSettingsNavigateDownAxisPressed = false;
+      gamepadWorkbenchNavigateLeftAxisPressed = workbenchNavigateLeftAxisPressed;
+      gamepadWorkbenchNavigateRightAxisPressed = workbenchNavigateRightAxisPressed;
       gamepadStartNavigateUpAxisPressed = false;
       gamepadStartNavigateDownAxisPressed = false;
       gamepadDialogueNavigateLeftAxisPressed = false;
@@ -1136,6 +1185,8 @@ export function createGameInputController({
       gamepadSettingsNavigateDownButtonPressed = settingsNavigateDownButtonPressed;
       gamepadSettingsNavigateUpAxisPressed = false;
       gamepadSettingsNavigateDownAxisPressed = false;
+      gamepadWorkbenchNavigateLeftAxisPressed = false;
+      gamepadWorkbenchNavigateRightAxisPressed = false;
       gamepadStartNavigateUpAxisPressed = false;
       gamepadStartNavigateDownAxisPressed = false;
       gamepadDialogueNavigateLeftAxisPressed = false;
@@ -1251,6 +1302,8 @@ export function createGameInputController({
       gamepadSettingsNavigateRightAxisPressed = settingsNavigateRightAxisPressed;
       gamepadSettingsNavigateUpAxisPressed = settingsNavigateUpAxisPressed;
       gamepadSettingsNavigateDownAxisPressed = settingsNavigateDownAxisPressed;
+      gamepadWorkbenchNavigateLeftAxisPressed = false;
+      gamepadWorkbenchNavigateRightAxisPressed = false;
       gamepadStartNavigateUpAxisPressed = false;
       gamepadStartNavigateDownAxisPressed = false;
       gamepadDialogueNavigateLeftAxisPressed = false;
@@ -1334,6 +1387,8 @@ export function createGameInputController({
       gamepadSettingsNavigateRightAxisPressed = false;
       gamepadSettingsNavigateUpAxisPressed = false;
       gamepadSettingsNavigateDownAxisPressed = false;
+      gamepadWorkbenchNavigateLeftAxisPressed = false;
+      gamepadWorkbenchNavigateRightAxisPressed = false;
       gamepadStartNavigateUpAxisPressed = startNavigateUpAxisPressed;
       gamepadStartNavigateDownAxisPressed = startNavigateDownAxisPressed;
       gamepadDialogueNavigateLeftAxisPressed = false;
@@ -1442,6 +1497,8 @@ export function createGameInputController({
       gamepadSettingsNavigateDownButtonPressed = settingsNavigateDownButtonPressed;
       gamepadSettingsNavigateUpAxisPressed = false;
       gamepadSettingsNavigateDownAxisPressed = false;
+      gamepadWorkbenchNavigateLeftAxisPressed = false;
+      gamepadWorkbenchNavigateRightAxisPressed = false;
       gamepadStartNavigateUpAxisPressed = false;
       gamepadStartNavigateDownAxisPressed = false;
       gamepadDialogueNavigateLeftAxisPressed = dialogueNavigateLeftAxisPressed;
@@ -1457,6 +1514,8 @@ export function createGameInputController({
 
     gamepadStartNavigateUpAxisPressed = false;
     gamepadStartNavigateDownAxisPressed = false;
+    gamepadWorkbenchNavigateLeftAxisPressed = false;
+    gamepadWorkbenchNavigateRightAxisPressed = false;
 
     if (
       previousMoveButtonPressed &&
@@ -1662,6 +1721,8 @@ export function createGameInputController({
     gamepadSettingsNavigateDownButtonPressed = settingsNavigateDownButtonPressed;
     gamepadSettingsNavigateUpAxisPressed = false;
     gamepadSettingsNavigateDownAxisPressed = false;
+    gamepadWorkbenchNavigateLeftAxisPressed = false;
+    gamepadWorkbenchNavigateRightAxisPressed = false;
 
     if (actionButtonPressed && !gamepadActionButtonPressed) {
       const primaryEvent = createPrimaryButtonEvent();
@@ -1692,6 +1753,15 @@ export function createGameInputController({
     }
 
     jumpRequests -= 1;
+    return true;
+  }
+
+  function consumeFreeBlockBuildRequest() {
+    if (freeBlockBuildRequests <= 0) {
+      return false;
+    }
+
+    freeBlockBuildRequests -= 1;
     return true;
   }
 
@@ -1770,6 +1840,7 @@ export function createGameInputController({
     consumeCameraLookDelta,
     clearCameraLookInput,
     consumeCameraZoomCycleRequest,
+    consumeFreeBlockBuildRequest,
     consumeJumpRequest,
     consumePlacementCancelRequest,
     consumePlacementRotationRequest,

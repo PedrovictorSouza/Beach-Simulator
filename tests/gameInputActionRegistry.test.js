@@ -19,6 +19,7 @@ describe("game input action registry", () => {
       GAME_INPUT_ACTION_IDS.MOVE_DOWN,
       GAME_INPUT_ACTION_IDS.MOVE_RIGHT,
       GAME_INPUT_ACTION_IDS.PRIMARY_ACTION,
+      GAME_INPUT_ACTION_IDS.PLACE_FREE_BLOCK,
       GAME_INPUT_ACTION_IDS.INTERACT,
       GAME_INPUT_ACTION_IDS.JUMP,
       GAME_INPUT_ACTION_IDS.RUN,
@@ -38,6 +39,13 @@ describe("game input action registry", () => {
       category: GAME_INPUT_ACTION_CATEGORY.FIELD_TOOL,
       defaultKeyboardCode: "Enter",
       defaultGamepadButton: GAMEPAD_BUTTONS.LT,
+      promptAction: "place"
+    });
+    expect(getGameInputAction(GAME_INPUT_ACTION_IDS.PLACE_FREE_BLOCK)).toMatchObject({
+      label: "Place Block",
+      category: GAME_INPUT_ACTION_CATEGORY.FIELD_TOOL,
+      defaultKeyboardCode: "",
+      defaultGamepadButton: null,
       promptAction: "place"
     });
     expect(getGameInputAction(GAME_INPUT_ACTION_IDS.SETTINGS)).toMatchObject({

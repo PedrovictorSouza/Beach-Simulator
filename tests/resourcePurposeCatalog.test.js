@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CARBON_ITEM_ID,
+  GEAR_ITEM_ID,
   LEAF_DEN_KIT_ITEM_ID,
   LEAVES_ITEM_ID,
   NITROGEN_ITEM_ID,
@@ -30,6 +31,10 @@ describe("resource purpose catalog", () => {
     expect(getResourcePurposeByItemId("wood")).toMatchObject({
       purposes: [RESOURCE_PURPOSE.BUILD, RESOURCE_PURPOSE.COMFORT],
       playerFacingPurpose: expect.stringContaining("first shelter")
+    });
+    expect(getResourcePurposeByItemId(GEAR_ITEM_ID)).toMatchObject({
+      purposes: [RESOURCE_PURPOSE.BUILD, RESOURCE_PURPOSE.TOOL],
+      playerFacingPurpose: expect.stringContaining("Workbench")
     });
     expect(getResourcePurposeByItemId(LEAVES_ITEM_ID)).toMatchObject({
       purposes: [RESOURCE_PURPOSE.BUILD, RESOURCE_PURPOSE.RESTORATION]
@@ -65,6 +70,12 @@ describe("resource purpose catalog", () => {
       label: "Carbon",
       count: 2
     })).toBe("Carbon x2 - Thermal fuel");
+
+    expect(formatResourcePickupPrompt({
+      itemId: GEAR_ITEM_ID,
+      label: "Gear",
+      count: 5
+    })).toBe("Gear x5 - Workbench builds");
 
     expect(formatResourcePickupPrompt({
       itemId: "unknown",

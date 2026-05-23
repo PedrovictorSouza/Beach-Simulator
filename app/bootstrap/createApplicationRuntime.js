@@ -13,6 +13,7 @@ import {
   createInactiveFieldMoveState,
   getActiveFieldMoveAbilityId
 } from "../gameplay/content/activeFieldMoveState.ts";
+import { START_SLOT_ACTION } from "../start/startSlotContract.js";
 import {
   SANDBOTS_BOT_NAMES,
   SANDBOTS_ITEM_NAMES,
@@ -37,6 +38,10 @@ import {
   mapSaveGameDtoToActiveFieldMoveState
 } from "../save/saveGameDto.ts";
 import {
+  createManualSavePointDto,
+  isManualSavePointDto
+} from "../save/manualSavePointDto.ts";
+import {
   createConsoleGamePerformanceReporter,
   measureFieldMoveSwitchToPaint
 } from "../performance/gamePerformanceMetrics.ts";
@@ -44,6 +49,7 @@ import {
   CARBON_ITEM_ID,
   CAMPFIRE_ITEM_ID,
   DITTO_FLAG_ITEM_ID,
+  GEAR_ITEM_ID,
   GREENHOUSE_ITEM_ID,
   INVENTORY_ORDER,
   ITEM_DEFS,
@@ -121,6 +127,7 @@ import {
   buildLogChairPlacement,
   buildStrawBedPlacement,
   collectCarbonResourceNodes as collectCarbonResourceNodeItems,
+  collectGearResourceNodes as collectGearResourceNodeItems,
   collectLeafDrops,
   collectLeafResourceNodes as collectLeafResourceNodeItems,
   collectLeppaBerryDrops as collectLeppaBerryDropItems,
@@ -194,6 +201,7 @@ import { resolveDomElements } from "./resolveDomElements.js";
 import { createGameShell } from "../ui/createGameShell.js";
 import { createOverlayVeil } from "../ui/overlayTransition.js";
 import { createPokemonCenterPcModalController } from "../ui/pokemonCenterPcModalController.js";
+import { createWorkbenchModalController } from "../ui/workbenchModalController.js";
 import {
   createDefaultPlacementDatabase,
   createGridSystem,
@@ -221,24 +229,6 @@ const DEFAULT_GRID_PLACEMENT_SAVE_CONFIG = Object.freeze({
 const DEFAULT_GRID_PLACEMENT_DATABASE = createDefaultPlacementDatabase();
 const WORKBENCH_RECIPES = createWorkbenchRecipeMap({
   placeholderRecipes: PLACEHOLDER_RECIPES
-});
-const WORKBENCH_RECIPE_PROTOCOL_UI = Object.freeze({
-  [GREENHOUSE_ITEM_ID]: Object.freeze({
-    label: "Soil Plans",
-    purpose: "Marks the first greenhouse restoration footprint."
-  }),
-  campfire: Object.freeze({
-    label: "Power Plans",
-    purpose: "Thermal shelter and starter heat."
-  }),
-  strawBed: Object.freeze({
-    label: "Water Plans",
-    purpose: "A solar pump node for local circulation."
-  }),
-  [LEAF_DEN_KIT_ITEM_ID]: Object.freeze({
-    label: "Shelter Plans",
-    purpose: "Prepares the first human-ready habitat kit."
-  })
 });
 const FLOWER_FIELD_COMPLETION_SPARK_BUDGET = 420;
 const FLOWER_FIELD_COMPLETION_MIN_SPARKS_PER_PATCH = 4;
@@ -290,10 +280,18 @@ const PLAYER_SKILL_DEFS = {
     glyph: "F",
     color: "#ff8a3d",
     ink: "#2a1005"
+  },
+  buildBlock: {
+    id: "buildBlock",
+    label: "Build",
+    shortLabel: "Build",
+    glyph: "B",
+    color: "#ffd866",
+    ink: "#271900"
   }
 };
-const PLAYER_SKILL_ORDER = ["transform", "waterGun", "leafage", "fire"];
-const ACTIVE_FIELD_MOVE_ORDER = ["waterGun", "leafage", "fire"];
+const PLAYER_SKILL_ORDER = ["transform", "waterGun", "leafage", "fire", "buildBlock"];
+const ACTIVE_FIELD_MOVE_ORDER = ["waterGun", "leafage", "fire", "buildBlock"];
 const FIELD_MOVE_SWITCH_PROMPT_DURATION_MS = 1500;
 const FIELD_MOVE_CAROUSEL_CARD_SIZE = 122;
 const FIELD_MOVE_CAROUSEL_CARD_GAP = 10;
@@ -316,6 +314,12 @@ const FIELD_MOVE_SWITCH_PROMPT_PRESENTATION = Object.freeze({
     companionId: "charmander",
     hint: "Use LT on white ground",
     thumbnailUrl: new URL("../ui/images/Robot-3-thumb.png", import.meta.url).href
+  },
+  buildBlock: {
+    companionName: SANDBOTS_BOT_NAMES.builder,
+    companionId: "timburr",
+    hint: "Use LT to build",
+    thumbnailUrl: new URL("../buildings/Box/robot-1-thumb.png", import.meta.url).href
   }
 });
 const QUEST_COMPLETION_POP_DURATION_MS = 2400;
@@ -413,11 +417,6 @@ const MANUAL_SAVE_SLOT_IDS = Object.freeze([
   "slot-3"
 ]);
 const LOG_CHAIR_SAVE_REQUEST_GRACE_MS = 800;
-const SOLAR_STATION_RECIPE_ARTWORK_URL = new URL("../../Solar-Station/Solar-Station.gif", import.meta.url).href;
-const TRAIN_HOUSE_RECIPE_ARTWORK_URL = new URL("../../Train-house/train-house.gif", import.meta.url).href;
-const GREENHOUSE_RECIPE_ARTWORK_URL = new URL("../ui/images/Estufa.gif", import.meta.url).href;
-const HOUSE_RECIPE_ARTWORK_URL = new URL("../../house/house_2.png", import.meta.url).href;
-const WORKBENCH_PANEL_BACKGROUND_URL = new URL("../ui/images/grass.gif", import.meta.url).href;
 const LEAFAGE_TALL_GRASS_ARTWORK_URL = new URL("../../Trees/tall-grass/tall-grass.png", import.meta.url).href;
 const LEAFAGE_GARDEN_1_ARTWORK_URL = new URL("../../Trees/Garden-1/garden-1.png", import.meta.url).href;
 const LEAFAGE_FLOWER_ARTWORK_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' fill='%23284f24'/%3E%3Crect x='44' y='48' width='8' height='30' fill='%2338b764'/%3E%3Crect x='32' y='38' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='50' y='38' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='41' y='28' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='41' y='50' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='42' y='42' width='12' height='12' fill='%23ff7eb6'/%3E%3Crect x='28' y='64' width='14' height='8' fill='%2346d75b'/%3E%3Crect x='54' y='62' width='16' height='8' fill='%2346d75b'/%3E%3C/svg%3E";
@@ -488,7 +487,7 @@ function readManualSavePointFromKey(windowRef, key) {
     }
 
     const parsed = JSON.parse(raw);
-    return parsed?.version === 1 && isPlainObject(parsed) ? parsed : null;
+    return isManualSavePointDto(parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -578,14 +577,14 @@ function buildStartSaveSlots(savePoint, slotId) {
   return [
     {
       id: "continue",
-      action: "continue",
+      action: START_SLOT_ACTION.CONTINUE,
       slotId: continueSlotId,
       label: "Continue",
       detail: "Saved Game"
     },
     ...newGameSlotIds.map((newGameSlotId, index) => ({
       id: `new-game-${newGameSlotId}`,
-      action: "newGame",
+      action: START_SLOT_ACTION.NEW_GAME,
       slotId: newGameSlotId,
       label: "New Game",
       detail: `Empty Slot ${index + 1}`
@@ -784,7 +783,8 @@ export function restoreGreenhouseFootprintGround({
   preview,
   groundDeadInstances = [],
   iceGroundInstances = [],
-  groundPurifiedInstances = []
+  groundPurifiedInstances = [],
+  restoredGroundCells = null
 } = {}) {
   if (!Array.isArray(groundPurifiedInstances)) {
     return 0;
@@ -820,6 +820,9 @@ export function restoreGreenhouseFootprintGround({
     if (restored) {
       visitedCells.add(groundCell);
       restoredCount += 1;
+      if (Array.isArray(restoredGroundCells)) {
+        restoredGroundCells.push(groundCell);
+      }
     }
   }
 
@@ -872,6 +875,37 @@ export function cloneSavedGridPlacement(gridPlacement) {
     placedObjects: gridPlacement.placedObjects
       .map(cloneSavedGridPlacementRecord)
       .filter(Boolean)
+  };
+}
+
+export function cloneSavedFreeBlockBuild(freeBlockBuild) {
+  if (!isPlainObject(freeBlockBuild) || !Array.isArray(freeBlockBuild.floorBlocks)) {
+    return null;
+  }
+
+  const minX = Math.trunc(Number(freeBlockBuild.bounds?.minX));
+  const maxX = Math.trunc(Number(freeBlockBuild.bounds?.maxX));
+  const minY = Math.trunc(Number(freeBlockBuild.bounds?.minY));
+  const maxY = Math.trunc(Number(freeBlockBuild.bounds?.maxY));
+  const bounds = [minX, maxX, minY, maxY].every(Number.isFinite) ?
+    { minX, maxX, minY, maxY } :
+    null;
+  const floorBlocks = freeBlockBuild.floorBlocks
+    .map((block) => {
+      const cell = cloneGridCell(block?.cell || block);
+      return cell ? { cell } : null;
+    })
+    .filter(Boolean);
+
+  if (!bounds || !floorBlocks.length) {
+    return null;
+  }
+
+  return {
+    schemaVersion: 1,
+    buildId: typeof freeBlockBuild.buildId === "string" ? freeBlockBuild.buildId : "freeBuild",
+    bounds,
+    floorBlocks
   };
 }
 
@@ -996,6 +1030,14 @@ function cloneSessionGridPlacement(session) {
     gridConfig: session?.buildGridConfig || DEFAULT_GRID_PLACEMENT_SAVE_CONFIG
   });
   return legacyGridPlacement.placedObjects.length ? legacyGridPlacement : null;
+}
+
+function cloneSessionFreeBlockBuild(session) {
+  const snapshot =
+    session?.freeBlockBuildState?.serializeFreeBlocks?.() ||
+    session?.freeBlockBuildSnapshot ||
+    null;
+  return cloneSavedFreeBlockBuild(snapshot);
 }
 
 function cloneAlivePatches(patches) {
@@ -1228,6 +1270,14 @@ function applySavedPlayerSkills(playerSkills, savePoint, inventory) {
   ) {
     playerSkills.fire = true;
   }
+
+  if (
+    savedSkills.buildBlock ||
+    savePoint?.questState?.unlocked?.includes?.("buildBlock") ||
+    savePoint?.storyState?.flags?.timburrRevealed
+  ) {
+    playerSkills.buildBlock = true;
+  }
 }
 
 function getSavedActiveFieldMoveId(savePoint, playerSkills) {
@@ -1332,7 +1382,13 @@ export function restoreSavedSessionState(session, savePoint) {
 
   session.gridPlacement =
     cloneSavedGridPlacement(savePoint.gridPlacement) ||
-    createLegacyGridPlacementSaveData(placeables);
+    createLegacyGridPlacementSaveData(placeables || {});
+  session.freeBlockBuildSnapshot = cloneSavedFreeBlockBuild(savePoint.freeBlockBuild);
+  session.freeBlockInstances ||= [];
+  session.freeBlockInstances.length = 0;
+  session.freeBlockBuildState = null;
+  session.freeBlockPlacementController = null;
+  session.freeBlockPlacementGridSignature = null;
 
   restoreSavedSquirtleState(session, savePoint);
 
@@ -1365,548 +1421,6 @@ function escapeHtml(value) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
-}
-
-export function createWorkbenchModalController({
-  mount,
-  inventory,
-  getItemLabel,
-  formatRequirementSummary,
-  clearGameFlowInput
-}) {
-  let root = null;
-  let recipe = null;
-  let recipeOptions = [];
-  let selectedRecipeIndex = 0;
-  let onConfirm = null;
-  let open = false;
-
-  function getDocument() {
-    return mount?.ownerDocument || globalThis.document || null;
-  }
-
-  function applyElementStyles(element, styles) {
-    Object.assign(element.style, styles);
-  }
-
-  function createElement(tagName, className, text = "") {
-    const element = getDocument().createElement(tagName);
-    if (className) {
-      element.className = className;
-    }
-    if (text) {
-      element.textContent = text;
-    }
-    return element;
-  }
-
-  function ensureHintAnimationStyle() {
-    const doc = getDocument();
-    if (!doc || doc.getElementById("workbench-modal-hint-animation")) {
-      return;
-    }
-
-    const style = doc.createElement("style");
-    style.id = "workbench-modal-hint-animation";
-    style.textContent = `
-@keyframes workbenchModalCloseHintBlink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.28; }
-}`;
-    doc.head?.append(style);
-  }
-
-  function ensureRoot() {
-    if (root || !mount || !getDocument()) {
-      return root;
-    }
-
-    root = createElement("section", "workbench-modal");
-    root.hidden = true;
-    root.setAttribute("aria-label", "Workbench");
-    root.setAttribute("role", "dialog");
-    applyElementStyles(root, {
-      position: "absolute",
-      inset: "0",
-      zIndex: "18",
-      display: "none",
-      placeItems: "center",
-      pointerEvents: "auto",
-      background: "rgba(6, 7, 12, 0.34)",
-      imageRendering: "pixelated"
-    });
-    mount.append(root);
-    return root;
-  }
-
-  function getRecipeRequirementCopy(currentRecipe) {
-    const ingredients = currentRecipe?.ingredients || {};
-    const ingredientEntries = Object.entries(ingredients);
-    if (!ingredientEntries.length) {
-      return "No materials needed";
-    }
-
-    return ingredientEntries
-      .map(([itemId, required]) => {
-        const owned = Math.max(0, Number(inventory?.[itemId] || 0));
-        return `${getItemLabel(itemId)} ${Math.min(owned, required)}/${required}`;
-      })
-      .join(" · ");
-  }
-
-  function close() {
-    if (!root) {
-      return;
-    }
-
-    root.hidden = true;
-    root.style.display = "none";
-    root.replaceChildren();
-    recipe = null;
-    recipeOptions = [];
-    selectedRecipeIndex = 0;
-    onConfirm = null;
-    open = false;
-    clearGameFlowInput?.();
-  }
-
-  function normalizeRecipeOptions({ recipe: nextRecipe, recipes = [], onConfirm: nextOnConfirm } = {}) {
-    const options = Array.isArray(recipes) && recipes.length > 0 ?
-      recipes :
-      [{ recipe: nextRecipe, onConfirm: nextOnConfirm }];
-
-    return options
-      .map((option) => {
-        if (!option) {
-          return null;
-        }
-
-        const optionRecipe = option.recipe || option;
-        if (!optionRecipe) {
-          return null;
-        }
-
-        return {
-          recipe: optionRecipe,
-          onConfirm: option.onConfirm || nextOnConfirm,
-          disabled: Boolean(option.disabled),
-          status: option.status || null,
-          actionLabel: option.actionLabel || null,
-          guidance: option.guidance || null
-        };
-      })
-      .filter(Boolean);
-  }
-
-  function selectFirstAvailableRecipe(preferredRecipeId = null) {
-    const preferredIndex = preferredRecipeId ?
-      recipeOptions.findIndex((option) => option?.recipe?.id === preferredRecipeId) :
-      -1;
-    const enabledIndex = recipeOptions.findIndex((option) => !option.disabled);
-    selectedRecipeIndex = preferredIndex >= 0 ? preferredIndex : enabledIndex >= 0 ? enabledIndex : 0;
-    recipe = recipeOptions[selectedRecipeIndex]?.recipe || null;
-  }
-
-  function selectRecipeIndex(index) {
-    if (!recipeOptions.length) {
-      selectedRecipeIndex = 0;
-      recipe = null;
-      return;
-    }
-
-    selectedRecipeIndex = (index + recipeOptions.length) % recipeOptions.length;
-    recipe = recipeOptions[selectedRecipeIndex]?.recipe || null;
-  }
-
-  function moveSelection(direction) {
-    if (recipeOptions.length <= 1) {
-      return;
-    }
-
-    selectRecipeIndex(selectedRecipeIndex + direction);
-    render();
-  }
-
-  function getRecipeArtworkUrl(currentRecipe) {
-    const isGreenhouseRecipe = currentRecipe.id === GREENHOUSE_ITEM_ID;
-    const isSolarStationRecipe = currentRecipe.id === "strawBed";
-    const isTrainHouseRecipe = currentRecipe.id === "campfire";
-    const isHouseRecipe = currentRecipe.id === LEAF_DEN_KIT_ITEM_ID;
-
-    if (isGreenhouseRecipe) {
-      return GREENHOUSE_RECIPE_ARTWORK_URL;
-    }
-
-    if (isSolarStationRecipe) {
-      return SOLAR_STATION_RECIPE_ARTWORK_URL;
-    }
-
-    if (isTrainHouseRecipe) {
-      return TRAIN_HOUSE_RECIPE_ARTWORK_URL;
-    }
-
-    if (isHouseRecipe) {
-      return HOUSE_RECIPE_ARTWORK_URL;
-    }
-
-    return "";
-  }
-
-  function getRecipeProtocolUi(currentRecipe) {
-    return WORKBENCH_RECIPE_PROTOCOL_UI[currentRecipe?.id] || Object.freeze({
-      label: "Colony Plans",
-      purpose: "Build support for the current restoration plan."
-    });
-  }
-
-  function formatWorkbenchActionHint(actionLabel) {
-    const label = String(actionLabel || "").trim();
-    return label.startsWith("X ") ? `X / Enter ${label.slice(2)}` : label;
-  }
-
-  function getWorkbenchRecipeGuidance(option = {}) {
-    const actionLabel = String(option.actionLabel || "").toLocaleLowerCase();
-    const status = String(option.status || "").toLocaleLowerCase();
-
-    if (option.guidance) {
-      return option.guidance;
-    }
-
-    if (status.includes("locked")) {
-      return "Plan unavailable. Progress the current colony task first.";
-    }
-
-    if (status.includes("created") || status.includes("placed") || status.includes("built")) {
-      return "Already prepared. Check supplies or the placed object in the world.";
-    }
-
-    if (actionLabel.includes("place") || status.includes("ready to place")) {
-      return "Prepared. Select it to choose a site in the world.";
-    }
-
-    if (!option.disabled) {
-      return "Prepare this kit here, then place it from your supplies.";
-    }
-
-    return "No plan is loaded for this protocol yet.";
-  }
-
-  function createRecipeIcon(currentRecipe) {
-    const icon = createElement("span", "workbench-modal__recipe-icon");
-    applyElementStyles(icon, {
-      width: "52px",
-      height: "52px",
-      display: "grid",
-      placeItems: "center",
-      overflow: "hidden",
-      background: "#ff8f2f",
-      color: "#241006",
-      border: "3px solid #ffd37a",
-      fontSize: "30px",
-      lineHeight: "1"
-    });
-
-    icon.textContent = (currentRecipe.title || "?").slice(0, 1);
-    return icon;
-  }
-
-  function confirm() {
-    const selectedOption = recipeOptions[selectedRecipeIndex] || null;
-    const confirmRecipe = selectedOption?.recipe || recipe;
-    const confirmHandler = selectedOption?.onConfirm || onConfirm;
-
-    if (
-      !open ||
-      selectedOption?.disabled ||
-      !confirmRecipe ||
-      typeof confirmHandler !== "function"
-    ) {
-      return false;
-    }
-
-    const crafted = Boolean(confirmHandler(confirmRecipe));
-    if (crafted) {
-      close();
-      return true;
-    }
-
-    render();
-    return false;
-  }
-
-  function render() {
-    const currentRoot = ensureRoot();
-    if (!currentRoot || !recipeOptions.length) {
-      return;
-    }
-    ensureHintAnimationStyle();
-    const selectedOption = recipeOptions[selectedRecipeIndex] || recipeOptions[0];
-    const selectedRecipe = selectedOption?.recipe || recipeOptions[0]?.recipe;
-
-    currentRoot.replaceChildren();
-
-    const panel = createElement("div", "workbench-modal__panel");
-    applyElementStyles(panel, {
-      position: "relative",
-      width: "100%",
-      border: "4px solid #f5c16a",
-      boxShadow: "0 0 0 4px #2b202c, 0 18px 0 rgba(0, 0, 0, 0.28)",
-      backgroundColor: "#15101a",
-      backgroundImage: `url("${WORKBENCH_PANEL_BACKGROUND_URL}")`,
-      backgroundSize: "cover",
-      backgroundPosition: "center",
-      backgroundRepeat: "no-repeat",
-      color: "#fff1cf",
-      padding: "22px 24px",
-      fontFamily: "var(--game-ui-font, monospace)",
-      letterSpacing: "0",
-      textTransform: "none"
-    });
-
-    const header = createElement("div", "workbench-modal__header");
-    applyElementStyles(header, {
-      display: "flex",
-      alignItems: "baseline",
-      justifyContent: "space-between",
-      gap: "18px",
-      marginBottom: "14px"
-    });
-
-    const title = createElement("strong", "workbench-modal__title", "Workbench");
-    applyElementStyles(title, {
-      display: "block",
-      color: "#ffffff",
-      fontSize: "36px",
-      lineHeight: "1"
-    });
-    const selectHint = createElement(
-      "span",
-      "workbench-modal__hint-select",
-      "Left/Right Select"
-    );
-    applyElementStyles(selectHint, {
-      display: "block",
-      color: "#d6b68a",
-      fontSize: "20px",
-      lineHeight: "1",
-      whiteSpace: "nowrap"
-    });
-    header.append(title, selectHint);
-
-    const recipeGrid = createElement("div", "workbench-modal__recipe-grid");
-    applyElementStyles(recipeGrid, {
-      width: "100%",
-      display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-      gap: "24px",
-      alignItems: "stretch"
-    });
-
-    recipeOptions.forEach((option, index) => {
-      const currentRecipe = option.recipe;
-      const selected = index === selectedRecipeIndex;
-      const recipeArtworkUrl = getRecipeArtworkUrl(currentRecipe);
-      const recipeCard = createElement("button", "workbench-modal__recipe");
-      recipeCard.type = "button";
-      recipeCard.dataset.selected = selected ? "true" : "false";
-      recipeCard.dataset.disabled = option.disabled ? "true" : "false";
-      recipeCard.setAttribute("aria-pressed", selected ? "true" : "false");
-      recipeCard.setAttribute("aria-disabled", option.disabled ? "true" : "false");
-      applyElementStyles(recipeCard, {
-        position: "relative",
-        width: "100%",
-        minHeight: recipeArtworkUrl ? "clamp(220px, 32vw, 312px)" : "132px",
-        display: "grid",
-        gridTemplateColumns: recipeArtworkUrl ? "1fr" : "56px minmax(0, 1fr)",
-        gridTemplateRows: recipeArtworkUrl ? "minmax(156px, 1fr) auto" : "1fr",
-        gap: recipeArtworkUrl ? "0" : "16px",
-        alignItems: recipeArtworkUrl ? "stretch" : "center",
-        border: selected ? "10px solid rgb(137 255 0)" : "10px solid #f5c16a",
-        backgroundColor: selected ? "#4b3740" : "#3b2a30",
-        backgroundImage: recipeArtworkUrl ? `url("${recipeArtworkUrl}")` : "none",
-        backgroundSize: recipeArtworkUrl ? "cover" : "auto",
-        backgroundPosition: recipeArtworkUrl ? "center" : "initial",
-        backgroundRepeat: "no-repeat",
-        color: "#fff1cf",
-        opacity: recipeArtworkUrl ? "1" : option.disabled ? "0.58" : "1",
-        padding: recipeArtworkUrl ? "0" : "16px",
-        textAlign: "left",
-        font: "inherit",
-        cursor: option.disabled ? "default" : "pointer",
-        overflow: "hidden"
-      });
-
-      const recipeArt = recipeArtworkUrl ? createElement("span", "workbench-modal__recipe-art") : null;
-      if (recipeArt) {
-        applyElementStyles(recipeArt, {
-          display: "block",
-          minHeight: "clamp(152px, 24vw, 236px)"
-        });
-      }
-
-      const protocolMeta = getRecipeProtocolUi(currentRecipe);
-      const textWrap = createElement("span", "workbench-modal__recipe-copy");
-      applyElementStyles(textWrap, {
-        display: "block",
-        padding: recipeArtworkUrl ? "18px" : "0",
-        background: "none",
-        visibility: selected ? "visible" : "hidden",
-        opacity: selected ? "1" : "0"
-      });
-      const protocolLabel = createElement("span", "workbench-modal__recipe-protocol", protocolMeta.label);
-      applyElementStyles(protocolLabel, {
-        display: "block",
-        color: "#000000",
-        fontSize: "16px",
-        lineHeight: "1",
-        marginBottom: "8px"
-      });
-      const recipeName = createElement("span", "workbench-modal__recipe-name", currentRecipe.title || "Recipe");
-      applyElementStyles(recipeName, {
-        display: "block",
-        color: "#000000",
-        fontSize: "28px",
-        lineHeight: "1"
-      });
-      const requirementText = option.status || getRecipeRequirementCopy(currentRecipe);
-      const recipeGuidanceText = getWorkbenchRecipeGuidance(option);
-      recipeCard.setAttribute(
-        "aria-label",
-        [
-          `${selected ? "Selected" : "Plan"}: ${currentRecipe.title || "Recipe"}`,
-          protocolMeta.label,
-          requirementText,
-          protocolMeta.purpose,
-          recipeGuidanceText
-        ].filter(Boolean).join(". ")
-      );
-      const requirement = createElement(
-        "span",
-        "workbench-modal__recipe-requirement",
-        requirementText
-      );
-      applyElementStyles(requirement, {
-        display: "block",
-        color: "#000000",
-        fontSize: "45px",
-        lineHeight: "1.1",
-        marginTop: "7px"
-      });
-      const protocolPurpose = createElement("span", "workbench-modal__recipe-purpose", protocolMeta.purpose);
-      applyElementStyles(protocolPurpose, {
-        display: "block",
-        color: "#000000",
-        fontSize: "16px",
-        lineHeight: "1.12",
-        marginTop: "8px",
-        textTransform: "none"
-      });
-      const recipeGuidance = createElement("span", "workbench-modal__recipe-guidance", recipeGuidanceText);
-      applyElementStyles(recipeGuidance, {
-        display: "block",
-        color: "#000000",
-        fontSize: "15px",
-        lineHeight: "1.12",
-        marginTop: "8px",
-        textTransform: "none"
-      });
-      textWrap.append(protocolLabel, recipeName, requirement, protocolPurpose, recipeGuidance);
-      if (recipeArt) {
-        recipeCard.append(recipeArt, textWrap);
-      } else {
-        recipeCard.append(createRecipeIcon(currentRecipe), textWrap);
-      }
-
-      recipeCard.addEventListener("click", () => {
-        selectRecipeIndex(index);
-        if (!confirm()) {
-          render();
-        }
-      });
-
-      recipeGrid.append(recipeCard);
-    });
-
-    const hint = createElement("p", "workbench-modal__hint");
-    applyElementStyles(hint, {
-      margin: "14px 0 0",
-      color: "#ffffff",
-      fontSize: "24px",
-      lineHeight: "1"
-    });
-    const actionHint = createElement(
-      "span",
-      "workbench-modal__hint-action",
-      selectedOption?.disabled ?
-        selectedOption.status || "Unavailable" :
-        formatWorkbenchActionHint(selectedOption?.actionLabel) ||
-        `X / Enter Craft ${selectedRecipe?.title || getItemLabel(CAMPFIRE_ITEM_ID)}`
-    );
-    const closeHint = createElement("span", "workbench-modal__hint-close", "B / Esc Close");
-    applyElementStyles(closeHint, {
-      position: "absolute",
-      right: "24px",
-      bottom: "18px",
-      color: "#ff4d4d",
-      textShadow: "0 0 0 #2b0505, 0 2px 0 #2b0505",
-      animation: "workbenchModalCloseHintBlink 0.9s steps(2, end) infinite"
-    });
-    hint.append(actionHint);
-
-    panel.append(header, recipeGrid, hint, closeHint);
-    currentRoot.append(panel);
-  }
-
-  return {
-    open(options = {}) {
-      recipeOptions = normalizeRecipeOptions(options);
-      if (!recipeOptions.length) {
-        return false;
-      }
-
-      onConfirm = options.onConfirm;
-      selectFirstAvailableRecipe(options.initialRecipeId);
-      open = true;
-      render();
-      if (root) {
-        root.hidden = false;
-        root.style.display = "grid";
-      }
-      clearGameFlowInput?.();
-      return true;
-    },
-    close,
-    handleKeydown(event) {
-      if (!open) {
-        return false;
-      }
-
-      if (event.code === "KeyX" || event.code === "Enter") {
-        confirm();
-        return true;
-      }
-
-      if (event.code === "ArrowRight" || event.code === "ArrowDown") {
-        moveSelection(1);
-        return true;
-      }
-
-      if (event.code === "ArrowLeft" || event.code === "ArrowUp") {
-        moveSelection(-1);
-        return true;
-      }
-
-      if (event.code === "KeyB" || event.code === "Space" || event.code === "Escape") {
-        close();
-        return true;
-      }
-
-      return true;
-    },
-    isOpen() {
-      return open;
-    }
-  };
 }
 
 function getFieldTaskDescription(task, storyState) {
@@ -2279,7 +1793,8 @@ export function createApplicationRuntime({
     transform: false,
     waterGun: false,
     leafage: false,
-    fire: false
+    fire: false,
+    buildBlock: false
   };
   let harvestRequested = false;
   let harvestRequestSource = null;
@@ -2474,6 +1989,37 @@ export function createApplicationRuntime({
     return gameSession.greenhouses;
   }
 
+  function queueGroundActionFeedback({
+    groundCells,
+    abilityId = "waterGun",
+    startedAt = null
+  } = {}) {
+    if (!gameSession) {
+      return false;
+    }
+
+    const cells = (Array.isArray(groundCells) ? groundCells : [groundCells]).filter((groundCell) => {
+      return groundCell && Array.isArray(groundCell.offset);
+    });
+
+    if (!cells.length) {
+      return false;
+    }
+
+    if (!Array.isArray(gameSession.groundActionFeedbackQueue)) {
+      gameSession.groundActionFeedbackQueue = [];
+    }
+
+    gameSession.groundActionFeedbackQueue.push({
+      groundCells: cells,
+      abilityId,
+      startedAt: Number.isFinite(startedAt) ?
+        startedAt :
+        (typeof performance !== "undefined" ? performance.now() : Date.now())
+    });
+    return true;
+  }
+
   function getGreenhouseSceneInstances() {
     if (Array.isArray(gameSession?.greenhouseSceneObject?.instances)) {
       return gameSession.greenhouseSceneObject.instances;
@@ -2598,6 +2144,7 @@ export function createApplicationRuntime({
     if (!gameSession.greenhouse) {
       gameSession.greenhouse = placedGreenhouse;
     }
+    const restoredGreenhouseGroundCells = [];
     restoreGreenhouseFootprintGround({
       preview: {
         ...preview,
@@ -2605,7 +2152,12 @@ export function createApplicationRuntime({
       },
       groundDeadInstances: gameSession.groundDeadInstances,
       iceGroundInstances: gameSession.iceGroundInstances,
-      groundPurifiedInstances: gameSession.groundPurifiedInstances
+      groundPurifiedInstances: gameSession.groundPurifiedInstances,
+      restoredGroundCells: restoredGreenhouseGroundCells
+    });
+    queueGroundActionFeedback({
+      groundCells: restoredGreenhouseGroundCells,
+      abilityId: "greenhouse"
     });
     appendGreenhouseModelInstance(placedGreenhouse);
     gameSession.greenhousePlacementPreview = null;
@@ -4872,16 +4424,24 @@ export function createApplicationRuntime({
   }
 
   function handleStartGameSelection(selection = {}) {
-    const action = selection?.action || "newGame";
+    const action = selection?.action || START_SLOT_ACTION.NEW_GAME;
     const selectedSlotId = setActiveManualSaveSlot(selection?.slotId || activeManualSaveSlotId);
 
-    if (action === "continue" && bootManualSavePoint) {
-      manualSavePoint = bootManualSavePoint;
+    if (action === START_SLOT_ACTION.CONTINUE) {
+      const selectedSavePoint =
+        readManualSaveSlot(windowRef, selectedSlotId) ||
+        (selectedSlotId === bootManualSaveSlot.slotId ? bootManualSavePoint : null);
+
+      if (!selectedSavePoint) {
+        return;
+      }
+
+      manualSavePoint = selectedSavePoint;
       applyManualSavePointToSession(manualSavePoint);
       return;
     }
 
-    if (action === "newGame") {
+    if (action === START_SLOT_ACTION.NEW_GAME) {
       manualSavePoint = null;
       removeManualSaveSlot(windowRef, selectedSlotId);
       if (shouldDeferManualSavePoint) {
@@ -4915,8 +4475,7 @@ export function createApplicationRuntime({
   function writeManualSavePoint(meta = {}) {
     try {
       const playerPosition = gameSession?.playerCharacter?.getPosition?.() || null;
-      const payload = {
-        version: 1,
+      const payload = createManualSavePointDto({
         slotId: activeManualSaveSlotId,
         saveKind: meta.saveKind || "manual",
         savePointId: meta.savePointId || null,
@@ -4942,6 +4501,7 @@ export function createApplicationRuntime({
         companions: cloneSessionCompanionState(gameSession),
         placeables: cloneSessionPlaceables(gameSession),
         gridPlacement: cloneSessionGridPlacement(gameSession),
+        freeBlockBuild: cloneSessionFreeBlockBuild(gameSession),
         logChair: gameSession?.logChair ?
           {
             ...gameSession.logChair,
@@ -4950,7 +4510,7 @@ export function createApplicationRuntime({
             uvRect: [...gameSession.logChair.uvRect]
           } :
           null
-      };
+      });
 
       windowRef.localStorage?.setItem(
         getManualSaveSlotStorageKey(activeManualSaveSlotId),
@@ -6634,6 +6194,11 @@ export function createApplicationRuntime({
       });
     },
     onWaterGunImpactMotionRequested({ groundCell = null, patch = null, type = "ground" } = {}) {
+      queueGroundActionFeedback({
+        groundCells: groundCell,
+        abilityId: "waterGun"
+      });
+
       if (!gameSession?.natureRevivalEffects) {
         return;
       }
@@ -6861,6 +6426,7 @@ export function createApplicationRuntime({
       camera: engine.camera,
       mount: dom.renderFrame,
       fpsPanel: dom.fpsPanel,
+      inputModalityPanel: dom.inputModalityPanel,
       worldCanvas: dom.worldCanvas,
       worldRenderer: engine.worldRenderer,
       worldSpeech: uiRuntime.worldSpeech,
@@ -6982,6 +6548,7 @@ export function createApplicationRuntime({
         },
         completeLeafDenConstructionIfReady,
         consumeCameraZoomCycleRequest: gameInput.consumeCameraZoomCycleRequest,
+        consumeFreeBlockBuildRequest: gameInput.consumeFreeBlockBuildRequest,
         consumePlacementRotationRequest: gameInput.consumePlacementRotationRequest
       },
       cameraOrbit: engine.cameraOrbitConfig,
@@ -7096,6 +6663,27 @@ export function createApplicationRuntime({
           }
 
           return collectedCarbonCount;
+        },
+        collectGearResourceNodes(playerPosition, resourceNodes, inventoryState) {
+          const collectedGearCount = collectGearResourceNodeItems(
+            playerPosition,
+            resourceNodes,
+            storyState,
+            inventoryState
+          );
+
+          if (collectedGearCount > 0) {
+            uiRuntime.bagUiRuntime.handleItemCollected(GEAR_ITEM_ID, storyState);
+            playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_COLLECT);
+            questSystem.emit({
+              type: QUEST_EVENT.COLLECT,
+              targetId: GEAR_ITEM_ID,
+              amount: collectedGearCount
+            });
+            syncQuestPanels();
+          }
+
+          return collectedGearCount;
         },
         findNearbyActionTarget,
         findNearbyInteractable,

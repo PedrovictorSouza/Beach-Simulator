@@ -1,0 +1,17 @@
+{
+  "theme":"classic",
+  "window_height":612,
+  "window_width":576,
+  "warn_on_exit":true,
+  "invert_mouse_controls":false,
+  "os_mouse":false,
+  "snap_is_default":true,
+  "auto_save_frequency":10,
+  "last_path":"",
+  "recent_files":["Gear.txt","Estufa.txt","Robot-01/unnamed_4.txt","solar-energy.txt","unnamed_16.txt"],
+  "invert_zoom":false,
+  "texture_grid_size":16,
+  "show_grid":true,
+  "gif_file_increment":true,
+  "rmb_action":1
+}

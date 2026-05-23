@@ -407,7 +407,8 @@ describe("createFrameSnapshotController", () => {
     expect(worldSpeech.showPrompt).toHaveBeenCalledWith({
       text: "charging",
       worldPosition: [3, 0, 4],
-      anchorHeight: 1.95
+      anchorHeight: 1.95,
+      promptKind: "charging"
     });
     expect(worldSpeech.updatePrompt).toHaveBeenCalledWith(camera, 1280, 720);
 

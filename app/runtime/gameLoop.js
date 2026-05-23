@@ -31,6 +31,7 @@ import {
   BOULDER_SHADED_TALL_GRASS_BOULDER_POSITION,
   BOULDER_SHADED_TALL_GRASS_RADIUS,
   CARBON_ITEM_ID,
+  GEAR_ITEM_ID,
   LEAVES_ITEM_ID,
   LEPPA_BERRY_ITEM_ID,
   LOG_CHAIR_ITEM_ID,
@@ -71,6 +72,12 @@ import {
   isPositionBlockedByTerrainColliders
 } from "../gameplay/placementBlockers.js";
 import { resolveWorkbenchPlacementPreviewVisual } from "../gameplay/placementPreviewVisual.js";
+import { createGridSystem } from "../gameplay/gridBuildingSystem.js";
+import {
+  createFreeBlockBuildController,
+  createFreeBlockBuildState,
+  FREE_BLOCK_TYPES
+} from "../gameplay/freeBlockBuildSystem.js";
 import {
   evaluateHabitatSiteChoice,
   formatHabitatSiteChoicePrompt
@@ -117,7 +124,7 @@ const GAMEPLAY_OPENING_HUD_REVEAL_DELAY_MS = 600;
 const LOG_CHAIR_PLACEMENT_PREVIEW_ALPHA = 0.42;
 const BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT = 10;
 const BOULDER_SHADED_TALL_GRASS_TASK_ID = "boulder-shaded-tall-grass";
-const SUPPLY_PICKUP_FLY_ITEM_IDS = Object.freeze(["wood", LEAVES_ITEM_ID, CARBON_ITEM_ID]);
+const SUPPLY_PICKUP_FLY_ITEM_IDS = Object.freeze(["wood", GEAR_ITEM_ID, LEAVES_ITEM_ID, CARBON_ITEM_ID]);
 const GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT = [2.85, 1.7];
 const GREENHOUSE_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 5, height: 3 });
 const SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT = [2.2, 2.2];
@@ -127,6 +134,13 @@ const TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT = [1.7, 1.45];
 const TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 3, height: 3 });
 const LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT = [1.95, 1.45];
 const LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 3, height: 3 });
+const FREE_BLOCK_BUILD_GRID_CONFIG = Object.freeze({
+  cellSize: 1,
+  origin: Object.freeze({ x: -128, y: 0, z: -128 }),
+  width: 256,
+  height: 256,
+  visualOffsetY: 0.03
+});
 const LEAF_DEN_BUILT_ROTATION_FOOTPRINT = [
   LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[0] * 2,
   LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[1] * 2
@@ -237,6 +251,11 @@ const CHARMANDER_FOLLOW_DISTANCE = 1.28;
 const CHARMANDER_CAMPFIRE_LIGHT_DISTANCE = 1.9;
 const TIMBURR_FOLLOW_SPEED = ACT_TWO_PLAYER_SPEED;
 const TIMBURR_FOLLOW_DISTANCE = 1.62;
+const TIMBURR_BUILD_BLOCK_SPEED = ACT_TWO_PLAYER_SPEED;
+const TIMBURR_BUILD_BLOCK_STAND_DISTANCE = 1.04;
+const TIMBURR_BUILD_BLOCK_ARRIVE_DISTANCE = 0.08;
+const TIMBURR_BUILD_BLOCK_CAST_DURATION = 0.42;
+const TIMBURR_BUILD_BLOCK_IMPACT_TIME = 0.16;
 const SQUIRTLE_FOLLOW_SPEED = ACT_TWO_PLAYER_SPEED;
 const SQUIRTLE_FOLLOW_DISTANCE = 1.18;
 const BULBASAUR_FOLLOW_SPEED = ACT_TWO_PLAYER_SPEED;
@@ -247,7 +266,8 @@ const COMPANION_FOLLOW_FORMATION_ORDER = Object.freeze(["squirtle", "bulbasaur",
 const COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS = Object.freeze({
   waterGun: "squirtle",
   leafage: "bulbasaur",
-  fire: "charmander"
+  fire: "charmander",
+  buildBlock: "timburr"
 });
 const COMPANION_FOLLOW_LINE_FIRST_DISTANCE = 1.18;
 const COMPANION_FOLLOW_LINE_SLOT_SPACING = 1.18;
@@ -286,6 +306,12 @@ const GROW_BOT_REVEAL_PLACEHOLDER_SFX_VOLUME = 0.82;
 const WOOD_COLLECT_POP_DURATION = 0.34;
 const WOOD_COLLECT_POP_LIFT = 0.24;
 const WOOD_COLLECT_POP_SCALE = 1.65;
+const GEAR_PICKUP_PARTICLE_COUNT = 12;
+const GEAR_PICKUP_PARTICLE_DURATION = 0.62;
+const GEAR_PICKUP_PARTICLE_BASE_HEIGHT = 0.42;
+const GEAR_PICKUP_PARTICLE_LIFT = 0.78;
+const GEAR_PICKUP_PARTICLE_RADIUS = 0.72;
+const GEAR_PICKUP_PARTICLE_SIZE = 0.32;
 const SQUIRTLE_WATER_STAMINA_MAX = 3;
 const SQUIRTLE_WATER_STAMINA_COST = 1;
 const SQUIRTLE_WATER_STAMINA_RECHARGE_DURATION = 3.2;
@@ -332,7 +358,7 @@ const LEAFAGE_INVALID_TARGET_PROMPT_TEXT = `Choose ${SANDBOTS_BOT_NAMES.hydro} t
 const LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS = 1600;
 const FIRE_INVALID_TARGET_PROMPT_TEXT = "Use fire on white ground";
 const FIRE_INVALID_TARGET_PROMPT_DURATION_MS = 1600;
-const GROUND_ACTION_FEEDBACK_DURATION_MS = 520;
+const GROUND_ACTION_FEEDBACK_DURATION_MS = 1000;
 const FREE_ROAM_RESTORATION_GRID_RADIUS_FACTOR = 3.2;
 const FREE_ROAM_RESTORATION_GRID_MAX_CELLS = 24;
 const TREE_REVIVAL_LEAF_BURST_COUNT = 18;
@@ -893,6 +919,42 @@ export function resolveTrainHouseMusicVolume({
   return maxVolume * easedProximity;
 }
 
+export function shouldCompleteThermalCabinHomeBeat({
+  thermalBotFollowing = false,
+  thermalBotRegistered = false,
+  thermalBotPosition,
+  playerPosition,
+  trainHousePosition,
+  alreadyComplete = false,
+  activationDistance = CHARMANDER_CAMPFIRE_LIGHT_DISTANCE
+} = {}) {
+  if (
+    alreadyComplete ||
+    (!thermalBotFollowing && !thermalBotRegistered) ||
+    !Array.isArray(trainHousePosition)
+  ) {
+    return false;
+  }
+
+  const isNearTrainHouse = (position) => {
+    if (!Array.isArray(position)) {
+      return false;
+    }
+
+    const distance = Math.hypot(
+      Number(position[0]) - Number(trainHousePosition[0]),
+      Number(position[2]) - Number(trainHousePosition[2])
+    );
+    return Number.isFinite(distance) && distance <= activationDistance;
+  };
+
+  if (thermalBotFollowing && isNearTrainHouse(thermalBotPosition)) {
+    return true;
+  }
+
+  return isNearTrainHouse(playerPosition);
+}
+
 export function applyTrainHouseDance(instance, placementPosition, nowSeconds = 0, placementYaw = 0) {
   if (!instance || !Array.isArray(placementPosition)) {
     return false;
@@ -987,9 +1049,9 @@ export function getWorkbenchInteractionParticleBillboards({
   });
 }
 
-function syncCarbonOreResourceInstances(resourceNodes = [], storyState = {}) {
+function syncModelResourceInstances(resourceNodes = [], storyState = {}, deltaTime = 0) {
   for (const resourceNode of resourceNodes) {
-    if (resourceNode?.itemId !== CARBON_ITEM_ID || !resourceNode.usesModelInstance) {
+    if (!resourceNode?.usesModelInstance) {
       continue;
     }
 
@@ -999,6 +1061,11 @@ function syncCarbonOreResourceInstances(resourceNodes = [], storyState = {}) {
     resourceNode.active =
       Number(resourceNode.cooldown || 0) <= 0 &&
       (typeof resourceNode.activeWhen !== "function" || resourceNode.activeWhen(storyState));
+
+    const spinYawSpeed = Number(resourceNode.spinYawSpeed || 0);
+    if (resourceNode.active && Number.isFinite(spinYawSpeed) && spinYawSpeed !== 0) {
+      resourceNode.yaw = Number(resourceNode.yaw || 0) + spinYawSpeed * Math.max(0, deltaTime);
+    }
   }
 }
 
@@ -1951,10 +2018,41 @@ function createLoopingSfxController({
   };
 }
 
+function createInputModalityPanelController(inputModalityPanelElement) {
+  let lastLabel = "";
+
+  function getInputModalityLabel(inputModalityState = null) {
+    if (inputModalityState?.device === "gamepad") {
+      return `INPUT ${String(inputModalityState.gamepadLayout || "gamepad").toUpperCase()}`;
+    }
+
+    return "INPUT KEYBOARD";
+  }
+
+  return {
+    update(inputModalityState = null) {
+      if (!inputModalityPanelElement) {
+        return;
+      }
+
+      const label = getInputModalityLabel(inputModalityState);
+      if (label === lastLabel) {
+        return;
+      }
+
+      inputModalityPanelElement.textContent = label;
+      inputModalityPanelElement.dataset.inputDevice =
+        inputModalityState?.device === "gamepad" ? "gamepad" : "keyboard";
+      lastLabel = label;
+    }
+  };
+}
+
 export function startGameLoop({
   camera,
   mount,
   fpsPanel = null,
+  inputModalityPanel = null,
   worldCanvas,
   worldRenderer,
   worldSpeech,
@@ -2012,6 +2110,7 @@ export function startGameLoop({
     cameraOrbit
   });
   const fpsPanelController = createFpsPanelController(fpsPanel);
+  const inputModalityPanelController = createInputModalityPanelController(inputModalityPanel);
   const getSfxVolumeScale = () => gameplay?.audioMixRuntime?.getSfxVolumeScale?.() ?? 1;
   const getMusicVolumeScale = () => gameplay?.audioMixRuntime?.getMusicVolumeScale?.() ?? 1;
   const playSoundEvent = (eventId, options) => {
@@ -2079,6 +2178,7 @@ export function startGameLoop({
     volumeScale: getSfxVolumeScale
   });
   const woodCollectPopEffects = [];
+  const gearPickupParticleEffects = [];
   let repairBoxElapsed = 0;
   let waterGunSfxBurstUntilSeconds = 0;
   let repairBoxRevealFlashElement = null;
@@ -2094,7 +2194,7 @@ export function startGameLoop({
   let fireInvalidTargetPromptUntil = 0;
   let runBreadcrumbPromptShown = false;
   let runBreadcrumbPromptUntil = 0;
-  let groundActionFeedback = null;
+  let groundActionFeedbacks = [];
   let playerCounterPrompt = null;
   let companionFollowDirection = null;
   let workbenchRotationSelection = null;
@@ -3467,17 +3567,58 @@ export function startGameLoop({
     );
   }
 
-  function triggerGroundActionFeedback(groundCell, abilityId, now) {
-    if (!groundCell) {
+  function normalizeGroundActionFeedbackCells(groundCells, abilityId) {
+    const cells = Array.isArray(groundCells) ? groundCells : [groundCells];
+    const seenCellIds = new Set();
+    const targetState = abilityId === "invalid" ? "invalid" : "valid";
+
+    return cells
+      .filter((groundCell) => {
+        if (!groundCell || !Array.isArray(groundCell.offset)) {
+          return false;
+        }
+
+        const cellKey = groundCell.id || groundCell;
+        if (seenCellIds.has(cellKey)) {
+          return false;
+        }
+
+        seenCellIds.add(cellKey);
+        return true;
+      })
+      .map((groundCell) => ({
+        ...groundCell,
+        highlightTargetState: groundCell.highlightTargetState || targetState,
+        highlightAbilityId: groundCell.highlightAbilityId || abilityId
+      }));
+  }
+
+  function triggerGroundActionFeedback(groundCells, abilityId, now) {
+    const markedGroundCells = normalizeGroundActionFeedbackCells(groundCells, abilityId);
+    if (!markedGroundCells.length) {
       return;
     }
 
-    groundActionFeedback = {
-      groundCell,
+    groundActionFeedbacks.push({
+      groundCells: markedGroundCells,
       abilityId,
       startedAt: now,
       expiresAt: now + GROUND_ACTION_FEEDBACK_DURATION_MS
-    };
+    });
+  }
+
+  function flushQueuedGroundActionFeedback(now) {
+    const queuedFeedback = Array.isArray(session.groundActionFeedbackQueue) ?
+      session.groundActionFeedbackQueue.splice(0) :
+      [];
+
+    for (const feedback of queuedFeedback) {
+      triggerGroundActionFeedback(
+        feedback?.groundCells || feedback?.groundCell,
+        feedback?.abilityId || "waterGun",
+        Number.isFinite(feedback?.startedAt) ? feedback.startedAt : now
+      );
+    }
   }
 
   function triggerInvalidFieldMoveFeedback(groundCell, now) {
@@ -3490,18 +3631,38 @@ export function startGameLoop({
   }
 
   function getGroundActionFeedback(now) {
-    if (!groundActionFeedback || groundActionFeedback.expiresAt <= now) {
-      groundActionFeedback = null;
+    flushQueuedGroundActionFeedback(now);
+    groundActionFeedbacks = groundActionFeedbacks.filter((feedback) => {
+      return feedback?.expiresAt > now && Array.isArray(feedback.groundCells) && feedback.groundCells.length;
+    });
+
+    if (!groundActionFeedbacks.length) {
       return null;
     }
 
+    const newestFeedback = groundActionFeedbacks[groundActionFeedbacks.length - 1];
     const progress = clamp01(
-      (now - groundActionFeedback.startedAt) / GROUND_ACTION_FEEDBACK_DURATION_MS
+      (now - newestFeedback.startedAt) / GROUND_ACTION_FEEDBACK_DURATION_MS
     );
+    const markedGroundCells = [];
+    const seenCellIds = new Set();
+
+    for (const feedback of groundActionFeedbacks) {
+      for (const groundCell of feedback.groundCells) {
+        const cellKey = groundCell.id || groundCell;
+        if (seenCellIds.has(cellKey)) {
+          continue;
+        }
+
+        seenCellIds.add(cellKey);
+        markedGroundCells.push(groundCell);
+      }
+    }
 
     return {
-      groundCell: groundActionFeedback.groundCell,
-      abilityId: groundActionFeedback.abilityId,
+      groundCell: markedGroundCells[0] || null,
+      markedGroundCells,
+      abilityId: newestFeedback.abilityId,
       pulsePhase: Math.sin(progress * Math.PI)
     };
   }
@@ -4010,16 +4171,8 @@ export function startGameLoop({
     );
   }
 
-  function getBoulderShadedLeafageGroundCells(storyState = {}) {
-    if (!isBoulderShadedTallGrassTaskActive(storyState)) {
-      return [];
-    }
-
-    const boulderPosition =
-      session.challengeBoulder?.position ||
-      BOULDER_SHADED_TALL_GRASS_BOULDER_POSITION;
-
-    return (session.groundPurifiedInstances || [])
+  function getBoulderShadedGroundCellDistanceEntries(groundCells = [], boulderPosition) {
+    return (groundCells || [])
       .filter(isFreeRoamRestorationGroundCellCandidate)
       .filter((groundCell) => !hasGroundPatchForCellId(groundCell?.id))
       .map((groundCell) => {
@@ -4031,12 +4184,39 @@ export function startGameLoop({
         };
       })
       .filter(({ distance }) => distance <= BOULDER_SHADED_TALL_GRASS_RADIUS)
-      .sort((left, right) => left.distance - right.distance)
-      .map(({ groundCell }) => ({
-        ...groundCell,
-        highlightTargetState: "valid",
-        highlightAbilityId: "leafage"
-      }));
+      .sort((left, right) => left.distance - right.distance);
+  }
+
+  function getBoulderShadedTaskGroundCells(storyState = {}) {
+    if (!isBoulderShadedTallGrassTaskActive(storyState)) {
+      return [];
+    }
+
+    const boulderPosition =
+      session.challengeBoulder?.position ||
+      BOULDER_SHADED_TALL_GRASS_BOULDER_POSITION;
+
+    const waterGunGroundCells = getBoulderShadedGroundCellDistanceEntries(
+      session.groundDeadInstances,
+      boulderPosition
+    ).map(({ groundCell }) => ({
+      ...groundCell,
+      highlightTargetState: "valid",
+      highlightAbilityId: "waterGun"
+    }));
+    const leafageGroundCells = getBoulderShadedGroundCellDistanceEntries(
+      session.groundPurifiedInstances,
+      boulderPosition
+    ).map(({ groundCell }) => ({
+      ...groundCell,
+      highlightTargetState: "valid",
+      highlightAbilityId: "leafage"
+    }));
+
+    return [
+      ...waterGunGroundCells,
+      ...leafageGroundCells
+    ];
   }
 
   function hasGroundPatchForCellId(cellId) {
@@ -4373,6 +4553,14 @@ export function startGameLoop({
   }
 
   function performGameplayDestroyAction(options) {
+    const nowMs =
+      typeof performance !== "undefined" && typeof performance.now === "function" ?
+        performance.now() :
+        Date.now();
+    if (tryRemoveNearbyFreeBlock(options?.playerPosition, nowMs)) {
+      return true;
+    }
+
     const cutEffectPatch = getDestroyableLandscapePatchForInteractOptions(options);
     if (!cutEffectPatch) {
       playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
@@ -5551,6 +5739,313 @@ export function startGameLoop({
     return [0, -1];
   }
 
+  function getFreeBlockBuildGridConfig() {
+    const config = session.gridPlacement?.gridConfig || FREE_BLOCK_BUILD_GRID_CONFIG;
+    return {
+      cellSize: Number(config.cellSize || FREE_BLOCK_BUILD_GRID_CONFIG.cellSize),
+      origin: {
+        x: Number(config.origin?.x ?? FREE_BLOCK_BUILD_GRID_CONFIG.origin.x),
+        y: Number(config.origin?.y ?? FREE_BLOCK_BUILD_GRID_CONFIG.origin.y),
+        z: Number(config.origin?.z ?? FREE_BLOCK_BUILD_GRID_CONFIG.origin.z)
+      },
+      width: Math.max(1, Math.trunc(Number(config.width || FREE_BLOCK_BUILD_GRID_CONFIG.width))),
+      height: Math.max(1, Math.trunc(Number(config.height || FREE_BLOCK_BUILD_GRID_CONFIG.height))),
+      visualOffsetY: Number(config.visualOffsetY ?? FREE_BLOCK_BUILD_GRID_CONFIG.visualOffsetY)
+    };
+  }
+
+  function getFreeBlockBuildController() {
+    const gridConfig = getFreeBlockBuildGridConfig();
+    const gridSignature = JSON.stringify(gridConfig);
+    if (
+      session.freeBlockPlacementController &&
+      session.freeBlockPlacementGridSignature === gridSignature
+    ) {
+      return session.freeBlockPlacementController;
+    }
+
+    const gridSystem = createGridSystem(gridConfig);
+    session.freeBlockInstances ||= [];
+    session.freeBlockBuildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: gridSystem.width,
+        height: gridSystem.height
+      }
+    });
+    session.freeBlockPlacementController = createFreeBlockBuildController({
+      gridSystem,
+      buildState: session.freeBlockBuildState,
+      blockInstanceStore: session.freeBlockInstances,
+      initialBlockType: FREE_BLOCK_TYPES.FLOOR
+    });
+    if (session.freeBlockBuildSnapshot) {
+      session.freeBlockBuildState.restoreFreeBlocks(session.freeBlockBuildSnapshot);
+      session.freeBlockPlacementController.syncInstancesFromState();
+    }
+    session.freeBlockPlacementGridSignature = gridSignature;
+    return session.freeBlockPlacementController;
+  }
+
+  function buildFreeBlockFeedbackGroundCell(result) {
+    const gridConfig = getFreeBlockBuildGridConfig();
+    const gridSystem = createGridSystem(gridConfig);
+    const targetCell = result?.targetCell;
+    if (!targetCell) {
+      return null;
+    }
+
+    const worldPosition = gridSystem.cellToWorld(targetCell, {
+      center: true,
+      includeVisualOffset: true
+    });
+    return {
+      id: `free-block-feedback:${targetCell.x}:${targetCell.y}`,
+      offset: [worldPosition.x, worldPosition.y, worldPosition.z],
+      size: [gridSystem.cellSize, gridSystem.cellSize],
+      tileSpan: gridSystem.cellSize,
+      highlightTargetState: result.placed ? "valid" : "invalid",
+      highlightAbilityId: result.placed ? "build" : "invalid"
+    };
+  }
+
+  function syncFreeBlockBuildSnapshot() {
+    const controller = getFreeBlockBuildController();
+    session.freeBlockBuildSnapshot = controller.serializeFreeBlocks();
+    return session.freeBlockBuildSnapshot;
+  }
+
+  function handleFreeBlockPlacementResult(result, now) {
+    const feedbackGroundCell = buildFreeBlockFeedbackGroundCell(result);
+    if (feedbackGroundCell) {
+      triggerGroundActionFeedback(
+        feedbackGroundCell,
+        result.placed ? "build" : "invalid",
+        now
+      );
+    }
+
+    if (result.placed) {
+      controls.storyState.flags.firstFreeBlockPlaced = true;
+      syncFreeBlockBuildSnapshot();
+      playInstanceObjectSfx();
+      hud?.pushNotice?.("Floor block placed.");
+    } else {
+      playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
+      hud?.pushNotice?.("Block can't be placed there.");
+    }
+  }
+
+  function tryPlaceFreeBlockFromBuildInput(now) {
+    const controller = getFreeBlockBuildController();
+    if (!controller) {
+      return { handled: false };
+    }
+
+    const result = controller.placeSelectedBlockAtTarget({
+      playerPosition: session.playerCharacter?.getPosition?.(),
+      playerYaw: session.playerModelInstance?.yaw
+    });
+    handleFreeBlockPlacementResult(result, now);
+
+    return {
+      handled: true,
+      result
+    };
+  }
+
+  function resolveFreeBlockBuildTarget(playerPosition = null) {
+    const controller = getFreeBlockBuildController();
+    const target = controller?.resolveSelectedBlockTarget?.({
+      playerPosition,
+      playerYaw: session.playerModelInstance?.yaw
+    });
+
+    if (!target?.targetCell) {
+      return null;
+    }
+
+    const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
+    const worldPosition = gridSystem.cellToWorld(target.targetCell, {
+      center: true,
+      includeVisualOffset: true
+    });
+
+    return {
+      targetCell: target.targetCell,
+      targetPosition: [worldPosition.x, worldPosition.y, worldPosition.z]
+    };
+  }
+
+  function startTimburrBuildBlockAction({ playerPosition }) {
+    const timburr = session.timburrEncounter;
+
+    if (session.timburrBuildBlockAction) {
+      return "busy";
+    }
+
+    if (!controls.playerSkills?.buildBlock || !controls.storyState?.flags?.timburrRevealed) {
+      return "locked";
+    }
+
+    if (
+      !timburr ||
+      !timburr.visible ||
+      !Array.isArray(timburr.position)
+    ) {
+      return "unavailable";
+    }
+
+    const target = resolveFreeBlockBuildTarget(playerPosition);
+    if (!target) {
+      return "unavailable";
+    }
+
+    const approachPosition = getTimburrBuildBlockApproachPosition(
+      target.targetPosition,
+      playerPosition
+    );
+
+    session.timburrBuildBlockAction = {
+      phase: "approach",
+      targetCell: target.targetCell,
+      targetPosition: target.targetPosition,
+      approachPosition,
+      castElapsed: 0,
+      impactApplied: false
+    };
+
+    return "started";
+  }
+
+  function applyTimburrBuildBlockImpact(action, now) {
+    const controller = getFreeBlockBuildController();
+    if (!controller) {
+      return null;
+    }
+
+    const result = controller.placeSelectedBlockAtTarget({
+      targetCell: action.targetCell
+    });
+    handleFreeBlockPlacementResult(result, now);
+    return result;
+  }
+
+  function updateTimburrBuildBlockAction(deltaTime, now) {
+    const action = session.timburrBuildBlockAction;
+    const timburr = session.timburrEncounter;
+
+    if (!action || !timburr) {
+      return;
+    }
+
+    if (!Array.isArray(timburr.position)) {
+      timburr.position = [...action.approachPosition];
+    }
+
+    if (action.phase === "approach") {
+      const deltaX = action.approachPosition[0] - timburr.position[0];
+      const deltaZ = action.approachPosition[2] - timburr.position[2];
+      const distance = Math.hypot(deltaX, deltaZ);
+      const travel = Math.min(TIMBURR_BUILD_BLOCK_SPEED * deltaTime, distance);
+
+      if (distance > TIMBURR_BUILD_BLOCK_ARRIVE_DISTANCE && travel > 0) {
+        const nextPosition = [
+          timburr.position[0] + (deltaX / distance) * travel,
+          0.04,
+          timburr.position[2] + (deltaZ / distance) * travel
+        ];
+        if (!tryMoveCompanionToPosition(timburr, nextPosition)) {
+          session.timburrBuildBlockAction = null;
+          cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.builder);
+          return;
+        }
+      } else {
+        if (isCompanionPositionBlockedByConstruction(action.approachPosition)) {
+          session.timburrBuildBlockAction = null;
+          cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.builder);
+          return;
+        }
+
+        timburr.position = [...action.approachPosition];
+        action.phase = "cast";
+        action.castElapsed = 0;
+      }
+
+      return;
+    }
+
+    if (action.phase !== "cast") {
+      session.timburrBuildBlockAction = null;
+      return;
+    }
+
+    action.castElapsed += deltaTime;
+
+    if (!action.impactApplied && action.castElapsed >= TIMBURR_BUILD_BLOCK_IMPACT_TIME) {
+      action.impactApplied = true;
+      applyTimburrBuildBlockImpact(action, now);
+    }
+
+    if (action.castElapsed >= TIMBURR_BUILD_BLOCK_CAST_DURATION) {
+      session.timburrBuildBlockAction = null;
+    }
+  }
+
+  function findNearbyFreeBlockTarget(playerPosition) {
+    if (!Array.isArray(playerPosition) || !Array.isArray(session.freeBlockInstances)) {
+      return null;
+    }
+
+    let nearest = null;
+    let nearestDistance = Infinity;
+    for (const instance of session.freeBlockInstances) {
+      if (instance?.active === false || !Array.isArray(instance?.offset) || !instance.freeBlockCell) {
+        continue;
+      }
+
+      const distance = Math.hypot(
+        Number(playerPosition[0] || 0) - Number(instance.offset[0] || 0),
+        Number(playerPosition[2] || 0) - Number(instance.offset[2] || 0)
+      );
+      if (distance < 1.35 && distance < nearestDistance) {
+        nearest = instance;
+        nearestDistance = distance;
+      }
+    }
+
+    return nearest;
+  }
+
+  function tryRemoveNearbyFreeBlock(playerPosition, now) {
+    const target = findNearbyFreeBlockTarget(playerPosition);
+    if (!target) {
+      return false;
+    }
+
+    const controller = getFreeBlockBuildController();
+    const result = controller.removeBlockAtTarget({
+      targetCell: target.freeBlockCell
+    });
+
+    if (!result.removed) {
+      return false;
+    }
+
+    syncFreeBlockBuildSnapshot();
+    const feedbackGroundCell = buildFreeBlockFeedbackGroundCell({
+      targetCell: target.freeBlockCell,
+      placed: true
+    });
+    if (feedbackGroundCell) {
+      triggerGroundActionFeedback(feedbackGroundCell, "build", now);
+    }
+    playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_IMPACT);
+    hud?.pushNotice?.("Floor block removed.");
+    return true;
+  }
+
   function getCompanionFollowTargetPosition(followDistance) {
     const playerPosition = session.playerCharacter?.getPosition?.();
     if (!Array.isArray(playerPosition)) {
@@ -5606,6 +6101,7 @@ export function startGameLoop({
         flags.timburrFollowing &&
         flags.timburrRevealed &&
         session.timburrEncounter?.visible &&
+        !session.timburrBuildBlockAction &&
         !flags.leafDenConstructionStarted
       );
     }
@@ -5879,6 +6375,34 @@ export function startGameLoop({
     ];
   }
 
+  function getTimburrBuildBlockApproachPosition(targetPosition, playerPosition = null) {
+    const timburrPosition =
+      session.timburrEncounter?.position ||
+      playerPosition ||
+      [0, 0.04, 0];
+    let deltaX = timburrPosition[0] - targetPosition[0];
+    let deltaZ = timburrPosition[2] - targetPosition[2];
+    let distance = Math.hypot(deltaX, deltaZ);
+
+    if (distance < 0.001 && playerPosition) {
+      deltaX = playerPosition[0] - targetPosition[0];
+      deltaZ = playerPosition[2] - targetPosition[2];
+      distance = Math.hypot(deltaX, deltaZ);
+    }
+
+    if (distance < 0.001) {
+      deltaX = 0;
+      deltaZ = 1;
+      distance = 1;
+    }
+
+    return [
+      targetPosition[0] + (deltaX / distance) * TIMBURR_BUILD_BLOCK_STAND_DISTANCE,
+      0.04,
+      targetPosition[2] + (deltaZ / distance) * TIMBURR_BUILD_BLOCK_STAND_DISTANCE
+    ];
+  }
+
   function getCharmanderFireApproachPosition(targetPosition, playerPosition = null) {
     const charmanderPosition =
       session.charmanderEncounter?.position ||
@@ -5993,6 +6517,7 @@ export function startGameLoop({
     if (result) {
       hud.syncInventoryUi(controls.inventory);
       triggerSupplyCounterPrompt(CARBON_ITEM_ID, controls.inventory, performance.now());
+      triggerGroundActionFeedback(action.groundCell, "fire", performance.now());
     }
 
     return result;
@@ -7385,6 +7910,56 @@ export function startGameLoop({
     return queuedAny;
   }
 
+  function pushSupplyResourceCollectFeedback({
+    itemId,
+    count,
+    sourcePositions = [],
+    label = getSupplyCounterPromptLabel(itemId),
+    now = performance.now()
+  } = {}) {
+    if (count <= 0 || !itemId) {
+      return;
+    }
+
+    for (let index = 0; index < count; index += 1) {
+      woodGrabSfxController.update({
+        active: true,
+        nowSeconds: (now * 0.001) + index * 0.025
+      });
+    }
+    hud.syncInventoryUi(controls.inventory);
+    queueSupplyPickupFlyItems(itemId, sourcePositions);
+    hud.pushNotice(`+${count} ${label}`);
+    triggerSupplyCounterPrompt(itemId, controls.inventory, now);
+  }
+
+  function triggerGearPickupParticleEffects(sourcePositions = []) {
+    for (const sourcePosition of sourcePositions) {
+      if (!Array.isArray(sourcePosition)) {
+        continue;
+      }
+
+      for (let index = 0; index < GEAR_PICKUP_PARTICLE_COUNT; index += 1) {
+        const spread = index / GEAR_PICKUP_PARTICLE_COUNT;
+        const angle = spread * Math.PI * 2;
+        const speed = 0.62 + (index % 4) * 0.08;
+        const size = GEAR_PICKUP_PARTICLE_SIZE * (0.82 + (index % 3) * 0.12);
+
+        gearPickupParticleEffects.push({
+          origin: [...sourcePosition],
+          age: 0,
+          duration: GEAR_PICKUP_PARTICLE_DURATION,
+          angle,
+          speed,
+          size,
+          rotation: angle * 0.5,
+          spin: (index % 2 === 0 ? 1 : -1) * (3.4 + spread * 2.2),
+          phase: spread * Math.PI
+        });
+      }
+    }
+  }
+
   function updateWoodCollectPopEffects(deltaTime) {
     for (let index = woodCollectPopEffects.length - 1; index >= 0; index -= 1) {
       const effect = woodCollectPopEffects[index];
@@ -7392,6 +7967,17 @@ export function startGameLoop({
 
       if (effect.age >= effect.duration) {
         woodCollectPopEffects.splice(index, 1);
+      }
+    }
+  }
+
+  function updateGearPickupParticleEffects(deltaTime) {
+    for (let index = gearPickupParticleEffects.length - 1; index >= 0; index -= 1) {
+      const effect = gearPickupParticleEffects[index];
+      effect.age += deltaTime;
+
+      if (effect.age >= effect.duration) {
+        gearPickupParticleEffects.splice(index, 1);
       }
     }
   }
@@ -7420,6 +8006,33 @@ export function startGameLoop({
         ],
         uvRect: effect.uvRect || fallbackUvRect,
         alpha: fade
+      };
+    });
+  }
+
+  function getGearPickupParticleBillboards(texture, fallbackUvRect) {
+    if (!texture || gearPickupParticleEffects.length === 0) {
+      return [];
+    }
+
+    return gearPickupParticleEffects.map((effect) => {
+      const progress = clamp01(effect.age / effect.duration);
+      const arc = Math.sin(progress * Math.PI);
+      const radius = GEAR_PICKUP_PARTICLE_RADIUS * effect.speed * progress;
+      const alpha = clamp01(progress / 0.14) * clamp01((1 - progress) / 0.38);
+      const pulse = 1 + arc * 0.55;
+
+      return {
+        texture,
+        position: [
+          effect.origin[0] + Math.cos(effect.angle) * radius,
+          effect.origin[1] + GEAR_PICKUP_PARTICLE_BASE_HEIGHT + arc * GEAR_PICKUP_PARTICLE_LIFT,
+          effect.origin[2] + Math.sin(effect.angle) * radius
+        ],
+        size: [effect.size * pulse, effect.size * pulse],
+        uvRect: fallbackUvRect,
+        alpha,
+        rotation: effect.rotation + effect.spin * effect.age + effect.phase
       };
     });
   }
@@ -7517,7 +8130,7 @@ export function startGameLoop({
           instance.greenhouseGroundY || 0.02,
           placement.position[2]
         ];
-        instance.scale = instance.greenhouseBaseScale || instance.scale || 3;
+        instance.scale = instance.greenhouseBaseScale || instance.scale || 1.725;
         instance.yaw = baseYaw + Number(placement.yaw || 0);
         instance.alpha = 1;
         instance.tintStrength = 0;
@@ -8439,15 +9052,17 @@ export function startGameLoop({
 
     if (
       session.campfire?.position &&
-      controls.storyState.flags.charmanderFollowing &&
+      (controls.storyState.flags.charmanderFollowing || controls.storyState.flags.charmanderRevealed) &&
       !controls.storyState.flags.charmanderCampfireLit
     ) {
-      const campfireDistance = Math.hypot(
-        encounter.position[0] - session.campfire.position[0],
-        encounter.position[2] - session.campfire.position[2]
-      );
-
-      if (campfireDistance <= CHARMANDER_CAMPFIRE_LIGHT_DISTANCE) {
+      if (shouldCompleteThermalCabinHomeBeat({
+        thermalBotFollowing: controls.storyState.flags.charmanderFollowing,
+        thermalBotRegistered: controls.storyState.flags.charmanderRevealed,
+        thermalBotPosition: encounter.position,
+        playerPosition: session.playerCharacter?.getPosition?.(),
+        trainHousePosition: session.campfire.position,
+        alreadyComplete: controls.storyState.flags.charmanderCampfireLit
+      })) {
         encounter.litCampfire = true;
         controls.storyState.flags.charmanderCampfireLit = true;
         controls.storyState.flags.charmanderFollowing = false;
@@ -8475,6 +9090,10 @@ export function startGameLoop({
       moveConstructionHelperToLeafDen(encounter, {
         offset: [1.04, 0, -0.76]
       });
+      return;
+    }
+
+    if (session.timburrBuildBlockAction) {
       return;
     }
 
@@ -8847,6 +9466,7 @@ export function startGameLoop({
     }
 
     controls.updateGamepads?.(deltaTime);
+    inputModalityPanelController.update(getCurrentInputModalityState());
 
     if (controls.isPaused?.()) {
       controls.clearPendingActions();
@@ -9099,7 +9719,23 @@ export function startGameLoop({
     }
 
     if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacter)) {
+      controls.consumeFreeBlockBuildRequest?.();
       controls.consumeJumpRequest?.();
+    }
+
+    if (
+      !shouldConsumePlacementCancel &&
+      !movementBlocked &&
+      session.playerCharacter &&
+      controls.consumeFreeBlockBuildRequest?.()
+    ) {
+      if (buildBlockEquipped) {
+        startTimburrBuildBlockAction({
+          playerPosition: session.playerCharacter.getPosition()
+        });
+      } else {
+        playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
+      }
     }
 
     let solarStationPlacementPreview = updateSolarStationPlacementPreview(now * 0.001);
@@ -9193,6 +9829,7 @@ export function startGameLoop({
     updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
     updateTreeRevivalLeafBursts(deltaTime);
     updateWoodCollectPopEffects(deltaTime);
+    updateGearPickupParticleEffects(deltaTime);
 
     const activeMoveId = controls.getActiveMoveId?.() || null;
     const firstTaughtActionFreedomWindow = syncFirstTaughtActionFreedomWindow(
@@ -9212,6 +9849,10 @@ export function startGameLoop({
     const fireEquipped = Boolean(
       controls.playerSkills?.fire &&
       activeMoveId === "fire"
+    );
+    const buildBlockEquipped = Boolean(
+      controls.playerSkills?.buildBlock &&
+      activeMoveId === "buildBlock"
     );
     const isWaterGunTreeTarget = (target) => Boolean(
       waterGunEquipped &&
@@ -9283,6 +9924,10 @@ export function startGameLoop({
         recordSquirtleWaterGunUse();
       }
 
+      if (result && options.useFire && options.forcedHarvestTarget?.fireGroundCell) {
+        triggerGroundActionFeedback(options.forcedHarvestTarget.fireGroundCell, "fire", now);
+      }
+
       return result;
     }
 
@@ -9323,7 +9968,7 @@ export function startGameLoop({
         canPurifyGround: waterGunEquipped,
         canUseLeafage: leafageEquipped && leafagePrimaryMoveRequested,
         canUseFire: fireEquipped,
-        allowPlacement: !gamepadPrimaryMoveRequested
+        allowPlacement: !gamepadPrimaryMoveRequested && !buildBlockEquipped
       });
       const primaryActionPlacementTarget = Boolean(
         primaryActionTarget?.logChairPlacement ||
@@ -9334,15 +9979,12 @@ export function startGameLoop({
         primaryActionTarget?.leafDenFurniturePlacement ||
         primaryActionTarget?.dittoFlagPlacement
       );
-      const primaryActionIsPlacement = primaryActionPlacementTarget && !gamepadPrimaryMoveRequested;
-      const primaryActionPlacementBlocked = primaryActionPlacementTarget && gamepadPrimaryMoveRequested;
-      const primaryActionIsMove = Boolean(
-        (waterGunEquipped && primaryActionTarget?.groundCell) ||
-        isWaterGunTreeTarget(primaryActionTarget) ||
-        (leafageEquipped && leafagePrimaryMoveRequested && primaryActionTarget?.leafageGroundCell) ||
-        (fireEquipped && primaryActionTarget?.fireGroundCell)
+      const primaryActionCanUseFieldMove = Boolean(
+        waterGunEquipped ||
+        leafageEquipped ||
+        fireEquipped ||
+        buildBlockEquipped
       );
-      const primaryActionCanUseFieldMove = Boolean(waterGunEquipped || leafageEquipped || fireEquipped);
       const primaryActionWantsFieldMove =
         primaryActionCanUseFieldMove &&
         (
@@ -9354,6 +9996,17 @@ export function startGameLoop({
             primaryActionTarget?.leafageGroundCell
           )
         );
+      const primaryActionIsPlacement =
+        primaryActionPlacementTarget && !gamepadPrimaryMoveRequested && !buildBlockEquipped;
+      const primaryActionPlacementBlocked =
+        primaryActionPlacementTarget && (gamepadPrimaryMoveRequested || buildBlockEquipped);
+      const primaryActionIsMove = Boolean(
+        (buildBlockEquipped && primaryActionWantsFieldMove) ||
+        (waterGunEquipped && primaryActionTarget?.groundCell) ||
+        isWaterGunTreeTarget(primaryActionTarget) ||
+        (leafageEquipped && leafagePrimaryMoveRequested && primaryActionTarget?.leafageGroundCell) ||
+        (fireEquipped && primaryActionTarget?.fireGroundCell)
+      );
       const leafageAutoWaterGunTarget =
         leafageEquipped &&
         leafagePrimaryMoveRequested &&
@@ -9533,7 +10186,6 @@ export function startGameLoop({
         leafageInvalidTargetPromptUntil = 0;
         controls.setActiveMoveId?.("waterGun");
         controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
-        triggerGroundActionFeedback(leafageAutoWaterGunTarget.groundCell, "waterGun", now);
         const squirtleWaterGunResult = startSquirtleWaterGunAction({
           groundCell: leafageAutoWaterGunTarget.groundCell,
           playerPosition
@@ -9549,7 +10201,6 @@ export function startGameLoop({
       } else if (leafageAutoGrowTarget?.leafageGroundCell) {
         leafageInvalidTargetPromptUntil = 0;
         controls.setActiveMoveId?.("leafage");
-        triggerGroundActionFeedback(leafageAutoGrowTarget.leafageGroundCell, "leafage", now);
         const bulbasaurLeafageResult = startBulbasaurLeafageAction({
           groundCell: leafageAutoGrowTarget.leafageGroundCell,
           playerPosition
@@ -9585,8 +10236,21 @@ export function startGameLoop({
           forcedHarvestTarget: primaryActionTarget
         });
       } else if (primaryActionIsMove && !dialogueActive) {
-        if (waterGunEquipped && primaryActionTarget?.groundCell) {
-          triggerGroundActionFeedback(primaryActionTarget.groundCell, "waterGun", now);
+        if (buildBlockEquipped && primaryActionWantsFieldMove) {
+          const timburrBuildBlockResult = startTimburrBuildBlockAction({
+            playerPosition
+          });
+
+          if (timburrBuildBlockResult === "locked") {
+            playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
+            hud?.pushNotice?.(`${SANDBOTS_BOT_NAMES.builder} has not learned Build yet.`);
+          } else if (timburrBuildBlockResult === "unavailable") {
+            playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
+            hud?.pushNotice?.(`${SANDBOTS_BOT_NAMES.builder} needs to be nearby.`);
+          } else if (timburrBuildBlockResult === "busy") {
+            playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
+          }
+        } else if (waterGunEquipped && primaryActionTarget?.groundCell) {
           const squirtleWaterGunResult = startSquirtleWaterGunAction({
             groundCell: primaryActionTarget.groundCell,
             playerPosition
@@ -9609,7 +10273,6 @@ export function startGameLoop({
           }
         } else if (leafageEquipped && leafagePrimaryMoveRequested && primaryActionTarget?.leafageGroundCell) {
           leafageInvalidTargetPromptUntil = 0;
-          triggerGroundActionFeedback(primaryActionTarget.leafageGroundCell, "leafage", now);
           const bulbasaurLeafageResult = startBulbasaurLeafageAction({
             groundCell: primaryActionTarget.leafageGroundCell,
             playerPosition
@@ -9623,7 +10286,6 @@ export function startGameLoop({
           }
         } else if (fireEquipped && primaryActionTarget?.fireGroundCell) {
           fireInvalidTargetPromptUntil = 0;
-          triggerGroundActionFeedback(primaryActionTarget.fireGroundCell, "fire", now);
           const charmanderFireResult = startCharmanderFireAction({
             groundCell: primaryActionTarget.fireGroundCell,
             playerPosition
@@ -9722,14 +10384,6 @@ export function startGameLoop({
           groundCell: waterGunTarget.groundCell,
           playerPosition
         });
-
-        if (
-          squirtleWaterGunResult === "started" ||
-          squirtleWaterGunResult === "queued" ||
-          squirtleWaterGunResult === "unavailable"
-        ) {
-          triggerGroundActionFeedback(waterGunTarget.groundCell, "waterGun", now);
-        }
 
         if (squirtleWaterGunResult === "unavailable") {
           triggerWaterGunSfxBurst();
@@ -9878,7 +10532,7 @@ export function startGameLoop({
     gameplay.updateResourceNodes(deltaTime, session.resourceNodes);
     gameplay.updateResourceNodes(deltaTime, session.woodDrops);
     updateLandscapeCutEffects(deltaTime);
-    syncCarbonOreResourceInstances(session.resourceNodes, controls.storyState);
+    syncModelResourceInstances(session.resourceNodes, controls.storyState, deltaTime);
     session.updateCloudAtmosphere?.(deltaTime);
     updateSnowstormParticleField(session.snowstorm, {
       deltaTime,
@@ -9907,6 +10561,7 @@ export function startGameLoop({
       nowSeconds: now * 0.001
     });
     updateTimburrEncounter(deltaTime, { activeMoveId });
+    updateTimburrBuildBlockAction(deltaTime, now);
     syncCompanionRepairModules();
     syncBeeFieldRepairBox();
     syncBeeFieldBees(deltaTime);
@@ -10002,16 +10657,35 @@ export function startGameLoop({
             ...getNewlyCollectedDropPositions(leafDropSnapshots),
             ...getNewlyCollectedResourcePositions(leafResourceSnapshots)
           ];
-          for (let leafIndex = 0; leafIndex < collectedLeafCount; leafIndex += 1) {
-            woodGrabSfxController.update({
-              active: true,
-              nowSeconds: (now * 0.001) + leafIndex * 0.025
-            });
-          }
-          hud.syncInventoryUi(controls.inventory);
-          queueSupplyPickupFlyItems(LEAVES_ITEM_ID, collectedLeafPositions);
-          hud.pushNotice(`+${collectedLeafCount} Leaves`);
-          triggerSupplyCounterPrompt(LEAVES_ITEM_ID, controls.inventory, now);
+          pushSupplyResourceCollectFeedback({
+            itemId: LEAVES_ITEM_ID,
+            count: collectedLeafCount,
+            sourcePositions: collectedLeafPositions,
+            label: "Leaves",
+            now
+          });
+        }
+
+        const gearResourceSnapshots = snapshotCollectibleSources(
+          session.resourceNodes,
+          (resourceNode) => resourceNode.itemId === GEAR_ITEM_ID
+        );
+        const collectedGearCount = gameplay.collectGearResourceNodes?.(
+          leafPlayerPosition,
+          session.resourceNodes,
+          controls.inventory
+        ) || 0;
+
+        if (collectedGearCount > 0) {
+          const collectedGearPositions = getNewlyCollectedResourcePositions(gearResourceSnapshots);
+          triggerGearPickupParticleEffects(collectedGearPositions);
+          pushSupplyResourceCollectFeedback({
+            itemId: GEAR_ITEM_ID,
+            count: collectedGearCount,
+            sourcePositions: collectedGearPositions,
+            label: "Gear",
+            now
+          });
         }
 
         const carbonResourceSnapshots = snapshotCollectibleSources(
@@ -10026,16 +10700,13 @@ export function startGameLoop({
 
         if (collectedCarbonCount > 0) {
           const collectedCarbonPositions = getNewlyCollectedResourcePositions(carbonResourceSnapshots);
-          for (let carbonIndex = 0; carbonIndex < collectedCarbonCount; carbonIndex += 1) {
-            woodGrabSfxController.update({
-              active: true,
-              nowSeconds: (now * 0.001) + carbonIndex * 0.025
-            });
-          }
-          hud.syncInventoryUi(controls.inventory);
-          queueSupplyPickupFlyItems(CARBON_ITEM_ID, collectedCarbonPositions);
-          hud.pushNotice(`+${collectedCarbonCount} Carbon`);
-          triggerSupplyCounterPrompt(CARBON_ITEM_ID, controls.inventory, now);
+          pushSupplyResourceCollectFeedback({
+            itemId: CARBON_ITEM_ID,
+            count: collectedCarbonCount,
+            sourcePositions: collectedCarbonPositions,
+            label: "Carbon",
+            now
+          });
         }
 
         const leppaBerrySnapshots = snapshotCollectibleSources(
@@ -10323,7 +10994,7 @@ export function startGameLoop({
       !controls.storyState.flags.strawBedPlacedInBulbasaurHabitat ?
         buildSolarStationFieldMarkedGroundCells(nearbyHarvestTarget.strawBedPlacement) :
         [];
-    const boulderShadedLeafageGroundCells =
+    const boulderShadedTaskGroundCells =
       !gameplayOpeningCameraActive &&
       !gameplayOpeningHudHidden &&
       !cinematicActive &&
@@ -10332,7 +11003,7 @@ export function startGameLoop({
       !skillLearnActive &&
       !scriptedInteractionActive &&
       !gameplayDialogue.isActive() ?
-        getBoulderShadedLeafageGroundCells(controls.storyState) :
+        getBoulderShadedTaskGroundCells(controls.storyState) :
         [];
     const markedActionGroundCells = [
       ...new Set([
@@ -10340,7 +11011,7 @@ export function startGameLoop({
         ...pendingWaterGunGroundCells,
         ...activeLeafageGroundCells,
         ...freeRoamRestorationGroundCells,
-        ...boulderShadedLeafageGroundCells,
+        ...boulderShadedTaskGroundCells,
         ...solarStationFieldMarkedGroundCells
       ])
     ];
@@ -11191,6 +11862,10 @@ export function startGameLoop({
 
     if (groundActionFeedbackFrame) {
       nextFrame.groundCellHighlight.visible = true;
+      nextFrame.groundCellHighlight.markedGroundCells.push(
+        ...groundActionFeedbackFrame.markedGroundCells
+      );
+      nextFrame.groundCellHighlight.pulsePhase = groundActionFeedbackFrame.pulsePhase;
       nextFrame.groundCellHighlight.actionPulseGroundCell = {
         ...groundActionFeedbackFrame.groundCell,
         highlightAbilityId: groundActionFeedbackFrame.abilityId
@@ -11464,6 +12139,9 @@ export function startGameLoop({
     });
     nextFrame.render.genericBillboards.push(
       ...getWoodCollectPopBillboards(session.woodTexture, rendering.fullUvRect)
+    );
+    nextFrame.render.genericBillboards.push(
+      ...getGearPickupParticleBillboards(session.natureRevivalSparkTexture, rendering.fullUvRect)
     );
     nextFrame.render.genericBillboards.push(
       ...getLeafDropBillboards(

@@ -6,6 +6,7 @@ import {
   installFirstMissionCompletionPopStyles,
   renderFirstMissionCompletionPop
 } from "./firstMissionCompletionPop.js";
+import { renderWorldPromptLetterPop } from "./worldPromptLetterPop.js";
 
 const LARGE_TASK_POP_MESSAGES = new Set([
   "HYDRO BOT IS ONLINE!",
@@ -269,15 +270,16 @@ export function createWorldSpeechController({ mount } = {}) {
     layer.hidden = !isLayerActive();
   }
 
-  function showPrompt({ text, worldPosition, anchorHeight = 1.95 } = {}) {
+  function showPrompt({ text, worldPosition, anchorHeight = 1.95, promptKind = "text" } = {}) {
     const promptText = text || "";
     const isFieldMoveSwitchCard = String(promptText).includes(FIELD_MOVE_SWITCH_CARD_MARKER);
+    const resolvedPromptKind = isFieldMoveSwitchCard ? "field-move-switch" : promptKind || "text";
 
     clearPlayerPromptExitTimeout();
     state.promptActive = true;
     state.promptAnchorHeight = anchorHeight;
     state.promptWorldPosition = worldPosition ? [...worldPosition] : [0, 0, 0];
-    playerPrompt.speech.dataset.worldPromptKind = isFieldMoveSwitchCard ? "field-move-switch" : "text";
+    playerPrompt.speech.dataset.worldPromptKind = resolvedPromptKind;
     playerPrompt.speech.dataset.promptMotion = isFieldMoveSwitchCard ? "none" : "enter";
     playerPrompt.speech.style.transform = isFieldMoveSwitchCard ?
       "translate(104px, -58%) scale(calc(var(--overlay-scale) * 0.625))" :
@@ -286,6 +288,12 @@ export function createWorldSpeechController({ mount } = {}) {
 
     if (isFieldMoveSwitchCard) {
       playerPrompt.bubble.innerHTML = promptText;
+    } else if (resolvedPromptKind === "counter") {
+      renderWorldPromptLetterPop({
+        documentRef,
+        container: playerPrompt.bubble,
+        text: promptText
+      });
     } else {
       playerPrompt.bubble.textContent = promptText;
     }

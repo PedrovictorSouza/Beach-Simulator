@@ -1,5 +1,6 @@
 import {
   CARBON_ITEM_ID,
+  GEAR_ITEM_ID,
   NPC_DEFS,
   OUTPOST_INSTANCE_LAYOUT,
   RUINED_POKEMON_CENTER_POSITION,
@@ -33,7 +34,7 @@ const SOLAR_STATION_MODEL_FACE_YAW_OFFSET = 0;
 const SOLAR_STATION_MODEL_SCALE = 8;
 const SOLAR_STATION_MODEL_GROUND_Y = 0.02;
 const GREENHOUSE_MODEL_FACE_YAW_OFFSET = 0;
-const GREENHOUSE_MODEL_SCALE = 3;
+const GREENHOUSE_MODEL_SCALE = 1.725;
 const GREENHOUSE_MODEL_GROUND_Y = 0.02;
 const TRAIN_HOUSE_MODEL_FACE_YAW_OFFSET = 0;
 const TRAIN_HOUSE_MODEL_SCALE = 3;
@@ -303,6 +304,12 @@ function createCloudAtmosphere() {
   return atmosphere;
 }
 
+function getModelResourceInstances(session, itemId) {
+  return (session.resourceNodes || []).filter((resourceNode) => (
+    resourceNode.itemId === itemId && resourceNode.usesModelInstance
+  ));
+}
+
 export function buildSceneAssembly(session, assets) {
   const {
     groundDeadModel,
@@ -324,6 +331,7 @@ export function buildSceneAssembly(session, assets) {
     workshopModel,
     boxModel,
     carbonOreModel,
+    gearModel,
     cloudModel,
     cloudShadowModel,
     garden1Model,
@@ -410,15 +418,23 @@ export function buildSceneAssembly(session, assets) {
     }));
   }
 
-  session.carbonOreInstances = session.resourceNodes.filter((resourceNode) => {
-    return resourceNode.itemId === CARBON_ITEM_ID && resourceNode.usesModelInstance;
-  });
+  session.carbonOreInstances = getModelResourceInstances(session, CARBON_ITEM_ID);
 
   if (carbonOreModel && session.carbonOreInstances.length) {
     session.sceneObjects.push(withTerrainSupportDrawDistance({
       model: carbonOreModel,
       instances: session.carbonOreInstances,
       brightness: 0.92
+    }));
+  }
+
+  session.gearResourceInstances = getModelResourceInstances(session, GEAR_ITEM_ID);
+
+  if (gearModel && session.gearResourceInstances.length) {
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: gearModel,
+      instances: session.gearResourceInstances,
+      brightness: 1.06
     }));
   }
 
@@ -671,6 +687,15 @@ export function buildSceneAssembly(session, assets) {
       model: robot1Model,
       instances: [session.actTwoSquirtle.modelInstance],
       brightness: 1
+    }));
+  }
+
+  session.freeBlockInstances ||= [];
+  if (boxModel) {
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: boxModel,
+      instances: session.freeBlockInstances,
+      brightness: 0.96
     }));
   }
 

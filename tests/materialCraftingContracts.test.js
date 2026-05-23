@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CARBON_ITEM_ID,
+  GEAR_ITEM_ID,
   INVENTORY_ORDER,
   ITEM_DEFS,
   LEAF_DEN_KIT_ITEM_ID,
@@ -43,6 +44,7 @@ describe("material crafting contracts", () => {
       "phosphorus",
       "potassium"
     ]);
+    expect(GEAR_ITEM_ID).toBe("gear");
   });
 
   it("uses crafted item definitions for craftable inventory items", () => {
@@ -90,6 +92,7 @@ describe("material crafting contracts", () => {
         { materialId: POTASSIUM_ITEM_ID, amount: 1 }
       ]
     });
+    expect(FIELD_ABILITY_COSTS.buildBlock.cost).toEqual({ kind: "none" });
   });
 
   it("models active field moves as valid companion ability pairs", () => {
@@ -112,6 +115,11 @@ describe("material crafting contracts", () => {
       kind: "active",
       abilityId: "fire",
       companionId: "charmander"
+    });
+    expect(createActiveFieldMoveState("buildBlock")).toEqual({
+      kind: "active",
+      abilityId: "buildBlock",
+      companionId: "timburr"
     });
 
     expect(getActiveFieldMoveStateFromAbilityId(null)).toEqual({ kind: "inactive" });

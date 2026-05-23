@@ -40,9 +40,9 @@ function createController() {
 describe("createPokemonCenterPcModalController", () => {
   it("shares terminal status legend display data", () => {
     expect(getTerminalStatusLegendItems()).toEqual([
-      { label: "Green complete", color: "#9cffb1" },
-      { label: "Yellow ready/to do", color: "#ffe28a" },
-      { label: "Dark locked", color: "#9aa1ad" }
+      { label: "Green complete", color: "#ffffff" },
+      { label: "Yellow ready/to do", color: "#ffffff" },
+      { label: "Dark locked", color: "#ffffff" }
     ]);
   });
 

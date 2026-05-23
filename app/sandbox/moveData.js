@@ -70,6 +70,23 @@ const FIELD_MOVE_PRESENTATION = Object.freeze({
       ground: `[Enter] Use ${SANDBOTS_ITEM_NAMES.thermalTool} on white ground`
     }
   },
+  "build-block": {
+    learnedFromNpcId: "timburr",
+    effects: ["place-floor-blocks", "start-free-building"],
+    inputHint: "LT / Enter facing a cell",
+    design: {
+      benefit: "Places floor blocks on the field grid as a construction action.",
+      limit: "Requires Builder Bot and an open cell in front of the player.",
+      feedback: `${SANDBOTS_BOT_NAMES.builder} movement, tile flash, block spawn, and placement notice.`,
+      firstSafeUse: "An open cell near the first Builder Bot route."
+    },
+    activeGuidance: `Build: ask ${SANDBOTS_BOT_NAMES.builder} to place a floor block.`,
+    firstUseGuidance: `Build: face an open cell and press Enter; ${SANDBOTS_BOT_NAMES.builder} will place a floor block.`,
+    firstUseCompleteFlags: ["firstFreeBlockPlaced"],
+    targetPrompts: {
+      ground: `[Enter] Ask ${SANDBOTS_BOT_NAMES.builder} to build`
+    }
+  },
   cut: {
     learnedFromNpcId: "woodcutter-helper",
     effects: ["cut-grass", "cut-vines", "cut-wooden-objects", "gather-wood-materials"],

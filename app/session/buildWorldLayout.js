@@ -72,7 +72,9 @@ function buildElevatedTerrainSafeZones() {
     ...INTERACTABLE_DEFS.map((interactable) => {
       return toSafeZoneFromPosition(interactable.position, interactable.id === "squirtle" ? 24 : 7);
     }),
-    ...RESOURCE_NODE_DEFS.map((resourceNode) => toSafeZoneFromPosition(resourceNode.position, 5.5)),
+    ...RESOURCE_NODE_DEFS
+      .filter((resourceNode) => resourceNode.terrainSafeZone !== false)
+      .map((resourceNode) => toSafeZoneFromPosition(resourceNode.position, 5.5)),
     ...GROUND_FLOWER_LAYOUT.map((flowerPatch) => toSafeZoneFromPosition(flowerPatch.position, 2.6)),
     ...PALM_INSTANCE_LAYOUT.map((palm) => ({
       position: [palm.offset[0], palm.offset[2]],

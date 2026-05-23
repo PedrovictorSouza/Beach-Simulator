@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   CREATURE_SPECIALTY,
+  GEAR_ITEM_ID,
   GREENHOUSE_ITEM_ID,
   LEAF_DEN_KIT_ITEM_ID,
   LEAVES_ITEM_ID
@@ -38,7 +39,7 @@ describe("buildable catalog", () => {
       sourceItemId: GREENHOUSE_ITEM_ID,
       inventoryItemId: GREENHOUSE_ITEM_ID,
       recipeId: GREENHOUSE_ITEM_ID,
-      ingredients: {},
+      ingredients: { [GEAR_ITEM_ID]: 5 },
       output: { [GREENHOUSE_ITEM_ID]: 1 },
       gridPlaceableId: GRID_PLACEABLE_IDS.GREENHOUSE,
       prefabKey: "greenhouseModel",
@@ -56,7 +57,7 @@ describe("buildable catalog", () => {
       sourceItemId: "campfire",
       inventoryItemId: "campfire",
       recipeId: "campfire",
-      ingredients: { wood: 3 },
+      ingredients: { [GEAR_ITEM_ID]: 10 },
       output: { campfire: 1 },
       gridPlaceableId: GRID_PLACEABLE_IDS.TRAIN_HOUSE,
       prefabKey: "trainHouseModel",
@@ -72,7 +73,7 @@ describe("buildable catalog", () => {
       sourceId: "strawBed",
       sourceItemId: "strawBed",
       inventoryItemId: "strawBed",
-      ingredients: { [LEAVES_ITEM_ID]: 2 },
+      ingredients: { [GEAR_ITEM_ID]: 20 },
       gridPlaceableId: GRID_PLACEABLE_IDS.SOLAR_STATION,
       prefabKey: "solarStationModel",
       footprint: { width: 4, height: 4 }
@@ -141,19 +142,19 @@ describe("buildable catalog", () => {
     expect(recipes[GREENHOUSE_ITEM_ID]).toMatchObject({
       id: GREENHOUSE_ITEM_ID,
       title: "Greenhouse",
-      ingredients: {},
+      ingredients: { [GEAR_ITEM_ID]: 5 },
       output: { [GREENHOUSE_ITEM_ID]: 1 }
     });
     expect(recipes.campfire).toMatchObject({
       id: "campfire",
       title: "Thermal Cabin",
-      ingredients: { wood: 3 },
+      ingredients: { [GEAR_ITEM_ID]: 10 },
       output: { campfire: 1 }
     });
     expect(recipes.strawBed).toMatchObject({
       id: "strawBed",
       title: "Solar Station",
-      ingredients: { [LEAVES_ITEM_ID]: 2 },
+      ingredients: { [GEAR_ITEM_ID]: 20 },
       output: { strawBed: 1 }
     });
     expect(recipes[LEAF_DEN_KIT_ITEM_ID]).toMatchObject({

@@ -149,6 +149,35 @@ describe("createGameInputController", () => {
     });
   });
 
+  it("routes keyboard Space to jump instead of the old free block shortcut", () => {
+    const { controller } = createController();
+    const event = createKeyboardEvent("Space");
+
+    controller.handleKeydown(event);
+
+    expect(event.preventDefault).toHaveBeenCalledTimes(1);
+    expect(controller.consumeFreeBlockBuildRequest()).toBe(false);
+    expect(controller.consumeJumpRequest()).toBe(true);
+    expect(controller.consumeJumpRequest()).toBe(false);
+  });
+
+  it("routes free block build through the remappable Controls action", () => {
+    const keyboardControls = {
+      ...createDefaultKeyboardControls(),
+      placeFreeBlock: "KeyC"
+    };
+    const { controller } = createController({
+      getKeyboardControls: () => keyboardControls
+    });
+
+    controller.handleKeydown(createKeyboardEvent("Space"));
+    expect(controller.consumeFreeBlockBuildRequest()).toBe(false);
+
+    controller.handleKeydown(createKeyboardEvent("KeyC"));
+    expect(controller.consumeFreeBlockBuildRequest()).toBe(true);
+    expect(controller.getInputModalityState().keyboardControls.placeFreeBlock).toBe("KeyC");
+  });
+
   it("installs a console gamepad debug helper on the runtime window", () => {
     const gamepad = createGamepad({
       id: "Debug Controller",
@@ -669,7 +698,7 @@ describe("createGameInputController", () => {
     expect(requestHarvest).not.toHaveBeenCalled();
   });
 
-  it("routes gamepad D-pad navigation to the open Workbench modal", () => {
+  it("routes gamepad horizontal navigation to the open Workbench modal", () => {
     const gamepad = createGamepad();
     const windowRef = {
       navigator: {
@@ -686,8 +715,37 @@ describe("createGameInputController", () => {
     gamepad.buttons[GAMEPAD_BUTTONS.DPAD_RIGHT] = { pressed: true, value: 1 };
     controller.updateGamepads(1 / 60);
 
-    expect(handleWorkbenchModalKeydown).toHaveBeenCalledWith(expect.objectContaining({
+    expect(handleWorkbenchModalKeydown).toHaveBeenNthCalledWith(1, expect.objectContaining({
       code: "ArrowRight"
+    }));
+
+    gamepad.buttons[GAMEPAD_BUTTONS.DPAD_RIGHT] = { pressed: false, value: 0 };
+    controller.updateGamepads(1 / 60);
+    gamepad.buttons[GAMEPAD_BUTTONS.DPAD_LEFT] = { pressed: true, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(handleWorkbenchModalKeydown).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      code: "ArrowLeft"
+    }));
+
+    gamepad.buttons[GAMEPAD_BUTTONS.DPAD_LEFT] = { pressed: false, value: 0 };
+    controller.updateGamepads(1 / 60);
+    gamepad.axes[0] = 0.85;
+    controller.updateGamepads(1 / 60);
+    controller.updateGamepads(1 / 60);
+
+    expect(handleWorkbenchModalKeydown).toHaveBeenNthCalledWith(3, expect.objectContaining({
+      code: "ArrowRight"
+    }));
+    expect(handleWorkbenchModalKeydown).toHaveBeenCalledTimes(3);
+
+    gamepad.axes[0] = 0;
+    controller.updateGamepads(1 / 60);
+    gamepad.axes[0] = -0.85;
+    controller.updateGamepads(1 / 60);
+
+    expect(handleWorkbenchModalKeydown).toHaveBeenNthCalledWith(4, expect.objectContaining({
+      code: "ArrowLeft"
     }));
   });
 

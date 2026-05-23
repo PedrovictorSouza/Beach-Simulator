@@ -1040,6 +1040,13 @@ export const SMALL_ISLAND_STORY_BEATS = Object.freeze({
         flag: "boulderChallengeRewardReady"
       },
       {
+        type: STORY_BEAT_EFFECT.UNLOCK_SKILL,
+        skillId: "buildBlock",
+        options: {
+          silent: true
+        }
+      },
+      {
         type: STORY_BEAT_EFFECT.OPEN_POKEDEX_ENTRY,
         entryId: TIMBURR_POKEDEX_ENTRY_ID
       },

@@ -198,6 +198,35 @@ describe("construction site save data", () => {
     expect(session.playerCharacter.getPosition()).toEqual([1, 0, 2]);
   });
 
+  it("preserves the free block instance array reference when restoring save state", () => {
+    const freeBlockInstances = [{ id: "stale-block" }];
+    const session = {
+      freeBlockInstances,
+      spawnActTwoPlayer({ position }) {
+        session.playerCharacter = {
+          getPosition: () => position
+        };
+      }
+    };
+    const savePoint = {
+      version: 1,
+      playerPosition: [1, 0, 2],
+      freeBlockBuild: {
+        schemaVersion: 1,
+        buildId: "freeBuild",
+        bounds: { minX: 0, maxX: 255, minY: 0, maxY: 255 },
+        floorBlocks: [{ cell: { x: 4, y: 5 } }]
+      }
+    };
+
+    expect(restoreSavedSessionState(session, savePoint)).toBe(true);
+    expect(session.freeBlockInstances).toBe(freeBlockInstances);
+    expect(session.freeBlockInstances).toEqual([]);
+    expect(session.freeBlockBuildSnapshot).toMatchObject({
+      floorBlocks: [{ cell: { x: 4, y: 5 } }]
+    });
+  });
+
   it("restores multiple saved Greenhouse placeables while keeping the legacy first alias", () => {
     const session = {
       spawnActTwoPlayer({ position }) {

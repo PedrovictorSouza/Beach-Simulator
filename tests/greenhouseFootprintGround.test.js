@@ -24,14 +24,17 @@ describe("Greenhouse footprint ground", () => {
       return createGroundCell(footprintCell.position, index);
     });
     const groundPurifiedInstances = [];
+    const restoredGroundCells = [];
 
     const restoredCount = restoreGreenhouseFootprintGround({
       preview,
       groundDeadInstances,
-      groundPurifiedInstances
+      groundPurifiedInstances,
+      restoredGroundCells
     });
 
     expect(restoredCount).toBe(15);
+    expect(restoredGroundCells).toEqual(groundPurifiedInstances);
     expect(groundDeadInstances).toHaveLength(0);
     expect(groundPurifiedInstances).toHaveLength(15);
     expect(groundPurifiedInstances.map((groundCell) => groundCell.id)).toEqual(

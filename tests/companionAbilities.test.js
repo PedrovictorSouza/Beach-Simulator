@@ -13,6 +13,7 @@ import {
 } from "../app/gameplay/content/companionAbilities.js";
 
 const EXPECTED_MOVE_LIST = [
+  ["buildBlock", "Builder Bot", "places floor blocks"],
   ["leafage", "Grow Bot", "creates patches of tall grass"],
   ["fire", "Thermal Bot", "turns white ground into dry ground for Hydro Jet restoration"],
   ["waterGun", "Hydro Bot", "revitalizes dried up terrain"],
@@ -44,12 +45,19 @@ describe("companion ability registry", () => {
       kind: COMPANION_ABILITY_KIND.FIELD_MOVE,
       status: COMPANION_ABILITY_STATUS.PARTIAL
     });
+    expect(getCompanionAbilityByCompanion("timburr")).toMatchObject({
+      abilityId: "buildBlock",
+      element: "construction",
+      kind: COMPANION_ABILITY_KIND.FIELD_MOVE,
+      status: COMPANION_ABILITY_STATUS.ACTIVE
+    });
   });
 
   it("can be queried by future unlock ability id", () => {
     expect(getCompanionAbilityByAbilityId("waterGun")?.companionName).toBe("Hydro Bot");
     expect(getCompanionAbilityByAbilityId("leafage")?.companionName).toBe("Grow Bot");
     expect(getCompanionAbilityByAbilityId("fire")?.companionName).toBe("Thermal Bot");
+    expect(getCompanionAbilityByAbilityId("buildBlock")?.companionName).toBe("Builder Bot");
     expect(getCompanionAbilityByAbilityId("unknown")).toBeNull();
   });
 
@@ -90,7 +98,7 @@ describe("companion ability registry", () => {
   });
 
   it("documents Jesse-style benefit, limit, first use, feedback, and synergy for current field abilities", () => {
-    for (const abilityId of ["waterGun", "leafage", "fire"]) {
+    for (const abilityId of ["waterGun", "leafage", "fire", "buildBlock"]) {
       const design = getCompanionAbilityByAbilityId(abilityId)?.design;
 
       expect(design?.benefit).toBeTruthy();
@@ -107,6 +115,8 @@ describe("companion ability registry", () => {
       .toContain("Only works on restored ground");
     expect(getCompanionAbilityByAbilityId("fire")?.design.synergy)
       .toContain("Prepares white ground");
+    expect(getCompanionAbilityByAbilityId("buildBlock")?.design.benefit)
+      .toContain("floor blocks");
   });
 
   it("validates active ability design notes before runtime integration", () => {

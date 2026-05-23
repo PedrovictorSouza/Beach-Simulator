@@ -175,13 +175,18 @@ function commitWorldSpeech(worldSpeechController, snapshot, previousSnapshot) {
 
 function getLegacyWorldPromptFrame(worldPrompt) {
   if (worldPrompt.state) {
-    return toLegacyWorldPrompt(worldPrompt.state);
+    const legacyPrompt = toLegacyWorldPrompt(worldPrompt.state);
+    return {
+      ...legacyPrompt,
+      promptKind: worldPrompt.state.kind
+    };
   }
 
   return {
     visible: Boolean(worldPrompt.visible),
     text: worldPrompt.text || "",
-    worldPosition: worldPrompt.worldPosition || null
+    worldPosition: worldPrompt.worldPosition || null,
+    promptKind: "text"
   };
 }
 
@@ -215,7 +220,8 @@ function commitWorldPrompt(worldSpeechController, snapshot, previousSnapshot) {
     worldSpeechController.showPrompt?.({
       text: worldPrompt.text,
       worldPosition: worldPrompt.worldPosition,
-      anchorHeight: 1.95
+      anchorHeight: 1.95,
+      promptKind: worldPrompt.promptKind
     });
     return;
   }

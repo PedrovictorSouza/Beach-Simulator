@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyTrainHouseDance,
+  shouldCompleteThermalCabinHomeBeat,
   resolveTrainHouseMusicVolume
 } from "../app/runtime/gameLoop.js";
 
@@ -49,5 +50,32 @@ describe("Thermal Cabin runtime effects", () => {
     expect(instance.offset[2]).not.toBe(-2);
     expect(instance.scale).not.toBe(3);
     expect(Math.abs(instance.swayStrength)).toBeGreaterThan(0);
+  });
+
+  it("completes Thermal Bot's home beat when the player reaches the cabin with Thermal Bot in formation", () => {
+    expect(shouldCompleteThermalCabinHomeBeat({
+      thermalBotFollowing: true,
+      thermalBotPosition: [9, 0, 9],
+      playerPosition: [4.5, 0, 4],
+      trainHousePosition: [4, 0, 4]
+    })).toBe(true);
+  });
+
+  it("completes Thermal Bot's home beat when Thermal Bot is registered and the player reaches the cabin", () => {
+    expect(shouldCompleteThermalCabinHomeBeat({
+      thermalBotRegistered: true,
+      thermalBotPosition: [18, 0, 18],
+      playerPosition: [4.5, 0, 4],
+      trainHousePosition: [4, 0, 4]
+    })).toBe(true);
+  });
+
+  it("does not complete Thermal Bot's home beat when Thermal Bot is neither following nor registered", () => {
+    expect(shouldCompleteThermalCabinHomeBeat({
+      thermalBotFollowing: false,
+      thermalBotPosition: [4.2, 0, 4],
+      playerPosition: [4.5, 0, 4],
+      trainHousePosition: [4, 0, 4]
+    })).toBe(false);
   });
 });

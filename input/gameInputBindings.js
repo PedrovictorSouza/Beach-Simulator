@@ -19,6 +19,7 @@ export const GAME_INPUT_ACTION_IDS = Object.freeze({
   MOVE_DOWN: "moveDown",
   MOVE_RIGHT: "moveRight",
   PRIMARY_ACTION: "primaryAction",
+  PLACE_FREE_BLOCK: "placeFreeBlock",
   INTERACT: "interact",
   JUMP: "jump",
   RUN: "run",
@@ -62,6 +63,10 @@ export const GAME_INPUT_BINDINGS = Object.freeze({
   primaryAction: {
     keyboardCode: "Enter",
     gamepadButton: GAMEPAD_BUTTONS.LT
+  },
+  placeFreeBlock: {
+    keyboardCode: null,
+    gamepadButton: null
   },
   interact: {
     keyboardCode: "KeyE",
@@ -164,6 +169,12 @@ export const GAME_INPUT_ACTION_REGISTRY = Object.freeze([
     promptAction: "place"
   }),
   createActionRegistryEntry({
+    id: GAME_INPUT_ACTION_IDS.PLACE_FREE_BLOCK,
+    label: "Place Block",
+    category: GAME_INPUT_ACTION_CATEGORY.FIELD_TOOL,
+    promptAction: "place"
+  }),
+  createActionRegistryEntry({
     id: GAME_INPUT_ACTION_IDS.INTERACT,
     label: "Interact",
     category: GAME_INPUT_ACTION_CATEGORY.GAMEPLAY,
@@ -237,6 +248,7 @@ export const KEYBOARD_CONTROL_ACTIONS = Object.freeze([
   Object.freeze({ id: GAME_INPUT_ACTION_IDS.MOVE_DOWN, label: "Move Down" }),
   Object.freeze({ id: GAME_INPUT_ACTION_IDS.MOVE_RIGHT, label: "Move Right" }),
   Object.freeze({ id: GAME_INPUT_ACTION_IDS.PRIMARY_ACTION, label: "Primary / Place" }),
+  Object.freeze({ id: GAME_INPUT_ACTION_IDS.PLACE_FREE_BLOCK, label: "Place Block" }),
   Object.freeze({ id: GAME_INPUT_ACTION_IDS.INTERACT, label: "Interact" }),
   Object.freeze({ id: GAME_INPUT_ACTION_IDS.JUMP, label: "Jump / Cancel" }),
   Object.freeze({ id: GAME_INPUT_ACTION_IDS.RUN, label: "Run" }),
