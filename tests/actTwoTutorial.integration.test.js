@@ -137,12 +137,14 @@ describe("createActTwoTutorial integration", () => {
     expect(root.textContent).toContain("long gone");
 
     pressKey(tutorial.handleKeydown, { code: "Enter", key: "Enter" });
-    expect(root.textContent).toContain("Things have changed");
+    pressKey(tutorial.handleKeydown, { code: "Enter", key: "Enter" });
+    expect(root.textContent).toContain("decorative dust");
 
     pressKey(tutorial.handleKeydown, { code: "Space", key: " " });
     pressKey(tutorial.handleKeydown, { code: "Space", key: " " });
     pressKey(tutorial.handleKeydown, { code: "Space", key: " " });
-    pressKey(tutorial.handleKeydown, { code: "Space", key: " " });
+    expect(root.textContent).toContain("where in the world have you two been");
+
     pressKey(tutorial.handleKeydown, { code: "Space", key: " " });
     expect(root.textContent).toContain("don't really remember too well");
 

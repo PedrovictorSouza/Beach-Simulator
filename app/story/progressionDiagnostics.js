@@ -1,4 +1,11 @@
 import { FIELD_ABILITY_COSTS } from "../gameplay/content/fieldAbilityCosts.ts";
+import {
+  createWorldObjectTaskProgressionLinks
+} from "../gameplay/worldObjectProgressionAdapter.js";
+import {
+  WORLD_OBJECT_RECIPE_IMPLEMENTATION_STATE,
+  listWorldObjectRecipes
+} from "../gameplay/worldObjectRecipeCatalog.js";
 import { FIELD_TASK_IDS, SMALL_ISLAND_FIELD_TASKS } from "./storyBeatData.js";
 import { QUEST_EVENT } from "../quest/questData.js";
 import { STORY_QUESTS } from "../../gameplayContent.js";
@@ -13,8 +20,7 @@ export const PROGRESSION_DIAGNOSTIC_WARNING = Object.freeze({
 });
 
 const HYDRO_SYSTEM_QUEST_IDS = new Set([
-  "gather-first-supplies",
-  "open-the-water-route",
+  "gather-first-supplies"
 ]);
 
 const HYDRO_LEGACY_QUEST_IDS = new Set(["findPokemon"]);
@@ -70,6 +76,70 @@ function listActiveFieldTasks(storyState = {}, fieldTasks = SMALL_ISLAND_FIELD_T
       done: isFieldTaskComplete(storyState, task),
     }))
     .filter((task) => !task.done);
+}
+
+function listFieldTasks(fieldTasks = SMALL_ISLAND_FIELD_TASKS) {
+  return Array.isArray(fieldTasks) ? fieldTasks : Object.values(fieldTasks ?? {});
+}
+
+function createWorldObjectProgressionSummary({
+  fieldTasks = SMALL_ISLAND_FIELD_TASKS,
+  links = createWorldObjectTaskProgressionLinks({ tasks: fieldTasks }),
+} = {}) {
+  const taskList = listFieldTasks(fieldTasks).filter((task) => task?.id && task.completeFlag);
+  const linkByTaskId = new Map(links.map((link) => [link.taskId, link]));
+
+  return {
+    linkedFieldTaskIds: links.map((link) => link.taskId),
+    unlinkedFieldTaskIds: taskList
+      .filter((task) => !linkByTaskId.has(task.id))
+      .map((task) => task.id),
+    links,
+  };
+}
+
+function pushRecordListEntry(record, key, value) {
+  if (!key) {
+    return;
+  }
+
+  if (!Array.isArray(record[key])) {
+    record[key] = [];
+  }
+  record[key].push(value);
+}
+
+function createWorldObjectRecipeSummary({
+  recipes = listWorldObjectRecipes()
+} = {}) {
+  const links = recipes.map((recipe) => ({
+    recipeId: recipe.id,
+    title: recipe.title,
+    sourceObjectId: recipe.sourceObjectId,
+    unlockEventId: recipe.unlockEventId || null,
+    useObjectId: recipe.useObjectId,
+    useScope: recipe.useScope,
+    implementationState: recipe.implementationState
+  }));
+  const bySourceObjectId = {};
+  const byUseObjectId = {};
+
+  links.forEach((link) => {
+    pushRecordListEntry(bySourceObjectId, link.sourceObjectId, link.recipeId);
+    pushRecordListEntry(byUseObjectId, link.useObjectId, link.recipeId);
+  });
+
+  return {
+    plannedRecipeIds: links
+      .filter((link) => link.implementationState === WORLD_OBJECT_RECIPE_IMPLEMENTATION_STATE.PLANNED)
+      .map((link) => link.recipeId),
+    activeRecipeIds: links
+      .filter((link) => link.implementationState === WORLD_OBJECT_RECIPE_IMPLEMENTATION_STATE.ACTIVE)
+      .map((link) => link.recipeId),
+    bySourceObjectId,
+    byUseObjectId,
+    links,
+  };
 }
 
 function listUnlockedSkills(playerSkills = {}) {
@@ -152,6 +222,8 @@ export function createProgressionDiagnostics({
   const resolvedSystemQuest = resolveSystemQuest({ systemQuest, questSystem });
   const legacyQuest = resolveLegacyQuest(storyState, legacyQuests);
   const activeFieldTasks = listActiveFieldTasks(storyState, fieldTasks);
+  const worldObjectProgression = createWorldObjectProgressionSummary({ fieldTasks });
+  const worldObjectRecipes = createWorldObjectRecipeSummary();
   const unlockedSkills = listUnlockedSkills(playerSkills);
 
   const warnings = [];
@@ -237,6 +309,8 @@ export function createProgressionDiagnostics({
     systemQuest: summarizeQuest(resolvedSystemQuest),
     legacyQuest,
     activeFieldTasks,
+    worldObjectProgression,
+    worldObjectRecipes,
     unlockedSkills,
     warnings,
   };

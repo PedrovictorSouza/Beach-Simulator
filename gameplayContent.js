@@ -553,7 +553,7 @@ export const GROUND_FLOWER_LAYOUT = [
   })
 ];
 
-export const LEPPA_TREE_POSITION = [29.6, 0.02, -10.8];
+export const LEPPA_TREE_POSITION = [17.74, 0.02, -33.56];
 export const LEPPA_TREE_DROP_OFFSET = [0.82, 0.02, 0.48];
 export const WORKBENCH_POSITION = [38.0, 0.02, -17.0];
 export const WORKBENCH_INTERACT_DISTANCE = 8.2;

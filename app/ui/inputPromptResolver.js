@@ -152,6 +152,25 @@ export function resolveWorkbenchRotationPrompt(modalityState = {}) {
   ]);
 }
 
+export function resolveMovementPrompt(modalityState = {}) {
+  if (modalityState.device === INPUT_DEVICE.GAMEPAD) {
+    return "Use the left stick to move away.";
+  }
+
+  const keyboardControls = modalityState.keyboardControls || {};
+  const movementLabels = [
+    GAME_INPUT_ACTION_IDS.MOVE_UP,
+    GAME_INPUT_ACTION_IDS.MOVE_LEFT,
+    GAME_INPUT_ACTION_IDS.MOVE_DOWN,
+    GAME_INPUT_ACTION_IDS.MOVE_RIGHT
+  ].map((actionId) => resolveKeyboardActionLabel(actionId, keyboardControls));
+  const inputLabel = movementLabels.every((label) => label !== "Unassigned") ?
+    movementLabels.join("/") :
+    "movement keys";
+
+  return `Use ${inputLabel} to move away.`;
+}
+
 export function resolveInitialHudGuide(modalityState = {}) {
   if (modalityState.device === INPUT_DEVICE.GAMEPAD) {
     return "Use the left stick to reach Chopper. He will point out the first repair.";

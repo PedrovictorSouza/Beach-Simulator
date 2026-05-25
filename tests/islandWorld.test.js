@@ -155,6 +155,43 @@ describe("findNearbyInteractable", () => {
     }
   });
 
+  it("prioritizes the Workbench over a nearer NPC when the Workbench is accessible", () => {
+    const playerPosition = [WORKBENCH_POSITION[0] + 7.95, 0, WORKBENCH_POSITION[2]];
+    const result = findNearbyInteractable(
+      playerPosition,
+      [
+        {
+          id: "tangrowth",
+          label: "Chopper",
+          activeWhen: () => true,
+          character: {
+            getPosition: () => [playerPosition[0], 0.02, playerPosition[2]]
+          }
+        }
+      ],
+      [
+        {
+          id: "workbench",
+          label: "Workbench",
+          type: "station",
+          position: [...WORKBENCH_POSITION],
+          interactDistance: WORKBENCH_INTERACT_DISTANCE,
+          activeWhen: () => true
+        }
+      ],
+      { flags: {} }
+    );
+
+    expect(result).toEqual({
+      target: {
+        kind: "station",
+        id: "workbench",
+        label: "Workbench"
+      },
+      distance: expect.any(Number)
+    });
+  });
+
   it("detects the Ruined Colony Terminal from outside its solid collider footprint", () => {
     const result = findNearbyInteractable(
       [

@@ -191,8 +191,8 @@ export function createUiRuntime({
         replayIfUnloaded: true
       });
     },
-    syncHudInstructions(storyStateValue, promptCopy = "") {
-      return invokeHud("syncHudInstructions", [storyStateValue, promptCopy], {
+    syncHudInstructions(storyStateValue, promptCopy = "", inputModalityState = null) {
+      return invokeHud("syncHudInstructions", [storyStateValue, promptCopy, inputModalityState], {
         replayIfUnloaded: true
       });
     },

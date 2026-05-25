@@ -87,11 +87,13 @@ describe("createPokedexOverlay", () => {
 
     const descriptionImages = root.querySelectorAll('[data-pokedex-field="description"] .pokedex-entry__description-image');
     expect(descriptionImages).toHaveLength(1);
-    expect(descriptionImages[0]?.getAttribute("src")).toContain("tutorial-hidro-jet.png");
+    expect(descriptionImages[0]?.getAttribute("src")).toContain("unboarding-hidro.png");
     expect(descriptionImages[0]?.getAttribute("alt")).toBe("Hydro Jet tutorial");
-    expect(root.querySelector('[data-pokedex-field="details-eyebrow"]')?.textContent).toBe(
-      "Press (input) to wash the soil"
-    );
+    expect(descriptionImages[0]?.parentElement?.style.justifyContent).toBe("center");
+    expect(descriptionImages[0]?.parentElement?.style.marginTop).toBe("10vh");
+    expect(descriptionImages[0]?.parentElement?.style.maxWidth).toBe("");
+    expect(descriptionImages[0]?.style.marginRight).toBe("7vw");
+    expect(root.querySelector('[data-pokedex-field="details-eyebrow"]')?.textContent).toBe("");
     expect(root.querySelector(".pokedex-entry__stats")).toBeNull();
   });
 

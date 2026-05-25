@@ -110,7 +110,7 @@ describe("createPokemonCenterPcModalController", () => {
     expect(viewModel.palette.border).toBe("#ffd66d");
   });
 
-  it("keeps terminal carousel selection rules independent from DOM rendering", () => {
+  it("keeps terminal cascade selection rules independent from DOM rendering", () => {
     expect(getWrappedTerminalMissionIndex(3, 3)).toBe(0);
     expect(getWrappedTerminalMissionIndex(-1, 3)).toBe(2);
     expect(getWrappedTerminalMissionIndex(4, 0)).toBe(0);
@@ -126,15 +126,15 @@ describe("createPokemonCenterPcModalController", () => {
     expect(getVisibleTerminalMissionIndexes({
       selectedMissionIndex: 0,
       totalMissions: 5
-    })).toEqual([0, 1, 2]);
+    })).toEqual([0, 1, 2, 3, 4]);
     expect(getVisibleTerminalMissionIndexes({
       selectedMissionIndex: 2,
       totalMissions: 5
-    })).toEqual([1, 2, 3]);
+    })).toEqual([0, 1, 2, 3, 4]);
     expect(getVisibleTerminalMissionIndexes({
       selectedMissionIndex: 4,
       totalMissions: 5
-    })).toEqual([2, 3, 4]);
+    })).toEqual([0, 1, 2, 3, 4]);
   });
 
   it("controls terminal modal music through an isolated component", () => {
@@ -210,8 +210,8 @@ describe("createPokemonCenterPcModalController", () => {
     expect(mount.textContent).toContain("B / Esc Close");
     expect(modal?.getAttribute("aria-label")).toBe("Colony Terminal colony checks");
     expect(modal?.querySelector(".pokemon-center-pc-modal__cards")?.getAttribute("aria-label")).toBe("Colony checks");
-    expect(modal?.querySelector('[data-pc-action="previous"]')?.getAttribute("aria-label")).toBe("Previous colony check");
-    expect(modal?.querySelector('[data-pc-action="next"]')?.getAttribute("aria-label")).toBe("Next colony check");
+    expect(modal?.querySelector('[data-pc-action="previous"]')).toBeNull();
+    expect(modal?.querySelector('[data-pc-action="next"]')).toBeNull();
 
     controller.handleKeydown({ code: "KeyX", preventDefault() {} });
 
@@ -285,7 +285,7 @@ describe("createPokemonCenterPcModalController", () => {
     expect(controller.isOpen()).toBe(true);
   });
 
-  it("browses missions through delegated nav button commands", () => {
+  it("selects missions through cascaded mission cards", () => {
     const { controller, mount } = createController();
 
     controller.open({
@@ -307,7 +307,7 @@ describe("createPokemonCenterPcModalController", () => {
       ]
     });
 
-    mount.querySelector('[data-pc-action="next"]')?.dispatchEvent(new MouseEvent("click", {
+    mount.querySelector('[data-pc-mission-index="1"]')?.dispatchEvent(new MouseEvent("click", {
       bubbles: true
     }));
 
@@ -388,9 +388,10 @@ describe("createPokemonCenterPcModalController", () => {
     expect(cards[2]?.getAttribute("style")).toContain("#5d6470");
     expect(cards[0]?.getAttribute("role")).toBe("option");
     expect(cards[0]?.getAttribute("aria-selected")).toBe("true");
-    expect(cards[0]?.getAttribute("style")).toContain("minmax(136px, 168px)");
+    expect(cards[0]?.getAttribute("style")).toContain("minmax(124px, 154px)");
     expect(cards[1]?.getAttribute("data-pc-card-mode")).toBe("summary");
     expect(mount.querySelector(".pokemon-center-pc-modal__cards")?.getAttribute("role")).toBe("listbox");
+    expect(mount.querySelector(".pokemon-center-pc-modal__cards")?.getAttribute("style")).toContain("grid-template-columns:minmax(0, 1fr)");
     expect(cards[0]?.querySelector(".pokemon-center-pc-modal__card-image")?.getAttribute("src")).toBe("/missions/done.png");
     expect(cards[1]?.querySelector("[data-pc-mission-image-slot]")).not.toBeNull();
     expect(mount.querySelector(".pokemon-center-pc-modal__panel")?.getAttribute("style")).toContain("max-width: 1180px");

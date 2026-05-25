@@ -1,7 +1,8 @@
 import { createStartScreenUniverseBackground } from "./startScreenUniverseBackground.js";
 
-const HYDRO_JET_INSTRUCTIONS_IMAGE_URL = new URL("./images/tutorial-hidro-jet.png", import.meta.url).href;
-const HYDRO_JET_AVATAR_IMAGE_URL = new URL("./images/hidrojet-avatar.png", import.meta.url).href;
+const HYDRO_JET_INSTRUCTIONS_IMAGE_URL = new URL("./images/unboarding-hidro.png", import.meta.url).href;
+const HYDRO_JET_AVATAR_IMAGE_URL = new URL("./images/hidro-avatar.png", import.meta.url).href;
+const POKEDEX_CLOSE_BUTTON_IMAGE_URL = new URL("./images/close-btn-micro.png", import.meta.url).href;
 
 const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
   <section class="intro-overlay" id="intro-overlay" hidden aria-label="Intro sequence"></section>
@@ -23,13 +24,18 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
           <section class="tutorial-overlay" id="tutorial-overlay" hidden aria-label="Act two tutorial"></section>
           <section class="pokedex-overlay" id="pokedex-overlay" hidden aria-label="Instructions entry">
             <article class="pokedex-entry">
+              <aside class="pokedex-entry__avatar" data-pokedex-art-scene="squirtle" aria-hidden="true">
+                <img class="pokedex-entry__avatar-image" src="${HYDRO_JET_AVATAR_IMAGE_URL}" alt="" loading="eager" decoding="async">
+                <div class="pokedex-entry__species" data-pokedex-field="species">Hydro Bot, wash the soil and make it green</div>
+              </aside>
               <div class="pokedex-entry__details">
                 <section class="pokedex-entry__page" data-pokedex-page-panel="details">
-                  <div class="pokedex-entry__eyebrow" data-pokedex-field="details-eyebrow">Press (input) to wash the soil</div>
-                  <div class="pokedex-entry__species" data-pokedex-field="species">Hydro Bot, wash the soil and make it green</div>
-                  <div class="pokedex-entry__description" data-pokedex-field="description">
-                    <div style="display:flex;gap:8px;align-items:flex-start;max-width:720px;">
-                      <img class="pokedex-entry__description-image" src="${HYDRO_JET_INSTRUCTIONS_IMAGE_URL}" alt="Hydro Jet tutorial" loading="eager" decoding="async" style="display:block;width:min(100%,384px);height:auto;image-rendering:pixelated;">
+                  <div class="pokedex-entry__eyebrow" data-pokedex-field="details-eyebrow"></div>
+                  <div class="pokedex-entry__description">
+                    <div data-pokedex-field="description">
+                      <div style="display:flex;gap:8px;align-items:flex-start;justify-content:center;margin-top:10vh;">
+                        <img class="pokedex-entry__description-image" src="${HYDRO_JET_INSTRUCTIONS_IMAGE_URL}" alt="Hydro Jet tutorial" loading="eager" decoding="async" style="display:block;width:min(100%,384px);height:auto;image-rendering:pixelated;margin-right:7vw;">
+                      </div>
                     </div>
                   </div>
                 </section>
@@ -102,9 +108,6 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
                   </article>
                 </section>
               </div>
-              <aside class="pokedex-entry__avatar" data-pokedex-art-scene="squirtle" aria-hidden="true">
-                <img class="pokedex-entry__avatar-image" src="${HYDRO_JET_AVATAR_IMAGE_URL}" alt="" loading="eager" decoding="async">
-              </aside>
               <div class="pokedex-entry__drawer" aria-hidden="true">
                 <div class="pokedex-entry__drawer-sheet">
                   <div class="pokedex-entry__drawer-item">
@@ -114,7 +117,9 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
                   </div>
                 </div>
               </div>
-              <button class="pokedex-entry__close" id="pokedex-overlay-close" data-pokedex-action="close" type="button" aria-label="Close Instructions">Close</button>
+              <button class="pokedex-entry__close" id="pokedex-overlay-close" data-pokedex-action="close" type="button" aria-label="Close Instructions">
+                <img class="pokedex-entry__close-image" src="${POKEDEX_CLOSE_BUTTON_IMAGE_URL}" alt="" loading="eager" decoding="async">
+              </button>
             </article>
           </section>
           <aside class="nearby-habitats-panel" aria-label="Nearby colony zones">

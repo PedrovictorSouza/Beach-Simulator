@@ -202,7 +202,7 @@ export function getActTwoTutorialConversation(conversationId, state) {
         },
         {
           speaker: TANGROWTH_NAME,
-          text: `The ${SANDBOTS_WORLD_TERMS.codex}'s days of being useful may be long gone, but so are mine and here we are.`,
+          text: "Its days of being useful may be long gone, but so are mine and here we are.",
           choices: POKEDEX_REACTION_CHOICES,
           responseKey: "pokedexReaction"
         }

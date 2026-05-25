@@ -307,7 +307,7 @@ describe("createStoryBeatSystem", () => {
       id: "campfire",
       stationId: "workbench",
       ingredients: {
-        wood: 3
+        gear: 10
       }
     }));
     expect(storyState.flags.workbenchDiyRecipesReceived).toBeUndefined();
@@ -566,7 +566,7 @@ describe("createStoryBeatSystem", () => {
     expect(system.getDialogueLines(STORY_BEAT_IDS.LEAF_DEN_KIT_PURCHASED)).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          speaker: "Colony Codex",
+          speaker: "Instructions.",
           text: "House Kit ready for Ada's first shelter."
         })
       ])

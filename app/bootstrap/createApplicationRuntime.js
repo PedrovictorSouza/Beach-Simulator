@@ -91,6 +91,8 @@ import {
 import { createDialogueSystem } from "../dialogue/createDialogueSystem.js";
 import { SMALL_ISLAND_DIALOGUES } from "../dialogue/dialogueData.js";
 import { createQuestSystem } from "../quest/createQuestSystem.js";
+import { createQuestTaskBridgeAdapter } from "../tasks/createQuestTaskBridgeAdapter.js";
+import { createTaskTerminalMissionEntries } from "../tasks/taskTerminalMissionAdapter.js";
 import {
   getErrandQuestProgressFeedback,
   unlockErrandQuestPokedeskReward,
@@ -324,14 +326,16 @@ const FIELD_MOVE_SWITCH_PROMPT_PRESENTATION = Object.freeze({
 });
 const QUEST_COMPLETION_POP_DURATION_MS = 2400;
 const QUEST_COMPLETION_POP_MESSAGES = Object.freeze({
+  "learn-to-move": "You can move!",
   "wake-guide": "You met Chopper!",
   "gather-first-supplies": "Hydro Bot is online!",
-  "shape-a-living-patch": "You restored a patch!",
-  "record-a-memory": "You recorded a memory!",
-  "open-the-water-route": `${SANDBOTS_ITEM_NAMES.hydroTool} online!`,
+  "water-first-dry-patch": "First patch restored!",
   "water-dry-grass": "You restored the tall grass!",
   "inspect-rustling-grass": `${SANDBOTS_ITEM_NAMES.growTool} online!`,
   "grow-a-home-patch": "You grew a home patch!",
+  "melt-first-snow": "Snow cleared!",
+  "open-colony-computer": "Colony computer online!",
+  "build-first-base": "Base foundation built!",
   "chopper-first-habitat-report": "You reported back!"
 });
 const CHOPPER_BULBASAUR_REPAIR_BOX_INTRO_LINES = Object.freeze([
@@ -1787,7 +1791,171 @@ export function createApplicationRuntime({
     fpsPanel.insertAdjacentElement("afterend", toggle);
     return toggle;
   }
-  setupColliderDebugToggle();
+  const colliderDebugToggle = setupColliderDebugToggle();
+
+  const worldCellPlannerState = {
+    selection: null,
+    entries: []
+  };
+  let worldCellPlannerElements = null;
+
+  function formatWorldCellPlannerEntry(entry = {}, note = "") {
+    const world = Array.isArray(entry.worldPosition) ?
+      entry.worldPosition.map((value) => Number(value).toFixed(2)).join(", ") :
+      "n/a";
+    const grid = entry.gridCell ?
+      `${entry.gridCell.x}, ${entry.gridCell.y}` :
+      "n/a";
+    const request = String(note || entry.note || "").trim() || "describe what should go here";
+    return [
+      `cellId: ${entry.cellId || "unknown"}`,
+      `gridCell: ${grid}`,
+      `world: ${world}`,
+      `ground: ${entry.groundKind || "unknown"}`,
+      `request: ${request}`
+    ].join("\n");
+  }
+
+  function formatWorldCellPlannerEntries() {
+    if (!worldCellPlannerState.entries.length) {
+      return worldCellPlannerState.selection ?
+        formatWorldCellPlannerEntry(worldCellPlannerState.selection) :
+        "Enable Cell Tool, click a world cell, then describe what should go there.";
+    }
+
+    return worldCellPlannerState.entries
+      .map((entry, index) => `#${index + 1}\n${formatWorldCellPlannerEntry(entry, entry.note)}`)
+      .join("\n\n");
+  }
+
+  function syncWorldCellPlannerPanel() {
+    const elements = worldCellPlannerElements;
+    if (!elements) {
+      return;
+    }
+
+    const active = Boolean(runtimeFlags.debugWorldCellPlanner);
+    elements.toggle.dataset.active = active ? "true" : "false";
+    elements.toggle.setAttribute("aria-pressed", active ? "true" : "false");
+    elements.toggle.textContent = active ? "CELL TOOL ON" : "CELL TOOL OFF";
+    elements.panel.hidden = !active;
+    elements.panel.dataset.hasSelection = worldCellPlannerState.selection ? "true" : "false";
+    elements.selection.textContent = worldCellPlannerState.selection ?
+      formatWorldCellPlannerEntry(worldCellPlannerState.selection, elements.note.value) :
+      "Click a world cell.";
+    elements.output.value = formatWorldCellPlannerEntries();
+  }
+
+  function copyWorldCellPlannerOutput() {
+    const text = formatWorldCellPlannerEntries();
+    worldCellPlannerElements.output.value = text;
+    worldCellPlannerElements.output.select?.();
+    windowRef.navigator?.clipboard?.writeText?.(text).then?.(
+      () => uiRuntime?.pushNotice?.("Cell plan copied."),
+      () => uiRuntime?.pushNotice?.("Cell plan ready to copy.")
+    );
+  }
+
+  function setWorldCellPlannerSelection(selection) {
+    if (!selection) {
+      return;
+    }
+
+    worldCellPlannerState.selection = selection;
+    if (worldCellPlannerElements?.note) {
+      worldCellPlannerElements.note.value = "";
+    }
+    syncWorldCellPlannerPanel();
+  }
+
+  function setupWorldCellPlannerTool(anchorToggle = null) {
+    const toggleMount = dom.fpsPanel?.parentElement;
+    if (!toggleMount) {
+      return null;
+    }
+
+    const toggle = documentRef.createElement("button");
+    toggle.type = "button";
+    toggle.id = "world-cell-planner-toggle";
+    toggle.className = "collider-debug-toggle world-cell-planner-toggle";
+    toggle.setAttribute("aria-label", "Toggle world cell planning tool");
+
+    const panel = documentRef.createElement("section");
+    panel.className = "world-cell-planner-panel";
+    panel.hidden = true;
+    panel.setAttribute("aria-label", "World cell planning tool");
+
+    const title = documentRef.createElement("strong");
+    title.textContent = "World Cell";
+
+    const selection = documentRef.createElement("pre");
+    selection.className = "world-cell-planner-panel__selection";
+    selection.textContent = "Click a world cell.";
+
+    const note = documentRef.createElement("input");
+    note.type = "text";
+    note.placeholder = "What should go here?";
+    note.setAttribute("aria-label", "Cell request");
+
+    const actions = documentRef.createElement("div");
+    actions.className = "world-cell-planner-panel__actions";
+
+    const addButton = documentRef.createElement("button");
+    addButton.type = "button";
+    addButton.textContent = "ADD";
+
+    const copyButton = documentRef.createElement("button");
+    copyButton.type = "button";
+    copyButton.textContent = "COPY";
+
+    const output = documentRef.createElement("textarea");
+    output.readOnly = true;
+    output.rows = 5;
+    output.setAttribute("aria-label", "World cell plan output");
+
+    actions.append(addButton, copyButton);
+    panel.append(title, selection, note, actions, output);
+    (anchorToggle || dom.fpsPanel).insertAdjacentElement("afterend", toggle);
+    toggle.insertAdjacentElement("afterend", panel);
+
+    worldCellPlannerElements = {
+      toggle,
+      panel,
+      selection,
+      note,
+      output
+    };
+
+    toggle.addEventListener("click", () => {
+      runtimeFlags.debugWorldCellPlanner = !runtimeFlags.debugWorldCellPlanner;
+      syncWorldCellPlannerPanel();
+      playSoundEvent(runtimeFlags.debugWorldCellPlanner ? SOUND_EVENT_IDS.UI_CONFIRM : SOUND_EVENT_IDS.UI_CANCEL);
+      uiRuntime?.pushNotice?.(
+        runtimeFlags.debugWorldCellPlanner ?
+          "Cell Tool enabled. Click a world cell." :
+          "Cell Tool disabled."
+      );
+    });
+    note.addEventListener("input", syncWorldCellPlannerPanel);
+    addButton.addEventListener("click", () => {
+      if (!worldCellPlannerState.selection) {
+        uiRuntime?.pushNotice?.("Click a world cell first.");
+        return;
+      }
+
+      worldCellPlannerState.entries.push({
+        ...worldCellPlannerState.selection,
+        note: note.value.trim()
+      });
+      note.value = "";
+      syncWorldCellPlannerPanel();
+      uiRuntime?.pushNotice?.("Cell note added.");
+    });
+    copyButton.addEventListener("click", copyWorldCellPlannerOutput);
+    syncWorldCellPlannerPanel();
+    return worldCellPlannerElements;
+  }
+  setupWorldCellPlannerTool(colliderDebugToggle);
   const playerMemory = createPlayerProfileState();
   const playerSkills = {
     transform: false,
@@ -3647,10 +3815,6 @@ export function createApplicationRuntime({
     }
 
     const playerPosition = gameSession.playerCharacter.getPosition();
-    if (isPlayerNearRotatableWorkbenchPlacement(playerPosition)) {
-      return false;
-    }
-
     const nearbyInteractable = findNearbyInteractable(
       playerPosition,
       gameSession.npcActors,
@@ -3666,6 +3830,14 @@ export function createApplicationRuntime({
     );
 
     const target = nearbyInteractable?.target;
+    if (target?.id === "workbench") {
+      return true;
+    }
+
+    if (isPlayerNearRotatableWorkbenchPlacement(playerPosition)) {
+      return false;
+    }
+
     if (!target) {
       return false;
     }
@@ -4343,7 +4515,7 @@ export function createApplicationRuntime({
     return opened;
   }
 
-  const questSystem = createQuestSystem({
+  const legacyQuestSystem = createQuestSystem({
     quests: SMALL_ISLAND_QUESTS,
     storage: ENABLE_QUEST_PERSISTENCE ? windowRef.localStorage : null,
     initialState: (manualSavePoint || bootManualSavePoint)?.questState || null,
@@ -4368,6 +4540,10 @@ export function createApplicationRuntime({
       }
     }
   });
+  const questSystem = createQuestTaskBridgeAdapter({
+    questSystem: legacyQuestSystem,
+    initialTaskState: (manualSavePoint || bootManualSavePoint)?.taskState || null
+  });
   warnInvalidErrandQuestDesign({
     quests: SMALL_ISLAND_QUESTS,
     enabled: isDev,
@@ -4375,14 +4551,22 @@ export function createApplicationRuntime({
   });
 
   function reconcileQuestProgressFromUnlockedSkills() {
-    if (!playerSkills.waterGun) {
-      return;
+    if (playerSkills.waterGun) {
+      questSystem.emit({
+        type: QUEST_EVENT.UNLOCK,
+        targetId: "waterGun"
+      });
     }
 
-    questSystem.emit({
-      type: QUEST_EVENT.UNLOCK,
-      targetId: "waterGun"
-    });
+    if (
+      playerSkills.leafage ||
+      storyState.flags.bulbasaurDryGrassRequestTurnedIn
+    ) {
+      questSystem.emit({
+        type: QUEST_EVENT.TALK,
+        targetId: "leaf-helper"
+      });
+    }
   }
 
   function setActiveManualSaveSlot(slotId) {
@@ -4404,6 +4588,10 @@ export function createApplicationRuntime({
         playerMemory
       })
     );
+    questSystem.restoreState?.({
+      questState: savePoint.questState || null,
+      taskState: savePoint.taskState || null
+    });
     reconcileQuestProgressFromUnlockedSkills();
     restoreSavedSessionState(session, savePoint);
     restoreSavedWorldState(session, savePoint);
@@ -4496,6 +4684,7 @@ export function createApplicationRuntime({
           ])
         ),
         questState: questSystem.getState(),
+        taskState: questSystem.getTaskState?.() || null,
         playerPosition: Array.isArray(playerPosition) ? [...playerPosition] : null,
         worldState: cloneSessionWorldState(gameSession),
         companions: cloneSessionCompanionState(gameSession),
@@ -5097,6 +5286,21 @@ export function createApplicationRuntime({
   }
 
   function buildPokemonCenterPcMissionEntries() {
+    const taskEntries = questSystem?.getTaskTerminalEntries?.() || [];
+    if (taskEntries.length) {
+      const actionByLegacyFieldTaskId = Object.fromEntries(
+        Object.values(SMALL_ISLAND_FIELD_TASKS).map((task) => [
+          task.id,
+          getPokemonCenterPcActionForTask(task.id)
+        ])
+      );
+
+      return createTaskTerminalMissionEntries({
+        taskEntries,
+        actionByLegacyFieldTaskId
+      });
+    }
+
     const questEntries = (questSystem?.getQuestLog?.() || []).map((quest) => {
       const locked = quest.status === "locked";
       return {
@@ -5176,6 +5380,10 @@ export function createApplicationRuntime({
           });
         },
         onComplete: () => {
+          questSystem.emit({
+            type: QUEST_EVENT.UNLOCK,
+            targetId: "challenges"
+          });
           dialogueCamera.restoreGameplayCamera();
           syncQuestPanels();
         }
@@ -6542,11 +6750,23 @@ export function createApplicationRuntime({
               actionId: storyState.flags.firstRequiredTaughtActionId || "water-dry-grass"
             }, { silent: true });
           } else if (actionType === "fire") {
+            questSystem.emit({
+              type: QUEST_EVENT.BUILD,
+              targetId: "snow-melted"
+            });
             requestAutosave(AUTOSAVE_EVENT.STORY_STEP_ADVANCED, {
               actionId: "fire-white-ground",
               groundCellId
             }, { silent: true });
+            syncQuestPanels();
           }
+        },
+        onFoundationWallBuilt() {
+          questSystem.emit({
+            type: QUEST_EVENT.BUILD,
+            targetId: "foundation-wall"
+          });
+          syncQuestPanels();
         },
         onCharmanderCampfireLit() {
           storyBeats.playDialogue(STORY_BEAT_IDS.CHARMANDER_CAMPFIRE_LIT, {
@@ -6698,6 +6918,9 @@ export function createApplicationRuntime({
         findNearbyActionTarget,
         findNearbyInteractable,
         getActiveQuest,
+        getActiveTask() {
+          return questSystem.getActiveTask?.() || null;
+        },
         getActiveSystemQuest() {
           return questSystem.getActiveQuest();
         },
@@ -6736,6 +6959,10 @@ export function createApplicationRuntime({
         get debugColliders() {
           return runtimeFlags.debugColliders;
         },
+        get debugWorldCellPlanner() {
+          return runtimeFlags.debugWorldCellPlanner;
+        },
+        onWorldCellPlannerPick: setWorldCellPlannerSelection,
         isNpcActive,
         isInteractableActive,
         isResourceNodeActive

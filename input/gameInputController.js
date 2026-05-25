@@ -1001,7 +1001,7 @@ export function createGameInputController({
         Boolean(gamepad.buttons?.[GAME_INPUT_BINDINGS.cameraZoomCycle.gamepadButton]?.pressed) ||
         Number(gamepad.buttons?.[GAME_INPUT_BINDINGS.cameraZoomCycle.gamepadButton]?.value || 0) > 0.55;
       pauseButtonPressed = pauseButtonPressed ||
-        Boolean(gamepad.buttons?.[GAME_INPUT_BINDINGS.pause.gamepadButton]?.pressed);
+        isGamepadButtonPressed(gamepad, GAME_INPUT_BINDINGS.pause.gamepadButton);
       if (Number.isInteger(GAME_INPUT_BINDINGS.pokedex.gamepadButton)) {
         pokedexButtonPressed = pokedexButtonPressed ||
           Boolean(gamepad.buttons?.[GAME_INPUT_BINDINGS.pokedex.gamepadButton]?.pressed);

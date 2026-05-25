@@ -213,6 +213,19 @@ export function createGameHudController({
   let latestStoryState = { flags: {} };
   let latestSkillsState = null;
   let latestActiveSkillId = null;
+  let latestInputModalityState = null;
+
+  function getInputModalitySignature(inputModalityState = null) {
+    if (!inputModalityState) {
+      return "";
+    }
+
+    return [
+      inputModalityState.device || "",
+      inputModalityState.gamepadLayout || "",
+      inputModalityState.gamepadId || ""
+    ].join("|");
+  }
 
   function escapeHtml(value) {
     return String(value)
@@ -703,6 +716,7 @@ export function createGameHudController({
     if (!activeAbility || !skill) {
       companionHudElement.hidden = true;
       companionHudElement.removeAttribute("data-companion-id");
+      companionHudElement.removeAttribute("data-companion-count");
       companionHudElement.removeAttribute("data-element");
       companionHudElement.removeAttribute("aria-label");
       if (uiCache.activeCompanionHudHtml !== "") {
@@ -713,8 +727,10 @@ export function createGameHudController({
     }
 
     const activeGuidance = getActiveCompanionGuidance(activeSkillId);
+    const companionEntries = getActiveCompanionCarouselEntries(skills, activeSkillId);
 
     companionHudElement.dataset.companionId = activeAbility.companionId;
+    companionHudElement.dataset.companionCount = String(companionEntries.length || 1);
     companionHudElement.dataset.element = activeAbility.element;
     companionHudElement.setAttribute(
       "aria-label",
@@ -1422,7 +1438,10 @@ export function createGameHudController({
       const activeQuestId = activeQuest?.id || null;
       const questChanged = activeQuestId && uiCache.hudFocusQuestId !== activeQuestId;
       const nextContext = questLog.renderActiveSummaryHtml();
-      const nextChecklist = questLog.renderChecklistHtml(storyState, getTrackedTaskRenderOptions(storyState));
+      const nextChecklist = questLog.renderChecklistHtml(storyState, {
+        ...getTrackedTaskRenderOptions(storyState),
+        inputModalityState: latestInputModalityState
+      });
 
       if (questChanged) {
         replayHudBoardEntrance();
@@ -1513,8 +1532,18 @@ export function createGameHudController({
 
   function syncHudInstructions(storyState, promptCopy = "", inputModalityState = null) {
     rememberStoryState(storyState);
+    const previousInputModalitySignature = getInputModalitySignature(latestInputModalityState);
+    if (inputModalityState) {
+      latestInputModalityState = inputModalityState;
+    }
+    const inputModalityChanged =
+      previousInputModalitySignature !== getInputModalitySignature(latestInputModalityState);
     refreshActiveCompanionHudFromCache();
     syncHudChecklistPresentation(promptCopy);
+
+    if (inputModalityChanged && hudChecklistElement) {
+      syncQuestFocus(storyState);
+    }
 
     if (!hudInstructionsElement) {
       return;

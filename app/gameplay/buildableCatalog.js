@@ -13,6 +13,10 @@ import {
   GRID_PLACEABLE_IDS
 } from "./gridBuildingSystem.js";
 import { RECIPE_DEFS } from "../../studies/typescript/recipes.ts";
+import {
+  cloneWorkbenchRecipe,
+  createWorkbenchRecipeRegistry
+} from "./workbenchRecipeRegistry.js";
 
 export const BUILDABLE_SOURCE_TYPES = Object.freeze({
   RECIPE: "recipe",
@@ -131,7 +135,7 @@ function createBuildingKitBuildable(def) {
     buildDurationSeconds: kit.buildDurationSeconds,
     minFurnitureRequired: kit.minFurnitureRequired,
     validPlacementRules: Object.freeze([...kit.validPlacementRules]),
-    workbenchRecipe: def.workbenchRecipe ? cloneRecipe(def.workbenchRecipe) : null
+    workbenchRecipe: def.workbenchRecipe ? cloneWorkbenchRecipe(def.workbenchRecipe) : null
   });
 }
 
@@ -187,34 +191,11 @@ export function getWorkbenchBuildableByOutputItemId(itemId) {
   return getWorkbenchBuildableByInventoryItemId(itemId);
 }
 
-function cloneRecipe(recipe) {
-  return shallowFreezeRecord({
-    ...recipe,
-    ingredients: Object.freeze({ ...(recipe?.ingredients || {}) }),
-    output: Object.freeze({ ...(recipe?.output || {}) })
-  });
-}
-
 export function createWorkbenchRecipeMap({ placeholderRecipes = PLACEHOLDER_RECIPES } = {}) {
-  const recipeMap = {};
-
-  Object.entries(placeholderRecipes || {}).forEach(([recipeId, recipe]) => {
-    recipeMap[recipeId] = cloneRecipe(recipe);
+  return createWorkbenchRecipeRegistry({
+    baseRecipes: placeholderRecipes,
+    extraRecipes: WORKBENCH_BUILDABLE_DEFS
+      .map((def) => def.workbenchRecipe)
+      .filter(Boolean)
   });
-
-  WORKBENCH_BUILDABLE_DEFS.forEach((def) => {
-    if (def.sourceType === BUILDABLE_SOURCE_TYPES.RECIPE) {
-      const recipe = placeholderRecipes?.[def.recipeId] || PLACEHOLDER_RECIPES[def.recipeId];
-      if (recipe) {
-        recipeMap[def.recipeId] = cloneRecipe(recipe);
-      }
-      return;
-    }
-
-    if (def.workbenchRecipe) {
-      recipeMap[def.workbenchRecipe.id] = cloneRecipe(def.workbenchRecipe);
-    }
-  });
-
-  return Object.freeze(recipeMap);
 }

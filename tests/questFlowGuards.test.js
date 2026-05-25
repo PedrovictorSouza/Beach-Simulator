@@ -58,30 +58,37 @@ describe("questFlowGuards", () => {
     );
   });
 
-  it("keeps the converted errand quest reachable in the main quest chain", () => {
+  it("keeps the ten-minute campaign reachable in the main quest chain", () => {
     const reachability = getQuestFlowReachability(SMALL_ISLAND_QUESTS);
 
     expect(reachability.reachableQuestIds).toEqual(expect.arrayContaining([
       "learn-to-move",
       "wake-guide",
       "gather-first-supplies",
-      "water-dry-grass"
+      "water-first-dry-patch",
+      "water-dry-grass",
+      "inspect-rustling-grass",
+      "grow-a-home-patch",
+      "melt-first-snow",
+      "open-colony-computer",
+      "build-first-base",
+      "chopper-first-habitat-report"
     ]));
-    expect(reachability.detachedQuestIds).toEqual(expect.arrayContaining([
-      "shape-a-living-patch",
-      "record-a-memory",
-      "open-the-water-route"
-    ]));
+    expect(reachability.detachedQuestIds).toEqual([]);
     expect(reachability.unreachableQuestIds).toEqual([]);
   });
 
   it("fails if a quest is orphaned without an explicit detached marker", () => {
     const quests = cloneQuests();
-    const legacyQuest = quests.find((quest) => quest.id === "shape-a-living-patch");
-    delete legacyQuest.detached;
+    quests.push({
+      ...quests[0],
+      id: "orphaned-side-task",
+      status: QUEST_STATUS.LOCKED,
+      nextQuestId: null
+    });
 
     expect(() => assertReachableQuestFlow(quests)).toThrow(
-      "Unreachable quest(s) must be connected or marked detached: shape-a-living-patch"
+      "Unreachable quest(s) must be connected or marked detached: orphaned-side-task"
     );
   });
 

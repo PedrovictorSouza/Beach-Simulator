@@ -11,6 +11,12 @@ import {
   getErrandQuestInstructionText
 } from "../quest/errandQuestDesign.js";
 import { SANDBOTS_ITEM_NAMES } from "../story/sandbotsLexicon.js";
+import {
+  createTaskHudSummary,
+  createTaskHudSummaryHtml
+} from "../tasks/taskHudSummaryAdapter.js";
+import { createTaskHudChecklistHtml } from "../tasks/taskHudChecklistAdapter.js";
+import { resolveMovementPrompt } from "./inputPromptResolver.js";
 
 function escapeHtml(value) {
   return String(value)
@@ -57,7 +63,7 @@ function formatQuestSummary(quest) {
 
 function getQuestSummaryCopy(quest) {
   return quest?.errandQuest ?
-    getErrandQuestInstructionText(quest) || getErrandQuestHudText(quest) :
+    quest.description || getErrandQuestInstructionText(quest) || getErrandQuestHudText(quest) :
     quest?.description || "";
 }
 
@@ -67,7 +73,7 @@ function getQuestSubtitleCopy(quest) {
   }
 
   if (quest.errandQuest) {
-    return quest.errandQuest.hudSubtitle || quest.errandQuest.subtitle || "";
+    return quest.errandQuest.hudSubtitle || quest.errandQuest.subtitle || quest.description || "";
   }
 
   return quest.description || "";
@@ -95,18 +101,16 @@ function renderQuestSummaryHtml(quest) {
   `;
 }
 
-function renderObjectiveHintHtml(objective) {
+function renderObjectiveHintHtml(objective, inputModalityState = null) {
   if (objective.type !== "MOVE") {
     return "";
   }
 
+  const movementPrompt = resolveMovementPrompt(inputModalityState || {});
+
   return `
     <div class="hud-control-hint" aria-label="Movement controls">
-      <span class="hud-control-key">W</span>
-      <span class="hud-control-key">A</span>
-      <span class="hud-control-key">S</span>
-      <span class="hud-control-key">D</span>
-      <span class="hud-control-stick">Left stick</span>
+      <span class="hud-control-stick">${escapeHtml(movementPrompt)}</span>
     </div>
   `;
 }
@@ -448,7 +452,16 @@ export function createQuestLog({
     return questSystem?.getActiveQuest?.() || null;
   }
 
+  function getTaskHudView() {
+    return questSystem?.getTaskHudView?.() || null;
+  }
+
   function renderActiveSummary() {
+    const taskHudView = getTaskHudView();
+    if (taskHudView) {
+      return createTaskHudSummary(taskHudView);
+    }
+
     const quest = getActiveQuest();
     if (!quest) {
       return "Free roam. Keep restoring the island and checking in with helpers.";
@@ -458,28 +471,40 @@ export function createQuestLog({
   }
 
   function renderActiveSummaryHtml() {
+    const taskHudView = getTaskHudView();
+    if (taskHudView) {
+      return createTaskHudSummaryHtml(taskHudView);
+    }
+
     return renderQuestSummaryHtml(getActiveQuest());
   }
 
   function renderChecklistHtml(storyState = {}, options = {}) {
-    const quest = getActiveQuest();
-    const hudObjectives = getHudObjectives(quest);
-    const activeQuestHtml = quest && hudObjectives.length > 0 ? hudObjectives.map((objective) => {
-      const done = (objective.current || 0) >= objective.required;
-      return `
-        <div
-          class="hud-checklist__item"
-          data-done="${done ? "true" : "false"}"
-          data-objective-type="${escapeHtml(objective.type)}"
-        >
-          <span class="hud-checklist__box" aria-hidden="true"></span>
-          <span class="hud-checklist__content">
-            ${escapeHtml(formatObjectiveLabel(objective))} ${escapeHtml(formatQuestObjective(objective))}
-            ${renderObjectiveHintHtml(objective)}
-          </span>
-        </div>
-      `;
-    }).join("") : renderErrandHudChecklistHtml(quest);
+    const taskHudView = getTaskHudView();
+    let activeQuestHtml = taskHudView ? createTaskHudChecklistHtml(taskHudView, {
+      inputModalityState: options.inputModalityState || null
+    }) : "";
+
+    if (!taskHudView) {
+      const quest = getActiveQuest();
+      const hudObjectives = getHudObjectives(quest);
+      activeQuestHtml = quest && hudObjectives.length > 0 ? hudObjectives.map((objective) => {
+        const done = (objective.current || 0) >= objective.required;
+        return `
+          <div
+            class="hud-checklist__item"
+            data-done="${done ? "true" : "false"}"
+            data-objective-type="${escapeHtml(objective.type)}"
+          >
+            <span class="hud-checklist__box" aria-hidden="true"></span>
+            <span class="hud-checklist__content">
+              ${escapeHtml(formatObjectiveLabel(objective))} ${escapeHtml(formatQuestObjective(objective))}
+              ${renderObjectiveHintHtml(objective, options.inputModalityState || null)}
+            </span>
+          </div>
+        `;
+      }).join("") : renderErrandHudChecklistHtml(quest);
+    }
 
     return `${activeQuestHtml}${renderTrackedTaskChecklistHtml(storyState, options)}`;
   }

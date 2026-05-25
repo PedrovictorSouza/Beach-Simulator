@@ -6,6 +6,12 @@ import {
 } from "../app/story/progressionDiagnostics.js";
 import { SMALL_ISLAND_QUESTS } from "../app/quest/questData.js";
 import { FIELD_TASK_IDS } from "../app/story/storyBeatData.js";
+import { WORLD_OBJECT_IDS } from "../app/gameplay/worldObjectCatalog.js";
+import {
+  WORLD_OBJECT_RECIPE_IDS,
+  WORLD_OBJECT_RECIPE_IMPLEMENTATION_STATE,
+  WORLD_OBJECT_RECIPE_USE_SCOPE
+} from "../app/gameplay/worldObjectRecipeCatalog.js";
 
 function getQuest(questId) {
   return SMALL_ISLAND_QUESTS.find((quest) => quest.id === questId);
@@ -45,6 +51,71 @@ describe("progression diagnostics", () => {
       }),
     ]);
     expect(diagnostics.unlockedSkills).toEqual(["waterGun"]);
+  });
+
+  it("reports which field tasks are linked to world object progression events", () => {
+    const diagnostics = createProgressionDiagnostics({
+      systemQuest: getQuest("learn-to-move"),
+      storyState: { questIndex: 0, flags: {} },
+      runtimeAbilityCostKinds: {},
+    });
+
+    expect(diagnostics.worldObjectProgression.linkedFieldTaskIds).toEqual(expect.arrayContaining([
+      FIELD_TASK_IDS.REVIVE_LEPPA_TREE,
+      FIELD_TASK_IDS.BUILD_GREENHOUSE,
+    ]));
+    expect(diagnostics.worldObjectProgression.unlinkedFieldTaskIds).toEqual(expect.arrayContaining([
+      FIELD_TASK_IDS.WATER_DRY_TALL_GRASS,
+      FIELD_TASK_IDS.BULBASAUR_DRY_GRASS_REQUEST,
+    ]));
+    expect(diagnostics.worldObjectProgression.links).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        taskId: FIELD_TASK_IDS.REVIVE_LEPPA_TREE,
+        eventId: "leppaTreeRevived",
+        objectId: WORLD_OBJECT_IDS.ORGANIC_BUS,
+      }),
+      expect.objectContaining({
+        taskId: FIELD_TASK_IDS.BUILD_GREENHOUSE,
+        eventId: "greenhousePlaced",
+        objectId: WORLD_OBJECT_IDS.GREENHOUSE,
+      }),
+    ]));
+  });
+
+  it("reports planned world object recipes by source and use object", () => {
+    const diagnostics = createProgressionDiagnostics({
+      systemQuest: getQuest("learn-to-move"),
+      storyState: { questIndex: 0, flags: {} },
+      runtimeAbilityCostKinds: {},
+    });
+
+    expect(diagnostics.worldObjectRecipes.plannedRecipeIds).toContain(
+      WORLD_OBJECT_RECIPE_IDS.PULSE_BERRY_PROPAGATION
+    );
+    expect(diagnostics.worldObjectRecipes.activeRecipeIds).toEqual([]);
+    expect(diagnostics.worldObjectRecipes.bySourceObjectId[WORLD_OBJECT_IDS.ORGANIC_BUS]).toEqual([
+      WORLD_OBJECT_RECIPE_IDS.PULSE_BERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.BLACKBERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.ROWANBERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.ELDERBERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.LEAF_CULTURE
+    ]);
+    expect(diagnostics.worldObjectRecipes.byUseObjectId[WORLD_OBJECT_IDS.GREENHOUSE]).toEqual([
+      WORLD_OBJECT_RECIPE_IDS.PULSE_BERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.BLACKBERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.ROWANBERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.ELDERBERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.LEAF_CULTURE
+    ]);
+    expect(diagnostics.worldObjectRecipes.links).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        recipeId: WORLD_OBJECT_RECIPE_IDS.PULSE_BERRY_PROPAGATION,
+        sourceObjectId: WORLD_OBJECT_IDS.ORGANIC_BUS,
+        useObjectId: WORLD_OBJECT_IDS.GREENHOUSE,
+        useScope: WORLD_OBJECT_RECIPE_USE_SCOPE.INSIDE_OBJECT,
+        implementationState: WORLD_OBJECT_RECIPE_IMPLEMENTATION_STATE.PLANNED
+      })
+    ]));
   });
 
   it("flags parallel Hydro chains and stale Wake Up Hydro copy that no longer matches its objective", () => {
@@ -109,7 +180,10 @@ describe("progression diagnostics", () => {
 
   it("flags detached quests when they become active", () => {
     const diagnostics = createProgressionDiagnostics({
-      systemQuest: getQuest("open-the-water-route"),
+      systemQuest: {
+        ...getQuest("water-first-dry-patch"),
+        detached: true
+      },
       storyState: { questIndex: 0, flags: {} },
       playerSkills: {},
       runtimeAbilityCostKinds: {},

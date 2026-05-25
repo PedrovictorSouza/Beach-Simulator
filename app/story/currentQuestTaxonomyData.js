@@ -42,25 +42,9 @@ const CURRENT_QUEST_TAXONOMY_BY_ID = deepFreeze({
     placeholderState: "final",
     blocksCredits: false
   },
-  "shape-a-living-patch": {
+  "water-first-dry-patch": {
     kind: REQUEST_KIND.TUTORIAL,
     archetype: REQUEST_ARCHETYPE.ENVIRONMENTAL_RESTORATION,
-    macroBiomeId: MACRO_BIOME_IDS.ASH_WILDS,
-    characterArcId: CHARACTER_ARC_IDS.CHOPPER,
-    placeholderState: "final",
-    blocksCredits: false
-  },
-  "record-a-memory": {
-    kind: REQUEST_KIND.OPTIONAL,
-    archetype: REQUEST_ARCHETYPE.COLLECTION,
-    macroBiomeId: MACRO_BIOME_IDS.ASH_WILDS,
-    characterArcId: "system",
-    placeholderState: "final",
-    blocksCredits: false
-  },
-  "open-the-water-route": {
-    kind: REQUEST_KIND.TUTORIAL,
-    archetype: REQUEST_ARCHETYPE.ABILITY_UNLOCK,
     macroBiomeId: MACRO_BIOME_IDS.ASH_WILDS,
     characterArcId: CHARACTER_ARC_IDS.CHOPPER,
     placeholderState: "final",
@@ -87,6 +71,30 @@ const CURRENT_QUEST_TAXONOMY_BY_ID = deepFreeze({
     archetype: REQUEST_ARCHETYPE.HABITAT_HOME,
     macroBiomeId: MACRO_BIOME_IDS.ASH_WILDS,
     characterArcId: CHARACTER_ARC_IDS.SPRIG,
+    placeholderState: "final",
+    blocksCredits: false
+  },
+  "melt-first-snow": {
+    kind: REQUEST_KIND.GENERAL,
+    archetype: REQUEST_ARCHETYPE.ENVIRONMENTAL_RESTORATION,
+    macroBiomeId: MACRO_BIOME_IDS.ASH_WILDS,
+    characterArcId: CHARACTER_ARC_IDS.AUNTY,
+    placeholderState: "final",
+    blocksCredits: false
+  },
+  "open-colony-computer": {
+    kind: REQUEST_KIND.TUTORIAL,
+    archetype: REQUEST_ARCHETYPE.ABILITY_UNLOCK,
+    macroBiomeId: MACRO_BIOME_IDS.ASH_WILDS,
+    characterArcId: CHARACTER_ARC_IDS.AUNTY,
+    placeholderState: "final",
+    blocksCredits: false
+  },
+  "build-first-base": {
+    kind: REQUEST_KIND.GENERAL,
+    archetype: REQUEST_ARCHETYPE.HABITAT_HOME,
+    macroBiomeId: MACRO_BIOME_IDS.ASH_WILDS,
+    characterArcId: CHARACTER_ARC_IDS.AUNTY,
     placeholderState: "final",
     blocksCredits: false
   },

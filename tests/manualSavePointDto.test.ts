@@ -37,6 +37,9 @@ describe("manualSavePointDto", () => {
       questState: {
         activeQuestId: "build-greenhouse"
       },
+      taskState: {
+        activeTaskId: "grow-first-habitat"
+      },
       playerPosition: [1, 0, 2],
       worldState: {
         purifiedGroundCellIds: ["ground-1"]
@@ -78,6 +81,9 @@ describe("manualSavePointDto", () => {
       version: MANUAL_SAVE_POINT_SCHEMA_VERSION,
       slotId: "slot-2",
       activeFieldMoveId: "waterGun",
+      taskState: {
+        activeTaskId: "grow-first-habitat"
+      },
       playerPosition: [1, 0, 2],
       freeBlockBuild: {
         floorBlocks: [

@@ -318,30 +318,16 @@ function renderTerminalModalHeader({ builderCallsign, stats, selectedMissionInde
   `;
 }
 
-function renderTerminalModalBody({ cardColumns, selectedMissionIndex, visibleMissionCards }) {
+function renderTerminalModalBody({ selectedMissionIndex, visibleMissionCards }) {
   return `
-    <div style="position:relative;z-index:1;display:grid;grid-template-columns:46px minmax(0, 1fr) 46px;gap:12px;align-items:stretch;">
-      <button
-        class="pokemon-center-pc-modal__nav"
-        type="button"
-        data-pc-action="previous"
-        aria-label="Previous colony check"
-        style="border:1px solid rgba(0,255,157,0.42);background:rgba(0,255,157,0.06);color:#00ff9d;font:inherit;font-size:24px;cursor:pointer;min-height:48px;box-shadow:0 0 14px rgba(0,255,157,0.12);"
-      >&lt;</button>
+    <div style="position:relative;z-index:1;display:grid;gap:12px;align-items:stretch;">
       <div
         class="pokemon-center-pc-modal__cards"
         role="listbox"
         aria-label="Colony checks"
         aria-activedescendant="pokemon-center-pc-card-${selectedMissionIndex}"
-        style="display:grid;grid-template-columns:${cardColumns || "minmax(0, 1fr)"};gap:10px;align-items:stretch;min-width:0;"
+        style="display:grid;grid-template-columns:minmax(0, 1fr);gap:10px;align-items:stretch;min-width:0;max-height:min(58vh, 620px);overflow:auto;padding:2px 8px 2px 2px;scrollbar-color:rgba(0,255,157,0.48) rgba(5,8,18,0.72);"
       >${visibleMissionCards}</div>
-      <button
-        class="pokemon-center-pc-modal__nav"
-        type="button"
-        data-pc-action="next"
-        aria-label="Next colony check"
-        style="border:1px solid rgba(0,255,157,0.42);background:rgba(0,255,157,0.06);color:#00ff9d;font:inherit;font-size:24px;cursor:pointer;min-height:48px;box-shadow:0 0 14px rgba(0,255,157,0.12);"
-      >&gt;</button>
     </div>
   `;
 }
@@ -356,7 +342,7 @@ function renderTerminalModalFooter({ actionHint, actionReady, dotsHtml }) {
         </div>
       </div>
       <p style="margin:0;display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;color:#00ff9d;font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:11px;line-height:1;letter-spacing:0.14em;text-transform:uppercase;">
-        <span style="color:#888888;">Left/Right Browse</span>
+        <span style="color:#888888;">Up/Down Browse</span>
         <span style="color:${actionReady ? "#00ff9d" : "#00d4ff"};">${escapeHtml(actionHint)}</span>
         <span style="color:#ff3366;text-shadow:0 0 10px rgba(255,51,102,0.42);">B / Esc Close</span>
       </p>
@@ -429,34 +415,14 @@ export function getInitialTerminalMissionIndex(missions = []) {
 export function getVisibleTerminalMissionIndexes({
   selectedMissionIndex = 0,
   totalMissions = 0,
-  visibleCount = 3
+  visibleCount = totalMissions
 } = {}) {
   const count = Math.min(visibleCount, totalMissions);
   if (count <= 0) {
     return [];
   }
 
-  if (totalMissions <= count) {
-    return Array.from({ length: totalMissions }, (_, index) => index);
-  }
-
-  if (selectedMissionIndex <= 0) {
-    return [0, 1, 2];
-  }
-
-  if (selectedMissionIndex >= totalMissions - 1) {
-    return [
-      totalMissions - 3,
-      totalMissions - 2,
-      totalMissions - 1
-    ];
-  }
-
-  return [
-    selectedMissionIndex - 1,
-    selectedMissionIndex,
-    selectedMissionIndex + 1
-  ];
+  return Array.from({ length: count }, (_, index) => index);
 }
 
 export function createTerminalModalMusicController({
@@ -705,15 +671,15 @@ export function createPokemonCenterPcModalController({
         aria-label="Colony check ${index + 1}, ${escapeHtml(statusLabel)}: ${escapeHtml(mission.title)}"
         style="
           position:relative;
-          min-height:${selected ? "258px" : "192px"};
+          min-height:${selected ? "216px" : "118px"};
           border:1px solid ${palette.border};
           box-shadow:${selected ? `0 0 18px ${palette.border}55` : "none"};
           background:linear-gradient(180deg, rgba(13,13,13,0.98) 0%, ${palette.background} 115%);
           color:#ffffff;
-          padding:${selected ? "14px" : "11px"};
+          padding:${selected ? "14px" : "10px 12px"};
           display:grid;
-          grid-template-columns:minmax(0, 1fr) ${selected ? "minmax(136px, 168px)" : "62px"};
-          gap:${selected ? "16px" : "10px"};
+          grid-template-columns:minmax(0, 1fr) ${selected ? "minmax(124px, 154px)" : "72px"};
+          gap:${selected ? "16px" : "12px"};
           align-content:stretch;
           text-align:left;
           font:inherit;
@@ -721,16 +687,16 @@ export function createPokemonCenterPcModalController({
           opacity:${selected ? "1" : mission.status === "locked" ? "0.72" : "0.92"};
           overflow:hidden;
         "
-      >
+        >
         <span class="pokemon-center-pc-modal__card-scan" aria-hidden="true" style="position:absolute;top:0;left:-100%;bottom:0;width:60%;background:linear-gradient(90deg, transparent, rgba(0,255,157,0.08), transparent);pointer-events:none;z-index:4;opacity:0;"></span>
         <span aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:2px;background:${palette.border};box-shadow:0 0 12px ${palette.border};z-index:3;opacity:${selected ? "0.95" : "0.58"};"></span>
-        <div style="position:relative;z-index:5;display:grid;grid-template-rows:auto auto minmax(0, 1fr) auto;align-content:start;gap:${selected ? "9px" : "7px"};min-width:0;overflow:hidden;">
+        <div style="position:relative;z-index:5;display:grid;grid-template-rows:auto auto minmax(0, 1fr) auto;align-content:start;gap:${selected ? "9px" : "6px"};min-width:0;overflow:hidden;">
           <div style="display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:8px;align-items:start;min-width:0;">
             <span style="min-width:0;overflow-wrap:anywhere;font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:${selected ? "10px" : "9px"};line-height:1.08;letter-spacing:0.12em;text-transform:uppercase;color:${palette.copy};">Check ${index + 1} · ${escapeHtml(missionSource)}</span>
             <span style="flex:0 0 auto;border:1px solid ${palette.border};background:rgba(5, 8, 18, 0.42);padding:${selected ? "4px 6px" : "3px 5px"};font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:${selected ? "10px" : "9px"};line-height:1;letter-spacing:0.08em;text-transform:uppercase;color:${palette.label};">${escapeHtml(statusLabel)}</span>
           </div>
-          <h2 style="margin:0;color:#ffffff;font-family:'Orbitron', var(--game-ui-font, monospace);font-size:${selected ? "24px" : "17px"};font-weight:900;line-height:1.08;letter-spacing:0.08em;text-transform:uppercase;overflow-wrap:anywhere;text-shadow:0 2px 12px rgba(0,0,0,0.8);">${escapeHtml(mission.title)}</h2>
-          <p style="margin:0;color:${palette.copy};font-size:${selected ? "15px" : "13px"};line-height:${selected ? "1.35" : "1.25"};text-transform:none;overflow-wrap:anywhere;">${escapeHtml(mission.description)}</p>
+          <h2 style="margin:0;color:#ffffff;font-family:'Orbitron', var(--game-ui-font, monospace);font-size:${selected ? "23px" : "16px"};font-weight:900;line-height:1.08;letter-spacing:0.08em;text-transform:uppercase;overflow-wrap:anywhere;text-shadow:0 2px 12px rgba(0,0,0,0.8);">${escapeHtml(mission.title)}</h2>
+          <p style="margin:0;color:${palette.copy};font-size:${selected ? "15px" : "12px"};line-height:${selected ? "1.35" : "1.22"};text-transform:none;overflow-wrap:anywhere;">${escapeHtml(mission.description)}</p>
           ${selected ? `
             <p style="margin:0;border:1px solid ${palette.border};background:rgba(5, 8, 18, 0.34);padding:8px;color:${palette.label};font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:12px;line-height:1.32;text-transform:none;overflow-wrap:anywhere;">${escapeHtml(guidance)}</p>
           ` : ""}
@@ -746,12 +712,12 @@ export function createPokemonCenterPcModalController({
           style="
             position:relative;
             z-index:5;
-            min-height:${selected ? "184px" : "58px"};
-            min-width:${selected ? "156px" : "58px"};
+            min-height:${selected ? "156px" : "66px"};
+            min-width:${selected ? "132px" : "66px"};
             border:1px solid ${palette.border};
             background:rgba(5, 8, 18, 0.32);
             overflow:hidden;
-            align-self:${selected ? "stretch" : "start"};
+            align-self:stretch;
           "
         >
           ${illustrationHtml}
@@ -774,13 +740,6 @@ export function createPokemonCenterPcModalController({
     const visibleMissionCards = visibleMissionIndexes
       .map((missionIndex) => renderMissionCard(missions[missionIndex] || EMPTY_MISSION, missionIndex))
       .join("");
-    const cardColumns = visibleMissionIndexes
-      .map((missionIndex) => {
-        return missionIndex === selectedMissionIndex ?
-          "minmax(0, 1.42fr)" :
-          "minmax(220px, 0.82fr)";
-      })
-      .join(" ");
 
     currentRoot.replaceChildren();
 
@@ -810,7 +769,6 @@ export function createPokemonCenterPcModalController({
         totalMissions: missions.length
       })}
       ${renderTerminalModalBody({
-        cardColumns,
         selectedMissionIndex,
         visibleMissionCards
       })}

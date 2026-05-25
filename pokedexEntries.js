@@ -13,7 +13,7 @@ export const THERMAL_GENERATOR_POKEDEX_ENTRY_ID = "thermalGeneratorDiagnostic";
 
 const TALL_GRASS_INSTRUCTIONS_IMAGE_URL = new URL("./app/ui/images/grass.gif", import.meta.url).href;
 const GREY_TALL_GRASS_INSTRUCTIONS_IMAGE_URL = new URL("./app/ui/images/grey-grass.gif", import.meta.url).href;
-const HYDRO_JET_INSTRUCTIONS_IMAGE_URL = new URL("./app/ui/images/tutorial-hidro-jet.png", import.meta.url).href;
+const HYDRO_JET_INSTRUCTIONS_IMAGE_URL = new URL("./app/ui/images/unboarding-hidro.png", import.meta.url).href;
 
 function createPokedexToken(label, variant, glyph) {
   return `<span class="pokedex-entry__where-token pokedex-entry__where-token--${variant}" aria-label="${label}" title="${label}">${glyph}</span>`;
@@ -47,10 +47,10 @@ export const POKEDEX_ENTRIES = {
       theme: "water",
       artVariant: "squirtle",
       details: {
-        eyebrow: "Press (input) to wash the soil",
+        eyebrow: "",
         species: "Hydro Utility Bot",
         descriptionHtml:
-        `<div style="display:flex;gap:8px;align-items:flex-start;max-width:720px;"><img class="pokedex-entry__description-image" src="${HYDRO_JET_INSTRUCTIONS_IMAGE_URL}" alt="Hydro Jet tutorial" loading="eager" decoding="async" style="display:block;width:min(100%,384px);height:auto;image-rendering:pixelated;" /></div>`,
+        `<div style="display:flex;gap:8px;align-items:flex-start;justify-content:center;margin-top:10vh;"><img class="pokedex-entry__description-image" src="${HYDRO_JET_INSTRUCTIONS_IMAGE_URL}" alt="Hydro Jet tutorial" loading="eager" decoding="async" style="display:block;width:min(100%,384px);height:auto;image-rendering:pixelated;margin-right:7vw;" /></div>`,
       stats: [
         { label: "Build", value: "Compact" },
         { label: "Mass", value: "Light" },

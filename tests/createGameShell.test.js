@@ -17,6 +17,13 @@ describe("createGameShell", () => {
     const startOverlay = document.getElementById("start-overlay");
     const inputModalityPanel = document.getElementById("input-modality-panel");
     const universeBackground = gameStage?.querySelector(".gameplay-universe-background");
+    const pokedexEntry = document.querySelector(".pokedex-entry");
+    const pokedexAvatar = pokedexEntry?.querySelector(".pokedex-entry__avatar");
+    const pokedexAvatarImage = pokedexEntry?.querySelector(".pokedex-entry__avatar-image");
+    const pokedexDetails = pokedexEntry?.querySelector(".pokedex-entry__details");
+    const pokedexSpecies = pokedexEntry?.querySelector('[data-pokedex-field="species"]');
+    const pokedexClose = document.getElementById("pokedex-overlay-close");
+    const pokedexCloseImage = pokedexClose?.querySelector(".pokedex-entry__close-image");
 
     expect(gameStage?.contains(renderFrame)).toBe(true);
     expect(universeBackground).toBeInstanceOf(HTMLCanvasElement);
@@ -25,5 +32,11 @@ describe("createGameShell", () => {
     expect(startOverlay?.parentElement).toBe(renderFrame);
     expect(inputModalityPanel?.textContent).toBe("INPUT KEYBOARD");
     expect(inputModalityPanel?.parentElement?.id).toBe("ui-layer");
+    expect(pokedexEntry?.firstElementChild).toBe(pokedexAvatar);
+    expect(pokedexAvatar?.nextElementSibling).toBe(pokedexDetails);
+    expect(pokedexSpecies?.parentElement).toBe(pokedexAvatar);
+    expect(pokedexSpecies?.previousElementSibling).toBe(pokedexAvatarImage);
+    expect(pokedexClose?.dataset.pokedexAction).toBe("close");
+    expect(pokedexCloseImage?.getAttribute("src")).toContain("close-btn-micro.png");
   });
 });

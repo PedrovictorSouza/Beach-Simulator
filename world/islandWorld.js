@@ -30,8 +30,8 @@ const LEAF_PICKUP_RADIUS = 0.64;
 const LEPPA_DROP_HEIGHT = 0.72;
 const LEPPA_PICKUP_RADIUS = 0.68;
 const LEPPA_TREE_INTERACT_DISTANCE = 4.2;
-const LEPPA_TREE_WATERED_TILE_MIN_RADIUS_FACTOR = 0.35;
-const LEPPA_TREE_WATERED_TILE_MAX_RADIUS_FACTOR = 1.65;
+const LEPPA_TREE_DEFAULT_TILE_SPAN = 1.425;
+const LEPPA_TREE_WATERED_TILE_GRID_TOLERANCE_FACTOR = 0.35;
 const LOG_CHAIR_INTERACT_DISTANCE = 2.35;
 const LEAF_DEN_INTERACT_DISTANCE = 4.4;
 const INSTANTIATED_OBJECT_INTERACT_DISTANCE = 2.2;
@@ -681,6 +681,26 @@ function getGroundCellOffset(groundCell) {
   return groundCell?.offset || groundCell?.position || null;
 }
 
+function getLeppaTreeFootprint(leppaTree) {
+  return {
+    width: Math.max(1, Math.round(Number(leppaTree?.footprint?.width) || 1)),
+    height: Math.max(1, Math.round(Number(leppaTree?.footprint?.height) || 1))
+  };
+}
+
+function getLeppaTreeWaterTargetCellOffsets(leppaTree) {
+  const footprint = getLeppaTreeFootprint(leppaTree);
+  const sideColumn = Math.floor(footprint.width / 2) + 1;
+  const sideRow = Math.floor(footprint.height / 2) + 1;
+
+  return [
+    [sideColumn, 0],
+    [-sideColumn, 0],
+    [0, sideRow],
+    [0, -sideRow]
+  ];
+}
+
 export function getLeppaTreeSurroundingGroundCells(leppaTree, groundCells = []) {
   if (!leppaTree?.position) {
     return [];
@@ -688,6 +708,7 @@ export function getLeppaTreeSurroundingGroundCells(leppaTree, groundCells = []) 
 
   const surroundingGroundCells = [];
   const groundCellKeys = new Set();
+  const targetCellOffsets = getLeppaTreeWaterTargetCellOffsets(leppaTree);
   for (const groundCell of groundCells) {
     if (!groundCell || groundCell.active === false) {
       continue;
@@ -698,14 +719,21 @@ export function getLeppaTreeSurroundingGroundCells(leppaTree, groundCells = []) 
       continue;
     }
 
-    const tileSpan = Number(groundCell.tileSpan || 1.425);
+    const tileSpan = Number(groundCell.tileSpan || LEPPA_TREE_DEFAULT_TILE_SPAN);
     const dx = offset[0] - leppaTree.position[0];
     const dz = offset[2] - leppaTree.position[2];
-    const distance = Math.hypot(dx, dz);
-    const minDistance = tileSpan * LEPPA_TREE_WATERED_TILE_MIN_RADIUS_FACTOR;
-    const maxDistance = tileSpan * LEPPA_TREE_WATERED_TILE_MAX_RADIUS_FACTOR;
+    const dxCells = Math.round(dx / tileSpan);
+    const dzCells = Math.round(dz / tileSpan);
+    const snappedDx = dxCells * tileSpan;
+    const snappedDz = dzCells * tileSpan;
+    const tolerance = tileSpan * LEPPA_TREE_WATERED_TILE_GRID_TOLERANCE_FACTOR;
+    const alignedToGrid = Math.abs(dx - snappedDx) <= tolerance &&
+      Math.abs(dz - snappedDz) <= tolerance;
+    const isTargetCell = alignedToGrid && targetCellOffsets.some(([cellX, cellZ]) => {
+      return dxCells === cellX && dzCells === cellZ;
+    });
 
-    if (distance < minDistance || distance > maxDistance) {
+    if (!isTargetCell) {
       continue;
     }
 
@@ -1235,10 +1263,15 @@ export function findNearbyInteractable(
       interactable.id === "ruinedPokemonCenter" &&
       nearest?.kind === "npc" &&
       nearest.id === "tangrowth";
+    const shouldPreferWorkbenchInteraction = interactable.id === "workbench";
+    const nearestIsWorkbench = nearest?.id === "workbench";
 
     if (
       distance <= getInteractableObjectReach(interactable) &&
-      (distance < nearestDistance || shouldPreferPokemonCenterInspection)
+      (
+        shouldPreferWorkbenchInteraction ||
+        (!nearestIsWorkbench && (distance < nearestDistance || shouldPreferPokemonCenterInspection))
+      )
     ) {
       nearest = {
         kind: interactable.type,
@@ -1247,6 +1280,10 @@ export function findNearbyInteractable(
       };
       nearestDistance = distance;
     }
+  }
+
+  if (nearest?.id === "workbench") {
+    return { target: nearest, distance: nearestDistance };
   }
 
   const rustlingGrassCellId = storyState?.flags?.rustlingGrassCellId;

@@ -152,4 +152,31 @@ describe("worldRenderer PSX distance fog", () => {
 
     expect(lastUniform(calls.uniform1f, "uFogIntensity")).toBe(0);
   });
+
+  it("renders a field tool target pulse as the selected cell shrink", () => {
+    const { gl, calls } = createRecordingGl();
+    const renderer = createRenderer(gl);
+    const groundCell = {
+      id: "target-cell",
+      offset: [1, 0, 1],
+      surfaceY: 0,
+      tileSpan: 1,
+      highlightAbilityId: "waterGun"
+    };
+
+    renderer.drawGroundCellHighlight(new Float32Array(16), {
+      visible: true,
+      groundCell,
+      actionPulseGroundCell: {
+        ...groundCell,
+        highlightPulseScale: 0.7,
+        highlightPulseBrightness: 1.4
+      },
+      actionPulseAbilityId: "waterGun"
+    });
+
+    expect(gl.drawElements).toHaveBeenCalledTimes(1);
+    expect(lastUniform(calls.uniform1f, "uInstanceScale")).toBeCloseTo(1.05 * 0.7, 5);
+    expect(lastUniform(calls.uniform1f, "uBrightness")).toBeCloseTo(1.4, 5);
+  });
 });

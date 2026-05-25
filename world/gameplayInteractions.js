@@ -28,6 +28,7 @@ import {
   reviveLeppaTreeFromWateredTiles
 } from "./islandWorld.js";
 import { createWorkbenchRecipeMap } from "../app/gameplay/buildableCatalog.js";
+import { createWorkbenchRecipeOptions } from "../app/gameplay/workbenchModalOptionContract.js";
 import {
   COLONY_FEEDBACK_IDS,
   getColonyFeedbackNotice
@@ -78,9 +79,6 @@ export const CHARMANDER_FIRE_USES_PER_CARBON = CHARMANDER_FIRE_COST.usesPerUnit;
 export const CHARMANDER_FIRE_CARBON_USES_FLAG = CHARMANDER_FIRE_COST.useFlag;
 export const MAX_ACTIVE_POKEMON_FOLLOWERS = 5;
 const SOLAR_STATION_PLACEMENT_WORLD_MARGIN = 2.2;
-const GREENHOUSE_SOIL_GUIDANCE = "Greenhouse creates green soil in its footprint.";
-const HOUSE_KIT_SOLAR_STATION_GUIDANCE =
-  "Place the Solar Station first. Its blue support zone enables House Kit placement.";
 const HYDRO_RESTORE_LEAF_REWARD_INTERVAL = 3;
 const HYDRO_RESTORE_LEAF_REWARD_AMOUNT = 1;
 
@@ -1473,74 +1471,13 @@ export function createGameplayInteractions({
     return true;
   }
 
-  function getLockedRecipeStatus(recipe, inventory = {}) {
-    const requirementSummary = formatRequirementSummary(recipe?.ingredients || {}, inventory);
-    return requirementSummary ? `Locked · Needs ${requirementSummary}` : "Locked";
-  }
-
   function getWorkbenchRecipeOptions(storyState, inventory = {}) {
-    const flags = storyState?.flags || {};
-    const recipeOptions = [];
-
-    if (workbenchRecipes[GREENHOUSE_ITEM_ID]) {
-      const greenhouseInBag = Number(inventory?.[GREENHOUSE_ITEM_ID] || 0) > 0;
-      recipeOptions.push({
-        recipe: workbenchRecipes[GREENHOUSE_ITEM_ID],
-        disabled: false,
-        status: greenhouseInBag ? "Ready to place" : null,
-        actionLabel: greenhouseInBag ? "Place Greenhouse" : "Prepare Greenhouse",
-        guidance: GREENHOUSE_SOIL_GUIDANCE
-      });
-    }
-
-    if (workbenchRecipes.campfire) {
-      const trainHouseState = getTrainHouseProgressState({ flags, inventory });
-      recipeOptions.push({
-        recipe: workbenchRecipes.campfire,
-        disabled: trainHouseState.disabled,
-        status: trainHouseState.status ||
-          (
-            trainHouseState.state === TRAIN_HOUSE_PROGRESS_STATE.LOCKED ?
-              getLockedRecipeStatus(workbenchRecipes.campfire, inventory) :
-              null
-          ),
-        actionLabel: trainHouseState.actionLabel
-      });
-    }
-
-    if (workbenchRecipes.strawBed) {
-      const solarStationState = getSolarStationProgressState({ flags, inventory });
-      recipeOptions.push({
-        recipe: workbenchRecipes.strawBed,
-        disabled: solarStationState.disabled,
-        status: solarStationState.status ||
-          (
-            solarStationState.state === SOLAR_STATION_PROGRESS_STATE.LOCKED ?
-              getLockedRecipeStatus(workbenchRecipes.strawBed, inventory) :
-              null
-          ),
-        actionLabel: solarStationState.actionLabel
-      });
-    }
-
-    const houseRecipe = workbenchRecipes[LEAF_DEN_KIT_ITEM_ID];
-
-    if (houseRecipe) {
-      const houseKitState = getHouseKitProgressState({ flags, inventory });
-      const houseKitReadiness = houseKitState.state === HOUSE_KIT_PROGRESS_STATE.READY_TO_PLACE ?
-        getHouseKitPlacementReadiness({ flags, inventory }) :
-        null;
-      const placementBlocked = Boolean(houseKitReadiness?.blockedReason);
-      recipeOptions.push({
-        recipe: houseRecipe,
-        disabled: houseKitState.disabled || placementBlocked,
-        status: houseKitReadiness?.reason || houseKitState.status,
-        actionLabel: placementBlocked ? null : houseKitState.actionLabel,
-        guidance: placementBlocked ? HOUSE_KIT_SOLAR_STATION_GUIDANCE : null
-      });
-    }
-
-    return recipeOptions;
+    return createWorkbenchRecipeOptions({
+      storyState,
+      inventory,
+      workbenchRecipes,
+      formatRequirementSummary
+    });
   }
 
   function handleStationInteraction(stationId, storyState, inventory) {

@@ -76,7 +76,9 @@ import { createGridSystem } from "../gameplay/gridBuildingSystem.js";
 import {
   createFreeBlockBuildController,
   createFreeBlockBuildState,
-  FREE_BLOCK_TYPES
+  createRectangularFreeBlockBuildZone,
+  FREE_BLOCK_TYPES,
+  getFreeBlockBuildZoneProgress
 } from "../gameplay/freeBlockBuildSystem.js";
 import {
   evaluateHabitatSiteChoice,
@@ -126,6 +128,7 @@ const BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT = 10;
 const BOULDER_SHADED_TALL_GRASS_TASK_ID = "boulder-shaded-tall-grass";
 const SUPPLY_PICKUP_FLY_ITEM_IDS = Object.freeze(["wood", GEAR_ITEM_ID, LEAVES_ITEM_ID, CARBON_ITEM_ID]);
 const GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT = [2.85, 1.7];
+const WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX = 72;
 const GREENHOUSE_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 5, height: 3 });
 const SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT = [2.2, 2.2];
 const SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 4, height: 4 });
@@ -140,6 +143,17 @@ const FREE_BLOCK_BUILD_GRID_CONFIG = Object.freeze({
   width: 256,
   height: 256,
   visualOffsetY: 0.03
+});
+const BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL = Object.freeze({ x: 110, y: 100 });
+const BUILDER_TUTORIAL_FOUNDATION_SIZE = 4;
+const BUILDER_TUTORIAL_FOUNDATION_BUILD_ZONE = createRectangularFreeBlockBuildZone({
+  id: "builder-tutorial-foundation",
+  originCell: {
+    x: BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.x - BUILDER_TUTORIAL_FOUNDATION_SIZE / 2,
+    y: BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.y - BUILDER_TUTORIAL_FOUNDATION_SIZE / 2
+  },
+  width: BUILDER_TUTORIAL_FOUNDATION_SIZE,
+  height: BUILDER_TUTORIAL_FOUNDATION_SIZE
 });
 const LEAF_DEN_BUILT_ROTATION_FOOTPRINT = [
   LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[0] * 2,
@@ -170,6 +184,7 @@ const DEAD_TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE = 1.15;
 const TREE_PLACEMENT_BLOCKER_MIN_SIZE = 0.9;
 const DEAD_TREE_PLACEMENT_BLOCKER_MIN_SIZE = 1.35;
 const LEPPA_TREE_PLACEMENT_BLOCKER_SIZE = [2.35, 2.35];
+const LEPPA_TREE_PLACEMENT_BLOCKER_DEFAULT_CELL_SIZE = 1.425;
 const SOLAR_STATION_FIELD_MARKED_TILE_LIMIT = 81;
 const SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT = 1200;
 const BULBASAUR_WORKBENCH_GUIDE_START = [8.55, 0.02, -5.7];
@@ -359,6 +374,9 @@ const LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS = 1600;
 const FIRE_INVALID_TARGET_PROMPT_TEXT = "Use fire on white ground";
 const FIRE_INVALID_TARGET_PROMPT_DURATION_MS = 1600;
 const GROUND_ACTION_FEEDBACK_DURATION_MS = 1000;
+const FIELD_TOOL_TARGET_PULSE_DURATION_MS = 500;
+const FIELD_TOOL_TARGET_PULSE_MIN_SCALE = 0.7;
+const FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS = 0.4;
 const FREE_ROAM_RESTORATION_GRID_RADIUS_FACTOR = 3.2;
 const FREE_ROAM_RESTORATION_GRID_MAX_CELLS = 24;
 const TREE_REVIVAL_LEAF_BURST_COUNT = 18;
@@ -1682,6 +1700,26 @@ function getTreePlacementBlockerSize(treeModel, instance) {
   return [size, size];
 }
 
+function getLeppaTreePlacementBlockerSize(session) {
+  const footprint = session?.leppaTree?.footprint;
+  const width = Math.max(1, Math.round(Number(footprint?.width) || 1));
+  const height = Math.max(1, Math.round(Number(footprint?.height) || 1));
+  if (width <= 1 && height <= 1) {
+    return LEPPA_TREE_PLACEMENT_BLOCKER_SIZE;
+  }
+
+  const gridStep = Math.max(
+    0.25,
+    Number(session?.buildGridConfig?.cellSize) ||
+      LEPPA_TREE_PLACEMENT_BLOCKER_DEFAULT_CELL_SIZE
+  );
+
+  return [
+    Number((width * gridStep).toFixed(3)),
+    Number((height * gridStep).toFixed(3))
+  ];
+}
+
 function getWorldObjectPlacementBlockers(session) {
   const blockers = [];
 
@@ -1705,7 +1743,7 @@ function getWorldObjectPlacementBlockers(session) {
       id: session.leppaTree.id ? `tree:${session.leppaTree.id}` : "tree:leppa-tree",
       kind: "tree",
       position: session.leppaTree.position,
-      size: LEPPA_TREE_PLACEMENT_BLOCKER_SIZE
+      size: getLeppaTreePlacementBlockerSize(session)
     });
   }
 
@@ -2090,6 +2128,7 @@ export function startGameLoop({
   let gameplayOpeningHudHidden = false;
   let gameplayOpeningHudRevealAt = null;
   let gameplayOpeningCameraFrame = null;
+  let pendingWorldCellPlannerClick = null;
   let snowstormFogOverlayElement = null;
   let snowstormFogOpacity = 0;
   const gameplayOpeningSkipControl = createCinematicControlState();
@@ -2205,6 +2244,8 @@ export function startGameLoop({
   let runBreadcrumbPromptShown = false;
   let runBreadcrumbPromptUntil = 0;
   let groundActionFeedbacks = [];
+  let fieldToolTargetPulseStartedAt = Number.NEGATIVE_INFINITY;
+  let fieldToolTargetPulseAbilityId = null;
   let playerCounterPrompt = null;
   let companionFollowDirection = null;
   let workbenchRotationSelection = null;
@@ -2484,6 +2525,10 @@ export function startGameLoop({
 
     if (missionTargetId === "ruined-pokemon-center" || missionTargetId === "new-challenges-in-pc") {
       return normalizeMissionTargetPositions(session.pokemonCenterPc?.position || RUINED_POKEMON_CENTER_POSITION);
+    }
+
+    if (missionTargetId === "foundation-wall") {
+      return normalizeMissionTargetPositions(getFreeBlockBuildZoneCenterPosition());
     }
 
     return [];
@@ -3674,6 +3719,41 @@ export function startGameLoop({
       markedGroundCells,
       abilityId: newestFeedback.abilityId,
       pulsePhase: Math.sin(progress * Math.PI)
+    };
+  }
+
+  function isFieldToolTargetPulseSource(source) {
+    return source === "gamepadPrimary" || source === "keyboardPrimary";
+  }
+
+  function triggerFieldToolTargetPulse(abilityId, now) {
+    fieldToolTargetPulseStartedAt = now;
+    fieldToolTargetPulseAbilityId = abilityId || null;
+  }
+
+  function getFieldToolTargetPulseFrame(groundCell, now) {
+    if (!groundCell || !Number.isFinite(fieldToolTargetPulseStartedAt)) {
+      return null;
+    }
+
+    const progress = clamp01(
+      (now - fieldToolTargetPulseStartedAt) / FIELD_TOOL_TARGET_PULSE_DURATION_MS
+    );
+
+    if (progress >= 1) {
+      fieldToolTargetPulseStartedAt = Number.NEGATIVE_INFINITY;
+      fieldToolTargetPulseAbilityId = null;
+      return null;
+    }
+
+    return {
+      groundCell,
+      abilityId: fieldToolTargetPulseAbilityId || groundCell.highlightAbilityId,
+      progress,
+      scale:
+        FIELD_TOOL_TARGET_PULSE_MIN_SCALE +
+        (1 - FIELD_TOOL_TARGET_PULSE_MIN_SCALE) * progress,
+      brightness: 1 + (1 - progress) * FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS
     };
   }
 
@@ -5770,7 +5850,7 @@ export function startGameLoop({
   }
 
   function getFreeBlockBuildGridConfig() {
-    const config = session.gridPlacement?.gridConfig || FREE_BLOCK_BUILD_GRID_CONFIG;
+    const config = session.buildGridConfig || session.gridPlacement?.gridConfig || FREE_BLOCK_BUILD_GRID_CONFIG;
     return {
       cellSize: Number(config.cellSize || FREE_BLOCK_BUILD_GRID_CONFIG.cellSize),
       origin: {
@@ -5789,6 +5869,60 @@ export function startGameLoop({
       controls.playerSkills?.buildBlock &&
       controls.getActiveMoveId?.() === "buildBlock"
     );
+  }
+
+  function getActiveFreeBlockBuildZone() {
+    return BUILDER_TUTORIAL_FOUNDATION_BUILD_ZONE;
+  }
+
+  function getFreeBlockBuildZoneCenterPosition(buildZone = getActiveFreeBlockBuildZone()) {
+    if (!buildZone?.originCell) {
+      return null;
+    }
+
+    const gridConfig = getFreeBlockBuildGridConfig();
+    const cellSize = Number(gridConfig.cellSize || 1);
+    return [
+      Number((gridConfig.origin.x + (buildZone.originCell.x + buildZone.width * 0.5) * cellSize).toFixed(3)),
+      Number((gridConfig.origin.y + gridConfig.visualOffsetY).toFixed(3)),
+      Number((gridConfig.origin.z + (buildZone.originCell.y + buildZone.height * 0.5) * cellSize).toFixed(3))
+    ];
+  }
+
+  function getFreeBlockInvalidPlacementNotice(reason) {
+    if (reason === "outside-build-zone") {
+      return "Build inside the blue foundation.";
+    }
+
+    if (reason === "duplicate-block") {
+      return "That foundation edge is already built.";
+    }
+
+    if (reason === "player-cell") {
+      return "Step off the foundation edge first.";
+    }
+
+    if (reason === "blocked-cell") {
+      return "That foundation edge is blocked.";
+    }
+
+    if (reason === "outside-build-area") {
+      return "Move back to the foundation build area.";
+    }
+
+    return "Block can't be placed there.";
+  }
+
+  function getFreeBlockPlacementNotice(result) {
+    if (result?.reason === "missing-material") {
+      return "Need Wood";
+    }
+
+    if (result?.placed && result.blockType === FREE_BLOCK_TYPES.WALL) {
+      return "Wall placed.";
+    }
+
+    return result?.placed ? "Block placed." : getFreeBlockInvalidPlacementNotice(result?.reason);
   }
 
   function getFreeBlockBuildController() {
@@ -5815,7 +5949,7 @@ export function startGameLoop({
       gridSystem,
       buildState: session.freeBlockBuildState,
       blockInstanceStore: session.freeBlockInstances,
-      initialBlockType: FREE_BLOCK_TYPES.FLOOR
+      initialBlockType: FREE_BLOCK_TYPES.WALL
     });
     if (session.freeBlockBuildSnapshot) {
       session.freeBlockBuildState.restoreFreeBlocks(session.freeBlockBuildSnapshot);
@@ -5823,6 +5957,95 @@ export function startGameLoop({
     }
     session.freeBlockPlacementGridSignature = gridSignature;
     return session.freeBlockPlacementController;
+  }
+
+  function hasFoundationWallObjective(quest = null) {
+    return (quest?.objectives || []).some((objective) => {
+      return objective?.targetId === "foundation-wall";
+    });
+  }
+
+  function shouldShowFoundationBuildZone(activeQuest = null, activeSystemQuest = null) {
+    return activeQuest?.id === "build-first-base" ||
+      activeSystemQuest?.id === "build-first-base" ||
+      hasFoundationWallObjective(activeQuest) ||
+      hasFoundationWallObjective(activeSystemQuest);
+  }
+
+  function buildFoundationBuildZoneGroundCells(activeQuest = null, activeSystemQuest = null) {
+    if (!shouldShowFoundationBuildZone(activeQuest, activeSystemQuest)) {
+      return [];
+    }
+
+    const buildZone = getActiveFreeBlockBuildZone();
+    if (!Array.isArray(buildZone?.borderCells)) {
+      return [];
+    }
+
+    getFreeBlockBuildController();
+    const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
+    const buildState = session.freeBlockBuildState;
+
+    return buildZone.borderCells.map((cell) => {
+      const worldPosition = gridSystem.cellToWorld(cell, {
+        center: true,
+        includeVisualOffset: true
+      });
+      const block = buildState?.getBlockAtCell?.(cell);
+      const completed = block?.blockType === FREE_BLOCK_TYPES.WALL;
+
+      return {
+        id: `foundation-build-zone:${cell.x}:${cell.y}`,
+        offset: [worldPosition.x, worldPosition.y, worldPosition.z],
+        surfaceY: worldPosition.y,
+        size: [gridSystem.cellSize, gridSystem.cellSize],
+        tileSpan: gridSystem.cellSize,
+        highlightTargetState: completed ? "leafage" : "valid",
+        highlightAbilityId: completed ? "leafage" : "build"
+      };
+    });
+  }
+
+  function triggerFoundationBuildZoneCompleteEffects() {
+    const flags = controls.storyState?.flags;
+    if (!flags || flags.builderTutorialFoundationCompleteEffectPlayed) {
+      return;
+    }
+
+    const position = getFreeBlockBuildZoneCenterPosition();
+    if (!position) {
+      return;
+    }
+
+    const nowMs = Date.now();
+    flags.builderTutorialFoundationCompleteEffectPlayed = true;
+    session.constructionCloudBursts = Array.isArray(session.constructionCloudBursts) ?
+      session.constructionCloudBursts.filter((effect) => {
+        const startedAt = Number(effect?.startedAt || 0);
+        const durationMs = Number(effect?.durationMs || 0);
+        return startedAt > 0 && durationMs > 0 && nowMs - startedAt < durationMs;
+      }) :
+      [];
+    session.constructionCloudBursts.push({
+      id: "builder-tutorial-foundation-complete",
+      position,
+      startedAt: nowMs,
+      durationMs: 1800
+    });
+  }
+
+  function syncFoundationBuildZoneCompletionEffects() {
+    const progress = getFreeBlockBuildZoneProgress({
+      buildState: session.freeBlockBuildState,
+      buildZone: getActiveFreeBlockBuildZone(),
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    if (progress.complete) {
+      triggerFoundationBuildZoneCompleteEffects();
+    }
+
+    return progress;
   }
 
   function buildFreeBlockFeedbackGroundCell(result) {
@@ -5847,6 +6070,19 @@ export function startGameLoop({
     };
   }
 
+  function getFreeBlockPlayerBlockedCells(playerPosition = null, gridSystem = null) {
+    if (!Array.isArray(playerPosition)) {
+      return [];
+    }
+
+    const resolvedGridSystem = gridSystem || createGridSystem(getFreeBlockBuildGridConfig());
+    return [resolvedGridSystem.worldToCell({
+      x: Number(playerPosition[0] || 0),
+      y: Number(playerPosition[1] || 0),
+      z: Number(playerPosition[2] || 0)
+    })];
+  }
+
   function syncFreeBlockBuildSnapshot() {
     const controller = getFreeBlockBuildController();
     session.freeBlockBuildSnapshot = controller.serializeFreeBlocks();
@@ -5865,12 +6101,19 @@ export function startGameLoop({
 
     if (result.placed) {
       controls.storyState.flags.firstFreeBlockPlaced = true;
+      if (result.blockType === FREE_BLOCK_TYPES.WALL) {
+        controls.onFoundationWallBuilt?.({
+          targetCell: result.targetCell,
+          block: result.block
+        });
+        syncFoundationBuildZoneCompletionEffects();
+      }
       syncFreeBlockBuildSnapshot();
       playInstanceObjectSfx();
-      hud?.pushNotice?.("Floor block placed.");
+      hud?.pushNotice?.(getFreeBlockPlacementNotice(result));
     } else {
       playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-      hud?.pushNotice?.("Block can't be placed there.");
+      hud?.pushNotice?.(getFreeBlockPlacementNotice(result));
     }
   }
 
@@ -5880,9 +6123,14 @@ export function startGameLoop({
       return { handled: false };
     }
 
+    const playerPosition = session.playerCharacter?.getPosition?.();
     const result = controller.placeSelectedBlockAtTarget({
-      playerPosition: session.playerCharacter?.getPosition?.(),
-      playerYaw: session.playerModelInstance?.yaw
+      playerPosition,
+      buildZone: getActiveFreeBlockBuildZone(),
+      blockedCells: getFreeBlockPlayerBlockedCells(playerPosition),
+      blockedReason: "player-cell",
+      playerYaw: session.playerModelInstance?.yaw,
+      inventory: controls.inventory
     });
     handleFreeBlockPlacementResult(result, now);
 
@@ -5904,12 +6152,17 @@ export function startGameLoop({
     }
 
     const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
+    const playerBlockedCells = getFreeBlockPlayerBlockedCells(playerPosition, gridSystem);
     const worldPosition = gridSystem.cellToWorld(target.targetCell, {
       center: true,
       includeVisualOffset: true
     });
     const validation = controller?.validateSelectedBlockTarget?.({
-      targetCell: target.targetCell
+      targetCell: target.targetCell,
+      buildZone: getActiveFreeBlockBuildZone(),
+      blockedCells: playerBlockedCells,
+      blockedReason: "player-cell",
+      inventory: controls.inventory
     }) || {
       valid: true,
       reason: null
@@ -6008,9 +6261,11 @@ export function startGameLoop({
       return "unavailable";
     }
     if (!target.valid) {
-      return "invalid";
+      session.lastTimburrBuildBlockInvalidReason = target.reason || "invalid";
+      return target.reason === "missing-material" ? "missing-material" : "invalid";
     }
 
+    session.lastTimburrBuildBlockInvalidReason = null;
     const approachPosition = getTimburrBuildBlockApproachPosition(
       target.targetPosition,
       playerPosition
@@ -6034,8 +6289,13 @@ export function startGameLoop({
       return null;
     }
 
+    const playerPosition = session.playerCharacter?.getPosition?.();
     const result = controller.placeSelectedBlockAtTarget({
-      targetCell: action.targetCell
+      targetCell: action.targetCell,
+      buildZone: getActiveFreeBlockBuildZone(),
+      blockedCells: getFreeBlockPlayerBlockedCells(playerPosition),
+      blockedReason: "player-cell",
+      inventory: controls.inventory
     });
     handleFreeBlockPlacementResult(result, now);
     return result;
@@ -6143,7 +6403,8 @@ export function startGameLoop({
 
     const controller = getFreeBlockBuildController();
     const result = controller.removeBlockAtTarget({
-      targetCell: target.freeBlockCell
+      targetCell: target.freeBlockCell,
+      inventory: controls.inventory
     });
 
     if (!result.removed) {
@@ -6159,7 +6420,7 @@ export function startGameLoop({
       triggerGroundActionFeedback(feedbackGroundCell, "build", now);
     }
     playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_IMPACT);
-    hud?.pushNotice?.("Floor block removed.");
+    hud?.pushNotice?.("Block removed.");
     return true;
   }
 
@@ -7715,12 +7976,13 @@ export function startGameLoop({
   }
 
   function getPeriodicChopperAttentionCue({
+    activeTask,
     activeSystemQuest,
     chopperPosition,
     now
   }) {
     const shouldCueChopper =
-      activeSystemQuest?.id === "wake-guide" &&
+      (activeTask?.id || activeSystemQuest?.id) === "wake-guide" &&
       Array.isArray(chopperPosition) &&
       !isPlayerNearWorldPosition(chopperPosition, POKEMON_TALK_INTERACT_DISTANCE + 0.45);
 
@@ -8095,6 +8357,204 @@ export function startGameLoop({
       y: rect.top + projected.y * (rect.height / canvasHeight)
     };
   }
+
+  function isWorldCellPlannerActive() {
+    return Boolean(rendering?.debugWorldCellPlanner);
+  }
+
+  function getWorldCellPlannerGroundCells() {
+    const cells = [];
+    const seenCellIds = new Set();
+    const collections = [
+      session.groundDeadInstances,
+      session.groundPurifiedInstances,
+      session.iceGroundInstances
+    ];
+
+    for (const collection of collections) {
+      if (!Array.isArray(collection)) {
+        continue;
+      }
+
+      for (const groundCell of collection) {
+        if (
+          !groundCell?.id ||
+          seenCellIds.has(groundCell.id) ||
+          !Array.isArray(groundCell.offset)
+        ) {
+          continue;
+        }
+
+        seenCellIds.add(groundCell.id);
+        cells.push(groundCell);
+      }
+    }
+
+    return cells;
+  }
+
+  function projectWorldCellPlannerGroundCell(groundCell) {
+    if (!groundCell?.offset || typeof camera.project !== "function" || !worldCanvas) {
+      return null;
+    }
+
+    const canvasWidth = worldCanvas.width || 0;
+    const canvasHeight = worldCanvas.height || 0;
+
+    if (canvasWidth <= 0 || canvasHeight <= 0) {
+      return null;
+    }
+
+    const surfaceY = Number(groundCell.surfaceY ?? 0);
+    const projected = camera.project(
+      [groundCell.offset[0], surfaceY + 0.08, groundCell.offset[2]],
+      canvasWidth,
+      canvasHeight
+    );
+
+    if (!projected || projected.depth > 1) {
+      return null;
+    }
+
+    const rect = worldCanvas.getBoundingClientRect?.();
+
+    if (!rect || rect.width <= 0 || rect.height <= 0) {
+      return {
+        x: projected.x,
+        y: projected.y
+      };
+    }
+
+    return {
+      x: rect.left + projected.x * (rect.width / canvasWidth),
+      y: rect.top + projected.y * (rect.height / canvasHeight)
+    };
+  }
+
+  function getWorldCellPlannerGridCell(groundCell) {
+    const idMatch = /^ground-(\d+)-(\d+)$/.exec(String(groundCell?.id || ""));
+    if (idMatch) {
+      return {
+        x: Number(idMatch[1]),
+        y: Number(idMatch[2])
+      };
+    }
+
+    if (!Array.isArray(groundCell?.offset)) {
+      return null;
+    }
+
+    const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
+    return gridSystem.worldToCell({
+      x: groundCell.offset[0],
+      y: groundCell.surfaceY || 0,
+      z: groundCell.offset[2]
+    });
+  }
+
+  function createWorldCellPlannerSelection(groundCell) {
+    const surfaceY = Number(groundCell?.surfaceY ?? 0);
+    const offset = groundCell?.offset || [0, 0, 0];
+    const groundKind = groundCell?.groundKind ||
+      (session.iceGroundInstances?.includes(groundCell) ? "cold" : "dead");
+
+    return {
+      cellId: groundCell?.id || "unknown",
+      gridCell: getWorldCellPlannerGridCell(groundCell),
+      worldPosition: [
+        Number(Number(offset[0] || 0).toFixed(3)),
+        Number(surfaceY.toFixed(3)),
+        Number(Number(offset[2] || 0).toFixed(3))
+      ],
+      tileSpan: Number(groundCell?.tileSpan || 0),
+      groundKind
+    };
+  }
+
+  function resolveWorldCellPlannerPick({ clientX, clientY } = {}) {
+    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
+      return null;
+    }
+
+    let closestGroundCell = null;
+    let closestDistance = Number.POSITIVE_INFINITY;
+
+    for (const groundCell of getWorldCellPlannerGroundCells()) {
+      const projected = projectWorldCellPlannerGroundCell(groundCell);
+      if (!projected) {
+        continue;
+      }
+
+      const distance = Math.hypot(projected.x - clientX, projected.y - clientY);
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestGroundCell = groundCell;
+      }
+    }
+
+    if (!closestGroundCell || closestDistance > WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX) {
+      return null;
+    }
+
+    return {
+      groundCell: closestGroundCell,
+      selection: createWorldCellPlannerSelection(closestGroundCell)
+    };
+  }
+
+  function handleWorldCellPlannerPointerDown(event) {
+    if (!isWorldCellPlannerActive() || (event.button ?? 0) !== 0) {
+      return;
+    }
+
+    if (event.target?.closest?.("button, input, textarea, select, [contenteditable='true']")) {
+      return;
+    }
+
+    event.preventDefault?.();
+    event.stopPropagation?.();
+    pendingWorldCellPlannerClick = {
+      clientX: event.clientX,
+      clientY: event.clientY
+    };
+  }
+
+  function processWorldCellPlannerClick() {
+    if (!pendingWorldCellPlannerClick) {
+      return;
+    }
+
+    const request = pendingWorldCellPlannerClick;
+    pendingWorldCellPlannerClick = null;
+
+    if (!isWorldCellPlannerActive()) {
+      return;
+    }
+
+    const pick = resolveWorldCellPlannerPick(request);
+    if (!pick) {
+      hud?.pushNotice?.("No world cell found there.");
+      return;
+    }
+
+    session.worldCellPlannerSelectedGroundCell = pick.groundCell;
+    rendering?.onWorldCellPlannerPick?.(pick.selection);
+    hud?.pushNotice?.(`Cell ${pick.selection.cellId} selected.`);
+  }
+
+  function getWorldCellPlannerSelectedGroundCell() {
+    if (!isWorldCellPlannerActive() || !session.worldCellPlannerSelectedGroundCell?.offset) {
+      return null;
+    }
+
+    return {
+      ...session.worldCellPlannerSelectedGroundCell,
+      highlightTargetState: "powerRadius",
+      highlightAbilityId: "debug"
+    };
+  }
+
+  mount?.addEventListener?.("pointerdown", handleWorldCellPlannerPointerDown, { capture: true });
 
   function queueSupplyPickupFlyItems(itemId, sourcePositions = []) {
     if (typeof hud.queueSupplyPickupFlyToSlot !== "function") {
@@ -9802,6 +10262,8 @@ export function startGameLoop({
       });
     }
 
+    processWorldCellPlannerClick();
+
     if (
       introActive &&
       updateIntroRoomFrame({
@@ -9953,7 +10415,10 @@ export function startGameLoop({
         });
         if (buildRequestResult === "invalid") {
           playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-          hud?.pushNotice?.("Block can't be placed there.");
+          hud?.pushNotice?.(getFreeBlockInvalidPlacementNotice(session.lastTimburrBuildBlockInvalidReason));
+        } else if (buildRequestResult === "missing-material") {
+          playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
+          hud?.pushNotice?.("Need Wood");
         }
       } else {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
@@ -10232,6 +10697,12 @@ export function startGameLoop({
             primaryActionTarget?.leafageGroundCell
           )
         );
+      if (
+        primaryActionWantsFieldMove &&
+        isFieldToolTargetPulseSource(harvestRequestSource)
+      ) {
+        triggerFieldToolTargetPulse(activeMoveId, now);
+      }
       const primaryActionIsPlacement =
         primaryActionPlacementTarget && !gamepadPrimaryMoveRequested && !buildBlockEquipped;
       const primaryActionPlacementBlocked =
@@ -10327,7 +10798,35 @@ export function startGameLoop({
           }) :
           null;
       const primaryActionRepeatedFieldMove = Boolean(primaryActionAlreadyResolvedGroundCell);
-      const primaryActionConfirmsRotation = Boolean(getSelectedRotatableWorkbenchPlacement());
+      const primaryInteractTarget =
+        !dialogueActive &&
+        !primaryActionWantsFieldMove &&
+        !primaryActionIsPlacement &&
+        !primaryActionIsMove &&
+        !leafageAutoWaterGunTarget?.groundCell &&
+        !leafageAutoGrowTarget?.leafageGroundCell &&
+        !primaryActionRepeatedFieldMove &&
+        !primaryActionInvalidLeafageUse &&
+        !primaryActionInvalidFireUse ?
+          gameplay.findNearbyInteractable(
+            playerPosition,
+            session.npcActors,
+            session.interactables,
+            controls.storyState,
+            session.groundGrassPatches || [],
+            session.logChair,
+            session.leafDen,
+            session.timburrEncounter,
+            session.charmanderEncounter,
+            session.leppaTree,
+            session.bulbasaurEncounter,
+            session.groundFlowerPatches || []
+          ) :
+          null;
+      const primaryInteractTargetIsWorkbench = primaryInteractTarget?.target?.id === "workbench";
+      const primaryActionConfirmsRotation =
+        !primaryInteractTargetIsWorkbench &&
+        Boolean(getSelectedRotatableWorkbenchPlacement());
       const primaryActionPlacementCanYieldToRotation = Boolean(
         !primaryActionPlacementTarget ||
         primaryActionTarget?.leafDenKitPlacement ||
@@ -10335,6 +10834,7 @@ export function startGameLoop({
         primaryActionTarget?.dittoFlagPlacement
       );
       const primaryActionRotationTarget =
+        !primaryInteractTargetIsWorkbench &&
         !primaryActionConfirmsRotation &&
         !dialogueActive &&
         primaryActionPlacementCanYieldToRotation &&
@@ -10370,31 +10870,6 @@ export function startGameLoop({
       ) {
         controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
       }
-      const primaryInteractTarget =
-        !dialogueActive &&
-        !primaryActionWantsFieldMove &&
-        !primaryActionIsPlacement &&
-        !primaryActionIsMove &&
-        !leafageAutoWaterGunTarget?.groundCell &&
-        !leafageAutoGrowTarget?.leafageGroundCell &&
-        !primaryActionRepeatedFieldMove &&
-        !primaryActionInvalidLeafageUse &&
-        !primaryActionInvalidFireUse ?
-          gameplay.findNearbyInteractable(
-            playerPosition,
-            session.npcActors,
-            session.interactables,
-            controls.storyState,
-            session.groundGrassPatches || [],
-            session.logChair,
-            session.leafDen,
-            session.timburrEncounter,
-            session.charmanderEncounter,
-            session.leppaTree,
-            session.bulbasaurEncounter,
-            session.groundFlowerPatches || []
-          ) :
-          null;
 
       if (primaryActionConfirmsRotation) {
         confirmWorkbenchConstructionRotationSelection();
@@ -10485,7 +10960,10 @@ export function startGameLoop({
             hud?.pushNotice?.(`${SANDBOTS_BOT_NAMES.builder} needs to be nearby.`);
           } else if (timburrBuildBlockResult === "invalid") {
             playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-            hud?.pushNotice?.("Block can't be placed there.");
+            hud?.pushNotice?.(getFreeBlockInvalidPlacementNotice(session.lastTimburrBuildBlockInvalidReason));
+          } else if (timburrBuildBlockResult === "missing-material") {
+            playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
+            hud?.pushNotice?.("Need Wood");
           } else if (timburrBuildBlockResult === "busy") {
             playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
           }
@@ -11150,6 +11628,7 @@ export function startGameLoop({
         ) :
         null;
     const activeQuest = gameplay.getActiveQuest(controls.storyState);
+    const activeTask = gameplay.getActiveTask?.() || null;
     const activeSystemQuest = gameplay.getActiveSystemQuest?.() || null;
     const pendingWaterGunGroundCells =
       !gameplayOpeningCameraActive &&
@@ -11244,6 +11723,18 @@ export function startGameLoop({
       !gameplayDialogue.isActive() ?
         getBoulderShadedTaskGroundCells(controls.storyState) :
         [];
+    const foundationBuildZoneGroundCells =
+      !gameplayOpeningCameraActive &&
+      !gameplayOpeningHudHidden &&
+      !cinematicActive &&
+      !tutorialActive &&
+      !pokedexModalOpen &&
+      !skillLearnActive &&
+      !scriptedInteractionActive &&
+      !gameplayDialogue.isActive() ?
+        buildFoundationBuildZoneGroundCells(activeQuest, activeSystemQuest) :
+        [];
+    const worldCellPlannerSelectedGroundCell = getWorldCellPlannerSelectedGroundCell();
     const markedActionGroundCells = [
       ...new Set([
         ...leppaTreeMissionGroundCells,
@@ -11251,7 +11742,9 @@ export function startGameLoop({
         ...activeLeafageGroundCells,
         ...freeRoamRestorationGroundCells,
         ...boulderShadedTaskGroundCells,
-        ...solarStationFieldMarkedGroundCells
+        ...foundationBuildZoneGroundCells,
+        ...solarStationFieldMarkedGroundCells,
+        ...(worldCellPlannerSelectedGroundCell ? [worldCellPlannerSelectedGroundCell] : [])
       ])
     ];
     if (!session.strawBedPlacementPreview?.active) {
@@ -11388,6 +11881,9 @@ export function startGameLoop({
       !scriptedInteractionActive &&
       !gameplayDialogue.isActive() &&
       Boolean(highlightedGroundCell);
+    const fieldToolTargetPulseFrame = shouldShowGroundCellHighlight ?
+      getFieldToolTargetPulseFrame(highlightedGroundCell, now) :
+      null;
     const solarStationPlacementGroundCells = buildPlacementPreviewFootprintCells(
       solarStationPlacementPreview,
       {
@@ -11797,6 +12293,7 @@ export function startGameLoop({
       "";
     const chopperAttentionCue = canShowWorldSpaceUi ?
       getPeriodicChopperAttentionCue({
+        activeTask,
         activeSystemQuest,
         chopperPosition: tangrowthPosition,
         now
@@ -12111,6 +12608,18 @@ export function startGameLoop({
       };
       nextFrame.groundCellHighlight.actionPulsePhase = groundActionFeedbackFrame.pulsePhase;
       nextFrame.groundCellHighlight.actionPulseAbilityId = groundActionFeedbackFrame.abilityId;
+    }
+
+    if (fieldToolTargetPulseFrame) {
+      nextFrame.groundCellHighlight.visible = true;
+      nextFrame.groundCellHighlight.actionPulseGroundCell = {
+        ...fieldToolTargetPulseFrame.groundCell,
+        highlightAbilityId: fieldToolTargetPulseFrame.abilityId,
+        highlightPulseScale: fieldToolTargetPulseFrame.scale,
+        highlightPulseBrightness: fieldToolTargetPulseFrame.brightness
+      };
+      nextFrame.groundCellHighlight.actionPulsePhase = fieldToolTargetPulseFrame.progress;
+      nextFrame.groundCellHighlight.actionPulseAbilityId = fieldToolTargetPulseFrame.abilityId;
     }
 
     const questCompletionPop = gameplay.getQuestCompletionPop?.();

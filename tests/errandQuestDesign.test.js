@@ -67,7 +67,7 @@ describe("errand quest design", () => {
       previousProgress: 0,
       nextProgress: 1
     })).toEqual(expect.arrayContaining([
-      "Colony Codex: wake pulse confirmed. Hydro Bot's water core is responding.",
+      "Instructions. wake pulse confirmed. Hydro Bot's water core is responding.",
       "Chopper: good. The island can be watered one patch at a time now. Grim, but measurable."
     ]));
 
@@ -80,7 +80,7 @@ describe("errand quest design", () => {
     expect(completionFeedback).toEqual(expect.arrayContaining([
       "Chopper confirms Hydro Bot's wake sequence by radio, so the task resolves immediately when the tool comes online.",
       "Hydro Bot comes online and unlocks Hydro Jet for the first restoration route.",
-      "Colony Codex entry unlocked: Hydro Wake Diagnostic.",
+      "Instructions. entry unlocked: Hydro Wake Diagnostic.",
       "If water can move again, the dry tall grass may show where the colony can safely expand."
     ]));
   });

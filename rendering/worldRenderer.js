@@ -383,7 +383,7 @@ export function createWorldRenderer({
     };
   }
 
-  function drawGroundHighlightCells(texture, groundCells, scaleMultiplier) {
+  function drawGroundHighlightCells(texture, groundCells, scaleMultiplier, brightness = 1) {
     const instances = groundCells
       .map((groundCell) => createGroundHighlightInstance(groundCell, scaleMultiplier))
       .filter(Boolean);
@@ -393,7 +393,7 @@ export function createWorldRenderer({
     }
 
     drawSceneObject({
-      brightness: 1,
+      brightness,
       model: {
         ...groundHighlightModel,
         texture
@@ -420,6 +420,41 @@ export function createWorldRenderer({
 
   function isPowerRadiusGroundCell(groundCell) {
     return groundCell?.highlightTargetState === "powerRadius";
+  }
+
+  function getGroundHighlightCellKey(groundCell) {
+    if (!groundCell) {
+      return null;
+    }
+
+    if (groundCell.id) {
+      return groundCell.id;
+    }
+
+    return Array.isArray(groundCell.offset) ? groundCell.offset.join(":") : null;
+  }
+
+  function isSameGroundHighlightCell(left, right) {
+    const leftKey = getGroundHighlightCellKey(left);
+    const rightKey = getGroundHighlightCellKey(right);
+    return Boolean(leftKey && rightKey && leftKey === rightKey);
+  }
+
+  function getActionPulseScaleMultiplier(actionPulseCell, actionPulsePhase) {
+    const pulseScale = Number(actionPulseCell?.highlightPulseScale);
+    if (Number.isFinite(pulseScale)) {
+      return GROUND_HIGHLIGHT_SELECTED_SCALE * clamp(pulseScale, 0.1, 2);
+    }
+
+    return (
+      GROUND_HIGHLIGHT_ACTION_PULSE_SCALE +
+      clamp(actionPulsePhase, 0, 1) * GROUND_HIGHLIGHT_ACTION_PULSE_SCALE_RANGE
+    );
+  }
+
+  function getActionPulseBrightness(actionPulseCell) {
+    const brightness = Number(actionPulseCell?.highlightPulseBrightness);
+    return Number.isFinite(brightness) ? clamp(brightness, 0.1, 3) : 1;
   }
 
   function prepareSpritePass(viewProjection) {
@@ -538,13 +573,18 @@ export function createWorldRenderer({
       actionPulseAbilityId = null
     } = {}) {
       const markedCells = (markedGroundCells || []).filter(Boolean);
-      const selectedCells = visible && groundCell ? [groundCell] : [];
       const actionPulseCell = actionPulseGroundCell ?
         {
           ...actionPulseGroundCell,
           highlightAbilityId: actionPulseAbilityId || actionPulseGroundCell.highlightAbilityId
         } :
         null;
+      const actionPulseOverridesSelected = Boolean(
+        actionPulseCell?.highlightPulseScale &&
+        visible &&
+        isSameGroundHighlightCell(actionPulseCell, groundCell)
+      );
+      const selectedCells = visible && groundCell && !actionPulseOverridesSelected ? [groundCell] : [];
       const actionPulseCells = actionPulseCell ? [actionPulseCell] : [];
 
       if (!viewProjection || (!markedCells.length && !selectedCells.length && !actionPulseCells.length)) {
@@ -569,8 +609,8 @@ export function createWorldRenderer({
       drawGroundHighlightCells(
         getSelectedGroundHighlightTexture(actionPulseCell),
         actionPulseCells,
-        GROUND_HIGHLIGHT_ACTION_PULSE_SCALE +
-          Math.max(0, Math.min(1, actionPulsePhase)) * GROUND_HIGHLIGHT_ACTION_PULSE_SCALE_RANGE
+        getActionPulseScaleMultiplier(actionPulseCell, actionPulsePhase),
+        getActionPulseBrightness(actionPulseCell)
       );
       drawGroundHighlightCells(
         getSelectedGroundHighlightTexture(groundCell),

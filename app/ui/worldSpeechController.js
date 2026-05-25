@@ -4,7 +4,7 @@ import {
 } from "../../rendering/worldCurvature.js";
 import {
   installFirstMissionCompletionPopStyles,
-  renderFirstMissionCompletionPop
+  renderMilestoneCompletionPop
 } from "./firstMissionCompletionPop.js";
 import { renderWorldPromptLetterPop } from "./worldPromptLetterPop.js";
 
@@ -332,13 +332,13 @@ export function createWorldSpeechController({ mount } = {}) {
     state.taskPopActive = true;
     state.taskPopAnchorHeight = anchorHeight;
     state.taskPopWorldPosition = worldPosition ? [...worldPosition] : [0, 0, 0];
-    const renderedFirstMissionPop = renderFirstMissionCompletionPop({
+    const renderedMilestonePop = renderMilestoneCompletionPop({
       documentRef,
       container: taskPop.bubble,
       text: message
     });
-    if (renderedFirstMissionPop) {
-      taskPop.speech.dataset.taskPopKind = "first-mission";
+    if (renderedMilestonePop) {
+      taskPop.speech.dataset.taskPopKind = "milestone";
     } else {
       delete taskPop.speech.dataset.taskPopKind;
       taskPop.bubble.textContent = message;

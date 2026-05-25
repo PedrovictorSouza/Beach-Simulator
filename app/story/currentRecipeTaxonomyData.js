@@ -19,6 +19,14 @@ function deepFreeze(value) {
 }
 
 const CURRENT_RECIPE_TAXONOMY_BY_ID = deepFreeze({
+  greenhouse: {
+    category: ITEM_CATEGORY.UTILITY,
+    unlockSource: RECIPE_UNLOCK_SOURCE.FIRST_WORKBENCH,
+    progressionRole: PROGRESSION_ROLE.REQUIRED_STORY_ITEM,
+    economyTier: ECONOMY_TIER.STARTER_NATURAL,
+    placeholderState: "final",
+    macroBiomeId: MACRO_BIOME_IDS.ASH_WILDS
+  },
   campfire: {
     category: ITEM_CATEGORY.OUTDOOR,
     unlockSource: RECIPE_UNLOCK_SOURCE.FIRST_WORKBENCH,

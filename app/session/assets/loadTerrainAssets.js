@@ -60,9 +60,9 @@ const GARDEN_1_MODEL_TEXTURE_PATH = new URL("../../../Trees/Garden-1/garden-1.pn
 const LEAF_DEN_MODEL_GLTF_PATH = new URL("../../../house/house_2.gltf", import.meta.url).href;
 const LEAF_DEN_MODEL_BIN_PATH = new URL("../../../house/house_2.bin", import.meta.url).href;
 const LEAF_DEN_MODEL_TEXTURE_PATH = new URL("../../../house/house_2.png", import.meta.url).href;
-const LEPPA_TREE_DEAD_MODEL_GLTF_PATH = new URL("../../../Trees/Special-tree/Dead-Tree_Special.gltf", import.meta.url).href;
-const LEPPA_TREE_DEAD_MODEL_BIN_PATH = new URL("../../../Trees/Special-tree/Dead-Tree_Special.bin", import.meta.url).href;
-const LEPPA_TREE_DEAD_MODEL_TEXTURE_PATH = new URL("../../../Trees/Special-tree/Dead-Tree_Special.png", import.meta.url).href;
+const LEPPA_TREE_DEAD_MODEL_GLTF_PATH = new URL("../../../Organic-bus/unnamed_17.gltf", import.meta.url).href;
+const LEPPA_TREE_DEAD_MODEL_BIN_PATH = new URL("../../../Organic-bus/unnamed_17.bin", import.meta.url).href;
+const LEPPA_TREE_DEAD_MODEL_TEXTURE_PATH = new URL("../../../Organic-bus/unnamed_17.png", import.meta.url).href;
 const LEPPA_TREE_MUSICAL_NOTE_IMAGE_PATHS = [
   new URL("../../../Trees/Special-tree/musical-note-1.png", import.meta.url).href,
   new URL("../../../Trees/Special-tree/musical-note-2.png", import.meta.url).href,

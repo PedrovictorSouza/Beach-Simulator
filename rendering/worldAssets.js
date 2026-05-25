@@ -795,7 +795,7 @@ function createPlaceholderTokenCanvas({ glyph, color, ink, shape = "square" }) {
   }
 
   context.fillStyle = ink;
-  context.font = shape === "circle" ? "bold 34px monospace" : "bold 28px monospace";
+  context.font = shape === "circle" ? "bold 68px monospace" : "bold 56px monospace";
   context.textAlign = "center";
   context.textBaseline = "middle";
   context.fillText(glyph, canvas.width * 0.5, shape === "circle" ? 35 : canvas.height * 0.58);

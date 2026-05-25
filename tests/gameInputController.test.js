@@ -935,6 +935,37 @@ describe("createGameInputController", () => {
     expect(requestPauseToggle).not.toHaveBeenCalled();
   });
 
+  it("routes gamepad Start to the start screen when the browser reports only button value", () => {
+    const gamepad = createGamepad();
+    const requestPauseToggle = vi.fn();
+    const windowRef = {
+      navigator: {
+        getGamepads: () => [gamepad]
+      }
+    };
+    const handleKeydown = vi.fn(() => true);
+    const { controller } = createController({
+      windowRef,
+      requestPauseToggle,
+      sceneDirector: {
+        is: (sceneId) => sceneId === "start",
+        blocksGameplayInput: () => true,
+        handleKeydown,
+        handleKeyup: vi.fn(() => false)
+      }
+    });
+
+    gamepad.buttons[GAMEPAD_BUTTONS.START] = { pressed: false, value: 1 };
+    controller.updateGamepads(1 / 60);
+
+    expect(handleKeydown).toHaveBeenCalledTimes(1);
+    expect(handleKeydown).toHaveBeenCalledWith(expect.objectContaining({
+      code: "Enter",
+      key: "Enter"
+    }));
+    expect(requestPauseToggle).not.toHaveBeenCalled();
+  });
+
   it("routes the gamepad X button to the open Pokedesk instead of the bag", () => {
     const gamepad = createGamepad();
     const windowRef = {

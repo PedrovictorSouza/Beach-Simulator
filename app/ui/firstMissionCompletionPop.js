@@ -1,15 +1,30 @@
 export const FIRST_MISSION_COMPLETION_QUEST_ID = "learn-to-move";
 export const FIRST_MISSION_COMPLETION_POP_TEXT = "You took your first steps!";
+export const CHOPPER_MET_COMPLETION_QUEST_ID = "wake-guide";
+export const CHOPPER_MET_COMPLETION_POP_TEXT = "You met Chopper!";
 const FIRST_MISSION_COMPLETION_POP_STYLE_ID = "first-mission-completion-pop-style";
+const MILESTONE_COMPLETION_POP_TEXT_BY_QUEST_ID = Object.freeze({
+  [FIRST_MISSION_COMPLETION_QUEST_ID]: FIRST_MISSION_COMPLETION_POP_TEXT,
+  [CHOPPER_MET_COMPLETION_QUEST_ID]: CHOPPER_MET_COMPLETION_POP_TEXT
+});
+const MILESTONE_COMPLETION_POP_TEXTS = new Set(
+  Object.values(MILESTONE_COMPLETION_POP_TEXT_BY_QUEST_ID)
+);
+
+export function getMilestoneCompletionPopText(questId) {
+  return MILESTONE_COMPLETION_POP_TEXT_BY_QUEST_ID[questId] || null;
+}
 
 export function getFirstMissionCompletionPopText(questId) {
-  return questId === FIRST_MISSION_COMPLETION_QUEST_ID ?
-    FIRST_MISSION_COMPLETION_POP_TEXT :
-    null;
+  return getMilestoneCompletionPopText(questId);
+}
+
+export function isMilestoneCompletionPopText(text) {
+  return MILESTONE_COMPLETION_POP_TEXTS.has(text);
 }
 
 export function isFirstMissionCompletionPopText(text) {
-  return text === FIRST_MISSION_COMPLETION_POP_TEXT;
+  return isMilestoneCompletionPopText(text);
 }
 
 export function installFirstMissionCompletionPopStyles(documentRef) {
@@ -20,12 +35,14 @@ export function installFirstMissionCompletionPopStyles(documentRef) {
   const style = documentRef.createElement("style");
   style.id = FIRST_MISSION_COMPLETION_POP_STYLE_ID;
   style.textContent = `
+    .act-two-tutorial__speech[data-world-speech-variant="task-pop"][data-task-pop-kind="milestone"] .act-two-tutorial__speech-bubble,
     .act-two-tutorial__speech[data-world-speech-variant="task-pop"][data-task-pop-kind="first-mission"] .act-two-tutorial__speech-bubble {
       max-width: min(1500px, calc(100vw - 48px));
       font-size: 62px;
       animation: first-mission-completion-shell 2.35s cubic-bezier(0.16, 1, 0.3, 1) both;
     }
 
+    .milestone-completion-pop,
     .first-mission-completion-pop {
       display: inline-flex;
       align-items: center;
@@ -37,6 +54,7 @@ export function installFirstMissionCompletionPopStyles(documentRef) {
       white-space: nowrap;
     }
 
+    .milestone-completion-pop__letter,
     .first-mission-completion-pop__letter {
       display: inline-grid;
       place-items: center;
@@ -55,6 +73,7 @@ export function installFirstMissionCompletionPopStyles(documentRef) {
       animation-delay: calc(var(--letter-index) * 34ms);
     }
 
+    .milestone-completion-pop__letter--space,
     .first-mission-completion-pop__letter--space {
       min-width: 0.44em;
       padding-inline: 0;
@@ -135,22 +154,22 @@ export function installFirstMissionCompletionPopStyles(documentRef) {
   documentRef.head.append(style);
 }
 
-export function renderFirstMissionCompletionPop({ documentRef, container, text } = {}) {
-  if (!documentRef || !container || !isFirstMissionCompletionPopText(text)) {
+export function renderMilestoneCompletionPop({ documentRef, container, text } = {}) {
+  if (!documentRef || !container || !isMilestoneCompletionPopText(text)) {
     return false;
   }
 
   installFirstMissionCompletionPopStyles(documentRef);
 
   const root = documentRef.createElement("span");
-  root.className = "first-mission-completion-pop";
+  root.className = "milestone-completion-pop first-mission-completion-pop";
   root.setAttribute("aria-label", text);
 
   Array.from(text).forEach((character, index) => {
     const letter = documentRef.createElement("span");
     letter.className = character === " " ?
-      "first-mission-completion-pop__letter first-mission-completion-pop__letter--space" :
-      "first-mission-completion-pop__letter";
+      "milestone-completion-pop__letter milestone-completion-pop__letter--space first-mission-completion-pop__letter first-mission-completion-pop__letter--space" :
+      "milestone-completion-pop__letter first-mission-completion-pop__letter";
     letter.style.setProperty("--letter-index", String(index));
     letter.setAttribute("aria-hidden", "true");
     letter.textContent = character === " " ? "\u00a0" : character;
@@ -159,4 +178,8 @@ export function renderFirstMissionCompletionPop({ documentRef, container, text }
 
   container.replaceChildren(root);
   return true;
+}
+
+export function renderFirstMissionCompletionPop({ documentRef, container, text } = {}) {
+  return renderMilestoneCompletionPop({ documentRef, container, text });
 }

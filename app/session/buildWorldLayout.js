@@ -37,6 +37,12 @@ import {
 } from "../../rendering/worldAssets.js";
 
 const LEPPA_TREE_DEAD_MODEL_FACE_YAW_OFFSET = 0;
+const LEPPA_TREE_DEAD_MODEL_SCALE = 3;
+const LEPPA_TREE_DEAD_MODEL_YAW = 0 + LEPPA_TREE_DEAD_MODEL_FACE_YAW_OFFSET;
+const LEPPA_TREE_DEAD_MODEL_OFFSET_CELLS = 0;
+const LEPPA_TREE_DEAD_MODEL_GRID_FOOTPRINT = Object.freeze({ width: 5, height: 5 });
+const LEPPA_TREE_GROUND_CELL_ID = "ground-113-77";
+const LEPPA_TREE_GRID_CELL = Object.freeze({ x: 113, y: 77 });
 const TREE_2_MODEL_FACE_YAW_OFFSET = 0;
 const TREE_VARIANT = Object.freeze({
   PALM: "palm",
@@ -61,12 +67,12 @@ function toSafeZoneFromPosition(position, radius) {
   };
 }
 
-function buildElevatedTerrainSafeZones() {
+function buildElevatedTerrainSafeZones(leppaTreePosition = LEPPA_TREE_POSITION) {
   return [
     toSafeZoneFromPosition(ACT_TWO_PLAYER_SPAWN, 24),
     toSafeZoneFromPosition(ACT_TWO_MONSTER_POSITION, 24),
     toSafeZoneFromPosition(ACT_TWO_SQUIRTLE_POSITION, 24),
-    toSafeZoneFromPosition(LEPPA_TREE_POSITION, 8),
+    toSafeZoneFromPosition(leppaTreePosition, 8),
     { position: [0, 0], radius: 12 },
     ...NPC_DEFS.map((npc) => toSafeZoneFromPosition(npc.position, 8)),
     ...INTERACTABLE_DEFS.map((interactable) => {
@@ -93,6 +99,28 @@ function buildElevatedTerrainSafeZones() {
       radius: barrier.radius + 3
     }))
   ];
+}
+
+function getOutwardGridPosition(position, tileSpan, offsetCells) {
+  if (!Array.isArray(position) || !(tileSpan > 0) || !(offsetCells > 0)) {
+    return position;
+  }
+
+  const [x, y, z] = position;
+  const radialLength = Math.hypot(x, z);
+  if (!(radialLength > 0)) {
+    return position;
+  }
+
+  const distance = tileSpan * offsetCells;
+  const rawX = x + (x / radialLength) * distance;
+  const rawZ = z + (z / radialLength) * distance;
+  const gridStart = -WORLD_LIMIT + tileSpan * 0.5;
+  const snapToGrid = (value) => Number((
+    gridStart + Math.round((value - gridStart) / tileSpan) * tileSpan
+  ).toFixed(4));
+
+  return [snapToGrid(rawX), y, snapToGrid(rawZ)];
 }
 
 const WORKBENCH_SOLID_COLLIDER_PADDING = 0.32;
@@ -204,7 +232,13 @@ export function buildWorldLayout(session, assets) {
   const groundTileFootprint = Math.max(groundDeadModel.size[0], groundDeadModel.size[2]);
   const groundTileScale = GROUND_TILE_INSTANCE_SCALE;
   const groundTileSpan = groundTileFootprint * groundTileScale;
-  const terrainSafeZones = buildElevatedTerrainSafeZones();
+  const leppaTreePosition = getOutwardGridPosition(
+    LEPPA_TREE_POSITION,
+    groundTileSpan,
+    LEPPA_TREE_DEAD_MODEL_OFFSET_CELLS
+  );
+  const leppaTreeDeadYaw = LEPPA_TREE_DEAD_MODEL_YAW;
+  const terrainSafeZones = buildElevatedTerrainSafeZones(leppaTreePosition);
 
   session.palmModel = palmModel;
   session.tree2Model = tree2Model;
@@ -216,21 +250,25 @@ export function buildWorldLayout(session, assets) {
     PALM_INSTANCE_LAYOUT.map(withTreeVariant)
   );
   session.leppaTree = {
-    id: "leppa-tree",
-    position: [...LEPPA_TREE_POSITION],
+    id: "organic-bus",
+    legacyId: "leppa-tree",
+    position: [...leppaTreePosition],
+    groundCellId: LEPPA_TREE_GROUND_CELL_ID,
+    gridCell: { ...LEPPA_TREE_GRID_CELL },
+    footprint: { ...LEPPA_TREE_DEAD_MODEL_GRID_FOOTPRINT },
     revived: false,
     berryDropped: false,
     deadInstance: {
-      id: "leppa-tree-dead",
-      offset: [...LEPPA_TREE_POSITION],
-      scale: 0.78,
-      yaw: -0.22 + LEPPA_TREE_DEAD_MODEL_FACE_YAW_OFFSET,
+      id: "organic-bus-model",
+      offset: [...leppaTreePosition],
+      scale: LEPPA_TREE_DEAD_MODEL_SCALE,
+      yaw: leppaTreeDeadYaw,
       active: false,
       swayStrength: 0
     },
     aliveInstance: {
-      id: "leppa-tree-alive",
-      offset: [...LEPPA_TREE_POSITION],
+      id: "organic-bus-restored-placeholder",
+      offset: [...leppaTreePosition],
       scale: 0.88,
       yaw: -0.22,
       active: false,

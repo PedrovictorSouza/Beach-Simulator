@@ -61,8 +61,7 @@ export const SMALL_ISLAND_DIALOGUES = Object.freeze({
         text: "It was built to wash salts out of the topsoil."
       },
       {
-        text: "Press LT near dead ground and start hydrating this planet already, my friend.",
-        completesQuest: "record-a-memory"
+        text: "Press LT near dead ground and start hydrating this planet already, my friend."
       },
       {
         speakerId: "",

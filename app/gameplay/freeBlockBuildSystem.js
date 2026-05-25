@@ -4,10 +4,15 @@ import {
 } from "./gridBuildingSystem.js";
 
 export const FREE_BLOCK_TYPES = Object.freeze({
-  FLOOR: "floor"
+  BLOCK: "block",
+  WALL: "wall"
 });
 
 export const FREE_BLOCK_BUILD_SAVE_SCHEMA_VERSION = 1;
+export const FREE_BLOCK_WALL_COST = Object.freeze({
+  itemId: "wood",
+  quantity: 1
+});
 
 const DEFAULT_BUILD_BOUNDS = Object.freeze({
   minX: 0,
@@ -18,6 +23,7 @@ const DEFAULT_BUILD_BOUNDS = Object.freeze({
 const DEFAULT_FREE_BLOCK_FORWARD_DISTANCE = 1;
 const DEFAULT_FREE_BLOCK_INSTANCE_SCALE = 1;
 const DEFAULT_FREE_BLOCK_INSTANCE_GROUND_LIFT = 0;
+const DEFAULT_FOUNDATION_BUILD_ZONE_SIZE = 4;
 
 function finiteNumberOr(value, fallback) {
   const number = Number(value);
@@ -68,6 +74,10 @@ function cloneCell(cell) {
   };
 }
 
+function freezeCellList(cells = []) {
+  return Object.freeze(cells.map((cell) => Object.freeze(cloneCell(cell))));
+}
+
 function isCellInsideBuildArea(cell, bounds) {
   const normalizedCell = normalizeCell(cell);
   return normalizedCell.x >= bounds.minX &&
@@ -76,22 +86,68 @@ function isCellInsideBuildArea(cell, bounds) {
     normalizedCell.y <= bounds.maxY;
 }
 
-function createRejectedResult(blockType, reason) {
+function createRejectedResult(blockType, reason, extra = {}) {
   return {
     placed: false,
     reason,
     blockType,
-    block: null
+    block: null,
+    ...extra
   };
 }
 
-function createFloorBlock({ buildId, cell }) {
+function createBlock({ buildId, cell, blockType = FREE_BLOCK_TYPES.BLOCK }) {
   const normalizedCell = cloneCell(cell);
   return Object.freeze({
-    id: `${buildId}:floor:${cellKey(normalizedCell)}`,
+    id: `${buildId}:${blockType}:${cellKey(normalizedCell)}`,
     buildId,
-    blockType: FREE_BLOCK_TYPES.FLOOR,
+    blockType,
     cell: normalizedCell
+  });
+}
+
+export function createRectangularFreeBlockBuildZone({
+  id = "free-block-build-zone",
+  originCell = { x: 0, y: 0 },
+  width = DEFAULT_FOUNDATION_BUILD_ZONE_SIZE,
+  height = DEFAULT_FOUNDATION_BUILD_ZONE_SIZE
+} = {}) {
+  const normalizedOrigin = cloneCell(originCell);
+  const zoneWidth = Math.max(1, Math.trunc(finiteNumberOr(width, DEFAULT_FOUNDATION_BUILD_ZONE_SIZE)));
+  const zoneHeight = Math.max(1, Math.trunc(finiteNumberOr(height, DEFAULT_FOUNDATION_BUILD_ZONE_SIZE)));
+  const cells = [];
+  const borderCells = [];
+  const interiorCells = [];
+
+  for (let y = 0; y < zoneHeight; y += 1) {
+    for (let x = 0; x < zoneWidth; x += 1) {
+      const cell = {
+        x: normalizedOrigin.x + x,
+        y: normalizedOrigin.y + y
+      };
+      const border =
+        x === 0 ||
+        y === 0 ||
+        x === zoneWidth - 1 ||
+        y === zoneHeight - 1;
+
+      cells.push(cell);
+      if (border) {
+        borderCells.push(cell);
+      } else {
+        interiorCells.push(cell);
+      }
+    }
+  }
+
+  return Object.freeze({
+    id,
+    originCell: Object.freeze(normalizedOrigin),
+    width: zoneWidth,
+    height: zoneHeight,
+    cells: freezeCellList(cells),
+    borderCells: freezeCellList(borderCells),
+    interiorCells: freezeCellList(interiorCells)
   });
 }
 
@@ -144,7 +200,7 @@ export function resolveFreeBlockTargetCell({
 export function createFreeBlockModelInstance({
   block,
   gridSystem,
-  blockType = FREE_BLOCK_TYPES.FLOOR,
+  blockType = FREE_BLOCK_TYPES.BLOCK,
   scale = null,
   groundLift = DEFAULT_FREE_BLOCK_INSTANCE_GROUND_LIFT
 } = {}) {
@@ -180,10 +236,122 @@ export function createFreeBlockModelInstance({
   };
 }
 
-function serializeFloorBlock(block) {
-  return {
+function serializeBlock(block) {
+  const serialized = {
     cell: cloneCell(block.cell)
   };
+  if (block.blockType && block.blockType !== FREE_BLOCK_TYPES.BLOCK) {
+    serialized.blockType = block.blockType;
+  }
+  return serialized;
+}
+
+function normalizeBlockedCellKeys(blockedCells = []) {
+  if (!Array.isArray(blockedCells)) {
+    return new Set();
+  }
+
+  return new Set(blockedCells
+    .filter(Boolean)
+    .map((cell) => cellKey(normalizeCell(cell))));
+}
+
+function normalizeCellKeySet(cells = []) {
+  if (!Array.isArray(cells)) {
+    return null;
+  }
+
+  return normalizeBlockedCellKeys(cells);
+}
+
+function getBuildZoneCellsForBlockType(buildZone, blockType) {
+  if (!buildZone) {
+    return null;
+  }
+
+  if (blockType === FREE_BLOCK_TYPES.WALL && Array.isArray(buildZone.borderCells)) {
+    return buildZone.borderCells;
+  }
+
+  return Array.isArray(buildZone.cells) ? buildZone.cells : null;
+}
+
+function getInventoryCount(inventory, itemId) {
+  return Math.max(0, Number(inventory?.[itemId] || 0));
+}
+
+function hasMaterialCost(inventory, cost) {
+  if (!cost?.itemId || !Number.isFinite(Number(cost.quantity))) {
+    return true;
+  }
+
+  return getInventoryCount(inventory, cost.itemId) >= Number(cost.quantity);
+}
+
+function consumeMaterialCost(inventory, cost) {
+  if (!cost?.itemId || !Number.isFinite(Number(cost.quantity))) {
+    return false;
+  }
+
+  if (!hasMaterialCost(inventory, cost)) {
+    return false;
+  }
+
+  inventory[cost.itemId] = getInventoryCount(inventory, cost.itemId) - Number(cost.quantity);
+  return true;
+}
+
+function refundMaterialCost(inventory, cost) {
+  if (!cost?.itemId || !Number.isFinite(Number(cost.quantity))) {
+    return false;
+  }
+
+  inventory[cost.itemId] = getInventoryCount(inventory, cost.itemId) + Number(cost.quantity);
+  return true;
+}
+
+function createMissingMaterialResult(blockType, targetCell, cost, inventory) {
+  return {
+    handled: true,
+    valid: false,
+    placed: false,
+    reason: "missing-material",
+    blockType,
+    block: null,
+    targetCell,
+    missingItemId: cost.itemId,
+    requiredQuantity: Number(cost.quantity),
+    availableQuantity: getInventoryCount(inventory, cost.itemId)
+  };
+}
+
+export function getFreeBlockBuildZoneProgress({
+  buildState = null,
+  buildZone = null,
+  blockType = FREE_BLOCK_TYPES.WALL
+} = {}) {
+  const requiredCells = Array.isArray(buildZone?.borderCells) ? buildZone.borderCells : [];
+  const completedCells = [];
+  const missingCells = [];
+
+  for (const cell of requiredCells) {
+    const block = buildState?.getBlockAtCell?.(cell);
+    if (block?.blockType === blockType) {
+      completedCells.push(cloneCell(cell));
+    } else {
+      missingCells.push(cloneCell(cell));
+    }
+  }
+
+  return Object.freeze({
+    buildZoneId: buildZone?.id || null,
+    blockType,
+    requiredCount: requiredCells.length,
+    completedCount: completedCells.length,
+    complete: requiredCells.length > 0 && completedCells.length === requiredCells.length,
+    completedCells: freezeCellList(completedCells),
+    missingCells: freezeCellList(missingCells)
+  });
 }
 
 export function createFreeBlockBuildState({
@@ -192,112 +360,133 @@ export function createFreeBlockBuildState({
   occupancyStore = null
 } = {}) {
   const buildBounds = normalizeBuildBounds(bounds);
-  const floorBlocks = new Map();
+  const blocks = new Map();
 
   function getCompletionState() {
     return {
-      floorCount: floorBlocks.size
+      blockCount: blocks.size
     };
   }
 
   function getBlockAtCell(cell) {
-    return floorBlocks.get(cellKey(normalizeCell(cell))) || null;
+    return blocks.get(cellKey(normalizeCell(cell))) || null;
   }
 
-  function canPlaceFloorBlock(cell) {
+  function canPlaceBlock(cell, options = {}) {
     const normalizedCell = cloneCell(cell);
     const key = cellKey(normalizedCell);
+    const blockType = options.blockType || FREE_BLOCK_TYPES.BLOCK;
+    const buildZoneCellKeys = normalizeCellKeySet(
+      options.allowedCells || getBuildZoneCellsForBlockType(options.buildZone, blockType)
+    );
 
     if (!isCellInsideBuildArea(normalizedCell, buildBounds)) {
-      return createRejectedResult(FREE_BLOCK_TYPES.FLOOR, "outside-build-area");
+      return createRejectedResult(blockType, "outside-build-area");
     }
 
-    if (floorBlocks.has(key)) {
-      return createRejectedResult(FREE_BLOCK_TYPES.FLOOR, "duplicate-floor");
+    if (buildZoneCellKeys && !buildZoneCellKeys.has(key)) {
+      return createRejectedResult(blockType, "outside-build-zone");
+    }
+
+    if (blocks.has(key)) {
+      return createRejectedResult(blockType, "duplicate-block");
+    }
+
+    if (normalizeBlockedCellKeys(options.blockedCells).has(key)) {
+      return createRejectedResult(blockType, options.blockedReason || "blocked-cell");
     }
 
     if (occupancyStore?.getObjectAt?.(normalizedCell)) {
-      return createRejectedResult(FREE_BLOCK_TYPES.FLOOR, "blocked-cell");
+      return createRejectedResult(blockType, "blocked-cell");
     }
 
     return {
       placed: true,
       reason: null,
-      blockType: FREE_BLOCK_TYPES.FLOOR,
+      blockType,
       block: null
     };
   }
 
-  function placeFloorBlock(cell) {
+  function placeBlock(cell, options = {}) {
     const normalizedCell = cloneCell(cell);
-    const canPlace = canPlaceFloorBlock(normalizedCell);
+    const blockType = options.blockType || FREE_BLOCK_TYPES.BLOCK;
+    const canPlace = canPlaceBlock(normalizedCell, {
+      ...options,
+      blockType
+    });
 
     if (!canPlace.placed) {
       return canPlace;
     }
 
-    const block = createFloorBlock({ buildId, cell: normalizedCell });
-    floorBlocks.set(cellKey(normalizedCell), block);
+    const block = createBlock({ buildId, cell: normalizedCell, blockType });
+    blocks.set(cellKey(normalizedCell), block);
     return {
       placed: true,
       reason: null,
-      blockType: FREE_BLOCK_TYPES.FLOOR,
+      blockType,
       block
     };
   }
 
-  function removeFloorBlock(cell) {
+  function removeBlock(cell) {
     const normalizedCell = cloneCell(cell);
     const key = cellKey(normalizedCell);
-    const block = floorBlocks.get(key) || null;
+    const block = blocks.get(key) || null;
 
     if (!block) {
       return {
         removed: false,
-        reason: "missing-floor",
-        blockType: FREE_BLOCK_TYPES.FLOOR,
+        reason: "missing-block",
+        blockType: FREE_BLOCK_TYPES.BLOCK,
         block: null
       };
     }
 
-    floorBlocks.delete(key);
+    blocks.delete(key);
     return {
       removed: true,
       reason: null,
-      blockType: FREE_BLOCK_TYPES.FLOOR,
+      blockType: block.blockType || FREE_BLOCK_TYPES.BLOCK,
       block
     };
   }
 
   function clearBlocks() {
-    floorBlocks.clear();
+    blocks.clear();
   }
 
   function serializeFreeBlocks() {
+    const serializedBlocks = [...blocks.values()].map(serializeBlock);
     return {
       schemaVersion: FREE_BLOCK_BUILD_SAVE_SCHEMA_VERSION,
       buildId,
       bounds: cloneBounds(buildBounds),
-      floorBlocks: [...floorBlocks.values()].map(serializeFloorBlock)
+      blocks: serializedBlocks,
+      floorBlocks: serializedBlocks
     };
   }
 
   function restoreFreeBlocks(snapshot = {}) {
     clearBlocks();
     const rejected = [];
-    let floorCount = 0;
+    let blockCount = 0;
+    const sourceBlocks = Array.isArray(snapshot.blocks) ? snapshot.blocks : snapshot.floorBlocks || [];
 
-    for (const floorBlock of snapshot.floorBlocks || []) {
-      const result = placeFloorBlock(floorBlock.cell || floorBlock);
+    for (const sourceBlock of sourceBlocks) {
+      const result = placeBlock(sourceBlock.cell || sourceBlock, {
+        blockType: sourceBlock.blockType || FREE_BLOCK_TYPES.BLOCK
+      });
       if (result.placed) {
-        floorCount += 1;
+        blockCount += 1;
       } else {
-        rejected.push({ blockType: FREE_BLOCK_TYPES.FLOOR, source: floorBlock, result });
+        rejected.push({ blockType: FREE_BLOCK_TYPES.BLOCK, source: sourceBlock, result });
       }
     }
 
     return {
-      restored: { floorCount },
+      restored: { blockCount },
       rejected,
       completionState: getCompletionState()
     };
@@ -306,43 +495,83 @@ export function createFreeBlockBuildState({
   return Object.freeze({
     buildId,
     bounds: cloneBounds(buildBounds),
-    canPlaceFloorBlock,
-    placeFloorBlock,
-    removeFloorBlock,
+    canPlaceBlock,
+    placeBlock,
+    removeBlock,
     getBlockAtCell,
     getCompletionState,
     serializeFreeBlocks,
     restoreFreeBlocks,
-    listFloorBlocks() {
-      return [...floorBlocks.values()];
+    listBlocks() {
+      return [...blocks.values()];
     }
   });
 }
 
-function createDefaultFloorPlacementDefinition({
+function createDefaultBlockPlacementDefinition({
   buildState,
   blockInstanceStore,
-  createInstance
+  createInstance,
+  blockType = FREE_BLOCK_TYPES.BLOCK,
+  materialCost = null
 }) {
   return {
-    blockType: FREE_BLOCK_TYPES.FLOOR,
+    blockType,
+    materialCost,
     canPlace(context = {}) {
       const targetCell = normalizeCell(context.targetCell);
-      const result = buildState.canPlaceFloorBlock(targetCell);
+      const result = buildState.canPlaceBlock(targetCell, {
+        ...context,
+        blockType
+      });
+      if (result.placed && materialCost && !hasMaterialCost(context.inventory, materialCost)) {
+        return {
+          ...createMissingMaterialResult(blockType, targetCell, materialCost, context.inventory),
+          completionState: buildState.getCompletionState()
+        };
+      }
       return {
         handled: true,
         valid: Boolean(result.placed),
         reason: result.reason,
-        blockType: FREE_BLOCK_TYPES.FLOOR,
+        blockType,
         targetCell,
         completionState: buildState.getCompletionState()
       };
     },
     place(context = {}) {
       const targetCell = normalizeCell(context.targetCell);
-      const result = buildState.placeFloorBlock(targetCell);
+      const canPlace = buildState.canPlaceBlock(targetCell, {
+        ...context,
+        blockType
+      });
+      if (!canPlace.placed) {
+        return {
+          ...canPlace,
+          targetCell,
+          handled: true,
+          instance: null,
+          completionState: buildState.getCompletionState()
+        };
+      }
+
+      if (materialCost && !consumeMaterialCost(context.inventory, materialCost)) {
+        return {
+          ...createMissingMaterialResult(blockType, targetCell, materialCost, context.inventory),
+          instance: null,
+          completionState: buildState.getCompletionState()
+        };
+      }
+
+      const result = buildState.placeBlock(targetCell, {
+        ...context,
+        blockType
+      });
 
       if (!result.placed) {
+        if (materialCost) {
+          refundMaterialCost(context.inventory, materialCost);
+        }
         return {
           ...result,
           targetCell,
@@ -355,7 +584,7 @@ function createDefaultFloorPlacementDefinition({
       const instance = createInstance({
         block: result.block,
         gridSystem: context.gridSystem,
-        blockType: FREE_BLOCK_TYPES.FLOOR
+        blockType
       });
       blockInstanceStore.push(instance);
 
@@ -374,7 +603,7 @@ export function createFreeBlockBuildController({
   gridSystem,
   buildState,
   blockInstanceStore = [],
-  initialBlockType = FREE_BLOCK_TYPES.FLOOR,
+  initialBlockType = FREE_BLOCK_TYPES.BLOCK,
   blockDefinitions = [],
   createInstance = createFreeBlockModelInstance
 } = {}) {
@@ -382,7 +611,7 @@ export function createFreeBlockBuildController({
     throw new TypeError("gridSystem is required");
   }
 
-  if (!buildState || typeof buildState.placeFloorBlock !== "function") {
+  if (!buildState || typeof buildState.placeBlock !== "function") {
     throw new TypeError("buildState is required");
   }
 
@@ -391,7 +620,7 @@ export function createFreeBlockBuildController({
   }
 
   const definitions = new Map();
-  let selectedBlockType = initialBlockType || FREE_BLOCK_TYPES.FLOOR;
+  let selectedBlockType = initialBlockType || FREE_BLOCK_TYPES.BLOCK;
 
   function registerBlockDefinition(definition) {
     if (!definition?.blockType || typeof definition.place !== "function") {
@@ -402,10 +631,17 @@ export function createFreeBlockBuildController({
     return definition;
   }
 
-  registerBlockDefinition(createDefaultFloorPlacementDefinition({
+  registerBlockDefinition(createDefaultBlockPlacementDefinition({
     buildState,
     blockInstanceStore,
     createInstance
+  }));
+  registerBlockDefinition(createDefaultBlockPlacementDefinition({
+    buildState,
+    blockInstanceStore,
+    createInstance,
+    blockType: FREE_BLOCK_TYPES.WALL,
+    materialCost: FREE_BLOCK_WALL_COST
   }));
 
   for (const definition of blockDefinitions) {
@@ -539,15 +775,19 @@ export function createFreeBlockBuildController({
         handled: true,
         removed: false,
         reason: "missing-target-cell",
-        blockType: FREE_BLOCK_TYPES.FLOOR,
+        blockType: FREE_BLOCK_TYPES.BLOCK,
         block: null,
         targetCell: null,
         completionState: buildState.getCompletionState()
       };
     }
 
-    const result = buildState.removeFloorBlock(targetCell);
+    const result = buildState.removeBlock(targetCell);
     if (result.removed) {
+      const definition = definitions.get(result.blockType);
+      if (definition?.materialCost) {
+        refundMaterialCost(options.inventory, definition.materialCost);
+      }
       const removedKey = cellKey(targetCell);
       for (let index = blockInstanceStore.length - 1; index >= 0; index -= 1) {
         const instance = blockInstanceStore[index];
@@ -567,11 +807,11 @@ export function createFreeBlockBuildController({
 
   function syncInstancesFromState() {
     blockInstanceStore.splice(0, blockInstanceStore.length);
-    for (const block of buildState.listFloorBlocks()) {
+    for (const block of buildState.listBlocks()) {
       blockInstanceStore.push(createInstance({
         block,
         gridSystem,
-        blockType: FREE_BLOCK_TYPES.FLOOR
+        blockType: block.blockType || FREE_BLOCK_TYPES.BLOCK
       }));
     }
     return blockInstanceStore;

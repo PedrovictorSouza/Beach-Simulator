@@ -84,6 +84,7 @@ export type ManualSavePointDto = {
   activeFieldMoveId: FieldAbilityId | null;
   settings: Record<string, Record<string, unknown>>;
   questState: unknown;
+  taskState?: unknown;
   playerPosition: SaveVector3Dto | null;
   worldState: Record<string, unknown>;
   companions: Record<string, unknown>;

@@ -10,7 +10,7 @@ import {
 
 const WORKBENCH_TITLE_IMAGE_URL = new URL("./images/workbench-title.png", import.meta.url).href;
 const WORKBENCH_DETAILS_BACKGROUND_URL = new URL("./images/dialogue-box.png", import.meta.url).href;
-const WORKBENCH_BUTTON_BACKGROUND_URL = new URL("./images/btn.png", import.meta.url).href;
+const WORKBENCH_BUTTON_BACKGROUND_URL = new URL("./images/main-btn.png", import.meta.url).href;
 
 export function createWorkbenchModalController({
   mount,

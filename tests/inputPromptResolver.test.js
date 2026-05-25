@@ -3,6 +3,7 @@ import { GAMEPAD_LAYOUT, INPUT_DEVICE } from "../input/inputModality.js";
 import {
   resolveInitialHudGuide,
   resolveInputPrompt,
+  resolveMovementPrompt,
   resolvePlacementPreviewPrompt,
   resolvePlacementReadyPrompt,
   resolveWorkbenchRotationPrompt,
@@ -68,6 +69,21 @@ describe("input prompt resolver", () => {
   });
 
   it("returns a modality-aware initial HUD guide", () => {
+    expect(resolveMovementPrompt()).toBe("Use W/A/S/D to move away.");
+    expect(resolveMovementPrompt({
+      device: INPUT_DEVICE.GAMEPAD,
+      gamepadLayout: GAMEPAD_LAYOUT.GENERIC
+    })).toBe("Use the left stick to move away.");
+
+    expect(resolveMovementPrompt({
+      keyboardControls: {
+        moveUp: "ArrowUp",
+        moveLeft: "ArrowLeft",
+        moveDown: "ArrowDown",
+        moveRight: "ArrowRight"
+      }
+    })).toBe("Use Up/Left/Down/Right to move away.");
+
     expect(resolveInitialHudGuide()).toBe(
       "Use WASD to reach Chopper. He will point out the first repair."
     );

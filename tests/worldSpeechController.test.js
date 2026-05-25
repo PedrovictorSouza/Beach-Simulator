@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { FIRST_MISSION_COMPLETION_POP_TEXT } from "../app/ui/firstMissionCompletionPop.js";
+import {
+  CHOPPER_MET_COMPLETION_POP_TEXT,
+  FIRST_MISSION_COMPLETION_POP_TEXT
+} from "../app/ui/firstMissionCompletionPop.js";
 import { createWorldSpeechController } from "../app/ui/worldSpeechController.js";
 
 describe("createWorldSpeechController", () => {
@@ -188,7 +191,7 @@ describe("createWorldSpeechController", () => {
     expect(taskPop?.dataset.taskPopSize).toBe("large");
   });
 
-  it("renders the first mission completion pop letter by letter", () => {
+  it("renders milestone completion pops letter by letter", () => {
     const mount = document.createElement("div");
     const controller = createWorldSpeechController({ mount });
 
@@ -198,12 +201,21 @@ describe("createWorldSpeechController", () => {
     });
 
     const taskPop = mount.querySelector("[data-world-speech-variant='task-pop']");
-    const letters = taskPop?.querySelectorAll(".first-mission-completion-pop__letter");
+    const letters = taskPop?.querySelectorAll(".milestone-completion-pop__letter");
     const style = document.getElementById("first-mission-completion-pop-style");
 
-    expect(taskPop?.dataset.taskPopKind).toBe("first-mission");
+    expect(taskPop?.dataset.taskPopKind).toBe("milestone");
     expect(letters).toHaveLength(Array.from(FIRST_MISSION_COMPLETION_POP_TEXT).length);
     expect(style?.textContent).toContain("border: 2px solid #000000");
+
+    controller.showTaskPop({
+      text: CHOPPER_MET_COMPLETION_POP_TEXT,
+      worldPosition: [0, 0, 0]
+    });
+
+    const chopperLetters = taskPop?.querySelectorAll(".milestone-completion-pop__letter");
+    expect(taskPop?.dataset.taskPopKind).toBe("milestone");
+    expect(chopperLetters).toHaveLength(Array.from(CHOPPER_MET_COMPLETION_POP_TEXT).length);
 
     controller.showTaskPop({
       text: "HYDRO BOT IS ONLINE!",

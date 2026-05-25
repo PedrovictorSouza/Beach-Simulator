@@ -275,6 +275,46 @@ describe("createGameHudController", () => {
     );
   });
 
+  it("updates the first movement checklist when the input modality changes", () => {
+    const instructionsElement = document.createElement("span");
+    const hudChecklistElement = document.createElement("div");
+    const taskHudView = {
+      active: true,
+      objectives: [
+        {
+          id: "move-after-crash",
+          title: "Move away from the crash site",
+          completed: false,
+          progressText: "0/1"
+        }
+      ]
+    };
+    const controller = createGameHudController({
+      hudInstructionsElement: instructionsElement,
+      hudChecklistElement,
+      questSystem: {
+        getActiveQuest: () => ({
+          id: "learn-to-move",
+          title: "Take Your First Steps",
+          description: "Move after the crash."
+        }),
+        getTaskHudView: () => taskHudView
+      }
+    });
+
+    controller.syncQuestFocus({ flags: {} });
+    expect(hudChecklistElement.textContent).toContain("Use W/A/S/D to move away.");
+    expect(hudChecklistElement.textContent).not.toContain("Left stick");
+
+    controller.syncHudInstructions({ flags: {} }, "", {
+      device: INPUT_DEVICE.GAMEPAD,
+      gamepadLayout: GAMEPAD_LAYOUT.GENERIC
+    });
+
+    expect(hudChecklistElement.textContent).toContain("Use the left stick to move away.");
+    expect(hudChecklistElement.textContent).not.toContain("Use W/A/S/D to move away.");
+  });
+
   it("treats invalid nearby habitat values as an empty list", () => {
     const hudChecklistElement = document.createElement("div");
     const activeQuest = {

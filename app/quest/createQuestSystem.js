@@ -355,6 +355,14 @@ export function createQuestSystem({
     notify("reset");
   }
 
+  function restoreState(nextState = null) {
+    clearPendingTransition();
+    state = mergePersistedState(createInitialState(quests), nextState, quests);
+    resumeCompletedActiveQuest();
+    notify("restore");
+    return state;
+  }
+
   function resumeCompletedActiveQuest() {
     const activeQuest = getActiveQuest();
     if (
@@ -391,6 +399,7 @@ export function createQuestSystem({
     hasUnlocked(unlockId) {
       return state.unlocked.includes(unlockId);
     },
-    reset
+    reset,
+    restoreState
   };
 }

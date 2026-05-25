@@ -4,7 +4,13 @@ import {
   LEAF_DEN_KIT_ITEM_ID,
   STRAW_BED_ITEM_ID
 } from "../gameplayContent.js";
+import { createWorkbenchRecipeMap } from "../app/gameplay/buildableCatalog.js";
 import { GRID_PLACEABLE_IDS } from "../app/gameplay/gridBuildingSystem.js";
+import {
+  createWorkbenchRecipeOptions,
+  WORKBENCH_GREENHOUSE_GUIDANCE,
+  WORKBENCH_HOUSE_KIT_BLOCKED_GUIDANCE
+} from "../app/gameplay/workbenchModalOptionContract.js";
 import {
   getWorkbenchProtocolEntryById,
   listWorkbenchProtocolCategories,
@@ -332,5 +338,64 @@ describe("workbench container contract", () => {
       action: WORKBENCH_PROTOCOL_ACTION.NONE,
       guidance: "Already built."
     });
+  });
+
+  it("adapts Workbench progress entries into modal recipe options", () => {
+    const workbenchRecipes = createWorkbenchRecipeMap();
+
+    const lockedOptions = createWorkbenchRecipeOptions({
+      storyState: {
+        flags: {
+          workbenchDiyRecipesReceived: true
+        }
+      },
+      inventory: {},
+      workbenchRecipes,
+      formatRequirementSummary: () => "Gear 0/20"
+    });
+
+    expect(lockedOptions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        recipe: expect.objectContaining({ id: GREENHOUSE_ITEM_ID }),
+        disabled: false,
+        status: null,
+        actionLabel: "Prepare Greenhouse",
+        guidance: WORKBENCH_GREENHOUSE_GUIDANCE
+      }),
+      expect.objectContaining({
+        recipe: expect.objectContaining({ id: "campfire" }),
+        disabled: true,
+        status: "Locked · Build Greenhouse first",
+        actionLabel: null
+      }),
+      expect.objectContaining({
+        recipe: expect.objectContaining({ id: "strawBed" }),
+        disabled: true,
+        status: "Locked · Needs Gear 0/20",
+        actionLabel: null
+      })
+    ]));
+
+    const blockedHouseOptions = createWorkbenchRecipeOptions({
+      storyState: {
+        flags: {
+          leafDenBuildAvailable: true
+        }
+      },
+      inventory: {
+        [LEAF_DEN_KIT_ITEM_ID]: 1
+      },
+      workbenchRecipes
+    });
+
+    expect(blockedHouseOptions).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        recipe: expect.objectContaining({ id: LEAF_DEN_KIT_ITEM_ID }),
+        disabled: true,
+        status: "Place the Solar Station before placing the House Kit.",
+        actionLabel: null,
+        guidance: WORKBENCH_HOUSE_KIT_BLOCKED_GUIDANCE
+      })
+    ]));
   });
 });

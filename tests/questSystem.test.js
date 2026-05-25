@@ -30,21 +30,22 @@ function cloneQuests() {
 }
 
 describe("createQuestSystem", () => {
-  it("uses colony-zone language in early restoration quest copy", () => {
+  it("uses ten-minute cozy restoration language across the campaign copy", () => {
     const questCopy = SMALL_ISLAND_QUESTS
       .filter((quest) => [
-        "open-the-water-route",
         "grow-a-home-patch",
+        "melt-first-snow",
+        "build-first-base",
         "chopper-first-habitat-report"
       ].includes(quest.id))
       .flatMap((quest) => [quest.description, quest.guidance].filter(Boolean))
       .join(" ");
 
-    expect(questCopy).toContain("colony-zone clues");
-    expect(questCopy).toContain("Grow Bot's colony zone");
-    expect(questCopy).toContain("first colony zone is taking root");
-    expect(questCopy).not.toContain("helper habitat");
-    expect(questCopy).not.toContain("first habitat is taking root");
+    expect(questCopy).toContain("cozy living patch");
+    expect(questCopy).toContain("Snow blocks construction zones");
+    expect(questCopy).toContain("six wood");
+    expect(questCopy).toContain("first base outline");
+    expect(questCopy).not.toContain("combat");
   });
 
   it("refuses to boot if the immutable first movement task is not first", () => {
@@ -89,6 +90,35 @@ describe("createQuestSystem", () => {
     questSystem.emit({ type: QUEST_EVENT.MOVE, targetId: "player" });
 
     expect(questSystem.getQuest("learn-to-move").status).toBe("completed");
+  });
+
+  it("restores persisted quest state after the system has already advanced", () => {
+    const questSystem = createQuestSystem({
+      quests: SMALL_ISLAND_QUESTS,
+      storage: createMemoryStorage(),
+      transitionDelayMs: 0
+    });
+
+    questSystem.emit({ type: QUEST_EVENT.MOVE, targetId: "player" });
+    expect(questSystem.getActiveQuest().id).toBe("wake-guide");
+
+    questSystem.restoreState({
+      activeQuestId: "learn-to-move",
+      eventTotals: {},
+      unlocked: [],
+      completedQuestIds: [],
+      quests: {
+        "learn-to-move": {
+          status: QUEST_STATUS.ACTIVE,
+          objectives: [
+            { current: 0 }
+          ]
+        }
+      }
+    });
+
+    expect(questSystem.getActiveQuest().id).toBe("learn-to-move");
+    expect(questSystem.getQuest("learn-to-move").objectives[0].current).toBe(0);
   });
 
   it("makes the first mentor interaction available only after the movement task", () => {
@@ -140,7 +170,7 @@ describe("createQuestSystem", () => {
     expect(result.completedQuestIds).toEqual(["gather-first-supplies"]);
     expect(questSystem.getQuest("gather-first-supplies").status).toBe(QUEST_STATUS.COMPLETED);
     expect(questSystem.hasUnlocked("water-restoration")).toBe(true);
-    expect(questSystem.getActiveQuest().id).toBe("water-dry-grass");
+    expect(questSystem.getActiveQuest().id).toBe("water-first-dry-patch");
   });
 
   it("does not duplicate the first restoration ability reward", () => {
@@ -173,7 +203,7 @@ describe("createQuestSystem", () => {
     });
   });
 
-  it("reveals the first companion discovery after the first habitat restoration", () => {
+  it("ends the tutorial after the first dry patch and then asks for five restored patches", () => {
     const questSystem = createQuestSystem({
       quests: SMALL_ISLAND_QUESTS,
       storage: createMemoryStorage()
@@ -182,50 +212,56 @@ describe("createQuestSystem", () => {
     questSystem.activateQuest("gather-first-supplies");
     questSystem.emit({ type: QUEST_EVENT.UNLOCK, targetId: "waterGun" });
 
-    const firstHabitatQuest = questSystem.getActiveQuest();
-    expect(firstHabitatQuest).toEqual(expect.objectContaining({
-      id: "water-dry-grass",
-      giverId: "leaf-helper"
+    const tutorialQuest = questSystem.getActiveQuest();
+    expect(tutorialQuest).toEqual(expect.objectContaining({
+      id: "water-first-dry-patch",
+      giverId: "hydro"
     }));
-    expect(firstHabitatQuest.objectives[0]).toEqual(expect.objectContaining({
+    expect(tutorialQuest.objectives[0]).toEqual(expect.objectContaining({
       type: QUEST_EVENT.BUILD,
       targetId: "revived-grass",
-      required: 10,
+      required: 1,
       current: 0
     }));
 
-    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "revived-grass", amount: 10 });
+    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "revived-grass" });
     const discoveryQuest = questSystem.getActiveQuest();
 
-    expect(questSystem.hasUnlocked("dry-grass-request-complete")).toBe(true);
     expect(discoveryQuest).toEqual(expect.objectContaining({
-      id: "inspect-rustling-grass",
+      id: "water-dry-grass",
       giverId: "leaf-helper",
       status: QUEST_STATUS.ACTIVE
     }));
     expect(discoveryQuest.objectives[0]).toEqual(expect.objectContaining({
-      type: QUEST_EVENT.TALK,
-      targetId: "leaf-helper",
-      required: 1,
-      current: 0
+      type: QUEST_EVENT.BUILD,
+      targetId: "revived-grass",
+      required: 5,
+      current: 1
     }));
+
+    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "revived-grass", amount: 5 });
+    expect(questSystem.getActiveQuest()).toEqual(expect.objectContaining({
+      id: "inspect-rustling-grass",
+      giverId: "leaf-helper"
+    }));
+    expect(questSystem.hasUnlocked("grow-bot-route")).toBe(true);
   });
 
-  it("completes the first home objective when the leafy home patch is placed", () => {
+  it("completes the Grow Bot objective after four plants are placed", () => {
     const questSystem = createQuestSystem({
       quests: SMALL_ISLAND_QUESTS,
       storage: createMemoryStorage()
     });
 
     questSystem.activateQuest("grow-a-home-patch");
-    expect(questSystem.hasUnlocked("first-helper-home")).toBe(false);
+    expect(questSystem.hasUnlocked("grow-corner-complete")).toBe(false);
 
-    const result = questSystem.emit({ type: QUEST_EVENT.PLACE, targetId: "leafy-home-patch" });
+    const result = questSystem.emit({ type: QUEST_EVENT.PLACE, targetId: "leafy-home-patch", amount: 4 });
 
     expect(result.completedQuestIds).toEqual(["grow-a-home-patch"]);
     expect(questSystem.getQuest("grow-a-home-patch").status).toBe(QUEST_STATUS.COMPLETED);
-    expect(questSystem.hasUnlocked("first-helper-home")).toBe(true);
-    expect(questSystem.getActiveQuest().id).toBe("chopper-first-habitat-report");
+    expect(questSystem.hasUnlocked("grow-corner-complete")).toBe(true);
+    expect(questSystem.getActiveQuest().id).toBe("melt-first-snow");
   });
 
   it("replays the Hydro unlock when Wake Up Hydro becomes active later", () => {
@@ -246,7 +282,7 @@ describe("createQuestSystem", () => {
     expect(questSystem.getActiveQuest().id).toBe("wake-guide");
 
     questSystem.emit({ type: QUEST_EVENT.TALK, targetId: "tangrowth" });
-    expect(questSystem.getActiveQuest().id).toBe("water-dry-grass");
+    expect(questSystem.getActiveQuest().id).toBe("water-first-dry-patch");
     expect(questSystem.getQuest("gather-first-supplies").status).toBe(QUEST_STATUS.COMPLETED);
   });
 
@@ -331,21 +367,21 @@ describe("createQuestSystem", () => {
       transitionDelayMs: 3000
     });
 
-    questSystem.activateQuest("open-the-water-route");
-    questSystem.emit({ type: QUEST_EVENT.UNLOCK, targetId: "waterGun" });
+    questSystem.activateQuest("water-first-dry-patch");
+    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "revived-grass" });
 
-    expect(questSystem.getActiveQuest().id).toBe("open-the-water-route");
+    expect(questSystem.getActiveQuest().id).toBe("water-first-dry-patch");
     expect(questSystem.getActiveQuest().status).toBe("completed");
 
     questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "revived-grass" });
 
     expect(questSystem.getQuest("water-dry-grass").status).toBe("locked");
-    expect(questSystem.getQuest("water-dry-grass").objectives[0].current).toBe(1);
+    expect(questSystem.getQuest("water-dry-grass").objectives[0].current).toBe(2);
 
     vi.advanceTimersByTime(3000);
 
     expect(questSystem.getActiveQuest().id).toBe("water-dry-grass");
-    expect(questSystem.getActiveQuest().objectives[0].current).toBe(1);
+    expect(questSystem.getActiveQuest().objectives[0].current).toBe(2);
 
     vi.useRealTimers();
   });
@@ -362,29 +398,46 @@ describe("createQuestSystem", () => {
     expect(questSystem.getActiveQuest().id).toBe("wake-guide");
     questSystem.emit({ type: QUEST_EVENT.TALK, targetId: "tangrowth" });
     expect(questSystem.getActiveQuest().id).toBe("gather-first-supplies");
-    expect(questSystem.hasUnlocked("thermal-generator-diagnostic")).toBe(false);
 
     questSystem.emit({ type: QUEST_EVENT.UNLOCK, targetId: "waterGun" });
-    expect(questSystem.getActiveQuest().id).toBe("water-dry-grass");
-    expect(questSystem.hasUnlocked("thermal-generator-diagnostic")).toBe(true);
+    expect(questSystem.getActiveQuest().id).toBe("water-first-dry-patch");
     expect(questSystem.hasUnlocked("water-restoration")).toBe(true);
 
-    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "revived-grass", amount: 10 });
+    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "revived-grass" });
+    expect(questSystem.getActiveQuest().id).toBe("water-dry-grass");
+    expect(questSystem.hasUnlocked("tutorial-complete")).toBe(true);
+
+    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "revived-grass", amount: 5 });
     expect(questSystem.getActiveQuest().id).toBe("inspect-rustling-grass");
-    expect(questSystem.hasUnlocked("dry-grass-request-complete")).toBe(true);
+    expect(questSystem.hasUnlocked("grow-bot-route")).toBe(true);
     expect(questSystem.hasUnlocked("leafage")).toBe(false);
 
     questSystem.emit({ type: QUEST_EVENT.TALK, targetId: "leaf-helper" });
     expect(questSystem.getActiveQuest().id).toBe("grow-a-home-patch");
     expect(questSystem.hasUnlocked("leafage")).toBe(true);
 
-    questSystem.emit({ type: QUEST_EVENT.PLACE, targetId: "leafy-home-patch" });
+    questSystem.emit({ type: QUEST_EVENT.PLACE, targetId: "leafy-home-patch", amount: 4 });
+    expect(questSystem.getActiveQuest().id).toBe("melt-first-snow");
+    expect(questSystem.hasUnlocked("grow-corner-complete")).toBe(true);
+
+    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "snow-melted" });
+    expect(questSystem.getActiveQuest().id).toBe("open-colony-computer");
+    expect(questSystem.hasUnlocked("snow-construction-rule")).toBe(true);
+
+    questSystem.emit({ type: QUEST_EVENT.UNLOCK, targetId: "challenges" });
+    expect(questSystem.getActiveQuest().id).toBe("build-first-base");
+    expect(questSystem.hasUnlocked("builder-bot")).toBe(true);
+
+    questSystem.emit({ type: QUEST_EVENT.COLLECT, targetId: "wood", amount: 6 });
+    expect(questSystem.getActiveQuest().id).toBe("build-first-base");
+
+    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "foundation-wall", amount: 12 });
     expect(questSystem.getActiveQuest().id).toBe("chopper-first-habitat-report");
-    expect(questSystem.hasUnlocked("first-helper-home")).toBe(true);
+    expect(questSystem.hasUnlocked("first-base-built")).toBe(true);
 
     questSystem.emit({ type: QUEST_EVENT.TALK, targetId: "chopper-first-habitat-report" });
     expect(questSystem.getActiveQuest()).toBeNull();
-    expect(questSystem.hasUnlocked("first-habitat-path")).toBe(true);
+    expect(questSystem.hasUnlocked("campaign-mvp-complete")).toBe(true);
   });
 
   it("can opt a later objective into remembered progress when the quest explicitly allows it", () => {

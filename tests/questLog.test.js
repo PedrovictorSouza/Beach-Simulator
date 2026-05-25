@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { createQuestLog } from "../app/ui/createQuestLog.js";
 import { QUEST_EVENT, SMALL_ISLAND_QUESTS } from "../app/quest/questData.js";
+import { GAMEPAD_LAYOUT, INPUT_DEVICE } from "../input/inputModality.js";
 
 describe("createQuestLog", () => {
-  it("renders animated movement controls for the first movement task", () => {
+  it("renders a keyboard movement prompt for the first movement task by default", () => {
     const quest = SMALL_ISLAND_QUESTS.find((entry) => entry.id === "learn-to-move");
     const questLog = createQuestLog({
       questSystem: {
@@ -14,8 +15,27 @@ describe("createQuestLog", () => {
     const checklistHtml = questLog.renderChecklistHtml();
 
     expect(checklistHtml).toContain(`data-objective-type="${QUEST_EVENT.MOVE}"`);
-    expect(checklistHtml).toContain("hud-control-key");
-    expect(checklistHtml).toContain("Left stick");
+    expect(checklistHtml).toContain("Use W/A/S/D to move away.");
+    expect(checklistHtml).not.toContain("Left stick");
+  });
+
+  it("renders a gamepad movement prompt when gamepad input is current", () => {
+    const quest = SMALL_ISLAND_QUESTS.find((entry) => entry.id === "learn-to-move");
+    const questLog = createQuestLog({
+      questSystem: {
+        getActiveQuest: () => quest
+      }
+    });
+
+    const checklistHtml = questLog.renderChecklistHtml({}, {
+      inputModalityState: {
+        device: INPUT_DEVICE.GAMEPAD,
+        gamepadLayout: GAMEPAD_LAYOUT.GENERIC
+      }
+    });
+
+    expect(checklistHtml).toContain("Use the left stick to move away.");
+    expect(checklistHtml).not.toContain("Use W/A/S/D to move away.");
   });
 
   it("hides the completed first movement card after the next quest is active", () => {
@@ -54,7 +74,7 @@ describe("createQuestLog", () => {
 
     expect(summaryHtml).not.toContain('<div class="hud-task-title">Talk to Chopper</div>');
     expect(summaryHtml).toContain("hud-task-subtitle");
-    expect(summaryHtml).toContain("Talk to Chopper so he can explain");
+    expect(summaryHtml).toContain("picked up a weak signal from Hydro Bot");
   });
 
   it("omits the Free Roam title from the active HUD summary fallback", () => {
@@ -83,15 +103,15 @@ describe("createQuestLog", () => {
     const summaryText = questLog.renderActiveSummary();
     const logHtml = questLog.renderLogHtml();
 
-    expect(summaryHtml).toContain("Water dry grass!");
-    expect(summaryHtml).toContain("Use Hydro Jet to revive 10 patches");
+    expect(summaryHtml).toContain("Restore Five Dry Patches");
+    expect(summaryHtml).toContain("Revive enough dry ground for Grow Bot");
     expect(summaryHtml).not.toContain("Next:");
     expect(summaryHtml).not.toContain("Stand near dry grass");
     expect(summaryText).not.toContain("Next:");
     expect(logHtml).not.toContain("Stand near dry grass");
   });
 
-  it("does not render HUD-hidden objectives in the quest tracker", () => {
+  it("renders the Hydro wake objective in the quest tracker", () => {
     const quest = SMALL_ISLAND_QUESTS.find((entry) => entry.id === "gather-first-supplies");
     const questLog = createQuestLog({
       questSystem: {
@@ -100,20 +120,14 @@ describe("createQuestLog", () => {
       }
     });
 
-    expect(questLog.renderChecklistHtml()).toContain("Wake up Hydro Bot");
+    expect(questLog.renderChecklistHtml()).toContain("Unlock: Hydro Jet");
     expect(questLog.renderLogHtml()).toContain("Wake up Hydro Bot");
-    expect(questLog.renderActiveSummaryHtml()).not.toContain("hud-task-subtitle");
+    expect(questLog.renderActiveSummaryHtml()).toContain("hud-task-subtitle");
     expect(questLog.renderActiveSummary()).toBe(
-      "Wake up Hydro Bot. Follow Chopper's marker to Hydro Bot, then interact when the prompt appears."
+      "Wake up Hydro Bot. Hydro Bot is dormant near the starter grove. Talk to the bot and bring the water system online."
     );
-    expect(questLog.renderLogHtml()).toContain("Follow the signal marker");
-    expect(questLog.renderLogHtml()).toContain("Sweep the dry edge first");
-    expect(questLog.renderLogHtml()).toContain("Reward:");
-    expect(questLog.renderLogHtml()).toContain("comes online and unlocks Hydro Jet");
-    expect(questLog.renderLogHtml()).toContain("Next signal:");
-    expect(questLog.renderLogHtml()).toContain("If water can move again");
-    expect(questLog.renderChecklistHtml()).not.toContain("Unlock: Hydro Jet");
-    expect(questLog.renderLogHtml()).not.toContain("Unlock: Hydro Jet");
+    expect(questLog.renderLogHtml()).toContain("Talk to the bot and bring the water system online");
+    expect(questLog.renderLogHtml()).toContain("Unlock: Hydro Jet");
   });
 
   it("renders tracked long-running tasks alongside the active quest", () => {
@@ -284,7 +298,7 @@ describe("createQuestLog", () => {
     const logHtml = questLog.renderLogHtml(storyState);
 
     expect(checklistHtml).toContain("Revive the dead tree");
-    expect(checklistHtml).toContain("four dry tiles around the dead tree");
+    expect(checklistHtml).toContain("four dry tiles around the Organic Bus");
     expect(checklistHtml).not.toContain("Talk to Grow Bot");
     expect(logHtml).toContain('data-task-id="revive-leppa-tree"');
 
@@ -325,9 +339,9 @@ describe("createQuestLog", () => {
     expect(returnIndex).toBeLessThan(habitatIndex);
     expect(returnIndex).toBeLessThan(waterIndex);
     expect(checklistHtml).toContain("learn Bio-Grow");
-    expect(checklistHtml).not.toContain("Talk: Leaf helper");
+    expect(checklistHtml).toContain("Talk: Leaf helper");
     expect(logHtml).toContain('data-task-id="bulbasaur-leafage-reward"');
-    expect(logHtml).not.toContain("Talk: Leaf helper");
+    expect(logHtml).toContain("Talk: Leaf helper");
   });
 
   it("shows a non-blocking play seed after Bio-Grow is learned", () => {
@@ -350,7 +364,7 @@ describe("createQuestLog", () => {
     const playSeedIndex = checklistHtml.indexOf("Make a green corner");
     const habitatIndex = checklistHtml.indexOf("Making colony zones");
 
-    expect(quest.title).toBe("Plant Bio-Grow for Grow Bot");
+    expect(quest.title).toBe("Grow Four Plants");
     expect(playSeedIndex).toBeGreaterThan(-1);
     expect(habitatIndex).toBeGreaterThan(-1);
     expect(playSeedIndex).toBeLessThan(habitatIndex);

@@ -14,6 +14,10 @@ import {
   listWorkbenchBuildables
 } from "../app/gameplay/buildableCatalog.js";
 import {
+  createWorkbenchRecipeRegistry,
+  getWorkbenchRecipeById
+} from "../app/gameplay/workbenchRecipeRegistry.js";
+import {
   GRID_BUILD_CATEGORIES,
   GRID_PLACEABLE_IDS,
   GRID_PLACEMENT_TYPES
@@ -165,5 +169,42 @@ describe("buildable catalog", () => {
     });
     expect(Object.isFrozen(recipes)).toBe(true);
     expect(Object.isFrozen(recipes[LEAF_DEN_KIT_ITEM_ID].ingredients)).toBe(true);
+  });
+
+  it("builds immutable Workbench recipe registry records", () => {
+    const recipes = createWorkbenchRecipeRegistry({
+      baseRecipes: {
+        greenhouse: {
+          id: "greenhouse",
+          title: "Greenhouse",
+          stationId: "workbench",
+          ingredients: { gear: 5 },
+          output: { greenhouse: 1 }
+        }
+      },
+      extraRecipes: [
+        {
+          id: LEAF_DEN_KIT_ITEM_ID,
+          title: "House",
+          stationId: "workbench",
+          ingredients: {},
+          output: { [LEAF_DEN_KIT_ITEM_ID]: 1 }
+        }
+      ]
+    });
+
+    expect(getWorkbenchRecipeById(recipes, "greenhouse")).toMatchObject({
+      id: "greenhouse",
+      ingredients: { gear: 5 },
+      output: { greenhouse: 1 }
+    });
+    expect(getWorkbenchRecipeById(recipes, LEAF_DEN_KIT_ITEM_ID)).toMatchObject({
+      id: LEAF_DEN_KIT_ITEM_ID,
+      output: { [LEAF_DEN_KIT_ITEM_ID]: 1 }
+    });
+    expect(getWorkbenchRecipeById(recipes, "missing")).toBeNull();
+    expect(Object.isFrozen(recipes)).toBe(true);
+    expect(Object.isFrozen(recipes.greenhouse.ingredients)).toBe(true);
+    expect(Object.isFrozen(recipes[LEAF_DEN_KIT_ITEM_ID].output)).toBe(true);
   });
 });
