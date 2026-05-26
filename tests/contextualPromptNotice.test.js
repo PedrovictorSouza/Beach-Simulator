@@ -25,4 +25,11 @@ describe("contextual prompt notice", () => {
       worldPromptMessage: "Need more Wood"
     });
   });
+
+  it("rents the world prompt for direct build material notices", () => {
+    expect(resolveTransientNoticeRoute("Need Wood")).toEqual({
+      hudMessage: "",
+      worldPromptMessage: "Need Wood"
+    });
+  });
 });

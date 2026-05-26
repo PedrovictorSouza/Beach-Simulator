@@ -678,6 +678,21 @@
   text-transform: none;
 }
 
+.act-two-tutorial__speech[data-world-speech-variant="player-prompt"][data-world-prompt-kind="buildCost"] .act-two-tutorial__speech-bubble,
+.act-two-tutorial__speech[data-world-speech-variant="player-prompt"][data-world-prompt-kind="buildCostMissing"] .act-two-tutorial__speech-bubble {
+  min-width: 0;
+  color: #ffe7a6;
+  font-size: 168px;
+  line-height: 1;
+  -webkit-text-stroke: 0;
+  paint-order: normal;
+  text-shadow: none;
+}
+
+.act-two-tutorial__speech[data-world-speech-variant="player-prompt"][data-world-prompt-kind="buildCostMissing"] .act-two-tutorial__speech-bubble {
+  color: #ff5a4f;
+}
+
 .act-two-tutorial__speech[data-world-speech-variant="player-prompt"][data-world-prompt-kind="text"] .act-two-tutorial__speech-bubble {
   will-change: opacity, transform;
 }
@@ -1441,10 +1456,13 @@
 .inventory-slot {
   position: relative;
   display: grid;
+  grid-template-rows: 48px 28px;
   place-items: center;
+  align-content: center;
+  row-gap: 2px;
   width: 64px;
-  height: 64px;
-  aspect-ratio: 1 / 1;
+  height: 84px;
+  aspect-ratio: auto;
   border: 0;
   background: #7a423f;
   box-shadow:
@@ -1542,23 +1560,31 @@
 }
 
 .inventory-count {
-  right: 3px;
-  top: 3px;
+  position: static;
+  right: auto;
+  top: auto;
   bottom: auto;
   font-family: "Monster Friend Fore", var(--game-ui-font, monospace);
-  min-width: 20px;
-  height: 20px;
+  min-width: 0;
+  height: auto;
   display: grid;
   place-items: center;
-  padding: 0 4px;
-  border: 3px solid #381e1f;
-  background: #f7d38b;
+  padding: 0;
+  border: 0;
+  background: transparent;
   font-weight: 400;
-  color: #381e1f;
-  font-size: 14px;
+  color: #ffe7a6;
+  font-size: 28px;
   line-height: 1;
+  text-shadow: none;
   -webkit-text-stroke: 0;
   paint-order: normal;
+}
+
+.settings-menu__bag-slot {
+  grid-template-rows: max-content 48px max-content 28px;
+  width: 84px;
+  height: auto;
 }
 
 .active-companion-hud {
@@ -1949,7 +1975,9 @@
 
   .inventory-slot {
     width: 52px;
-    height: 52px;
+    height: 74px;
+    grid-template-rows: 40px 24px;
+    row-gap: 2px;
     box-shadow:
       inset 3px 3px 0 #bc7758,
       inset -3px -3px 0 #562c2b;
@@ -1973,11 +2001,11 @@
   }
 
   .inventory-count {
-    min-width: 17px;
-    height: 17px;
-    padding: 0 3px;
-    border-width: 2px;
-    font-size: 12px;
+    min-width: 0;
+    height: auto;
+    padding: 0;
+    border-width: 0;
+    font-size: 24px;
   }
 
   .active-companion-hud {

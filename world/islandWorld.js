@@ -690,15 +690,25 @@ function getLeppaTreeFootprint(leppaTree) {
 
 function getLeppaTreeWaterTargetCellOffsets(leppaTree) {
   const footprint = getLeppaTreeFootprint(leppaTree);
-  const sideColumn = Math.floor(footprint.width / 2) + 1;
-  const sideRow = Math.floor(footprint.height / 2) + 1;
+  const halfWidth = Math.max(1, Math.ceil(footprint.width / 2));
+  const halfHeight = Math.max(1, Math.ceil(footprint.height / 2));
+  const targetCellOffsets = [];
 
-  return [
-    [sideColumn, 0],
-    [-sideColumn, 0],
-    [0, sideRow],
-    [0, -sideRow]
-  ];
+  for (let cellZ = -halfHeight; cellZ <= halfHeight; cellZ += 1) {
+    for (let cellX = -halfWidth; cellX <= halfWidth; cellX += 1) {
+      if (Math.abs(cellX) !== halfWidth && Math.abs(cellZ) !== halfHeight) {
+        continue;
+      }
+
+      targetCellOffsets.push([cellX, cellZ]);
+    }
+  }
+
+  return targetCellOffsets;
+}
+
+export function getLeppaTreeRequiredWateredTileCount(leppaTree) {
+  return getLeppaTreeWaterTargetCellOffsets(leppaTree).length;
 }
 
 export function getLeppaTreeSurroundingGroundCells(leppaTree, groundCells = []) {
@@ -750,7 +760,8 @@ export function getLeppaTreeSurroundingGroundCells(leppaTree, groundCells = []) 
 }
 
 export function hasWateredLeppaTreeSurroundings(leppaTree, groundPurifiedInstances = []) {
-  return getLeppaTreeSurroundingGroundCells(leppaTree, groundPurifiedInstances).length >= 4;
+  return getLeppaTreeSurroundingGroundCells(leppaTree, groundPurifiedInstances).length >=
+    getLeppaTreeRequiredWateredTileCount(leppaTree);
 }
 
 export function reviveLeppaTreeFromWateredTiles(

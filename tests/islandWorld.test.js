@@ -19,6 +19,7 @@ import {
   findNearbyLeafDen,
   findNearbyLogChair,
   findNearbyLeppaTree,
+  getLeppaTreeRequiredWateredTileCount,
   getLeppaTreeSurroundingGroundCells,
   normalizeWorldPromptCopy,
   reviveLeppaTreeFromWateredTiles,
@@ -40,6 +41,18 @@ import {
   WORKBENCH_POSITION,
   canClaimBoulderChallengeReward
 } from "../gameplayContent.js";
+
+function createLeppaTreeGroundCell(leppaTree, id, cellX, cellZ, tileSpan = 1.425) {
+  return {
+    id,
+    offset: [
+      leppaTree.position[0] + cellX * tileSpan,
+      0,
+      leppaTree.position[2] + cellZ * tileSpan
+    ],
+    tileSpan
+  };
+}
 
 describe("findNearbyInteractable", () => {
   it("detects an active NPC talk target without requiring the player to touch them", () => {
@@ -939,22 +952,23 @@ describe("findNearbyInteractable", () => {
 
     expect(findNearbyLeppaTree([2.4, 0, 2.2], leppaTree, storyState)).toBeNull();
 
-    expect(reviveLeppaTreeFromWateredTiles(leppaTree, storyState, [
-      { id: "east", offset: [3.4, 0, 2], tileSpan: 1.425 },
-      { id: "west", offset: [0.6, 0, 2], tileSpan: 1.425 },
-      { id: "south", offset: [2, 0, 3.4], tileSpan: 1.425 },
-      { id: "north", offset: [2, 0, 0.6], tileSpan: 1.425 }
-    ])).toBe(true);
+    const wateredPerimeterCells = [
+      createLeppaTreeGroundCell(leppaTree, "north-west", -1, -1),
+      createLeppaTreeGroundCell(leppaTree, "north", 0, -1),
+      createLeppaTreeGroundCell(leppaTree, "north-east", 1, -1),
+      createLeppaTreeGroundCell(leppaTree, "west", -1, 0),
+      createLeppaTreeGroundCell(leppaTree, "east", 1, 0),
+      createLeppaTreeGroundCell(leppaTree, "south-west", -1, 1),
+      createLeppaTreeGroundCell(leppaTree, "south", 0, 1),
+      createLeppaTreeGroundCell(leppaTree, "south-east", 1, 1)
+    ];
+
+    expect(reviveLeppaTreeFromWateredTiles(leppaTree, storyState, wateredPerimeterCells)).toBe(true);
     expect(storyState.flags.leppaTreeRevived).toBe(true);
     expect(leppaTree.deadInstance.active).toBe(true);
     expect(leppaTree.deadInstance.tintStrength).toBeGreaterThan(0);
     expect(leppaTree.aliveInstance.active).toBe(false);
-    expect(reviveLeppaTreeFromWateredTiles(leppaTree, storyState, [
-      { id: "east", offset: [3.4, 0, 2], tileSpan: 1.425 },
-      { id: "west", offset: [0.6, 0, 2], tileSpan: 1.425 },
-      { id: "south", offset: [2, 0, 3.4], tileSpan: 1.425 },
-      { id: "north", offset: [2, 0, 0.6], tileSpan: 1.425 }
-    ])).toBe(false);
+    expect(reviveLeppaTreeFromWateredTiles(leppaTree, storyState, wateredPerimeterCells)).toBe(false);
     expect(findNearbyLeppaTree([2.4, 0, 2.2], leppaTree, storyState)).toEqual({
       leppaTree,
       action: "headbutt",
@@ -993,6 +1007,27 @@ describe("findNearbyInteractable", () => {
       farTile,
       inactiveTile
     ])).toEqual([eastTile, westTile]);
+  });
+
+  it("calculates the Organic Bus perimeter from its large footprint", () => {
+    const leppaTree = {
+      position: [2, 0.02, 2],
+      footprint: { width: 10, height: 4 }
+    };
+    const perimeterCells = [];
+
+    for (let cellZ = -2; cellZ <= 2; cellZ += 1) {
+      for (let cellX = -5; cellX <= 5; cellX += 1) {
+        if (Math.abs(cellX) !== 5 && Math.abs(cellZ) !== 2) {
+          continue;
+        }
+
+        perimeterCells.push(createLeppaTreeGroundCell(leppaTree, `cell-${cellX}-${cellZ}`, cellX, cellZ));
+      }
+    }
+
+    expect(getLeppaTreeRequiredWateredTileCount(leppaTree)).toBe(28);
+    expect(getLeppaTreeSurroundingGroundCells(leppaTree, perimeterCells)).toHaveLength(28);
   });
 
   it("drops and collects the Leppa Berry", () => {

@@ -533,10 +533,10 @@ export const SMALL_ISLAND_TASKS = deepFreeze([
       }),
       counterObjective({
         id: "build-twelve-foundation-walls",
-        title: "Build twelve foundation walls",
+        title: "Build twenty-four foundation walls",
         description: "Complete the base outline so the colony has a first safe shape.",
         counterId: TASK_FACT_IDS.FIRST_BASE_WALLS_BUILT,
-        target: 12
+        target: 24
       }),
       factObjective({
         id: "claim-house-kit",

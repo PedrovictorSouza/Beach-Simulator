@@ -145,12 +145,12 @@ const FREE_BLOCK_BUILD_GRID_CONFIG = Object.freeze({
   visualOffsetY: 0.03
 });
 const BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL = Object.freeze({ x: 110, y: 100 });
-const BUILDER_TUTORIAL_FOUNDATION_SIZE = 4;
+const BUILDER_TUTORIAL_FOUNDATION_SIZE = 7;
 const BUILDER_TUTORIAL_FOUNDATION_BUILD_ZONE = createRectangularFreeBlockBuildZone({
   id: "builder-tutorial-foundation",
   originCell: {
-    x: BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.x - BUILDER_TUTORIAL_FOUNDATION_SIZE / 2,
-    y: BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.y - BUILDER_TUTORIAL_FOUNDATION_SIZE / 2
+    x: Math.round(BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.x - BUILDER_TUTORIAL_FOUNDATION_SIZE / 2),
+    y: Math.round(BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.y - BUILDER_TUTORIAL_FOUNDATION_SIZE / 2)
   },
   width: BUILDER_TUTORIAL_FOUNDATION_SIZE,
   height: BUILDER_TUTORIAL_FOUNDATION_SIZE
@@ -5925,6 +5925,31 @@ export function startGameLoop({
     return result?.placed ? "Block placed." : getFreeBlockInvalidPlacementNotice(result?.reason);
   }
 
+  function formatFreeBlockCostNumber(value) {
+    const number = Math.max(0, Number(value) || 0);
+    return Number.isInteger(number) ? String(number) : number.toFixed(1);
+  }
+
+  function getFreeBlockBuildCostMarker(previewTarget = null) {
+    if (!Array.isArray(previewTarget?.targetPosition)) {
+      return null;
+    }
+
+    const materialCost = getFreeBlockBuildController()?.getSelectedBlockMaterialCost?.();
+    if (!materialCost?.itemId) {
+      return null;
+    }
+
+    const required = Math.max(0, Number(materialCost.quantity) || 0);
+    const available = Math.max(0, Number(controls.inventory?.[materialCost.itemId] || 0));
+
+    return {
+      text: `${formatFreeBlockCostNumber(required)}/${formatFreeBlockCostNumber(available)}`,
+      affordable: available >= required,
+      worldPosition: previewTarget.targetPosition
+    };
+  }
+
   function getFreeBlockBuildController() {
     const gridConfig = getFreeBlockBuildGridConfig();
     const gridSignature = JSON.stringify(gridConfig);
@@ -10540,7 +10565,7 @@ export function startGameLoop({
     const buildBlockEquipped = Boolean(
       isBuildBlockFieldMoveEquipped()
     );
-    syncFreeBlockBuildPreview({
+    const freeBlockPreviewTarget = syncFreeBlockBuildPreview({
       active: Boolean(
         buildBlockEquipped &&
         session.playerCharacter &&
@@ -12239,6 +12264,13 @@ export function startGameLoop({
       canShowWorldSpaceUi &&
       session.playerCharacter &&
       Boolean(workbenchRotationPrompt);
+    const freeBlockBuildCostMarker =
+      canShowWorldSpaceUi && buildBlockEquipped ?
+        getFreeBlockBuildCostMarker(freeBlockPreviewTarget) :
+        null;
+    const shouldShowFreeBlockBuildCostPrompt =
+      canShowWorldSpaceUi &&
+      Boolean(freeBlockBuildCostMarker);
     const shouldShowTransientWorldPrompt =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
@@ -12466,6 +12498,12 @@ export function startGameLoop({
         kind: "workbenchRotation",
         text: workbenchRotationPrompt,
         worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowFreeBlockBuildCostPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: freeBlockBuildCostMarker.affordable ? "buildCost" : "buildCostMissing",
+        text: freeBlockBuildCostMarker.text,
+        worldPosition: freeBlockBuildCostMarker.worldPosition
       });
     } else if (shouldShowPlayerCounterPrompt) {
       setFrameWorldPrompt(nextFrame, {

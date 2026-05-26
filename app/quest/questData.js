@@ -214,8 +214,8 @@ export const SMALL_ISLAND_QUESTS = Object.freeze([
   {
     id: "build-first-base",
     title: "Build the First Base",
-    description: `${SANDBOTS_BOT_NAMES.builder} can turn six wood into a simple 4x4 base outline.`,
-    guidance: "Collect 6 Wood, stand near an authorized build zone, then build all highlighted border walls.",
+    description: `${SANDBOTS_BOT_NAMES.builder} can turn gathered wood into a larger 7x7 base outline.`,
+    guidance: "Collect six wood to learn the routine, keep gathering Wood as needed, then build all highlighted border walls.",
     giverId: "builder",
     status: QUEST_STATUS.LOCKED,
     objectives: [
@@ -226,7 +226,7 @@ export const SMALL_ISLAND_QUESTS = Object.freeze([
         current: 0,
         acceptsRememberedProgress: true
       },
-      { type: QUEST_EVENT.BUILD, targetId: "foundation-wall", required: 12, current: 0 }
+      { type: QUEST_EVENT.BUILD, targetId: "foundation-wall", required: 24, current: 0 }
     ],
     rewards: {
       unlocks: ["first-base-built"],

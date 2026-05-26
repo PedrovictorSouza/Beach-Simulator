@@ -3144,13 +3144,17 @@ describe("createGameplayInteractions", () => {
     expect(leppaTree.aliveInstance.active).toBe(false);
   });
 
-  it("revives the Leppa tree after Squirtle waters the fourth surrounding tile", () => {
-    const finalGroundCell = {
-      id: "ground-near-leppa-north",
-      offset: [1, 0, -0.4],
+  it("revives the Leppa tree after Hydro Jet waters the full surrounding perimeter", () => {
+    const tileSpan = 1.425;
+    const createGroundCell = (id, cellX, cellZ) => ({
+      id,
+      offset: [1 + cellX * tileSpan, 0, 1 + cellZ * tileSpan],
       scale: 1,
-      tileSpan: 1.425,
+      tileSpan,
       yaw: 0
+    });
+    const finalGroundCell = {
+      ...createGroundCell("ground-near-leppa-north-west", -1, -1)
     };
     const storyState = {
       flags: {
@@ -3166,9 +3170,13 @@ describe("createGameplayInteractions", () => {
       aliveInstance: { active: false }
     };
     const groundPurifiedInstances = [
-      { id: "ground-near-leppa-east", offset: [2.4, 0, 1], tileSpan: 1.425 },
-      { id: "ground-near-leppa-west", offset: [-0.4, 0, 1], tileSpan: 1.425 },
-      { id: "ground-near-leppa-south", offset: [1, 0, 2.4], tileSpan: 1.425 }
+      createGroundCell("ground-near-leppa-north", 0, -1),
+      createGroundCell("ground-near-leppa-north-east", 1, -1),
+      createGroundCell("ground-near-leppa-west", -1, 0),
+      createGroundCell("ground-near-leppa-east", 1, 0),
+      createGroundCell("ground-near-leppa-south-west", -1, 1),
+      createGroundCell("ground-near-leppa-south", 0, 1),
+      createGroundCell("ground-near-leppa-south-east", 1, 1)
     ];
     const findNearbyGroundCell = vi.fn(() => ({
       groundCell: finalGroundCell,
@@ -3188,7 +3196,7 @@ describe("createGameplayInteractions", () => {
     });
 
     const result = interactions.performHarvestAction({
-      playerPosition: [1, 0, -0.4],
+      playerPosition: finalGroundCell.offset,
       palmModel: null,
       palmInstances: [],
       resourceNodes: [],

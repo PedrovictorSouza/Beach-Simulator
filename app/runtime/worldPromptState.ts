@@ -44,6 +44,11 @@ export type WorldPromptState =
       worldPosition: WorldPosition;
     }
   | {
+      kind: "buildCost" | "buildCostMissing";
+      text: string;
+      worldPosition: WorldPosition;
+    }
+  | {
       kind: "repairBox";
       text: string;
       worldPosition: WorldPosition;

@@ -34,6 +34,29 @@ describe("free block build system", () => {
     });
   });
 
+  it("exposes the selected block material cost for build preview markers", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 8,
+      height: 8
+    });
+    const buildState = createBuildState();
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState,
+      initialBlockType: FREE_BLOCK_TYPES.BLOCK
+    });
+
+    expect(controller.getSelectedBlockMaterialCost()).toBeNull();
+
+    controller.setSelectedBlockType(FREE_BLOCK_TYPES.WALL);
+    expect(controller.getSelectedBlockMaterialCost()).toEqual({
+      itemId: "wood",
+      quantity: 1
+    });
+  });
+
   it("places and removes a block", () => {
     const buildState = createBuildState();
     const placeResult = buildState.placeBlock({ x: 2, y: 3 });
@@ -427,6 +450,57 @@ describe("free block build system", () => {
       placed: true,
       blockType: FREE_BLOCK_TYPES.WALL,
       targetCell: { x: 2, y: 3 }
+    });
+    expect(inventory.wood).toBe(1);
+  });
+
+  it("snaps player-aimed foundation wall targets from interior cells to the border", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 8,
+      height: 8
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 8,
+        height: 8
+      }
+    });
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 2, y: 2 },
+      width: 4,
+      height: 4
+    });
+    const inventory = { wood: 2 };
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState,
+      initialBlockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    expect(controller.resolveSelectedBlockTarget({
+      playerPosition: [3.5, 0, 3.5],
+      forwardDirection: [0, 1],
+      buildZone
+    })).toMatchObject({
+      handled: true,
+      blockType: FREE_BLOCK_TYPES.WALL,
+      targetCell: { x: 3, y: 5 }
+    });
+
+    expect(controller.placeSelectedBlockAtTarget({
+      playerPosition: [3.5, 0, 3.5],
+      forwardDirection: [0, 1],
+      buildZone,
+      inventory
+    })).toMatchObject({
+      handled: true,
+      placed: true,
+      blockType: FREE_BLOCK_TYPES.WALL,
+      targetCell: { x: 3, y: 5 }
     });
     expect(inventory.wood).toBe(1);
   });

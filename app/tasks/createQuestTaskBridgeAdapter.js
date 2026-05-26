@@ -4,7 +4,8 @@ import { createTaskSystem } from "./createTaskSystem.js";
 export function createQuestTaskBridgeAdapter({
   questSystem,
   taskSystemBridge = null,
-  initialTaskState = null
+  initialTaskState = null,
+  onTaskChange = () => {}
 } = {}) {
   if (!questSystem || typeof questSystem.emit !== "function") {
     throw new Error("QuestTaskBridgeAdapter requires a questSystem with emit().");
@@ -18,6 +19,15 @@ export function createQuestTaskBridgeAdapter({
   function emit(event = {}) {
     const questResult = questSystem.emit(event);
     const taskResult = resolvedTaskSystemBridge.recordLegacyQuestEvent(event);
+    if (taskResult.changed) {
+      onTaskChange({
+        event,
+        questResult,
+        taskResult,
+        activeTask: resolvedTaskSystemBridge.getTaskSystem?.()?.getActiveTask?.() || null,
+        taskState: resolvedTaskSystemBridge.getState()
+      });
+    }
 
     return {
       ...questResult,

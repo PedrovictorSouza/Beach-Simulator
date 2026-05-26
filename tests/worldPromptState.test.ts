@@ -104,6 +104,16 @@ describe("world prompt state", () => {
         worldPosition: position,
       },
       {
+        kind: "buildCost",
+        text: "1/6",
+        worldPosition: position,
+      },
+      {
+        kind: "buildCostMissing",
+        text: "1/0",
+        worldPosition: position,
+      },
+      {
         kind: "repairBox",
         text: "Inspect",
         worldPosition: position,

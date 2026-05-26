@@ -41,7 +41,7 @@ describe("world object catalog", () => {
     expect(getWorldObjectById(WORLD_OBJECT_IDS.ORGANIC_BUS)).toMatchObject({
       kind: WORLD_OBJECT_KIND.ECOLOGY_SITE,
       placementMode: WORLD_OBJECT_PLACEMENT_MODE.AUTHORED,
-      footprint: { width: 5, height: 5 },
+      footprint: { width: 10, height: 4 },
       activation: {
         type: WORLD_OBJECT_ACTIVATION_TYPE.RESTORE_SITE,
         requiredCapability: "water-restoration"

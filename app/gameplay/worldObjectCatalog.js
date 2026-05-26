@@ -97,7 +97,7 @@ export const WORLD_OBJECTS = Object.freeze([
     kind: WORLD_OBJECT_KIND.ECOLOGY_SITE,
     placementMode: WORLD_OBJECT_PLACEMENT_MODE.AUTHORED,
     position: LEPPA_TREE_POSITION,
-    footprint: { width: 5, height: 5 },
+    footprint: { width: 10, height: 4 },
     tags: [
       WORLD_OBJECT_TAG.INTERACTABLE,
       WORLD_OBJECT_TAG.RESTORATION,

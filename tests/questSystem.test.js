@@ -431,7 +431,7 @@ describe("createQuestSystem", () => {
     questSystem.emit({ type: QUEST_EVENT.COLLECT, targetId: "wood", amount: 6 });
     expect(questSystem.getActiveQuest().id).toBe("build-first-base");
 
-    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "foundation-wall", amount: 12 });
+    questSystem.emit({ type: QUEST_EVENT.BUILD, targetId: "foundation-wall", amount: 24 });
     expect(questSystem.getActiveQuest().id).toBe("chopper-first-habitat-report");
     expect(questSystem.hasUnlocked("first-base-built")).toBe(true);
 

@@ -298,7 +298,7 @@ describe("createQuestLog", () => {
     const logHtml = questLog.renderLogHtml(storyState);
 
     expect(checklistHtml).toContain("Revive the dead tree");
-    expect(checklistHtml).toContain("four dry tiles around the Organic Bus");
+    expect(checklistHtml).toContain("full Organic Bus perimeter");
     expect(checklistHtml).not.toContain("Talk to Grow Bot");
     expect(logHtml).toContain('data-task-id="revive-leppa-tree"');
 

@@ -4542,7 +4542,10 @@ export function createApplicationRuntime({
   });
   const questSystem = createQuestTaskBridgeAdapter({
     questSystem: legacyQuestSystem,
-    initialTaskState: (manualSavePoint || bootManualSavePoint)?.taskState || null
+    initialTaskState: (manualSavePoint || bootManualSavePoint)?.taskState || null,
+    onTaskChange: () => {
+      syncQuestPanels();
+    }
   });
   warnInvalidErrandQuestDesign({
     quests: SMALL_ISLAND_QUESTS,

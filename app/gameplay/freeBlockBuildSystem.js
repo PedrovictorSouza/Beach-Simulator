@@ -276,6 +276,136 @@ function getBuildZoneCellsForBlockType(buildZone, blockType) {
   return Array.isArray(buildZone.cells) ? buildZone.cells : null;
 }
 
+function getBuildZoneRect(buildZone) {
+  if (!buildZone?.originCell) {
+    return null;
+  }
+
+  const originCell = normalizeCell(buildZone.originCell);
+  const width = Math.max(1, Math.trunc(finiteNumberOr(buildZone.width, 1)));
+  const height = Math.max(1, Math.trunc(finiteNumberOr(buildZone.height, 1)));
+
+  return {
+    minX: originCell.x,
+    maxX: originCell.x + width - 1,
+    minY: originCell.y,
+    maxY: originCell.y + height - 1,
+    centerX: originCell.x + width * 0.5,
+    centerY: originCell.y + height * 0.5
+  };
+}
+
+function projectCellToBuildZoneBorder(targetCell, buildZone) {
+  const rect = getBuildZoneRect(buildZone);
+  if (!rect) {
+    return null;
+  }
+
+  const normalizedTarget = normalizeCell(targetCell);
+  const deltaX = normalizedTarget.x + 0.5 - rect.centerX;
+  const deltaY = normalizedTarget.y + 0.5 - rect.centerY;
+  const projectedCell = cloneCell(normalizedTarget);
+
+  if (Math.abs(deltaY) >= Math.abs(deltaX)) {
+    projectedCell.y = deltaY >= 0 ? rect.maxY : rect.minY;
+  } else {
+    projectedCell.x = deltaX >= 0 ? rect.maxX : rect.minX;
+  }
+
+  return projectedCell;
+}
+
+function getCellDistanceSquared(a, b) {
+  const cellA = normalizeCell(a);
+  const cellB = normalizeCell(b);
+  const deltaX = cellA.x - cellB.x;
+  const deltaY = cellA.y - cellB.y;
+  return deltaX * deltaX + deltaY * deltaY;
+}
+
+function findNearestUsableBuildZoneCell({
+  targetCell,
+  buildZone,
+  blockType,
+  buildState,
+  options = {}
+}) {
+  const allowedCells = getBuildZoneCellsForBlockType(buildZone, blockType);
+  if (!Array.isArray(allowedCells) || !allowedCells.length) {
+    return null;
+  }
+
+  let nearestCell = null;
+  let nearestDistanceSquared = Infinity;
+
+  for (const allowedCell of allowedCells) {
+    const normalizedCell = normalizeCell(allowedCell);
+    const placementResult = buildState?.canPlaceBlock?.(normalizedCell, {
+      ...options,
+      buildZone,
+      blockType
+    });
+
+    if (placementResult && placementResult.placed !== true) {
+      continue;
+    }
+
+    const distanceSquared = getCellDistanceSquared(targetCell, normalizedCell);
+    if (distanceSquared < nearestDistanceSquared) {
+      nearestCell = cloneCell(normalizedCell);
+      nearestDistanceSquared = distanceSquared;
+    }
+  }
+
+  return nearestCell;
+}
+
+function snapResolvedTargetCellToBuildZone({
+  targetCell,
+  buildZone,
+  blockType,
+  buildState,
+  options = {}
+}) {
+  if (!targetCell || !buildZone) {
+    return targetCell;
+  }
+
+  const zoneCellKeys = normalizeCellKeySet(buildZone.cells);
+  const allowedCellKeys = normalizeCellKeySet(getBuildZoneCellsForBlockType(buildZone, blockType));
+  const normalizedTarget = normalizeCell(targetCell);
+  const targetKey = cellKey(normalizedTarget);
+
+  if (
+    !zoneCellKeys ||
+    !allowedCellKeys ||
+    !zoneCellKeys.has(targetKey) ||
+    allowedCellKeys.has(targetKey)
+  ) {
+    return normalizedTarget;
+  }
+
+  const projectedCell = projectCellToBuildZoneBorder(normalizedTarget, buildZone);
+  if (projectedCell && allowedCellKeys.has(cellKey(projectedCell))) {
+    const placementResult = buildState?.canPlaceBlock?.(projectedCell, {
+      ...options,
+      buildZone,
+      blockType
+    });
+    if (!placementResult || placementResult.placed === true) {
+      return cloneCell(projectedCell);
+    }
+  }
+
+  return findNearestUsableBuildZoneCell({
+    targetCell: normalizedTarget,
+    buildZone,
+    blockType,
+    buildState,
+    options
+  }) || projectedCell || normalizedTarget;
+}
+
 function getInventoryCount(inventory, itemId) {
   return Math.max(0, Number(inventory?.[itemId] || 0));
 }
@@ -657,22 +787,46 @@ export function createFreeBlockBuildController({
     return true;
   }
 
-  function resolveTargetCell({
-    targetCell = null,
-    playerPosition = null,
-    playerYaw = null,
-    forwardDirection = null,
-    forwardDistance = DEFAULT_FREE_BLOCK_FORWARD_DISTANCE
-  } = {}) {
-    return targetCell ?
-      normalizeCell(targetCell) :
-      resolveFreeBlockTargetCell({
-        gridSystem,
-        playerPosition,
-        playerYaw,
-        forwardDirection,
-        forwardDistance
-      });
+  function getSelectedBlockMaterialCost() {
+    const materialCost = definitions.get(selectedBlockType)?.materialCost;
+    if (!materialCost?.itemId || !Number.isFinite(Number(materialCost.quantity))) {
+      return null;
+    }
+
+    return {
+      itemId: materialCost.itemId,
+      quantity: Math.max(0, Number(materialCost.quantity))
+    };
+  }
+
+  function resolveTargetCell(options = {}) {
+    const {
+      targetCell = null,
+      playerPosition = null,
+      playerYaw = null,
+      forwardDirection = null,
+      forwardDistance = DEFAULT_FREE_BLOCK_FORWARD_DISTANCE
+    } = options;
+
+    if (targetCell) {
+      return normalizeCell(targetCell);
+    }
+
+    const resolvedTargetCell = resolveFreeBlockTargetCell({
+      gridSystem,
+      playerPosition,
+      playerYaw,
+      forwardDirection,
+      forwardDistance
+    });
+
+    return snapResolvedTargetCellToBuildZone({
+      targetCell: resolvedTargetCell,
+      buildZone: options.buildZone,
+      blockType: selectedBlockType,
+      buildState,
+      options
+    });
   }
 
   function placeSelectedBlockAtTarget(options = {}) {
@@ -823,6 +977,7 @@ export function createFreeBlockBuildController({
     getSelectedBlockType() {
       return selectedBlockType;
     },
+    getSelectedBlockMaterialCost,
     validateSelectedBlockTarget,
     resolveSelectedBlockTarget,
     placeSelectedBlockAtTarget,

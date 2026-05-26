@@ -1,6 +1,10 @@
 const MISSING_REQUIREMENT_NOTICE_PATTERN = /^(?:Missing|Faltando):\s*(.+)$/i;
 const REQUIREMENT_SEPARATOR_PATTERN = /\s*(?:\u00b7|,)\s*/;
 const REQUIREMENT_COUNT_SUFFIX_PATTERN = /\s+\d+\s*\/\s*\d+\s*$/;
+const DIRECT_WORLD_PROMPT_NOTICES = Object.freeze({
+  "need wood": "Need Wood",
+  "missing wood": "Missing wood"
+});
 
 function cleanRequirementName(requirementText) {
   return requirementText.replace(REQUIREMENT_COUNT_SUFFIX_PATTERN, "").trim();
@@ -16,6 +20,11 @@ function joinRequirementNames(requirementNames) {
 
 export function createContextualPromptNotice(message) {
   const noticeText = typeof message === "string" ? message.trim() : "";
+  const directPrompt = DIRECT_WORLD_PROMPT_NOTICES[noticeText.toLowerCase()];
+  if (directPrompt) {
+    return directPrompt;
+  }
+
   const match = noticeText.match(MISSING_REQUIREMENT_NOTICE_PATTERN);
 
   if (!match) {

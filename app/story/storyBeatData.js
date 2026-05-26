@@ -132,7 +132,7 @@ export const SMALL_ISLAND_FIELD_TASKS = Object.freeze({
   [FIELD_TASK_IDS.REVIVE_LEPPA_TREE]: {
     id: FIELD_TASK_IDS.REVIVE_LEPPA_TREE,
     title: "Revive the dead tree",
-    description: `Use ${SANDBOTS_ITEM_NAMES.hydroTool} on the four dry tiles around the Organic Bus so the route can prove water still reaches deep roots.`,
+    description: `Use ${SANDBOTS_ITEM_NAMES.hydroTool} around the full Organic Bus perimeter so the route can prove water still reaches deep roots.`,
     completeFlag: "leppaTreeRevived"
   },
   [FIELD_TASK_IDS.WATER_DRY_TALL_GRASS]: {
@@ -196,7 +196,7 @@ export const SMALL_ISLAND_FIELD_TASKS = Object.freeze({
         return "Press X by the revived tree to pick a Pulse Berry.";
       }
 
-      return `Use ${SANDBOTS_ITEM_NAMES.hydroTool} on the four tiles around the Organic Bus to revive it.`;
+      return `Use ${SANDBOTS_ITEM_NAMES.hydroTool} around the full Organic Bus perimeter to revive it.`;
     },
     completeFlag: "leppaBerryGiftComplete"
   },

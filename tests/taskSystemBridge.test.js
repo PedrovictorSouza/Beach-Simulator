@@ -35,7 +35,7 @@ const LEGACY_MVP_EVENTS = [
   { type: "BUILD", targetId: "snow-melted" },
   { type: "UNLOCK", targetId: "challenges" },
   { type: "COLLECT", targetId: "wood", amount: 6 },
-  { type: "BUILD", targetId: "foundation-wall", amount: 12 },
+  { type: "BUILD", targetId: "foundation-wall", amount: 24 },
   { type: "TALK", targetId: "chopper-first-habitat-report" }
 ];
 
@@ -153,7 +153,7 @@ describe("taskSystemBridge", () => {
     expect(state.facts[TASK_FACT_IDS.FIRST_HABITAT_PATCH_COUNT]).toBe(4);
     expect(state.facts[TASK_FACT_IDS.WHITE_GROUND_CLEARED]).toBe(1);
     expect(state.facts[TASK_FACT_IDS.FIRST_BASE_WOOD_COLLECTED]).toBe(6);
-    expect(state.facts[TASK_FACT_IDS.FIRST_BASE_WALLS_BUILT]).toBe(12);
+    expect(state.facts[TASK_FACT_IDS.FIRST_BASE_WALLS_BUILT]).toBe(24);
 
     expect(terminalResult.completedTaskIds).toEqual(["unlock-colony-terminal"]);
     expect(terminalResult.effects).toEqual(expect.arrayContaining([

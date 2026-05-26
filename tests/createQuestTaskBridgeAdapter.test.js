@@ -155,6 +155,52 @@ describe("createQuestTaskBridgeAdapter", () => {
     });
   });
 
+  it("notifies task-only changes so the HUD can refresh after Grow Bot turn-in", () => {
+    const legacyQuestSystem = createLegacyQuestSystem();
+    legacyQuestSystem.emit = vi.fn(() => ({
+      changed: false,
+      completedQuestIds: []
+    }));
+    const onTaskChange = vi.fn();
+    const questSystem = createQuestTaskBridgeAdapter({
+      questSystem: legacyQuestSystem,
+      onTaskChange
+    });
+
+    for (const event of [
+      { type: "MOVE", targetId: "player" },
+      { type: "TALK", targetId: "tangrowth" },
+      { type: "UNLOCK", targetId: "waterGun" },
+      { type: "BUILD", targetId: "revived-grass", amount: 1 },
+      { type: "BUILD", targetId: "revived-grass", amount: 4 }
+    ]) {
+      questSystem.emit(event);
+    }
+    onTaskChange.mockClear();
+
+    const result = questSystem.emit({
+      type: "TALK",
+      targetId: "leaf-helper"
+    });
+
+    expect(result.taskResult).toMatchObject({
+      changed: true,
+      completedTaskIds: ["meet-grow"]
+    });
+    expect(onTaskChange).toHaveBeenCalledWith(expect.objectContaining({
+      event: {
+        type: "TALK",
+        targetId: "leaf-helper"
+      },
+      taskResult: expect.objectContaining({
+        completedTaskIds: ["meet-grow"]
+      }),
+      activeTask: expect.objectContaining({
+        id: "grow-first-habitat"
+      })
+    }));
+  });
+
   it("restores legacy and task state together for save slot changes", () => {
     const legacyQuestSystem = createLegacyQuestSystem();
     legacyQuestSystem.restoreState = vi.fn((state) => state);
