@@ -6073,6 +6073,29 @@ export function startGameLoop({
     return progress;
   }
 
+  function canStackFreeBlockPlacement() {
+    const progress = getFreeBlockBuildZoneProgress({
+      buildState: session.freeBlockBuildState,
+      buildZone: getActiveFreeBlockBuildZone(),
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+    return Boolean(progress.complete);
+  }
+
+  function getFreeBlockCellWorldPosition(cell, gridSystem = createGridSystem(getFreeBlockBuildGridConfig())) {
+    const worldPosition = gridSystem.cellToWorld(cell, {
+      center: true,
+      includeVisualOffset: true
+    });
+    const layer = Math.max(0, Math.trunc(Number(cell?.layer || 0)));
+    const cellSize = Number(gridSystem.cellSize || 1);
+    return [
+      worldPosition.x,
+      worldPosition.y + layer * cellSize,
+      worldPosition.z
+    ];
+  }
+
   function buildFreeBlockFeedbackGroundCell(result) {
     const gridConfig = getFreeBlockBuildGridConfig();
     const gridSystem = createGridSystem(gridConfig);
@@ -6152,6 +6175,7 @@ export function startGameLoop({
     const result = controller.placeSelectedBlockAtTarget({
       playerPosition,
       buildZone: getActiveFreeBlockBuildZone(),
+      allowStacking: canStackFreeBlockPlacement(),
       blockedCells: getFreeBlockPlayerBlockedCells(playerPosition),
       blockedReason: "player-cell",
       playerYaw: session.playerModelInstance?.yaw,
@@ -6169,7 +6193,9 @@ export function startGameLoop({
     const controller = getFreeBlockBuildController();
     const target = controller?.resolveSelectedBlockTarget?.({
       playerPosition,
-      playerYaw: session.playerModelInstance?.yaw
+      playerYaw: session.playerModelInstance?.yaw,
+      buildZone: getActiveFreeBlockBuildZone(),
+      allowStacking: canStackFreeBlockPlacement()
     });
 
     if (!target?.targetCell) {
@@ -6178,13 +6204,10 @@ export function startGameLoop({
 
     const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
     const playerBlockedCells = getFreeBlockPlayerBlockedCells(playerPosition, gridSystem);
-    const worldPosition = gridSystem.cellToWorld(target.targetCell, {
-      center: true,
-      includeVisualOffset: true
-    });
     const validation = controller?.validateSelectedBlockTarget?.({
       targetCell: target.targetCell,
       buildZone: getActiveFreeBlockBuildZone(),
+      allowStacking: canStackFreeBlockPlacement(),
       blockedCells: playerBlockedCells,
       blockedReason: "player-cell",
       inventory: controls.inventory
@@ -6192,11 +6215,12 @@ export function startGameLoop({
       valid: true,
       reason: null
     };
-    const targetPosition = [worldPosition.x, worldPosition.y, worldPosition.z];
+    const resolvedTargetCell = validation.targetCell || target.targetCell;
+    const targetPosition = getFreeBlockCellWorldPosition(resolvedTargetCell, gridSystem);
     const blockedByConstruction = isCompanionPositionBlockedByConstruction(targetPosition);
 
     return {
-      targetCell: target.targetCell,
+      targetCell: resolvedTargetCell,
       targetPosition,
       valid: Boolean(validation.valid && !blockedByConstruction),
       reason: validation.reason || (blockedByConstruction ? "blocked-cell" : null)
@@ -6318,6 +6342,7 @@ export function startGameLoop({
     const result = controller.placeSelectedBlockAtTarget({
       targetCell: action.targetCell,
       buildZone: getActiveFreeBlockBuildZone(),
+      allowStacking: canStackFreeBlockPlacement(),
       blockedCells: getFreeBlockPlayerBlockedCells(playerPosition),
       blockedReason: "player-cell",
       inventory: controls.inventory
@@ -6411,7 +6436,15 @@ export function startGameLoop({
         Number(playerPosition[0] || 0) - Number(instance.offset[0] || 0),
         Number(playerPosition[2] || 0) - Number(instance.offset[2] || 0)
       );
-      if (distance < 1.35 && distance < nearestDistance) {
+      const layer = Math.max(0, Math.trunc(Number(instance.freeBlockCell?.layer || 0)));
+      const nearestLayer = Math.max(0, Math.trunc(Number(nearest?.freeBlockCell?.layer || 0)));
+      if (
+        distance < 1.35 &&
+        (
+          distance < nearestDistance ||
+          (Math.abs(distance - nearestDistance) < 0.001 && layer > nearestLayer)
+        )
+      ) {
         nearest = instance;
         nearestDistance = distance;
       }

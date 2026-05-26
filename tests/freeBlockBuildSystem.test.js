@@ -109,7 +109,8 @@ describe("free block build system", () => {
       placed: true,
       reason: null,
       blockType: FREE_BLOCK_TYPES.BLOCK,
-      block: null
+      block: null,
+      targetCell: { x: 1, y: 1 }
     });
     expect(buildState.getCompletionState().blockCount).toBe(0);
 
@@ -366,6 +367,115 @@ describe("free block build system", () => {
     expect(inventory.wood).toBe(1);
     expect(buildState.getCompletionState().blockCount).toBe(0);
     expect(blockInstances).toHaveLength(0);
+  });
+
+  it("stacks selected walls above occupied cells only when stacking is unlocked", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 8,
+      height: 8,
+      visualOffsetY: 0.03
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 8,
+        height: 8
+      }
+    });
+    const inventory = { wood: 3 };
+    const blockInstances = [];
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState,
+      blockInstanceStore: blockInstances,
+      initialBlockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    expect(controller.placeSelectedBlockAtTarget({
+      targetCell: { x: 2, y: 2 },
+      inventory
+    })).toMatchObject({
+      placed: true,
+      targetCell: { x: 2, y: 2 }
+    });
+
+    expect(controller.placeSelectedBlockAtTarget({
+      targetCell: { x: 2, y: 2 },
+      inventory
+    })).toMatchObject({
+      placed: false,
+      reason: "duplicate-block",
+      targetCell: { x: 2, y: 2 }
+    });
+
+    expect(controller.placeSelectedBlockAtTarget({
+      targetCell: { x: 2, y: 2 },
+      allowStacking: true,
+      inventory
+    })).toMatchObject({
+      placed: true,
+      targetCell: { x: 2, y: 2, layer: 1 },
+      block: {
+        cell: { x: 2, y: 2, layer: 1 }
+      }
+    });
+
+    expect(inventory.wood).toBe(1);
+    expect(buildState.getCompletionState().blockCount).toBe(2);
+    expect(buildState.getBlockAtCell({ x: 2, y: 2 })).toMatchObject({
+      cell: { x: 2, y: 2 }
+    });
+    expect(buildState.getBlockAtCell({ x: 2, y: 2, layer: 1 })).toMatchObject({
+      cell: { x: 2, y: 2, layer: 1 }
+    });
+    expect(blockInstances).toHaveLength(2);
+    expect(blockInstances[1]).toMatchObject({
+      id: "freeBuild:wall:2:2:1",
+      freeBlockCell: { x: 2, y: 2, layer: 1 },
+      offset: [2.5, 1.03, 2.5]
+    });
+
+    expect(controller.removeBlockAtTarget({
+      targetCell: { x: 2, y: 2 },
+      inventory
+    })).toMatchObject({
+      removed: true,
+      targetCell: { x: 2, y: 2, layer: 1 }
+    });
+    expect(inventory.wood).toBe(2);
+    expect(buildState.getCompletionState().blockCount).toBe(1);
+    expect(buildState.getBlockAtCell({ x: 2, y: 2 })).not.toBeNull();
+    expect(buildState.getBlockAtCell({ x: 2, y: 2, layer: 1 })).toBeNull();
+    expect(blockInstances).toHaveLength(1);
+  });
+
+  it("serializes and restores stacked free block layers", () => {
+    const buildState = createBuildState();
+    buildState.placeBlock({ x: 1, y: 1 }, { blockType: FREE_BLOCK_TYPES.WALL });
+    buildState.placeBlock({ x: 1, y: 1 }, {
+      allowStacking: true,
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    const snapshot = buildState.serializeFreeBlocks();
+    expect(snapshot.blocks).toContainEqual({
+      cell: { x: 1, y: 1, layer: 1 },
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    const restoredBuildState = createBuildState();
+    expect(restoredBuildState.restoreFreeBlocks(snapshot)).toMatchObject({
+      restored: {
+        blockCount: 2
+      },
+      rejected: []
+    });
+    expect(restoredBuildState.getBlockAtCell({ x: 1, y: 1, layer: 1 })).toMatchObject({
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
   });
 
   it("creates a rectangular build zone with 12 border cells for a 4x4 foundation", () => {

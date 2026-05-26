@@ -74,6 +74,25 @@ function cloneCell(cell) {
   };
 }
 
+function normalizeBlockLayer(cell = {}) {
+  return Math.max(0, Math.trunc(finiteNumberOr(cell.layer, 0)));
+}
+
+function hasExplicitBlockLayer(cell = {}) {
+  return Object.prototype.hasOwnProperty.call(cell || {}, "layer");
+}
+
+function cloneBlockCell(cell) {
+  const normalizedCell = cloneCell(cell);
+  const layer = normalizeBlockLayer(cell);
+  return layer > 0 ? { ...normalizedCell, layer } : normalizedCell;
+}
+
+function blockCellKey(cell) {
+  const normalizedCell = normalizeCell(cell);
+  return `${cellKey(normalizedCell)}:${normalizeBlockLayer(cell)}`;
+}
+
 function freezeCellList(cells = []) {
   return Object.freeze(cells.map((cell) => Object.freeze(cloneCell(cell))));
 }
@@ -97,9 +116,11 @@ function createRejectedResult(blockType, reason, extra = {}) {
 }
 
 function createBlock({ buildId, cell, blockType = FREE_BLOCK_TYPES.BLOCK }) {
-  const normalizedCell = cloneCell(cell);
+  const normalizedCell = cloneBlockCell(cell);
+  const layer = normalizeBlockLayer(normalizedCell);
+  const layerSuffix = layer > 0 ? `:${layer}` : "";
   return Object.freeze({
-    id: `${buildId}:${blockType}:${cellKey(normalizedCell)}`,
+    id: `${buildId}:${blockType}:${cellKey(normalizedCell)}${layerSuffix}`,
     buildId,
     blockType,
     cell: normalizedCell
@@ -208,7 +229,8 @@ export function createFreeBlockModelInstance({
     throw new TypeError("gridSystem is required");
   }
 
-  const cell = normalizeCell(block?.cell || block?.targetCell || block);
+  const cell = cloneBlockCell(block?.cell || block?.targetCell || block);
+  const layer = normalizeBlockLayer(cell);
   const defaultScale = finiteNumberOr(gridSystem.cellSize, DEFAULT_FREE_BLOCK_INSTANCE_SCALE);
   const resolvedScale = scale === null || scale === undefined ?
     defaultScale :
@@ -223,7 +245,7 @@ export function createFreeBlockModelInstance({
     id: block?.id || `free-block:${blockType}:${cellKey(cell)}`,
     offset: [
       worldPosition.x,
-      worldPosition.y + resolvedGroundLift,
+      worldPosition.y + resolvedGroundLift + layer * defaultScale,
       worldPosition.z
     ],
     scale: resolvedScale,
@@ -238,7 +260,7 @@ export function createFreeBlockModelInstance({
 
 function serializeBlock(block) {
   const serialized = {
-    cell: cloneCell(block.cell)
+    cell: cloneBlockCell(block.cell)
   };
   if (block.blockType && block.blockType !== FREE_BLOCK_TYPES.BLOCK) {
     serialized.blockType = block.blockType;
@@ -499,34 +521,82 @@ export function createFreeBlockBuildState({
   }
 
   function getBlockAtCell(cell) {
-    return blocks.get(cellKey(normalizeCell(cell))) || null;
+    if (hasExplicitBlockLayer(cell)) {
+      return blocks.get(blockCellKey(cell)) || null;
+    }
+
+    return blocks.get(blockCellKey({ ...normalizeCell(cell), layer: 0 })) || null;
+  }
+
+  function getTopBlockAtCell(cell) {
+    const normalizedCell = normalizeCell(cell);
+    let topBlock = null;
+    let topLayer = -1;
+
+    for (const block of blocks.values()) {
+      const blockCell = normalizeCell(block.cell);
+      if (blockCell.x !== normalizedCell.x || blockCell.y !== normalizedCell.y) {
+        continue;
+      }
+
+      const layer = normalizeBlockLayer(block.cell);
+      if (layer > topLayer) {
+        topLayer = layer;
+        topBlock = block;
+      }
+    }
+
+    return topBlock;
+  }
+
+  function resolvePlacementCell(cell, options = {}) {
+    const normalizedCell = cloneBlockCell(cell);
+    if (hasExplicitBlockLayer(cell) || !options.allowStacking) {
+      return normalizedCell;
+    }
+
+    const topBlock = getTopBlockAtCell(normalizedCell);
+    if (!topBlock) {
+      return normalizedCell;
+    }
+
+    return {
+      ...cloneCell(normalizedCell),
+      layer: normalizeBlockLayer(topBlock.cell) + 1
+    };
   }
 
   function canPlaceBlock(cell, options = {}) {
-    const normalizedCell = cloneCell(cell);
-    const key = cellKey(normalizedCell);
+    const normalizedCell = resolvePlacementCell(cell, options);
+    const key = blockCellKey(normalizedCell);
+    const groundKey = cellKey(normalizedCell);
     const blockType = options.blockType || FREE_BLOCK_TYPES.BLOCK;
     const buildZoneCellKeys = normalizeCellKeySet(
       options.allowedCells || getBuildZoneCellsForBlockType(options.buildZone, blockType)
     );
+    const layer = normalizeBlockLayer(normalizedCell);
 
     if (!isCellInsideBuildArea(normalizedCell, buildBounds)) {
       return createRejectedResult(blockType, "outside-build-area");
     }
 
-    if (buildZoneCellKeys && !buildZoneCellKeys.has(key)) {
+    if (buildZoneCellKeys && !buildZoneCellKeys.has(groundKey)) {
       return createRejectedResult(blockType, "outside-build-zone");
+    }
+
+    if (layer > 0 && !options.allowStacking && !hasExplicitBlockLayer(cell)) {
+      return createRejectedResult(blockType, "duplicate-block");
     }
 
     if (blocks.has(key)) {
       return createRejectedResult(blockType, "duplicate-block");
     }
 
-    if (normalizeBlockedCellKeys(options.blockedCells).has(key)) {
+    if (layer <= 0 && normalizeBlockedCellKeys(options.blockedCells).has(groundKey)) {
       return createRejectedResult(blockType, options.blockedReason || "blocked-cell");
     }
 
-    if (occupancyStore?.getObjectAt?.(normalizedCell)) {
+    if (layer <= 0 && occupancyStore?.getObjectAt?.(normalizedCell)) {
       return createRejectedResult(blockType, "blocked-cell");
     }
 
@@ -534,12 +604,13 @@ export function createFreeBlockBuildState({
       placed: true,
       reason: null,
       blockType,
-      block: null
+      block: null,
+      targetCell: normalizedCell
     };
   }
 
   function placeBlock(cell, options = {}) {
-    const normalizedCell = cloneCell(cell);
+    const normalizedCell = resolvePlacementCell(cell, options);
     const blockType = options.blockType || FREE_BLOCK_TYPES.BLOCK;
     const canPlace = canPlaceBlock(normalizedCell, {
       ...options,
@@ -551,7 +622,7 @@ export function createFreeBlockBuildState({
     }
 
     const block = createBlock({ buildId, cell: normalizedCell, blockType });
-    blocks.set(cellKey(normalizedCell), block);
+    blocks.set(blockCellKey(normalizedCell), block);
     return {
       placed: true,
       reason: null,
@@ -561,8 +632,10 @@ export function createFreeBlockBuildState({
   }
 
   function removeBlock(cell) {
-    const normalizedCell = cloneCell(cell);
-    const key = cellKey(normalizedCell);
+    const normalizedCell = hasExplicitBlockLayer(cell) ?
+      cloneBlockCell(cell) :
+      cloneBlockCell(getTopBlockAtCell(cell)?.cell || cell);
+    const key = blockCellKey(normalizedCell);
     const block = blocks.get(key) || null;
 
     if (!block) {
@@ -605,7 +678,12 @@ export function createFreeBlockBuildState({
     const sourceBlocks = Array.isArray(snapshot.blocks) ? snapshot.blocks : snapshot.floorBlocks || [];
 
     for (const sourceBlock of sourceBlocks) {
-      const result = placeBlock(sourceBlock.cell || sourceBlock, {
+      const sourceCell = sourceBlock.cell || sourceBlock;
+      const restoredCell = cloneBlockCell({
+        ...sourceCell,
+        layer: sourceBlock.layer ?? sourceCell.layer
+      });
+      const result = placeBlock(restoredCell, {
         blockType: sourceBlock.blockType || FREE_BLOCK_TYPES.BLOCK
       });
       if (result.placed) {
@@ -629,6 +707,7 @@ export function createFreeBlockBuildState({
     placeBlock,
     removeBlock,
     getBlockAtCell,
+    getTopBlockAtCell,
     getCompletionState,
     serializeFreeBlocks,
     restoreFreeBlocks,
@@ -649,14 +728,15 @@ function createDefaultBlockPlacementDefinition({
     blockType,
     materialCost,
     canPlace(context = {}) {
-      const targetCell = normalizeCell(context.targetCell);
+      const targetCell = cloneBlockCell(context.targetCell);
       const result = buildState.canPlaceBlock(targetCell, {
         ...context,
         blockType
       });
+      const resolvedTargetCell = result.targetCell || targetCell;
       if (result.placed && materialCost && !hasMaterialCost(context.inventory, materialCost)) {
         return {
-          ...createMissingMaterialResult(blockType, targetCell, materialCost, context.inventory),
+          ...createMissingMaterialResult(blockType, resolvedTargetCell, materialCost, context.inventory),
           completionState: buildState.getCompletionState()
         };
       }
@@ -665,20 +745,21 @@ function createDefaultBlockPlacementDefinition({
         valid: Boolean(result.placed),
         reason: result.reason,
         blockType,
-        targetCell,
+        targetCell: resolvedTargetCell,
         completionState: buildState.getCompletionState()
       };
     },
     place(context = {}) {
-      const targetCell = normalizeCell(context.targetCell);
+      const targetCell = cloneBlockCell(context.targetCell);
       const canPlace = buildState.canPlaceBlock(targetCell, {
         ...context,
         blockType
       });
+      const resolvedTargetCell = canPlace.targetCell || targetCell;
       if (!canPlace.placed) {
         return {
           ...canPlace,
-          targetCell,
+          targetCell: resolvedTargetCell,
           handled: true,
           instance: null,
           completionState: buildState.getCompletionState()
@@ -687,13 +768,13 @@ function createDefaultBlockPlacementDefinition({
 
       if (materialCost && !consumeMaterialCost(context.inventory, materialCost)) {
         return {
-          ...createMissingMaterialResult(blockType, targetCell, materialCost, context.inventory),
+          ...createMissingMaterialResult(blockType, resolvedTargetCell, materialCost, context.inventory),
           instance: null,
           completionState: buildState.getCompletionState()
         };
       }
 
-      const result = buildState.placeBlock(targetCell, {
+      const result = buildState.placeBlock(resolvedTargetCell, {
         ...context,
         blockType
       });
@@ -704,7 +785,7 @@ function createDefaultBlockPlacementDefinition({
         }
         return {
           ...result,
-          targetCell,
+          targetCell: resolvedTargetCell,
           handled: true,
           instance: null,
           completionState: buildState.getCompletionState()
@@ -720,7 +801,7 @@ function createDefaultBlockPlacementDefinition({
 
       return {
         ...result,
-        targetCell,
+        targetCell: result.block?.cell || resolvedTargetCell,
         handled: true,
         instance,
         completionState: buildState.getCompletionState()
@@ -809,7 +890,7 @@ export function createFreeBlockBuildController({
     } = options;
 
     if (targetCell) {
-      return normalizeCell(targetCell);
+      return cloneBlockCell(targetCell);
     }
 
     const resolvedTargetCell = resolveFreeBlockTargetCell({
@@ -942,10 +1023,10 @@ export function createFreeBlockBuildController({
       if (definition?.materialCost) {
         refundMaterialCost(options.inventory, definition.materialCost);
       }
-      const removedKey = cellKey(targetCell);
+      const removedKey = blockCellKey(result.block?.cell || targetCell);
       for (let index = blockInstanceStore.length - 1; index >= 0; index -= 1) {
         const instance = blockInstanceStore[index];
-        if (cellKey(instance?.freeBlockCell) === removedKey) {
+        if (blockCellKey(instance?.freeBlockCell) === removedKey) {
           blockInstanceStore.splice(index, 1);
         }
       }
@@ -954,7 +1035,7 @@ export function createFreeBlockBuildController({
     return {
       ...result,
       handled: true,
-      targetCell,
+      targetCell: result.block?.cell || targetCell,
       completionState: buildState.getCompletionState()
     };
   }
