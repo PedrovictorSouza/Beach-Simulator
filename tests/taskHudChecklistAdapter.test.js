@@ -143,6 +143,74 @@ describe("taskHudChecklistAdapter", () => {
     expect(html).not.toContain("Talk to Chopper 0/1");
   });
 
+  it("renders the grow plants objective as a grass icon with progress beside it", () => {
+    const html = createTaskHudChecklistHtml({
+      active: true,
+      objectives: [
+        {
+          id: "grow-four-plants",
+          title: "Grow four living plants",
+          completed: false,
+          progressText: "3/4"
+        }
+      ]
+    });
+
+    expect(html).toContain("grass.png");
+    expect(html).toContain("hud-checklist__icon-progress");
+    expect(html).toContain("hud-checklist__objective-count");
+    expect(html).toContain(">3/4</span>");
+    expect(html).toContain('aria-label="Grow four living plants 3/4"');
+    expect(html).not.toContain(`
+        Grow four living plants 3/4
+    `);
+  });
+
+  it("renders the Thermal cabin objective as a cabin image", () => {
+    const html = createTaskHudChecklistHtml({
+      active: true,
+      objectives: [
+        {
+          id: "place-thermal-cabin",
+          title: "Place Thermal Bot's cabin",
+          completed: false,
+          progressText: ""
+        }
+      ]
+    });
+
+    expect(html).toContain("thermal-cabin.png");
+    expect(html).toContain("hud-checklist__objective-icon--cabin");
+    expect(html).toContain('aria-label="Place Thermal Bot&#39;s cabin"');
+    expect(html).not.toContain(`
+        Place Thermal Bot's cabin
+    `);
+  });
+
+  it("hides the white ground clearing objective from the HUD checklist", () => {
+    const html = createTaskHudChecklistHtml({
+      active: true,
+      objectives: [
+        {
+          id: "place-thermal-cabin",
+          title: "Place Thermal Bot's cabin",
+          completed: false,
+          progressText: ""
+        },
+        {
+          id: "clear-one-white-ground",
+          title: "Clear one white ground patch",
+          completed: false,
+          progressText: "0/1"
+        }
+      ]
+    });
+
+    expect(html).toContain('data-task-objective-id="place-thermal-cabin"');
+    expect(html).not.toContain("clear-one-white-ground");
+    expect(html).not.toContain("Clear one white ground patch 0/1");
+  });
+
   it("escapes task objective checklist HTML", () => {
     const html = createTaskHudChecklistHtml({
       active: true,

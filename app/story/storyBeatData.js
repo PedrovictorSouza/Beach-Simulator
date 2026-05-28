@@ -168,7 +168,7 @@ export const SMALL_ISLAND_FIELD_TASKS = Object.freeze({
         return `${SANDBOTS_BOT_NAMES.grow}'s green corner is ready. Bots have a cozy place to gather.`;
       }
 
-      return `Use ${SANDBOTS_ITEM_NAMES.growTool} where you want bots to gather; this turns restored soil into a colony corner. ${current}/4 tall grass grown.`;
+      return `${current}/4 GROW`;
     },
     completeFlag: "leafageTallGrassHabitatCreated",
     background: true,

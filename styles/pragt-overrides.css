@@ -1013,6 +1013,31 @@
   justify-items: start;
 }
 
+.hud-checklist__icon-progress {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.hud-checklist__objective-icon {
+  display: block;
+  width: 28px;
+  height: 28px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.hud-checklist__objective-icon--cabin {
+  width: 151px;
+  height: 140px;
+}
+
+.hud-checklist__objective-count {
+  display: inline-block;
+  color: #ffffff;
+}
+
 .hud-checklist__item--tracked {
   padding-top: 4px;
 }

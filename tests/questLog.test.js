@@ -368,13 +368,13 @@ describe("createQuestLog", () => {
     expect(playSeedIndex).toBeGreaterThan(-1);
     expect(habitatIndex).toBeGreaterThan(-1);
     expect(playSeedIndex).toBeLessThan(habitatIndex);
-    expect(checklistHtml).toContain("0/4 tall grass grown");
+    expect(checklistHtml).toContain("0/4 GROW");
     expect(logHtml).toContain("play seed");
     expect(logHtml).toContain('data-task-id="bulbasaur-green-corner-play-seed"');
 
     storyState.flags.leafageTallGrassCount = 2;
 
-    expect(questLog.renderChecklistHtml(storyState)).toContain("2/4 tall grass grown");
+    expect(questLog.renderChecklistHtml(storyState)).toContain("2/4 GROW");
   });
 
   it("renders the Pulse Berry task with step-specific guidance", () => {

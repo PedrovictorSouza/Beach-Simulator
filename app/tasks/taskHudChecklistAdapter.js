@@ -2,6 +2,23 @@ import { resolveMovementPrompt } from "../ui/inputPromptResolver.js";
 import { renderTaskHudIllustrationHtml } from "./taskHudIllustrations.js";
 
 const MOVEMENT_OBJECTIVE_IDS = new Set(["move-after-crash"]);
+const HIDDEN_CHECKLIST_OBJECTIVE_IDS = new Set(["clear-one-white-ground"]);
+const CHECKLIST_OBJECTIVE_ICON_CONFIGS = Object.freeze({
+  "grow-four-plants": {
+    src: new URL("../ui/images/grass.png", import.meta.url).href,
+    fallbackTitle: "Grow four living plants",
+    width: 28,
+    height: 28,
+    showProgress: true
+  },
+  "place-thermal-cabin": {
+    src: new URL("../ui/images/thermal-cabin.png", import.meta.url).href,
+    fallbackTitle: "Place Thermal Bot's cabin",
+    width: 52,
+    height: 40,
+    imageClassName: "hud-checklist__objective-icon--cabin"
+  }
+});
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -37,7 +54,50 @@ function formatTaskObjectiveChecklistText(objective = {}) {
   return progressText ? `${title} ${progressText}` : title;
 }
 
+function renderChecklistObjectiveIconHtml(objective = {}) {
+  const iconConfig = CHECKLIST_OBJECTIVE_ICON_CONFIGS[objective.id];
+
+  if (!iconConfig) {
+    return "";
+  }
+
+  const title = String(objective.title || iconConfig.fallbackTitle).trim();
+  const progressText = String(objective.progressText || "").trim();
+  const accessibleText = progressText ? `${title} ${progressText}` : title;
+  const imageClassName = [
+    "hud-checklist__objective-icon",
+    iconConfig.imageClassName
+  ].filter(Boolean).join(" ");
+  const progressHtml = iconConfig.showProgress && progressText
+    ? `<span class="hud-checklist__objective-count">${escapeHtml(progressText)}</span>`
+    : "";
+
+  return `
+    <span class="hud-checklist__icon-progress" aria-label="${escapeHtml(accessibleText)}">
+      <img
+        class="${escapeHtml(imageClassName)}"
+        src="${escapeHtml(iconConfig.src)}"
+        alt="${escapeHtml(title)}"
+        width="${escapeHtml(iconConfig.width)}"
+        height="${escapeHtml(iconConfig.height)}"
+        loading="eager"
+        decoding="async"
+      >
+      ${progressHtml}
+    </span>
+  `;
+}
+
 function renderTaskObjectiveContentHtml(objective = {}, inputModalityState = null) {
+  const iconChecklistHtml = renderChecklistObjectiveIconHtml(objective);
+
+  if (iconChecklistHtml) {
+    return `
+      ${iconChecklistHtml}
+      ${renderMovementHintHtml(objective, inputModalityState)}
+    `;
+  }
+
   const fallbackText = formatTaskObjectiveChecklistText(objective);
   const hudIllustration = objective.hudIllustration?.showInChecklist === false
     ? null
@@ -61,7 +121,9 @@ export function createTaskHudChecklistHtml(taskHudView = null, {
     return "";
   }
 
-  return taskHudView.objectives.map((objective) => `
+  return taskHudView.objectives
+    .filter((objective) => !HIDDEN_CHECKLIST_OBJECTIVE_IDS.has(objective?.id))
+    .map((objective) => `
     <div
       class="hud-checklist__item"
       data-done="${objective?.completed ? "true" : "false"}"
