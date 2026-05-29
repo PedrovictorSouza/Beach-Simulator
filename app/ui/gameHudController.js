@@ -38,8 +38,6 @@ const TALK_ACTION_TERMS = Object.freeze([
   "bulbasaur"
 ]);
 const SUPPLY_PICKUP_FLY_DURATION_MS = 1000;
-const SUPPLY_PICKUP_CENTER_HOLD_MS = 500;
-const SUPPLY_PICKUP_CENTER_SCALE = 2;
 const SUPPLY_PICKUP_SLOT_PULSE_MS = 420;
 const COLONY_STATUS_STATE_LABELS = Object.freeze({
   offline: "offline",
@@ -473,16 +471,16 @@ export function createGameHudController({
         position: absolute;
         left: 0;
         top: 0;
-        width: 38px;
-        height: 38px;
+        width: 52px;
+        height: 52px;
         display: grid;
         place-items: center;
         will-change: transform, opacity;
       }
 
       .supply-pickup-fly__icon {
-        width: 34px;
-        height: 34px;
+        width: 48px;
+        height: 48px;
         display: grid;
         place-items: center;
         border: 3px solid #fff1cf;
@@ -563,7 +561,7 @@ export function createGameHudController({
       return { x: origin.x, y: origin.y };
     }
 
-    return getFallbackSupplyPickupOrigin();
+    return null;
   }
 
   function getElementCenter(element) {
@@ -627,11 +625,18 @@ export function createGameHudController({
       return;
     }
 
-    const center = getFallbackSupplyPickupOrigin();
+    const start = normalizeSupplyPickupOrigin(payload.origin);
     const end = getElementCenter(slotElement);
+
+    if (!start) {
+      supplyPickupFlyAnimating = false;
+      startNextSupplyPickupFly();
+      return;
+    }
+
     const control = {
-      x: (center.x + end.x) * 0.5,
-      y: Math.min(center.y, end.y) - 112 - Math.abs(end.x - center.x) * 0.08
+      x: (start.x + end.x) * 0.5,
+      y: Math.min(start.y, end.y) - 112 - Math.abs(end.x - start.x) * 0.08
     };
     const startedAt = getAnimationNow();
 
@@ -639,23 +644,17 @@ export function createGameHudController({
 
     const update = (timestamp) => {
       const elapsed = timestamp - startedAt;
-      const holdProgress = clamp01(elapsed / SUPPLY_PICKUP_CENTER_HOLD_MS);
-      const flightProgress = clamp01((elapsed - SUPPLY_PICKUP_CENTER_HOLD_MS) / SUPPLY_PICKUP_FLY_DURATION_MS);
+      const flightProgress = clamp01(elapsed / SUPPLY_PICKUP_FLY_DURATION_MS);
       const eased = easeOutBack(flightProgress);
       const curveT = clamp01(eased);
       const oneMinusT = 1 - curveT;
-      const x = oneMinusT * oneMinusT * center.x +
+      const x = oneMinusT * oneMinusT * start.x +
         2 * oneMinusT * curveT * control.x +
         curveT * curveT * end.x;
-      const y = oneMinusT * oneMinusT * center.y +
+      const y = oneMinusT * oneMinusT * start.y +
         2 * oneMinusT * curveT * control.y +
         curveT * curveT * end.y;
-      const centerPop = 1 + Math.sin(holdProgress * Math.PI) * 0.22;
-      const flightBounce = 1 + Math.sin(flightProgress * Math.PI) * 0.24;
-      const scale = flightProgress <= 0 ?
-        SUPPLY_PICKUP_CENTER_SCALE * centerPop :
-        (SUPPLY_PICKUP_CENTER_SCALE - flightProgress * (SUPPLY_PICKUP_CENTER_SCALE - 0.72)) *
-          flightBounce;
+      const scale = 1 + Math.sin(flightProgress * Math.PI) * 0.24;
       const rotation = flightProgress <= 0 ? 0 : Math.sin(flightProgress * Math.PI * 2) * 10;
 
       flyElement.style.opacity = formatCssNumber(1 - Math.max(0, flightProgress - 0.82) / 0.18);
@@ -687,13 +686,15 @@ export function createGameHudController({
   }
 
   function queueSupplyPickupFlyToSlot({ itemId, origin } = {}) {
-    if (!itemDefs[itemId] || !getSupplySlotElement(itemId)) {
+    const normalizedOrigin = normalizeSupplyPickupOrigin(origin);
+
+    if (!itemDefs[itemId] || !getSupplySlotElement(itemId) || !normalizedOrigin) {
       return false;
     }
 
     supplyPickupFlyQueue.push({
       itemId,
-      origin: normalizeSupplyPickupOrigin(origin)
+      origin: normalizedOrigin
     });
     startNextSupplyPickupFly();
     return true;

@@ -417,6 +417,13 @@ export const SMALL_ISLAND_TASKS = deepFreeze([
         target: 4
       }),
       factObjective({
+        id: "rebirth-of-nature",
+        title: "Rebirth of nature",
+        description: "Plant a tree nearby.",
+        factId: "world.rebirthOfNature.completed",
+        required: false
+      }),
+      factObjective({
         id: "make-colony-zones",
         title: "Experiment with colony zones",
         description: "Optional: arrange plants, rocks, trees and furniture into viable colony zones.",

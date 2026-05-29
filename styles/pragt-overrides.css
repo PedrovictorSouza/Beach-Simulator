@@ -684,8 +684,8 @@
   color: #ffe7a6;
   font-size: 168px;
   line-height: 1;
-  -webkit-text-stroke: 0;
-  paint-order: normal;
+  -webkit-text-stroke: 2px #000000;
+  paint-order: stroke fill;
   text-shadow: none;
 }
 
@@ -1607,9 +1607,23 @@
 }
 
 .settings-menu__bag-slot {
-  grid-template-rows: max-content 48px max-content 28px;
-  width: 84px;
+  grid-template-rows: max-content 58px max-content 34px;
+  width: 101px;
   height: auto;
+}
+
+.settings-menu__bag-slot .inventory-slot__role {
+  font-size: 16px;
+}
+
+.settings-menu__bag-slot .inventory-slot__icon {
+  width: 58px;
+  height: 58px;
+  font-size: 22px;
+}
+
+.settings-menu__bag-slot .inventory-count {
+  font-size: 34px;
 }
 
 .active-companion-hud {
@@ -1619,7 +1633,7 @@
   position: absolute;
   left: auto;
   right: var(--ui-gap);
-  bottom: calc(var(--ui-gap) + 116px);
+  bottom: calc(var(--ui-gap) + 0px);
   z-index: 4;
   display: grid;
   grid-template-columns: var(--active-companion-carousel-width) minmax(0, 1fr);
@@ -2033,10 +2047,29 @@
     font-size: 24px;
   }
 
+  .settings-menu__bag-slot {
+    grid-template-rows: max-content 48px max-content 29px;
+    width: 86px;
+  }
+
+  .settings-menu__bag-slot .inventory-slot__role {
+    font-size: 14px;
+  }
+
+  .settings-menu__bag-slot .inventory-slot__icon {
+    width: 48px;
+    height: 48px;
+    font-size: 19px;
+  }
+
+  .settings-menu__bag-slot .inventory-count {
+    font-size: 29px;
+  }
+
   .active-companion-hud {
     --active-companion-hud-height: 156px;
     grid-template-columns: var(--active-companion-carousel-width) minmax(0, 1fr);
-    bottom: calc(var(--ui-gap) + 184px);
+    bottom: calc(var(--ui-gap) + 0px);
     width: min(620px, calc(100% - var(--ui-gap) * 2));
   }
 

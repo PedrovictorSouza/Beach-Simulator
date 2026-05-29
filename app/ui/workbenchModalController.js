@@ -127,6 +127,18 @@ export function createWorkbenchModalController({
       .join(" · ");
   }
 
+  function hasMissingRecipeRequirement(currentRecipe, currentOption = {}) {
+    if (/\bneeds\b/i.test(String(currentOption?.status || ""))) {
+      return true;
+    }
+
+    return Object.entries(currentRecipe?.ingredients || {}).some(([itemId, required]) => {
+      const requiredAmount = Math.max(0, Number(required || 0));
+      const ownedAmount = Math.max(0, Number(inventory?.[itemId] || 0));
+      return requiredAmount > 0 && ownedAmount < requiredAmount;
+    });
+  }
+
   function close() {
     if (!root) {
       return;
@@ -483,6 +495,7 @@ export function createWorkbenchModalController({
     });
 
     const selectedRequirementText = selectedOption?.status || getRecipeRequirementCopy(selectedRecipe);
+    const selectedRequirementMissing = hasMissingRecipeRequirement(selectedRecipe, selectedOption);
     const selectedRecipeGuidanceText = buildConfirmationActive ?
       "Built. Choose a site in the world." :
       getWorkbenchRecipeGuidance(selectedOption);
@@ -514,6 +527,9 @@ export function createWorkbenchModalController({
       textTransform: "uppercase"
     });
     const requirement = createElement("div", "workbench-modal__recipe-requirement");
+    if (selectedRequirementMissing) {
+      requirement.dataset.requirementState = "missing";
+    }
     applyElementStyles(requirement, {
       display: "flex",
       alignItems: "center",
@@ -530,8 +546,15 @@ export function createWorkbenchModalController({
       width: "100px",
       height: "100px",
       flex: "0 0 auto",
-      imageRendering: "pixelated"
+      imageRendering: "pixelated",
+      transformOrigin: "center"
     });
+    if (selectedRequirementMissing) {
+      requirementIcon.dataset.requirementState = "missing";
+      applyElementStyles(requirementIcon, {
+        animation: "workbenchRequirementMissingPulse 0.82s ease-in-out infinite"
+      });
+    }
     const requirementCopy = createElement(
       "span",
       "workbench-modal__recipe-requirement-copy",
@@ -543,8 +566,15 @@ export function createWorkbenchModalController({
       fontFamily: "'Super Mario World', var(--game-ui-font, monospace)",
       fontSize: "34px",
       letterSpacing: "0.08em",
-      textTransform: "uppercase"
+      textTransform: "uppercase",
+      transformOrigin: "left center"
     });
+    if (selectedRequirementMissing) {
+      requirementCopy.dataset.requirementState = "missing";
+      applyElementStyles(requirementCopy, {
+        animation: "workbenchRequirementMissingColorPulse 0.82s ease-in-out infinite"
+      });
+    }
     requirement.append(requirementIcon, requirementCopy);
     const recipeGuidance = createElement("span", "workbench-modal__recipe-guidance", selectedRecipeGuidanceText);
     applyElementStyles(recipeGuidance, {

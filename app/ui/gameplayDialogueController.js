@@ -340,11 +340,6 @@ export function createGameplayDialogueController({
       <div class="act-two-dialogue" aria-live="polite">
         ${currentLine.speaker ? `<div class="act-two-dialogue__speaker">${escapeHtml(normalizeDialogueSpeakerLabel(currentLine.speaker))}</div>` : ""}
         <div class="act-two-dialogue__body" data-speakerless="${currentLine.speaker ? "false" : "true"}">
-          ${enableAiTextEditor ? `
-            <button class="act-two-dialogue__edit-button" type="button" data-dialogue-ai-edit-toggle="true">
-              Edit
-            </button>
-          ` : ""}
           <p class="act-two-dialogue__text">${escapeHtml(state.visibleText)}</p>
           ${enableAiTextEditor && state.aiEditor.open ? `
             <div class="act-two-dialogue__ai-editor" data-dialogue-ai-editor="true">

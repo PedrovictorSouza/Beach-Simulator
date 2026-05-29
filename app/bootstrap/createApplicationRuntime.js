@@ -32,7 +32,7 @@ import {
   resolvePlacementPreviewPrompt,
   UI_PROMPT_ACTION
 } from "../ui/inputPromptResolver.js";
-import { getFirstMissionCompletionPopText } from "../ui/firstMissionCompletionPop.js";
+import { getMilestoneCompletionPopText } from "../ui/firstMissionCompletionPop.js";
 import {
   mapActiveFieldMoveStateToSaveGameDto,
   mapSaveGameDtoToActiveFieldMoveState
@@ -325,6 +325,10 @@ const FIELD_MOVE_SWITCH_PROMPT_PRESENTATION = Object.freeze({
   }
 });
 const QUEST_COMPLETION_POP_DURATION_MS = 2400;
+const OBJECTIVE_COMPLETION_POP_DURATION_MS = 1500;
+const OBJECTIVE_COMPLETION_REWARD_TEXT_BY_ID = Object.freeze({
+  "rebirth-of-nature": "+10 Leaf"
+});
 const QUEST_COMPLETION_POP_MESSAGES = Object.freeze({
   "learn-to-move": "You can move!",
   "wake-guide": "You met Chopper!",
@@ -394,7 +398,7 @@ const POKEMON_CENTER_GUIDE_FLIGHT_DURATION = 2.8;
 const LEPPA_TREE_TASK_CAMERA_FOCUS_HEIGHT = 1.75;
 const LEPPA_TREE_TASK_CAMERA_FOCUS_TRANSITION_MS = 460;
 const LEPPA_TREE_TASK_CAMERA_ORBIT_DURATION_MS = 4200;
-const LEPPA_TREE_TASK_CAMERA_ORBIT_DISTANCE = 6.2;
+const LARGE_OBJECT_TASK_CAMERA_ORBIT_DISTANCE = 14;
 const LEPPA_TREE_TASK_CAMERA_ORBIT_ZOOM = 4.45;
 const LEPPA_TREE_TASK_CAMERA_ORBIT_PITCH = 0.34;
 const LEPPA_TREE_TASK_CAMERA_FOCUS_RETRY_MS = 160;
@@ -423,6 +427,7 @@ const MANUAL_SAVE_SLOT_IDS = Object.freeze([
 const LOG_CHAIR_SAVE_REQUEST_GRACE_MS = 800;
 const LEAFAGE_TALL_GRASS_ARTWORK_URL = new URL("../../Trees/tall-grass/tall-grass.png", import.meta.url).href;
 const LEAFAGE_GARDEN_1_ARTWORK_URL = new URL("../../Trees/Garden-1/garden-1.png", import.meta.url).href;
+const LEAFAGE_NATIVE_TREE_ARTWORK_URL = new URL("../../Trees/tree-3/Tree-3.png", import.meta.url).href;
 const LEAFAGE_FLOWER_ARTWORK_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' fill='%23284f24'/%3E%3Crect x='44' y='48' width='8' height='30' fill='%2338b764'/%3E%3Crect x='32' y='38' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='50' y='38' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='41' y='28' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='41' y='50' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='42' y='42' width='12' height='12' fill='%23ff7eb6'/%3E%3Crect x='28' y='64' width='14' height='8' fill='%2346d75b'/%3E%3Crect x='54' y='62' width='16' height='8' fill='%2346d75b'/%3E%3C/svg%3E";
 const LEAFAGE_OBJECT_OPTIONS = Object.freeze([
   {
@@ -442,6 +447,12 @@ const LEAFAGE_OBJECT_OPTIONS = Object.freeze([
     label: "Flower",
     notice: `${SANDBOTS_BOT_NAMES.grow} will grow a revived Flower with ${SANDBOTS_ITEM_NAMES.growTool}.`,
     artworkUrl: LEAFAGE_FLOWER_ARTWORK_URL
+  },
+  {
+    id: "nativeTree",
+    label: "Native tree",
+    notice: `${SANDBOTS_BOT_NAMES.grow} will grow a Native tree with ${SANDBOTS_ITEM_NAMES.growTool}.`,
+    artworkUrl: LEAFAGE_NATIVE_TREE_ARTWORK_URL
   }
 ]);
 const BOT_TRADE_SFX_URL = new URL("../soundFx/bot-trade.mp3", import.meta.url).href;
@@ -1976,6 +1987,7 @@ export function createApplicationRuntime({
   let autosaveRuntime = null;
   let autosaveIndicatorSuppressed = false;
   let settingsMenu = null;
+  let pokemonCenterPcModal = null;
   let questCompletionPop = null;
   let scriptedInteractionActive = false;
   let leppaTreeTaskCameraFocusActive = false;
@@ -2880,10 +2892,10 @@ export function createApplicationRuntime({
   function buildQuestCompletionPopText(completedQuestIds = []) {
     const completedQuestId = completedQuestIds.at(-1);
     const completedQuest = completedQuestId ? questSystem.getQuest(completedQuestId) : null;
-    const firstMissionPopText = getFirstMissionCompletionPopText(completedQuestId);
+    const milestonePopText = getMilestoneCompletionPopText(completedQuestId);
 
-    if (firstMissionPopText) {
-      return firstMissionPopText;
+    if (milestonePopText) {
+      return milestonePopText;
     }
 
     return QUEST_COMPLETION_POP_MESSAGES[completedQuestId] ||
@@ -2897,6 +2909,25 @@ export function createApplicationRuntime({
     questCompletionPop = {
       text: buildQuestCompletionPopText(completedQuestIds),
       expiresAt: getRuntimeNow() + QUEST_COMPLETION_POP_DURATION_MS
+    };
+  }
+
+  function buildObjectiveCompletionPopText(completedObjectives = []) {
+    const completedObjective = completedObjectives.at(-1);
+    const title = completedObjective?.title || "Objective";
+    const rewardText = OBJECTIVE_COMPLETION_REWARD_TEXT_BY_ID[completedObjective?.id];
+    return `${title} complete${rewardText ? ` ${rewardText}` : ""}`;
+  }
+
+  function showObjectiveCompletionPop(completedObjectives = []) {
+    if (!completedObjectives.length) {
+      return;
+    }
+
+    playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_SUCCESS);
+    questCompletionPop = {
+      text: buildObjectiveCompletionPopText(completedObjectives),
+      expiresAt: getRuntimeNow() + OBJECTIVE_COMPLETION_POP_DURATION_MS
     };
   }
 
@@ -3355,7 +3386,7 @@ export function createApplicationRuntime({
         target,
         direction,
         zoom: LEPPA_TREE_TASK_CAMERA_ORBIT_ZOOM,
-        distance: LEPPA_TREE_TASK_CAMERA_ORBIT_DISTANCE
+        distance: LARGE_OBJECT_TASK_CAMERA_ORBIT_DISTANCE
       });
       engine.cameraOrbit?.sync?.(direction);
 
@@ -3415,7 +3446,8 @@ export function createApplicationRuntime({
       clearGameFlowInput();
       dialogueCamera?.focusWorldPoint({
         position,
-        height: LEPPA_TREE_TASK_CAMERA_FOCUS_HEIGHT
+        height: LEPPA_TREE_TASK_CAMERA_FOCUS_HEIGHT,
+        distance: LARGE_OBJECT_TASK_CAMERA_ORBIT_DISTANCE
       });
       leppaTreeTaskCameraFocusTimeout = windowRef.setTimeout(
         () => {
@@ -3554,7 +3586,7 @@ export function createApplicationRuntime({
         target,
         direction,
         zoom: LEPPA_TREE_TASK_CAMERA_ORBIT_ZOOM,
-        distance: LEPPA_TREE_TASK_CAMERA_ORBIT_DISTANCE
+        distance: LARGE_OBJECT_TASK_CAMERA_ORBIT_DISTANCE
       });
       engine.cameraOrbit?.sync?.(direction);
 
@@ -3587,7 +3619,8 @@ export function createApplicationRuntime({
     clearGameFlowInput();
     dialogueCamera?.focusWorldPoint({
       position,
-      height: SQUIRTLE_DRY_GRASS_CAMERA_FOCUS_HEIGHT
+      height: SQUIRTLE_DRY_GRASS_CAMERA_FOCUS_HEIGHT,
+      distance: LARGE_OBJECT_TASK_CAMERA_ORBIT_DISTANCE
     });
     squirtleDryGrassCameraFocusTimeout = windowRef.setTimeout(
       () => {
@@ -3693,6 +3726,16 @@ export function createApplicationRuntime({
     uiRuntime?.syncQuestFocus(storyState);
     uiRuntime?.syncHudInstructions(storyState);
     uiRuntime?.renderMissionCards(storyState, inventory, uiRuntime.getNoticeMessage());
+  }
+
+  function syncOpenPokemonCenterPcMissions(completedObjectives = []) {
+    if (!pokemonCenterPcModal?.isOpen?.()) {
+      return;
+    }
+
+    pokemonCenterPcModal.updateMissions?.(buildPokemonCenterPcMissionEntries(), {
+      completedObjectives
+    });
   }
 
   function trackFieldTask(taskId) {
@@ -4543,8 +4586,21 @@ export function createApplicationRuntime({
   const questSystem = createQuestTaskBridgeAdapter({
     questSystem: legacyQuestSystem,
     initialTaskState: (manualSavePoint || bootManualSavePoint)?.taskState || null,
-    onTaskChange: () => {
+    onTaskChange: ({ questResult, taskResult } = {}) => {
       syncQuestPanels();
+      const taskCompleted = Boolean(
+        taskResult?.completedTaskIds?.length ||
+        questResult?.completedQuestIds?.length
+      );
+      const completedObjectives = taskCompleted ? [] : (taskResult?.completedObjectives || []);
+      if (completedObjectives.length) {
+        showObjectiveCompletionPop(completedObjectives);
+        uiRuntime?.pushNotice(
+          buildObjectiveCompletionPopText(completedObjectives),
+          OBJECTIVE_COMPLETION_POP_DURATION_MS / 1000
+        );
+      }
+      syncOpenPokemonCenterPcMissions(completedObjectives);
     }
   });
   warnInvalidErrandQuestDesign({
@@ -5222,7 +5278,7 @@ export function createApplicationRuntime({
     formatRequirementSummary,
     clearGameFlowInput
   });
-  const pokemonCenterPcModal = createPokemonCenterPcModalController({
+  pokemonCenterPcModal = createPokemonCenterPcModalController({
     mount: dom.renderFrame || dom.uiLayer || dom.mount,
     clearGameFlowInput
   });
@@ -5519,6 +5575,7 @@ export function createApplicationRuntime({
     craftLeafDenKitAtWorkbench,
     craftStrawBedAtWorkbench,
     findNearbyActionTarget,
+    findNearbyDestroyableObjectPrompt,
     getWorkbenchRecipeOptions,
     performHarvestAction,
     performInteractAction,
@@ -6788,6 +6845,12 @@ export function createApplicationRuntime({
       cameraZoomPresets: ACT_TWO_PLAYER_CAMERA_ZOOM_PRESETS,
       gameplay: {
         buildNearbyPrompt,
+        findNearbyActionTarget,
+        findNearbyDestroyableObjectPrompt,
+        getItemLabel,
+        performHarvestAction,
+        performInteractAction,
+        resetRuntimeState: resetGameplayRuntimeState,
         collectLeppaBerryDrops(playerPosition, leppaBerryDrops, inventoryState) {
           const collectedLeppaBerryCount = collectLeppaBerryDropItems(
             playerPosition,

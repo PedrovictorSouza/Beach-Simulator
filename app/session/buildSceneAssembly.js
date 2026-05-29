@@ -19,6 +19,9 @@ const TERRAIN_DRAW_DISTANCE_FROM_CAMERA_TARGET = 42;
 const DISTANT_TERRAIN_DRAW_DISTANCE_FROM_CAMERA_TARGET = 160;
 const WORKBENCH_MODEL_FACE_YAW_OFFSET = Math.PI;
 const WORKBENCH_MODEL_SCALE = 3;
+const GREEN_ARROW_MODEL_FACE_YAW_OFFSET = 0;
+const WORKBENCH_GREEN_ARROW_MODEL_SCALE = 3;
+const WORKBENCH_GREEN_ARROW_MODEL_START_Y = 2.18;
 const WORKSHOP_MODEL_FACE_YAW_OFFSET = 0;
 const WORKSHOP_BASE_YAW = -0.18;
 const WORKSHOP_DISMANTLED_GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5));
@@ -44,6 +47,8 @@ const LEAF_DEN_MODEL_SCALE = 2;
 const LEAF_DEN_MODEL_GROUND_Y = 0.02;
 const LEAFAGE_GARDEN_MODEL_FACE_YAW_OFFSET = 0;
 const LEAFAGE_GARDEN_MODEL_SCALE = 1.15;
+const LEAFAGE_NATIVE_TREE_MODEL_FACE_YAW_OFFSET = 0;
+const LEAFAGE_NATIVE_TREE_MODEL_SCALE = 1.42;
 const CLOUD_MODEL_FACE_YAW_OFFSET = 0;
 const CLOUD_ATMOSPHERE_COUNT = 16;
 const CLOUD_ATMOSPHERE_GROUND_Y = 0.075;
@@ -326,6 +331,7 @@ export function buildSceneAssembly(session, assets) {
     solarEnergyModel,
     solarStationModel,
     greenhouseModel,
+    greenArrowModel,
     trainHouseModel,
     tallGrassModel,
     deadGrassModel,
@@ -338,6 +344,7 @@ export function buildSceneAssembly(session, assets) {
     cloudModel,
     cloudShadowModel,
     garden1Model,
+    nativeTreeModel,
     leafDenModel,
     chopperBodyModel,
     chopperPropellerModel,
@@ -419,6 +426,19 @@ export function buildSceneAssembly(session, assets) {
       model: garden1Model,
       instances: session.leafageGardenInstances,
       brightness: 1.04
+    }));
+  }
+
+  session.leafageNativeTreeModel = nativeTreeModel || null;
+  session.leafageNativeTreeModelFaceYawOffset = LEAFAGE_NATIVE_TREE_MODEL_FACE_YAW_OFFSET;
+  session.leafageNativeTreeModelScale = LEAFAGE_NATIVE_TREE_MODEL_SCALE;
+  session.leafageNativeTreeInstances = session.leafageNativeTreeInstances || [];
+
+  if (nativeTreeModel) {
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: nativeTreeModel,
+      instances: session.leafageNativeTreeInstances,
+      brightness: 1.02
     }));
   }
 
@@ -509,6 +529,27 @@ export function buildSceneAssembly(session, assets) {
     session.sceneObjects.push(withTerrainSupportDrawDistance({
       model: workbenchModel,
       instances: [session.workbenchModelInstance],
+      brightness: 1
+    }));
+  }
+
+  if (greenArrowModel) {
+    session.workbenchGreenArrowModelInstance = {
+      id: "workbench-green-arrow-cue-model",
+      offset: [
+        WORKBENCH_POSITION[0],
+        WORKBENCH_POSITION[1] + WORKBENCH_GREEN_ARROW_MODEL_START_Y,
+        WORKBENCH_POSITION[2]
+      ],
+      scale: WORKBENCH_GREEN_ARROW_MODEL_SCALE,
+      baseScale: WORKBENCH_GREEN_ARROW_MODEL_SCALE,
+      yaw: GREEN_ARROW_MODEL_FACE_YAW_OFFSET,
+      baseYaw: GREEN_ARROW_MODEL_FACE_YAW_OFFSET,
+      active: false
+    };
+    session.sceneObjects.push(withTerrainSupportDrawDistance({
+      model: greenArrowModel,
+      instances: [session.workbenchGreenArrowModelInstance],
       brightness: 1
     }));
   }

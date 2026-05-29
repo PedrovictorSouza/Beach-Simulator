@@ -540,7 +540,7 @@ describe("createGameHudController", () => {
     expect(inventoryGridElement.querySelector(".inventory-slot[data-item-id='wood']")).not.toBeNull();
   });
 
-  it("starts pickup fly feedback at screen center before flying to the supply slot", () => {
+  it("starts pickup fly feedback at the collected item screen origin before flying to the supply slot", () => {
     const inventoryGridElement = document.createElement("div");
     document.body.appendChild(inventoryGridElement);
     const controller = createGameHudController({
@@ -589,13 +589,36 @@ describe("createGameHudController", () => {
     const styleElement = [...document.head.querySelectorAll("style")]
       .find((style) => style.textContent.includes("supplyPickupSlotPulse"));
 
-    expect(flyElement?.style.transform).toContain("translate(400px, 300px)");
-    expect(flyElement?.style.transform).toContain("scale(2)");
+    expect(flyElement?.style.transform).toContain("translate(12px, 18px)");
+    expect(flyElement?.style.transform).toContain("scale(1)");
     expect(flyElement?.textContent).toContain("S");
     expect(styleElement?.textContent).toContain("scale(1.48)");
     expect(styleElement?.textContent).toContain("brightness(1.7)");
 
     rafSpy.mockRestore();
+  });
+
+  it("does not queue pickup fly feedback without a collected item screen origin", () => {
+    const inventoryGridElement = document.createElement("div");
+    document.body.appendChild(inventoryGridElement);
+    const controller = createGameHudController({
+      inventoryGridElement,
+      inventoryOrder: ["scrap"],
+      itemDefs: {
+        scrap: {
+          shortLabel: "Scrap",
+          glyph: "S",
+          color: "#8c5a34",
+          ink: "#fff1e8",
+          slotRole: "material"
+        }
+      }
+    });
+
+    controller.syncInventoryUi({ scrap: 1 });
+
+    expect(controller.queueSupplyPickupFlyToSlot({ itemId: "scrap" })).toBe(false);
+    expect(document.body.querySelector(".supply-pickup-fly")).toBeNull();
   });
 
   it("keeps companion move information out of the persistent supplies HUD", () => {

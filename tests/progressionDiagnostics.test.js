@@ -93,6 +93,9 @@ describe("progression diagnostics", () => {
       WORLD_OBJECT_RECIPE_IDS.PULSE_BERRY_PROPAGATION
     );
     expect(diagnostics.worldObjectRecipes.activeRecipeIds).toEqual([]);
+    expect(diagnostics.worldObjectRecipes.chainSummaries).toContain(
+      "Learned from Organic Bus. Used inside Greenhouse."
+    );
     expect(diagnostics.worldObjectRecipes.bySourceObjectId[WORLD_OBJECT_IDS.ORGANIC_BUS]).toEqual([
       WORLD_OBJECT_RECIPE_IDS.PULSE_BERRY_PROPAGATION,
       WORLD_OBJECT_RECIPE_IDS.BLACKBERRY_PROPAGATION,
@@ -111,8 +114,11 @@ describe("progression diagnostics", () => {
       expect.objectContaining({
         recipeId: WORLD_OBJECT_RECIPE_IDS.PULSE_BERRY_PROPAGATION,
         sourceObjectId: WORLD_OBJECT_IDS.ORGANIC_BUS,
+        sourceLabel: "Organic Bus",
         useObjectId: WORLD_OBJECT_IDS.GREENHOUSE,
+        useLabel: "Greenhouse",
         useScope: WORLD_OBJECT_RECIPE_USE_SCOPE.INSIDE_OBJECT,
+        chainSummary: "Learned from Organic Bus. Used inside Greenhouse.",
         implementationState: WORLD_OBJECT_RECIPE_IMPLEMENTATION_STATE.PLANNED
       })
     ]));

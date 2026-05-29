@@ -369,6 +369,55 @@ describe("free block build system", () => {
     expect(blockInstances).toHaveLength(0);
   });
 
+  it("can remove a wall for a collectible drop instead of a direct refund", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 8,
+      height: 8
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 8,
+        height: 8
+      }
+    });
+    const inventory = { wood: 1 };
+    const blockInstances = [];
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState,
+      blockInstanceStore: blockInstances,
+      initialBlockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    controller.placeSelectedBlockAtTarget({
+      targetCell: { x: 2, y: 2 },
+      inventory
+    });
+    expect(inventory.wood).toBe(0);
+
+    expect(controller.removeBlockAtTarget({
+      targetCell: { x: 2, y: 2 },
+      inventory,
+      refundMaterial: false
+    })).toMatchObject({
+      handled: true,
+      removed: true,
+      blockType: FREE_BLOCK_TYPES.WALL,
+      materialCost: {
+        itemId: "wood",
+        quantity: 1
+      },
+      targetCell: { x: 2, y: 2 }
+    });
+    expect(inventory.wood).toBe(0);
+    expect(buildState.getCompletionState().blockCount).toBe(0);
+    expect(blockInstances).toHaveLength(0);
+  });
+
   it("stacks selected walls above occupied cells only when stacking is unlocked", () => {
     const gridSystem = createGridSystem({
       cellSize: 1,
@@ -562,6 +611,399 @@ describe("free block build system", () => {
       targetCell: { x: 2, y: 3 }
     });
     expect(inventory.wood).toBe(1);
+  });
+
+  it("keeps an empty floor cell valid between two placed Builder Bot blocks", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 8,
+      height: 8
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 8,
+        height: 8
+      }
+    });
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState
+    });
+
+    expect(controller.placeSelectedBlockAtTarget({
+      targetCell: { x: 2, y: 3 }
+    })).toMatchObject({ placed: true });
+    expect(controller.placeSelectedBlockAtTarget({
+      targetCell: { x: 4, y: 3 }
+    })).toMatchObject({ placed: true });
+
+    expect(controller.validateSelectedBlockTarget({
+      targetCell: { x: 3, y: 3 }
+    })).toMatchObject({
+      handled: true,
+      valid: true,
+      reason: null,
+      targetCell: { x: 3, y: 3 }
+    });
+  });
+
+  it("keeps an empty foundation wall cell valid between two placed walls", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 10,
+      height: 10
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 10,
+        height: 10
+      }
+    });
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 1, y: 1 },
+      width: 7,
+      height: 7
+    });
+    const inventory = { wood: 3 };
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState,
+      initialBlockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    expect(controller.placeSelectedBlockAtTarget({
+      targetCell: { x: 3, y: 1 },
+      buildZone,
+      inventory
+    })).toMatchObject({ placed: true });
+    expect(controller.placeSelectedBlockAtTarget({
+      targetCell: { x: 5, y: 1 },
+      buildZone,
+      inventory
+    })).toMatchObject({ placed: true });
+
+    expect(controller.validateSelectedBlockTarget({
+      targetCell: { x: 4, y: 1 },
+      buildZone,
+      inventory
+    })).toMatchObject({
+      handled: true,
+      valid: true,
+      reason: null,
+      blockType: FREE_BLOCK_TYPES.WALL,
+      targetCell: { x: 4, y: 1 }
+    });
+    expect(controller.placeSelectedBlockAtTarget({
+      targetCell: { x: 4, y: 1 },
+      buildZone,
+      inventory
+    })).toMatchObject({
+      handled: true,
+      placed: true,
+      targetCell: { x: 4, y: 1 }
+    });
+    expect(inventory.wood).toBe(0);
+  });
+
+  it("snaps an interior wall preview to the empty border gap between two placed walls", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 10,
+      height: 10
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 10,
+        height: 10
+      }
+    });
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 1, y: 1 },
+      width: 7,
+      height: 7
+    });
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState,
+      initialBlockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    buildState.placeBlock({ x: 3, y: 1 }, {
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+    buildState.placeBlock({ x: 5, y: 1 }, {
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    expect(controller.resolveSelectedBlockTarget({
+      playerPosition: [4.5, 0, 4.5],
+      forwardDirection: [0, -1],
+      buildZone,
+      inventory: { wood: 1 }
+    })).toMatchObject({
+      handled: true,
+      blockType: FREE_BLOCK_TYPES.WALL,
+      targetCell: { x: 4, y: 1 }
+    });
+    expect(controller.validateSelectedBlockTarget({
+      playerPosition: [4.5, 0, 4.5],
+      forwardDirection: [0, -1],
+      buildZone,
+      inventory: { wood: 1 }
+    })).toMatchObject({
+      handled: true,
+      valid: true,
+      reason: null,
+      blockType: FREE_BLOCK_TYPES.WALL,
+      targetCell: { x: 4, y: 1 }
+    });
+  });
+
+  it("snaps an occupied border wall target to the empty gap beside it", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 10,
+      height: 10
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 10,
+        height: 10
+      }
+    });
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 1, y: 1 },
+      width: 7,
+      height: 7
+    });
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState,
+      initialBlockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    buildState.placeBlock({ x: 3, y: 1 }, {
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+    buildState.placeBlock({ x: 5, y: 1 }, {
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    expect(controller.resolveSelectedBlockTarget({
+      playerPosition: [3.5, 0, 2.5],
+      forwardDirection: [0, -1],
+      buildZone,
+      inventory: { wood: 1 }
+    })).toMatchObject({
+      handled: true,
+      blockType: FREE_BLOCK_TYPES.WALL,
+      targetCell: { x: 4, y: 1 }
+    });
+    expect(controller.validateSelectedBlockTarget({
+      playerPosition: [3.5, 0, 2.5],
+      forwardDirection: [0, -1],
+      buildZone,
+      inventory: { wood: 1 }
+    })).toMatchObject({
+      handled: true,
+      valid: true,
+      reason: null,
+      blockType: FREE_BLOCK_TYPES.WALL,
+      targetCell: { x: 4, y: 1 }
+    });
+  });
+
+  it("does not reject a wall gap because the player or another blocker is on an adjacent cell", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 10,
+      height: 10
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 10,
+        height: 10
+      }
+    });
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 1, y: 1 },
+      width: 7,
+      height: 7
+    });
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState,
+      initialBlockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    buildState.placeBlock({ x: 3, y: 1 }, {
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+    buildState.placeBlock({ x: 5, y: 1 }, {
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    expect(controller.validateSelectedBlockTarget({
+      targetCell: { x: 4, y: 1 },
+      buildZone,
+      blockedCells: [
+        { x: 3, y: 1 },
+        { x: 5, y: 1 },
+        { x: 4, y: 2 }
+      ],
+      blockedReason: "player-cell",
+      inventory: { wood: 1 }
+    })).toMatchObject({
+      handled: true,
+      valid: true,
+      reason: null,
+      blockType: FREE_BLOCK_TYPES.WALL,
+      targetCell: { x: 4, y: 1 }
+    });
+  });
+
+  it("does not treat playerPosition as a placement blocker by itself", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 10,
+      height: 10
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 10,
+        height: 10
+      }
+    });
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 1, y: 1 },
+      width: 7,
+      height: 7
+    });
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState,
+      initialBlockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    expect(controller.validateSelectedBlockTarget({
+      targetCell: { x: 4, y: 1 },
+      playerPosition: [4.5, 0, 1.5],
+      buildZone,
+      inventory: { wood: 1 }
+    })).toMatchObject({
+      handled: true,
+      valid: true,
+      reason: null,
+      blockType: FREE_BLOCK_TYPES.WALL,
+      targetCell: { x: 4, y: 1 }
+    });
+    expect(controller.placeSelectedBlockAtTarget({
+      targetCell: { x: 4, y: 1 },
+      playerPosition: [4.5, 0, 1.5],
+      buildZone,
+      inventory: { wood: 1 }
+    })).toMatchObject({
+      handled: true,
+      placed: true,
+      targetCell: { x: 4, y: 1 }
+    });
+
+    expect(controller.validateSelectedBlockTarget({
+      targetCell: { x: 5, y: 1 },
+      playerPosition: [5.5, 0, 1.5],
+      buildZone,
+      inventory: { wood: 0 }
+    })).toMatchObject({
+      handled: true,
+      valid: false,
+      reason: "missing-material",
+      blockType: FREE_BLOCK_TYPES.WALL,
+      targetCell: { x: 5, y: 1 }
+    });
+  });
+
+  it("keeps Builder Bot wall rejection reasons distinct while investigating red previews", () => {
+    const gridSystem = createGridSystem({
+      cellSize: 1,
+      origin: { x: 0, y: 0, z: 0 },
+      width: 10,
+      height: 10
+    });
+    const buildState = createFreeBlockBuildState({
+      buildId: "freeBuild",
+      bounds: {
+        originCell: { x: 0, y: 0 },
+        width: 10,
+        height: 10
+      }
+    });
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 1, y: 1 },
+      width: 7,
+      height: 7
+    });
+    const controller = createFreeBlockBuildController({
+      gridSystem,
+      buildState,
+      initialBlockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    buildState.placeBlock({ x: 3, y: 1 }, {
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    expect(controller.validateSelectedBlockTarget({
+      targetCell: { x: 3, y: 1 },
+      buildZone,
+      inventory: { wood: 1 }
+    })).toMatchObject({
+      valid: false,
+      reason: "duplicate-block"
+    });
+    expect(controller.validateSelectedBlockTarget({
+      targetCell: { x: 4, y: 4 },
+      buildZone,
+      inventory: { wood: 1 }
+    })).toMatchObject({
+      valid: false,
+      reason: "outside-build-zone"
+    });
+    expect(controller.validateSelectedBlockTarget({
+      targetCell: { x: 4, y: 1 },
+      buildZone,
+      blockedCells: [{ x: 4, y: 1 }],
+      blockedReason: "player-cell",
+      inventory: { wood: 1 }
+    })).toMatchObject({
+      valid: false,
+      reason: "player-cell"
+    });
+    expect(controller.validateSelectedBlockTarget({
+      targetCell: { x: 4, y: 1 },
+      buildZone,
+      inventory: { wood: 0 }
+    })).toMatchObject({
+      valid: false,
+      reason: "missing-material"
+    });
   });
 
   it("snaps player-aimed foundation wall targets from interior cells to the border", () => {

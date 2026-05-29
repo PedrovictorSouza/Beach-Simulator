@@ -1733,6 +1733,121 @@ describe("createGameplayInteractions", () => {
     expect(pushNotice).toHaveBeenCalledWith("Flower planted. This patch can become a flower bed.");
   });
 
+  it("grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree", () => {
+    const groundCell = {
+      id: "ground-native-tree-leafage",
+      offset: [0, 0, 0],
+      surfaceY: 0,
+      tileSpan: 1.425,
+      active: true,
+      purifiable: true
+    };
+    const pushNotice = vi.fn();
+    const habitatSystem = {
+      recordEvent: vi.fn()
+    };
+    const onNaturePatchRevived = vi.fn();
+    const interactions = createInteractions({
+      habitatSystem,
+      onNaturePatchRevived,
+      pushNotice
+    });
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        leafageObjectId: "nativeTree"
+      }
+    };
+    const groundGrassPatches = [];
+
+    const result = interactions.performHarvestAction({
+      playerPosition: [2.25, 0, 0],
+      palmModel: null,
+      palmInstances: [],
+      resourceNodes: [],
+      inventory: {},
+      storyState,
+      woodDrops: [],
+      groundDeadInstances: [],
+      groundPurifiedInstances: [groundCell],
+      groundGrassPatches,
+      groundFlowerPatches: [],
+      canUseLeafage: true
+    });
+
+    expect(result).toBe(true);
+    expect(groundGrassPatches).toEqual([
+      expect.objectContaining({
+        id: "leafage-grass-ground-native-tree-leafage",
+        cellId: "ground-native-tree-leafage",
+        habitatGroupId: "leafage-tall-grass-habitat-0",
+        leafageObjectId: "nativeTree",
+        source: "leafage",
+        size: [1.32, 1.32],
+        state: "alive"
+      })
+    ]);
+    expect(storyState.flags.leafageTallGrassCount).toBe(1);
+    expect(onNaturePatchRevived).toHaveBeenCalledWith({
+      patch: groundGrassPatches[0],
+      type: "grass"
+    });
+    expect(habitatSystem.recordEvent).toHaveBeenCalledWith({
+      type: HABITAT_EVENT.REVIVE_PATCH,
+      targetId: "grass"
+    });
+    expect(pushNotice).toHaveBeenCalledWith("Native tree planted. This patch can become a colony corner.");
+  });
+
+  it("grows Native tree on a safe nearby cell instead of trapping the player under it", () => {
+    const closeGroundCell = {
+      id: "ground-under-player",
+      offset: [0, 0, 0],
+      surfaceY: 0,
+      tileSpan: 1.425,
+      active: true,
+      purifiable: true
+    };
+    const safeGroundCell = {
+      id: "ground-safe-native-tree",
+      offset: [1.425, 0, 0],
+      surfaceY: 0,
+      tileSpan: 1.425,
+      active: true,
+      purifiable: true
+    };
+    const interactions = createInteractions();
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        leafageObjectId: "nativeTree"
+      }
+    };
+    const groundGrassPatches = [];
+
+    expect(interactions.performHarvestAction({
+      playerPosition: [0, 0, 0],
+      palmModel: null,
+      palmInstances: [],
+      resourceNodes: [],
+      inventory: {},
+      storyState,
+      woodDrops: [],
+      groundDeadInstances: [],
+      groundPurifiedInstances: [closeGroundCell, safeGroundCell],
+      groundGrassPatches,
+      groundFlowerPatches: [],
+      canUseLeafage: true
+    })).toBe(true);
+
+    expect(groundGrassPatches).toEqual([
+      expect.objectContaining({
+        cellId: "ground-safe-native-tree",
+        leafageObjectId: "nativeTree"
+      })
+    ]);
+  });
+
   it("finds a Leafage target without rebuilding the full ground grid candidate list", () => {
     const targetGroundCell = {
       id: "near-leafage-cell",
@@ -1888,6 +2003,74 @@ describe("createGameplayInteractions", () => {
     expect(groundGrassPatches).toEqual([]);
     expect(storyState.flags.leafageTallGrassCount).toBe(0);
     expect(pushNotice).toHaveBeenCalledWith("Garden-1 destroyed.");
+  });
+
+  it("drops Wood when a Leafage Native tree is destroyed", () => {
+    const pushNotice = vi.fn();
+    const groundGrassPatches = [
+      {
+        id: "leafage-grass-native-tree-1",
+        cellId: "ground-native-tree-1",
+        habitatGroupId: "leafage-tall-grass-habitat-0",
+        leafageObjectId: "nativeTree",
+        source: "leafage",
+        state: "alive",
+        position: [4, 0.02, 6],
+        size: [1.32, 1.32]
+      }
+    ];
+    const woodDrops = [
+      {
+        id: "wood-7",
+        position: [0, 0.02, 0],
+        size: [0.78, 0.78],
+        uvRect: [0, 0, 1, 1],
+        pickupRadius: 0.64,
+        collected: false
+      }
+    ];
+    const interactions = createInteractions({
+      findNearbyInteractable: vi.fn(() => ({
+        target: {
+          kind: "site",
+          id: "leafage-grass-native-tree-1",
+          label: "Native tree",
+          action: "destroyInstantiatedObject",
+          cellId: "ground-native-tree-1"
+        },
+        distance: 0.25
+      })),
+      pushNotice
+    });
+    const storyState = {
+      questIndex: 2,
+      flags: {
+        bulbasaurDryGrassMissionComplete: true,
+        leafageTallGrassCount: 1
+      }
+    };
+
+    const result = interactions.performInteractAction({
+      playerPosition: [4, 0, 6],
+      npcActors: [],
+      interactables: [],
+      storyState,
+      inventory: {},
+      woodDrops,
+      groundGrassPatches,
+      allowDestroyInstantiatedObject: true
+    });
+
+    expect(result).toBe(true);
+    expect(groundGrassPatches).toEqual([]);
+    expect(storyState.flags.leafageTallGrassCount).toBe(0);
+    expect(woodDrops).toHaveLength(4);
+    expect(woodDrops.slice(1)).toEqual([
+      expect.objectContaining({ id: "wood-8", collected: false }),
+      expect.objectContaining({ id: "wood-9", collected: false }),
+      expect.objectContaining({ id: "wood-10", collected: false })
+    ]);
+    expect(pushNotice).toHaveBeenCalledWith("Native tree destroyed. Wood dropped.");
   });
 
   it("destroys a nearby Leafage-instantiated flower", () => {

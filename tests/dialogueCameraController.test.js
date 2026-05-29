@@ -59,6 +59,38 @@ describe("createDialogueCameraController", () => {
     expect(ACT_TWO_PLAYER_CAMERA_ZOOM_PRESETS.some((preset) => preset.id === "close")).toBe(false);
   });
 
+  it("allows scripted world-point focuses to use wider framing for large objects", () => {
+    const camera = {
+      getPose: vi.fn(() => ({
+        target: [0, 0, 0],
+        direction: [0, 0.4, 1],
+        zoom: 2,
+        distance: 8
+      })),
+      startPoseTransition: vi.fn()
+    };
+    const cameraOrbit = {
+      sync: vi.fn()
+    };
+    const dialogueCamera = createDialogueCameraController({ camera, cameraOrbit });
+
+    dialogueCamera.focusWorldPoint({
+      position: [6, 0, 2],
+      height: 1.75,
+      distance: 9.3,
+      zoom: 4.45
+    });
+
+    expect(camera.startPoseTransition).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: [6, 1.75, 2],
+        zoom: 4.45,
+        distance: 9.3
+      }),
+      expect.objectContaining({ duration: expect.any(Number) })
+    );
+  });
+
   it("starts gameplay on the farthest camera preset", () => {
     expect(ACT_TWO_PLAYER_CAMERA_ZOOM_PRESETS[0]).toMatchObject({
       id: "far",

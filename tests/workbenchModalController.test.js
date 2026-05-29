@@ -8,11 +8,11 @@ import {
   WORKBENCH_REQUIREMENT_PRESENTATION
 } from "../app/ui/workbenchRecipePresentationContract.js";
 
-function createController() {
+function createController({ inventory = { gear: 20, wood: 3 } } = {}) {
   const mount = document.createElement("div");
   const controller = createWorkbenchModalController({
     mount,
-    inventory: { gear: 20, wood: 3 },
+    inventory,
     getItemLabel: (itemId) => ({
       gear: "Gear",
       wood: "Wood",
@@ -185,6 +185,34 @@ describe("createWorkbenchModalController", () => {
     expect(controller.isOpen()).toBe(false);
     expect(modal?.hidden).toBe(true);
     expect(modal?.style.display).toBe("none");
+  });
+
+  it("pulses the selected requirement when the player is missing Gear", () => {
+    const { controller, mount } = createController({ inventory: { gear: 2 } });
+
+    controller.open({
+      recipes: [
+        {
+          recipe: {
+            id: "greenhouse",
+            title: "Greenhouse",
+            ingredients: { gear: 5 }
+          },
+          onConfirm: vi.fn(() => false)
+        }
+      ]
+    });
+
+    const requirement = mount.querySelector(".workbench-modal__recipe-requirement");
+    const requirementIcon = requirement?.querySelector(".workbench-modal__recipe-requirement-icon");
+    const requirementCopy = requirement?.querySelector(".workbench-modal__recipe-requirement-copy");
+
+    expect(requirement?.dataset.requirementState).toBe("missing");
+    expect(requirementIcon?.dataset.requirementState).toBe("missing");
+    expect(requirementIcon?.style.animation).toContain("workbenchRequirementMissingPulse");
+    expect(requirementCopy?.dataset.requirementState).toBe("missing");
+    expect(requirementCopy?.style.animation).toContain("workbenchRequirementMissingColorPulse");
+    expect(requirementCopy?.textContent).toBe("Gear 2/5");
   });
 
   it("shows the construction recipes and crafts the selected solar station recipe", () => {

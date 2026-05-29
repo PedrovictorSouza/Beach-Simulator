@@ -2,9 +2,12 @@ import { WORLD_OBJECT_IDS } from "./worldObjectCatalog.js";
 import {
   canUseWorldObjectRecipeAtObject,
   getWorldObjectRecipeById,
+  listWorldObjectRecipes,
   listWorldObjectRecipesBySourceObjectId,
   listWorldObjectRecipesForUseObjectId
 } from "./worldObjectRecipeCatalog.js";
+
+export const WORLD_OBJECT_RECIPE_BOOK_FLAG = "worldObjectRecipeBook";
 
 export const WORLD_OBJECT_RECIPE_CRAFT_REASON = Object.freeze({
   LOCKED: "locked",
@@ -19,6 +22,80 @@ function getFlags(storyState = {}) {
   }
 
   return storyState.flags;
+}
+
+function normalizeRecipeIdList(recipeIds = []) {
+  return [...new Set(recipeIds.filter((recipeId) => typeof recipeId === "string" && recipeId.length > 0))];
+}
+
+function getRecipeBook(storyState = {}, { create = false } = {}) {
+  const flags = create ? getFlags(storyState) : (storyState.flags || {});
+  const currentBook = flags[WORLD_OBJECT_RECIPE_BOOK_FLAG];
+
+  if (!currentBook || typeof currentBook !== "object") {
+    if (!create) {
+      return {
+        knownRecipeIds: [],
+        seenRecipeIds: []
+      };
+    }
+
+    const book = {
+      knownRecipeIds: [],
+      seenRecipeIds: []
+    };
+    flags[WORLD_OBJECT_RECIPE_BOOK_FLAG] = book;
+    return book;
+  }
+
+  if (create) {
+    if (!Array.isArray(currentBook.knownRecipeIds)) {
+      currentBook.knownRecipeIds = [];
+    }
+    if (!Array.isArray(currentBook.seenRecipeIds)) {
+      currentBook.seenRecipeIds = [];
+    }
+    currentBook.knownRecipeIds = normalizeRecipeIdList(currentBook.knownRecipeIds);
+    currentBook.seenRecipeIds = normalizeRecipeIdList(currentBook.seenRecipeIds);
+    return currentBook;
+  }
+
+  return {
+    knownRecipeIds: Array.isArray(currentBook.knownRecipeIds) ? currentBook.knownRecipeIds : [],
+    seenRecipeIds: Array.isArray(currentBook.seenRecipeIds) ? currentBook.seenRecipeIds : []
+  };
+}
+
+function hasKnownRecipeId(storyState = {}, recipeId) {
+  return getRecipeBook(storyState).knownRecipeIds.includes(recipeId);
+}
+
+function hasLegacyUnlockEvent(recipe, storyState = {}) {
+  return !recipe?.unlockEventId || Boolean(storyState?.flags?.[recipe.unlockEventId]);
+}
+
+function addKnownRecipeIds(storyState = {}, recipeIds = []) {
+  const book = getRecipeBook(storyState, { create: true });
+  book.knownRecipeIds = normalizeRecipeIdList([
+    ...book.knownRecipeIds,
+    ...recipeIds
+  ]);
+  return book.knownRecipeIds;
+}
+
+function addSeenRecipeIds(storyState = {}, recipeIds = []) {
+  const knownRecipeIds = getKnownWorldObjectRecipeIds(storyState);
+  const knownRecipeIdSet = new Set(knownRecipeIds);
+  const book = getRecipeBook(storyState, { create: true });
+  book.knownRecipeIds = normalizeRecipeIdList([
+    ...book.knownRecipeIds,
+    ...knownRecipeIds
+  ]);
+  book.seenRecipeIds = normalizeRecipeIdList([
+    ...book.seenRecipeIds,
+    ...recipeIds.filter((recipeId) => knownRecipeIdSet.has(recipeId))
+  ]);
+  return book.seenRecipeIds;
 }
 
 function hasIngredients(inventory = {}, ingredients = {}) {
@@ -56,7 +133,7 @@ function addOutput(inventory = {}, output = {}) {
 }
 
 function isRecipeUnlocked(recipe, storyState = {}) {
-  return !recipe?.unlockEventId || Boolean(storyState?.flags?.[recipe.unlockEventId]);
+  return hasLegacyUnlockEvent(recipe, storyState) || hasKnownRecipeId(storyState, recipe?.id);
 }
 
 function createRecipeStateEntry(recipe, {
@@ -64,6 +141,7 @@ function createRecipeStateEntry(recipe, {
   storyState = {}
 } = {}) {
   const unlocked = isRecipeUnlocked(recipe, storyState);
+  const seen = getRecipeBook(storyState).seenRecipeIds.includes(recipe.id);
   const missingIngredients = getMissingIngredients(inventory, recipe.ingredients);
 
   return Object.freeze({
@@ -75,11 +153,28 @@ function createRecipeStateEntry(recipe, {
     useScope: recipe.useScope,
     ingredients: recipe.ingredients,
     output: recipe.output,
+    chain: recipe.chain,
     implementationState: recipe.implementationState,
     unlocked,
+    seen,
+    isNew: unlocked && !seen,
     canCraft: unlocked && missingIngredients.length === 0,
     missingIngredients: Object.freeze(missingIngredients.map((entry) => Object.freeze(entry)))
   });
+}
+
+export function getKnownWorldObjectRecipeIds(storyState = {}) {
+  const knownRecipeIds = new Set(getRecipeBook(storyState).knownRecipeIds);
+
+  listWorldObjectRecipes()
+    .filter((recipe) => hasLegacyUnlockEvent(recipe, storyState))
+    .forEach((recipe) => knownRecipeIds.add(recipe.id));
+
+  return Object.freeze([...knownRecipeIds]);
+}
+
+export function getSeenWorldObjectRecipeIds(storyState = {}) {
+  return Object.freeze(normalizeRecipeIdList(getRecipeBook(storyState).seenRecipeIds));
 }
 
 export function unlockOrganicBusGreenhouseRecipes(storyState = {}) {
@@ -98,12 +193,28 @@ export function unlockOrganicBusGreenhouseRecipes(storyState = {}) {
   }
 
   flags[unlockEventId] = true;
+  addKnownRecipeIds(storyState, recipes.map((recipe) => recipe.id));
 
   return {
     ok: true,
     sourceObjectId: WORLD_OBJECT_IDS.ORGANIC_BUS,
     unlockedEventId: unlockEventId,
     unlockedRecipeIds: recipes.map((recipe) => recipe.id)
+  };
+}
+
+export function markWorldObjectRecipesSeenForObject({
+  storyState = {},
+  useObjectId
+} = {}) {
+  const recipeIds = listWorldObjectRecipesForUseObjectId(useObjectId)
+    .map((recipe) => recipe.id);
+  const seenRecipeIds = addSeenRecipeIds(storyState, recipeIds);
+
+  return {
+    ok: true,
+    useObjectId,
+    seenRecipeIds: Object.freeze([...seenRecipeIds])
   };
 }
 

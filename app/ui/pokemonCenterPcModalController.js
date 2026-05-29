@@ -13,24 +13,41 @@ const EMPTY_MISSION = Object.freeze({
   source: "terminal"
 });
 
+const TERMINAL_PIXEL_COLORS = Object.freeze({
+  outline: "#381e1f",
+  frame: "#c88566",
+  panel: "#15101a",
+  well: "#2b202c",
+  copy: "#fff1cf",
+  muted: "#d6b68a",
+  completed: "#9bbc0f",
+  todo: "#ffe200",
+  locked: "#6f5a5a",
+  danger: "#ff5a4f"
+});
+const TERMINAL_PIXEL_FONT = "var(--game-ui-font, monospace)";
+const TERMINAL_TITLE_FONT = "'BitPap', var(--game-ui-font, monospace)";
+const TERMINAL_PIXEL_TEXT_SHADOW = "2px 0 0 #050307, 0 2px 0 #050307, -2px 0 0 #050307, 0 -2px 0 #050307";
+const TERMINAL_OBJECTIVE_COMPLETE_FLASH_MS = 1500;
+
 const STATUS_PALETTES = Object.freeze({
   completed: {
-    border: "#89ff00",
-    background: "#113820",
-    label: "#ffffff",
-    copy: "#ffffff"
+    border: TERMINAL_PIXEL_COLORS.completed,
+    background: "#243f22",
+    label: TERMINAL_PIXEL_COLORS.copy,
+    copy: TERMINAL_PIXEL_COLORS.copy
   },
   todo: {
-    border: "#ffd66d",
-    background: "#3c300c",
-    label: "#ffffff",
-    copy: "#ffffff"
+    border: TERMINAL_PIXEL_COLORS.todo,
+    background: "#4a3322",
+    label: TERMINAL_PIXEL_COLORS.copy,
+    copy: TERMINAL_PIXEL_COLORS.copy
   },
   locked: {
-    border: "#5d6470",
-    background: "#181b22",
-    label: "#ffffff",
-    copy: "#ffffff"
+    border: TERMINAL_PIXEL_COLORS.locked,
+    background: "#2a1a22",
+    label: TERMINAL_PIXEL_COLORS.muted,
+    copy: TERMINAL_PIXEL_COLORS.muted
   }
 });
 const TERMINAL_MISSION_STATUS_TYPES = Object.freeze({
@@ -71,15 +88,15 @@ const TERMINAL_MISSION_STATUS_TYPES = Object.freeze({
   })
 });
 const TERMINAL_STATUS_SUMMARY_ITEMS = Object.freeze([
-  Object.freeze({ key: "completed", label: "Complete", color: STATUS_PALETTES.completed.label }),
-  Object.freeze({ key: "ready", label: "Ready", color: STATUS_PALETTES.todo.label }),
-  Object.freeze({ key: "todo", label: "To Do", color: "#ffffff" }),
-  Object.freeze({ key: "locked", label: "Locked", color: STATUS_PALETTES.locked.label })
+  Object.freeze({ key: "completed", label: "Complete", color: STATUS_PALETTES.completed.border }),
+  Object.freeze({ key: "ready", label: "Ready", color: STATUS_PALETTES.todo.border }),
+  Object.freeze({ key: "todo", label: "To Do", color: TERMINAL_PIXEL_COLORS.copy }),
+  Object.freeze({ key: "locked", label: "Locked", color: STATUS_PALETTES.locked.border })
 ]);
 const TERMINAL_STATUS_LEGEND_ITEMS = Object.freeze([
-  Object.freeze({ label: "Green complete", color: STATUS_PALETTES.completed.label }),
-  Object.freeze({ label: "Yellow ready/to do", color: STATUS_PALETTES.todo.label }),
-  Object.freeze({ label: "Dark locked", color: STATUS_PALETTES.locked.label })
+  Object.freeze({ label: "Green complete", color: STATUS_PALETTES.completed.border }),
+  Object.freeze({ label: "Yellow ready/to do", color: STATUS_PALETTES.todo.border }),
+  Object.freeze({ label: "Dark locked", color: STATUS_PALETTES.locked.border })
 ]);
 const TERMINAL_MODAL_COMMANDS = MODAL_COMMANDS;
 const TERMINAL_MODAL_KEY_COMMANDS = Object.freeze({
@@ -132,56 +149,72 @@ function ensureTerminalModalStyle(documentRef) {
   const style = documentRef.createElement("style");
   style.id = "pokemon-center-pc-modal-cf-style";
   style.textContent = `
-@keyframes pokemonCenterPcModalScanSweep {
-  0% { left: -60%; opacity: 0; }
-  10% { opacity: 1; }
-  90% { opacity: 1; }
-  100% { left: 100%; opacity: 0; }
-}
 .pokemon-center-pc-modal::before {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 0, 0, 0.14) 2px, rgba(0, 0, 0, 0.14) 4px);
+  background: rgba(0, 0, 0, 0.24);
   pointer-events: none;
   z-index: 2;
 }
 .pokemon-center-pc-modal__panel::before {
   content: "";
   position: absolute;
-  inset: 0;
-  background-image:
-    repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(0, 255, 157, 0.018) 20px, rgba(0, 255, 157, 0.018) 21px),
-    repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(0, 255, 157, 0.018) 20px, rgba(0, 255, 157, 0.018) 21px);
+  inset: 8px;
+  border: 2px solid rgba(255, 241, 207, 0.14);
   pointer-events: none;
-  opacity: 0.5;
 }
 .pokemon-center-pc-modal__panel::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, transparent, #00ff9d 20%, #00d4ff 50%, #00ff9d 80%, transparent);
-  box-shadow: 0 0 18px rgba(0, 255, 157, 0.65);
+  display: none;
 }
 .pokemon-center-pc-modal__card::before {
   content: "";
   position: absolute;
   inset: 0;
-  background-image:
-    repeating-linear-gradient(0deg, transparent, transparent 18px, rgba(255, 255, 255, 0.014) 18px, rgba(255, 255, 255, 0.014) 19px),
-    repeating-linear-gradient(90deg, transparent, transparent 18px, rgba(255, 255, 255, 0.014) 18px, rgba(255, 255, 255, 0.014) 19px);
+  box-shadow:
+    inset 4px 4px 0 rgba(255, 241, 207, 0.08),
+    inset -4px -4px 0 rgba(5, 3, 7, 0.34);
   pointer-events: none;
   z-index: 2;
 }
 .pokemon-center-pc-modal__card:hover .pokemon-center-pc-modal__card-scan {
-  animation: pokemonCenterPcModalScanSweep 1.2s ease-out forwards;
+  opacity: 0;
 }
 .pokemon-center-pc-modal__card:hover .pokemon-center-pc-modal__card-image {
-  opacity: 0.82;
-  filter: saturate(0.58) brightness(0.86);
+  opacity: 1;
+  filter: none;
+}
+.pokemon-center-pc-modal__card[data-pc-just-completed="true"] {
+  animation: pokemon-center-pc-objective-complete 1.5s steps(2, end) both;
+}
+.pokemon-center-pc-modal__card[data-pc-just-completed="true"] .pokemon-center-pc-modal__card-scan {
+  animation: pokemon-center-pc-objective-complete-scan 1.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  background: rgba(155, 188, 15, 0.42);
+}
+@keyframes pokemon-center-pc-objective-complete {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  12% {
+    transform: translateY(-4px);
+  }
+  24% {
+    transform: translateY(0);
+  }
+}
+@keyframes pokemon-center-pc-objective-complete-scan {
+  0% {
+    opacity: 0;
+    width: 0;
+  }
+  18% {
+    opacity: 1;
+    width: 100%;
+  }
+  100% {
+    opacity: 0;
+    width: 100%;
+  }
 }`;
   documentRef.head?.append(style);
 }
@@ -297,22 +330,22 @@ function renderTerminalStatusLegend() {
 function renderTerminalModalHeader({ builderCallsign, stats, selectedMissionIndex, totalMissions }) {
   const callsign = normalizeBuilderCallsign(builderCallsign);
   return `
-    <header style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:18px;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid rgba(0,255,157,0.16);">
-      <div style="display:grid;grid-template-columns:48px minmax(0,1fr);gap:16px;align-items:center;min-width:0;">
-        <div style="width:48px;height:48px;display:grid;place-items:center;border:1px solid rgba(0,255,157,0.48);background:rgba(0,0,0,0.72);box-shadow:0 0 18px rgba(0,255,157,0.22), inset 0 0 20px rgba(0,0,0,0.7);color:#00ff9d;font-size:24px;line-height:1;text-shadow:0 0 14px rgba(0,255,157,0.82);">⬡</div>
+    <header style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:18px;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:4px solid ${TERMINAL_PIXEL_COLORS.outline};">
+      <div style="display:grid;grid-template-columns:56px minmax(0,1fr);gap:16px;align-items:center;min-width:0;">
+        <div style="width:56px;height:56px;display:grid;place-items:center;border:4px solid ${TERMINAL_PIXEL_COLORS.outline};background:${TERMINAL_PIXEL_COLORS.frame};box-shadow:inset 4px 4px 0 rgba(255,241,207,0.18), inset -4px -4px 0 rgba(56,30,31,0.34);color:${TERMINAL_PIXEL_COLORS.outline};font-family:${TERMINAL_TITLE_FONT};font-size:22px;line-height:1;">CT</div>
         <div style="display:grid;gap:7px;min-width:0;">
-        <strong style="font-family:'Orbitron', var(--game-ui-font, monospace);font-size:30px;font-weight:900;line-height:1;color:#ffffff;letter-spacing:0.14em;text-transform:uppercase;text-shadow:0 0 26px rgba(0,255,157,0.36);">Colony Terminal</strong>
+        <strong style="font-family:${TERMINAL_TITLE_FONT};font-size:42px;font-weight:400;line-height:1;color:${TERMINAL_PIXEL_COLORS.copy};letter-spacing:0;text-transform:none;text-shadow:${TERMINAL_PIXEL_TEXT_SHADOW};">Colony Terminal</strong>
         ${callsign ? `
-          <span style="font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:11px;line-height:1;color:#00d4ff;letter-spacing:0.16em;text-transform:uppercase;">Builder ${escapeHtml(callsign)}</span>
+          <span style="font-family:${TERMINAL_PIXEL_FONT};font-size:14px;line-height:1;color:${TERMINAL_PIXEL_COLORS.muted};letter-spacing:0;text-transform:none;">Builder ${escapeHtml(callsign)}</span>
         ` : ""}
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:10px;line-height:1;color:#ffffff;letter-spacing:0.1em;text-transform:uppercase;">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-family:${TERMINAL_PIXEL_FONT};font-size:12px;line-height:1;color:${TERMINAL_PIXEL_COLORS.copy};letter-spacing:0;text-transform:none;">
           ${renderTerminalStatusSummary(stats)}
         </div>
         </div>
       </div>
-      <div style="display:grid;gap:5px;text-align:right;border:1px solid rgba(0,255,157,0.16);border-top:2px solid rgba(0,255,157,0.5);background:rgba(0,0,0,0.42);padding:10px 12px;">
-        <span style="font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:8px;letter-spacing:0.18em;text-transform:uppercase;color:rgba(0,255,157,0.56);">Selected</span>
-        <strong style="font-family:'Orbitron', var(--game-ui-font, monospace);font-size:22px;line-height:1;color:#00ff9d;text-shadow:0 0 10px rgba(0,255,157,0.54);">${selectedMissionIndex + 1}/${totalMissions}</strong>
+      <div style="display:grid;gap:5px;text-align:right;border:4px solid ${TERMINAL_PIXEL_COLORS.outline};background:${TERMINAL_PIXEL_COLORS.well};padding:10px 12px;box-shadow:inset 3px 3px 0 rgba(255,241,207,0.08);">
+        <span style="font-family:${TERMINAL_PIXEL_FONT};font-size:10px;letter-spacing:0;text-transform:none;color:${TERMINAL_PIXEL_COLORS.muted};">Selected</span>
+        <strong style="font-family:${TERMINAL_TITLE_FONT};font-size:28px;line-height:1;color:${TERMINAL_PIXEL_COLORS.todo};text-shadow:${TERMINAL_PIXEL_TEXT_SHADOW};">${selectedMissionIndex + 1}/${totalMissions}</strong>
       </div>
     </header>
   `;
@@ -326,7 +359,7 @@ function renderTerminalModalBody({ selectedMissionIndex, visibleMissionCards }) 
         role="listbox"
         aria-label="Colony checks"
         aria-activedescendant="pokemon-center-pc-card-${selectedMissionIndex}"
-        style="display:grid;grid-template-columns:minmax(0, 1fr);gap:10px;align-items:stretch;min-width:0;max-height:min(58vh, 620px);overflow:auto;padding:2px 8px 2px 2px;scrollbar-color:rgba(0,255,157,0.48) rgba(5,8,18,0.72);"
+        style="display:grid;grid-template-columns:minmax(0, 1fr);gap:10px;align-items:stretch;min-width:0;max-height:min(58vh, 620px);overflow:auto;padding:2px 8px 2px 2px;scrollbar-color:${TERMINAL_PIXEL_COLORS.frame} ${TERMINAL_PIXEL_COLORS.well};"
       >${visibleMissionCards}</div>
     </div>
   `;
@@ -334,17 +367,17 @@ function renderTerminalModalBody({ selectedMissionIndex, visibleMissionCards }) 
 
 function renderTerminalModalFooter({ actionHint, actionReady, dotsHtml }) {
   return `
-    <footer style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:12px;align-items:center;margin-top:16px;padding-top:12px;border-top:1px solid rgba(0,255,157,0.16);">
+    <footer style="position:relative;z-index:1;display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:12px;align-items:center;margin-top:16px;padding-top:12px;border-top:4px solid ${TERMINAL_PIXEL_COLORS.outline};">
       <div style="display:grid;gap:7px;min-width:0;">
         <div class="pokemon-center-pc-modal__dots" aria-label="Colony check timeline" style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;max-height:44px;overflow:auto;padding:2px 2px 5px 2px;">${dotsHtml}</div>
-        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:9px;line-height:1;color:#ffffff;letter-spacing:0.1em;text-transform:uppercase;">
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;font-family:${TERMINAL_PIXEL_FONT};font-size:11px;line-height:1;color:${TERMINAL_PIXEL_COLORS.copy};letter-spacing:0;text-transform:none;">
           ${renderTerminalStatusLegend()}
         </div>
       </div>
-      <p style="margin:0;display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;color:#00ff9d;font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:11px;line-height:1;letter-spacing:0.14em;text-transform:uppercase;">
-        <span style="color:#888888;">Up/Down Browse</span>
-        <span style="color:${actionReady ? "#00ff9d" : "#00d4ff"};">${escapeHtml(actionHint)}</span>
-        <span style="color:#ff3366;text-shadow:0 0 10px rgba(255,51,102,0.42);">B / Esc Close</span>
+      <p style="margin:0;display:flex;gap:10px;align-items:center;justify-content:flex-end;flex-wrap:wrap;color:${TERMINAL_PIXEL_COLORS.copy};font-family:${TERMINAL_PIXEL_FONT};font-size:12px;line-height:1;letter-spacing:0;text-transform:none;">
+        <span style="color:${TERMINAL_PIXEL_COLORS.muted};">Up/Down Browse</span>
+        <span style="color:${actionReady ? TERMINAL_PIXEL_COLORS.todo : TERMINAL_PIXEL_COLORS.completed};">${escapeHtml(actionHint)}</span>
+        <span style="color:${TERMINAL_PIXEL_COLORS.danger};">B / Esc Close</span>
       </p>
     </footer>
   `;
@@ -501,6 +534,8 @@ export function createPokemonCenterPcModalController({
   let onConfirm = null;
   let builderCallsign = "";
   let renderDirty = true;
+  let missionCompletionFlashIds = new Set();
+  let missionCompletionFlashTimer = null;
   const musicController = createTerminalModalMusicController({
     audioFactory,
     musicSrc,
@@ -525,7 +560,7 @@ export function createPokemonCenterPcModalController({
       display: "none",
       placeItems: "center",
       pointerEvents: "auto",
-      background: "rgba(3, 5, 10, 0.84)",
+      background: "rgba(21, 16, 26, 0.78)",
       imageRendering: "pixelated"
     });
     mount.append(root);
@@ -607,9 +642,9 @@ export function createPokemonCenterPcModalController({
       const selected = index === selectedMissionIndex;
       const palette = getMissionPalette(mission.status);
       const fillColor = selected ?
-        "#00ff9d" :
+        TERMINAL_PIXEL_COLORS.todo :
         mission.status === "locked" ?
-          "#252b35" :
+          TERMINAL_PIXEL_COLORS.well :
           palette.border;
       return `
         <button
@@ -619,7 +654,7 @@ export function createPokemonCenterPcModalController({
           data-selected="${selected ? "true" : "false"}"
           aria-label="Colony check ${index + 1}: ${escapeHtml(mission.title)}"
           style="
-            width:${selected ? "18px" : "12px"};height:12px;border:1px solid ${selected ? "#00ff9d" : palette.border};
+            width:${selected ? "18px" : "12px"};height:12px;border:2px solid ${selected ? TERMINAL_PIXEL_COLORS.outline : palette.border};
             background:${fillColor};
             padding:0;cursor:pointer;
             opacity:${mission.status === "locked" ? "0.7" : "1"};
@@ -648,12 +683,12 @@ export function createPokemonCenterPcModalController({
         src="${escapeHtml(imageSrc)}"
         alt="${escapeHtml(imageAlt)}"
         decoding="async"
-        style="width:100%;height:100%;display:block;object-fit:cover;image-rendering:pixelated;opacity:0.62;filter:saturate(0.34) brightness(0.72);transition:opacity 0.3s, filter 0.3s;"
+        style="width:100%;height:100%;display:block;object-fit:cover;image-rendering:pixelated;opacity:1;filter:none;transition:opacity 0.1s steps(2, end);"
       >` :
       `<span
         class="pokemon-center-pc-modal__card-image-placeholder"
         aria-hidden="true"
-        style="display:grid;place-items:center;width:100%;height:100%;color:${palette.label};font-size:${selected ? "28px" : "17px"};line-height:1;letter-spacing:0;"
+        style="display:grid;place-items:center;width:100%;height:100%;color:${palette.label};font-family:${TERMINAL_TITLE_FONT};font-size:${selected ? "34px" : "22px"};line-height:1;letter-spacing:0;text-shadow:${TERMINAL_PIXEL_TEXT_SHADOW};"
       >${escapeHtml(placeholderLabel)}</span>`;
 
     return `
@@ -664,6 +699,7 @@ export function createPokemonCenterPcModalController({
         data-pc-mission-index="${index}"
         data-pc-mission-id="${escapeHtml(mission.id)}"
         data-pc-mission-status="${escapeHtml(mission.status || "available")}"
+        data-pc-just-completed="${missionCompletionFlashIds.has(mission.taskId || mission.id) ? "true" : "false"}"
         data-selected="${selected ? "true" : "false"}"
         data-pc-card-mode="${cardMode}"
         role="option"
@@ -671,11 +707,11 @@ export function createPokemonCenterPcModalController({
         aria-label="Colony check ${index + 1}, ${escapeHtml(statusLabel)}: ${escapeHtml(mission.title)}"
         style="
           position:relative;
-          min-height:${selected ? "216px" : "118px"};
-          border:1px solid ${palette.border};
-          box-shadow:${selected ? `0 0 18px ${palette.border}55` : "none"};
-          background:linear-gradient(180deg, rgba(13,13,13,0.98) 0%, ${palette.background} 115%);
-          color:#ffffff;
+          min-height:${selected ? "320px" : "228px"};
+          border:4px solid ${palette.border};
+          box-shadow:${selected ? `0 0 0 4px ${TERMINAL_PIXEL_COLORS.outline}` : "none"};
+          background:${palette.background};
+          color:${TERMINAL_PIXEL_COLORS.copy};
           padding:${selected ? "14px" : "10px 12px"};
           display:grid;
           grid-template-columns:minmax(0, 1fr) ${selected ? "minmax(124px, 154px)" : "72px"};
@@ -688,20 +724,19 @@ export function createPokemonCenterPcModalController({
           overflow:hidden;
         "
         >
-        <span class="pokemon-center-pc-modal__card-scan" aria-hidden="true" style="position:absolute;top:0;left:-100%;bottom:0;width:60%;background:linear-gradient(90deg, transparent, rgba(0,255,157,0.08), transparent);pointer-events:none;z-index:4;opacity:0;"></span>
-        <span aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:2px;background:${palette.border};box-shadow:0 0 12px ${palette.border};z-index:3;opacity:${selected ? "0.95" : "0.58"};"></span>
+        <span class="pokemon-center-pc-modal__card-scan" aria-hidden="true" style="position:absolute;top:0;left:0;bottom:0;width:0;background:transparent;pointer-events:none;z-index:4;opacity:0;"></span>
+        <span aria-hidden="true" style="position:absolute;top:0;left:0;right:0;height:4px;background:${palette.border};box-shadow:none;z-index:3;opacity:1;"></span>
         <div style="position:relative;z-index:5;display:grid;grid-template-rows:auto auto minmax(0, 1fr) auto;align-content:start;gap:${selected ? "9px" : "6px"};min-width:0;overflow:hidden;">
-          <div style="display:grid;grid-template-columns:minmax(0, 1fr) auto;gap:8px;align-items:start;min-width:0;">
-            <span style="min-width:0;overflow-wrap:anywhere;font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:${selected ? "10px" : "9px"};line-height:1.08;letter-spacing:0.12em;text-transform:uppercase;color:${palette.copy};">Check ${index + 1} · ${escapeHtml(missionSource)}</span>
-            <span style="flex:0 0 auto;border:1px solid ${palette.border};background:rgba(5, 8, 18, 0.42);padding:${selected ? "4px 6px" : "3px 5px"};font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:${selected ? "10px" : "9px"};line-height:1;letter-spacing:0.08em;text-transform:uppercase;color:${palette.label};">${escapeHtml(statusLabel)}</span>
+          <div style="display:flex;justify-content:flex-end;align-items:start;min-width:0;">
+            <span style="flex:0 0 auto;border:2px solid ${palette.border};background:${TERMINAL_PIXEL_COLORS.well};padding:${selected ? "5px 7px" : "4px 6px"};font-family:${TERMINAL_PIXEL_FONT};font-size:${selected ? "12px" : "11px"};line-height:1;letter-spacing:0;text-transform:none;color:${palette.label};">${escapeHtml(statusLabel)}</span>
           </div>
-          <h2 style="margin:0;color:#ffffff;font-family:'Orbitron', var(--game-ui-font, monospace);font-size:${selected ? "23px" : "16px"};font-weight:900;line-height:1.08;letter-spacing:0.08em;text-transform:uppercase;overflow-wrap:anywhere;text-shadow:0 2px 12px rgba(0,0,0,0.8);">${escapeHtml(mission.title)}</h2>
-          <p style="margin:0;color:${palette.copy};font-size:${selected ? "15px" : "12px"};line-height:${selected ? "1.35" : "1.22"};text-transform:none;overflow-wrap:anywhere;">${escapeHtml(mission.description)}</p>
+          <h2 style="margin:0;color:${TERMINAL_PIXEL_COLORS.copy};font-family:${TERMINAL_TITLE_FONT};font-size:${selected ? "34px" : "24px"};font-weight:400;line-height:1;letter-spacing:0;text-transform:none;overflow-wrap:anywhere;text-shadow:${TERMINAL_PIXEL_TEXT_SHADOW};">${escapeHtml(mission.title)}</h2>
+          <p style="margin:0;color:${palette.copy};font-size:${selected ? "22.5px" : "18px"};line-height:1.12;text-transform:none;overflow-wrap:anywhere;">${escapeHtml(mission.description)}</p>
           ${selected ? `
-            <p style="margin:0;border:1px solid ${palette.border};background:rgba(5, 8, 18, 0.34);padding:8px;color:${palette.label};font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:12px;line-height:1.32;text-transform:none;overflow-wrap:anywhere;">${escapeHtml(guidance)}</p>
+            <p style="margin:0;border:2px solid ${palette.border};background:${TERMINAL_PIXEL_COLORS.well};padding:8px;color:${palette.label};font-family:${TERMINAL_PIXEL_FONT};font-size:12px;line-height:1.32;text-transform:none;overflow-wrap:anywhere;">${escapeHtml(guidance)}</p>
           ` : ""}
           ${detailRows.length ? `
-            <div style="display:grid;gap:5px;color:${palette.label};font-family:'Share Tech Mono', var(--game-ui-font, monospace);font-size:${selected ? "12px" : "10px"};line-height:1.18;overflow-wrap:anywhere;">
+            <div style="display:grid;gap:5px;color:${palette.label};font-family:${TERMINAL_PIXEL_FONT};font-size:${selected ? "12px" : "10px"};line-height:1.18;overflow-wrap:anywhere;">
               ${detailRows.map((detail) => `<span>${escapeHtml(detail)}</span>`).join("")}
             </div>
           ` : ""}
@@ -714,8 +749,8 @@ export function createPokemonCenterPcModalController({
             z-index:5;
             min-height:${selected ? "156px" : "66px"};
             min-width:${selected ? "132px" : "66px"};
-            border:1px solid ${palette.border};
-            background:rgba(5, 8, 18, 0.32);
+            border:4px solid ${palette.border};
+            background:${TERMINAL_PIXEL_COLORS.well};
             overflow:hidden;
             align-self:stretch;
           "
@@ -751,13 +786,13 @@ export function createPokemonCenterPcModalController({
       maxHeight: "calc(100vh - 56px)",
       overflow: "auto",
       position: "relative",
-      border: "1px solid rgba(0, 255, 157, 0.34)",
-      boxShadow: "0 0 40px rgba(0, 0, 0, 0.86), inset 0 0 80px rgba(0, 0, 0, 0.68)",
-      background: "#0d0d0d",
-      color: "#d0d0d0",
+      border: `4px solid ${TERMINAL_PIXEL_COLORS.frame}`,
+      boxShadow: `0 0 0 4px ${TERMINAL_PIXEL_COLORS.outline}, 0 18px 0 rgba(0, 0, 0, 0.28)`,
+      background: TERMINAL_PIXEL_COLORS.panel,
+      color: TERMINAL_PIXEL_COLORS.copy,
       padding: "24px 28px 26px",
-      fontFamily: "'Rajdhani', var(--game-ui-font, monospace)",
-      letterSpacing: "0.02em",
+      fontFamily: TERMINAL_PIXEL_FONT,
+      letterSpacing: "0",
       textTransform: "none"
     });
 
@@ -808,6 +843,19 @@ export function createPokemonCenterPcModalController({
     render();
   }
 
+  function clearMissionCompletionFlashLater() {
+    const windowRef = root?.ownerDocument?.defaultView || globalThis.window;
+    if (missionCompletionFlashTimer) {
+      windowRef?.clearTimeout?.(missionCompletionFlashTimer);
+    }
+
+    missionCompletionFlashTimer = windowRef?.setTimeout?.(() => {
+      missionCompletionFlashIds = new Set();
+      renderDirty = true;
+      renderIfDirty();
+    }, TERMINAL_OBJECTIVE_COMPLETE_FLASH_MS) || null;
+  }
+
   return {
     open({ builderCallsign: nextBuilderCallsign = "", missions: nextMissions = [], onConfirm: nextOnConfirm = null } = {}) {
       missions = normalizeMissions(nextMissions);
@@ -834,6 +882,31 @@ export function createPokemonCenterPcModalController({
       const command = resolveTerminalModalCommand(event);
       handleCommand(command);
       event.preventDefault?.();
+      return true;
+    },
+    updateMissions(nextMissions = [], { completedObjectives = [] } = {}) {
+      const selectedMissionId = missions[selectedMissionIndex]?.id || null;
+      missions = normalizeMissions(nextMissions);
+
+      if (selectedMissionId) {
+        const nextSelectedIndex = missions.findIndex((mission) => mission.id === selectedMissionId);
+        selectedMissionIndex = nextSelectedIndex >= 0 ? nextSelectedIndex : getInitialTerminalMissionIndex(missions);
+      } else {
+        selectInitialMission();
+      }
+
+      const nextFlashIds = new Set(
+        (completedObjectives || [])
+          .map((objective) => objective?.taskId)
+          .filter(Boolean)
+      );
+      if (nextFlashIds.size) {
+        missionCompletionFlashIds = nextFlashIds;
+        clearMissionCompletionFlashLater();
+      }
+
+      renderDirty = true;
+      renderIfDirty();
       return true;
     },
     isOpen() {

@@ -6,6 +6,13 @@ import {
   isPositionBlockedByTerrainColliders,
   isPositionInsideTerrainColliderFootprint
 } from "../app/gameplay/placementBlockers.js";
+import {
+  formatBuildBlockDebugLines,
+  resolveBuildBlockPreviewValidity,
+  resolveConstructionDisplacementPosition,
+  resolveTimburrBuildBlockApproachPosition,
+  shouldTimburrBuildBlockCastFromBlockedApproach
+} from "../app/runtime/gameLoop.js";
 
 describe("placement blockers", () => {
   it("keeps player constructions in the placement blocker list", () => {
@@ -128,5 +135,204 @@ describe("placement blockers", () => {
     expect(isPositionBlockedByTerrainColliders([10, 0.04, 3], colliders)).toBe(true);
     expect(isPositionBlockedByTerrainColliders([16, 0.04, 3], colliders)).toBe(false);
     expect(isPositionBlockedByTerrainColliders([10, 2.4, 3], colliders)).toBe(false);
+  });
+
+  it("does not let neighboring free block colliders close an empty cell gap", () => {
+    const colliders = createPlayerConstructionTerrainColliders({
+      session: {
+        freeBlockInstances: [
+          {
+            id: "left-wall",
+            active: true,
+            offset: [1.5, 0.03, 2.5]
+          },
+          {
+            id: "right-wall",
+            active: true,
+            offset: [3.5, 0.03, 2.5]
+          }
+        ]
+      }
+    });
+
+    expect(isPositionBlockedByTerrainColliders([1.5, 0.04, 2.5], colliders)).toBe(true);
+    expect(isPositionBlockedByTerrainColliders([2.5, 0.04, 2.5], colliders)).toBe(false);
+    expect(isPositionBlockedByTerrainColliders([3.5, 0.04, 2.5], colliders)).toBe(true);
+  });
+
+  it("turns Leafage native trees into one-cell player colliders", () => {
+    const colliders = createPlayerConstructionTerrainColliders({
+      session: {
+        groundGrassPatches: [
+          {
+            id: "leafage-native-tree-ground-1",
+            leafageObjectId: "nativeTree",
+            state: "alive",
+            position: [5, 0.02, 7]
+          },
+          {
+            id: "leafage-garden-ground-2",
+            leafageObjectId: "garden1",
+            state: "alive",
+            position: [8, 0.02, 7]
+          }
+        ]
+      }
+    });
+
+    expect(colliders).toEqual([
+      {
+        id: "leafage-native-tree-collider:leafage-native-tree-ground-1",
+        kind: "leafageNativeTree",
+        position: [5, 0, 7],
+        size: [1, 2.2, 1],
+        surfaceY: 2.2,
+        blocksPlayer: true,
+        padding: 0.08
+      }
+    ]);
+    expect(isPositionBlockedByTerrainColliders([5, 0.04, 7], colliders)).toBe(true);
+    expect(isPositionBlockedByTerrainColliders([6.2, 0.04, 7], colliders)).toBe(false);
+  });
+
+  it("moves Builder Bot approach off an occupied side when building an empty gap", () => {
+    const colliders = createPlayerConstructionTerrainColliders({
+      session: {
+        freeBlockInstances: [
+          {
+            id: "left-wall",
+            active: true,
+            offset: [1.5, 0.03, 2.5]
+          },
+          {
+            id: "right-wall",
+            active: true,
+            offset: [3.5, 0.03, 2.5]
+          }
+        ]
+      }
+    });
+    const targetPosition = [2.5, 0.03, 2.5];
+    const blockedPreferredApproach = [1.46, 0.04, 2.5];
+
+    expect(isPositionBlockedByTerrainColliders(blockedPreferredApproach, colliders)).toBe(true);
+
+    const approachPosition = resolveTimburrBuildBlockApproachPosition({
+      targetPosition,
+      timburrPosition: [0, 0.04, 2.5],
+      isBlocked: (position) => isPositionBlockedByTerrainColliders(position, colliders)
+    });
+
+    expect(approachPosition).not.toEqual(blockedPreferredApproach);
+    expect(isPositionBlockedByTerrainColliders(approachPosition, colliders)).toBe(false);
+  });
+
+  it("uses the player position when Builder Bot has no approach position yet", () => {
+    expect(resolveTimburrBuildBlockApproachPosition({
+      targetPosition: [2.5, 0.03, 2.5],
+      playerPosition: [2.5, 0.04, 5.5],
+      standDistance: 1
+    })).toEqual([2.5, 0.04, 3.5]);
+  });
+
+  it("pushes the player away from a newly placed construction target", () => {
+    const colliders = createPlayerConstructionTerrainColliders({
+      session: {
+        freeBlockInstances: [
+          {
+            id: "new-wall",
+            active: true,
+            offset: [2.5, 0.03, 2.5]
+          },
+          {
+            id: "north-wall",
+            active: true,
+            offset: [2.5, 0.03, 3.5]
+          }
+        ]
+      }
+    });
+    const targetPosition = [2.5, 0.03, 2.5];
+    const playerPosition = [2.5, 0.04, 2.5];
+
+    const nextPlayerPosition = resolveConstructionDisplacementPosition({
+      targetPosition,
+      playerPosition,
+      cellSize: 1,
+      isBlocked: (position) => isPositionBlockedByTerrainColliders(position, colliders)
+    });
+
+    expect(nextPlayerPosition).not.toEqual(playerPosition);
+    expect(isPositionBlockedByTerrainColliders(nextPlayerPosition, colliders)).toBe(false);
+  });
+
+  it("formats build block debug state for the in-game overlay", () => {
+    expect(formatBuildBlockDebugLines({
+      valid: false,
+      reason: "duplicate-block",
+      rawTargetCell: { x: 3, y: 1 },
+      targetCell: { x: 4, y: 1 },
+      playerCell: { x: 4, y: 2 },
+      rawTargetBlockType: "wall",
+      targetBlockType: null,
+      wood: 6,
+      validationReason: "duplicate-block",
+      blockedByConstruction: false,
+      blockingColliderIds: [],
+      targetPosition: [4.5, 0.03, 1.5]
+    })).toEqual([
+      "BuildBlock RED reason=duplicate-block",
+      "raw=3,1 target=4,1 player=4,2",
+      "rawBlock=wall targetBlock=empty wood=6",
+      "validation=duplicate-block blocked=no",
+      "colliders=none",
+      "world=4.50,0.03,1.50"
+    ]);
+  });
+
+  it("keeps construction colliders diagnostic for build block preview validity", () => {
+    expect(resolveBuildBlockPreviewValidity({
+      validation: {
+        valid: true,
+        reason: null
+      },
+      blockingColliderIds: ["player-construction-collider:greenhouse:greenhouse-0"]
+    })).toEqual({
+      valid: true,
+      reason: null,
+      blockedByConstruction: true
+    });
+  });
+
+  it("keeps validation failures authoritative for build block preview validity", () => {
+    expect(resolveBuildBlockPreviewValidity({
+      validation: {
+        valid: false,
+        reason: "duplicate-block"
+      },
+      blockingColliderIds: []
+    })).toEqual({
+      valid: false,
+      reason: "duplicate-block",
+      blockedByConstruction: false
+    });
+  });
+
+  it("lets Builder Bot cast when only a static construction blocks the approach", () => {
+    expect(shouldTimburrBuildBlockCastFromBlockedApproach([
+      {
+        id: "player-construction-collider:greenhouse:greenhouse-0",
+        kind: "greenhouse"
+      }
+    ])).toBe(true);
+  });
+
+  it("does not bypass approach when a free block blocks Builder Bot", () => {
+    expect(shouldTimburrBuildBlockCastFromBlockedApproach([
+      {
+        id: "free-block-collider:left-wall",
+        kind: "freeBlock"
+      }
+    ])).toBe(false);
   });
 });

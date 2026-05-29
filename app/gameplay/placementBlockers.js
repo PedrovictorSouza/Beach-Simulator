@@ -6,6 +6,8 @@ export const DEFAULT_PLAYER_CONSTRUCTION_FOOTPRINTS = Object.freeze({
   houseBuilt: Object.freeze([3.9, 2.9])
 });
 
+const LEAFAGE_NATIVE_TREE_OBJECT_ID = "nativeTree";
+
 function hasPlacementPosition(placement) {
   return Array.isArray(placement?.position) &&
     Number.isFinite(Number(placement.position[0])) &&
@@ -167,7 +169,27 @@ export function createPlayerConstructionTerrainColliders({
       padding: 0.08
     }));
 
-  return [...constructionColliders, ...freeBlockColliders];
+  const leafageNativeTreeColliders = (session.groundGrassPatches || [])
+    .filter((patch) => (
+      patch?.state === "alive" &&
+      patch.leafageObjectId === LEAFAGE_NATIVE_TREE_OBJECT_ID &&
+      Array.isArray(patch.position)
+    ))
+    .map((patch) => ({
+      id: `leafage-native-tree-collider:${patch.id || patch.cellId || `${patch.position[0]}:${patch.position[2]}`}`,
+      kind: "leafageNativeTree",
+      position: [
+        Number(patch.position[0]),
+        0,
+        Number(patch.position[2])
+      ],
+      size: [1, 2.2, 1],
+      surfaceY: 2.2,
+      blocksPlayer: true,
+      padding: 0.08
+    }));
+
+  return [...constructionColliders, ...freeBlockColliders, ...leafageNativeTreeColliders];
 }
 
 export function isPositionInsideTerrainColliderFootprint(position, collider) {

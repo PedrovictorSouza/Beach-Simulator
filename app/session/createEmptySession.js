@@ -90,6 +90,8 @@ export function createEmptySession() {
     squirtleWaterSprayTexture: null,
     leafageGardenInstances: [],
     leafageGardenModel: null,
+    leafageNativeTreeInstances: [],
+    leafageNativeTreeModel: null,
     tallGrassInstances: [],
     tallGrassModel: null,
     timburrEncounter: null,

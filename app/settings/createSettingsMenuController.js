@@ -101,7 +101,7 @@ function renderBagSlot(slot) {
       data-empty="false"
       data-slot-role="${escapeHtml(slot.slotRole)}"
       data-icon-kind="${escapeHtml(slot.iconKind)}"
-      style="aspect-ratio:auto; min-height:86px; padding:8px; align-content:center; gap:4px;"
+      style="aspect-ratio:auto; min-height:103px; padding:10px; align-content:center; gap:5px;"
       title="${escapeHtml(slot.title)}"
     >
       <span class="inventory-slot__role">${escapeHtml(slot.slotRoleLabel)}</span>
@@ -122,7 +122,7 @@ function renderBagSlot(slot) {
       </div>
       <span
         class="settings-menu__bag-name"
-        style="font-size:10px; line-height:1.1; text-align:center; color:#ffffff;"
+        style="font-size:12px; line-height:1.1; text-align:center; color:#ffffff;"
       >${escapeHtml(slot.label)}</span>
       <span class="inventory-count">${escapeHtml(slot.count)}</span>
     </div>
@@ -517,7 +517,7 @@ export function createSettingsMenuController({
           data-settings-control-binding="${escapeHtml(action.id)}"
           data-capturing="${waiting ? "true" : "false"}"
           aria-label="Change ${escapeHtml(action.label)} control"
-          style="display:grid;grid-template-columns:minmax(0,1fr) minmax(90px,auto);align-items:center;gap:10px;min-height:42px;padding:8px 10px;border:2px solid ${waiting ? "#ffccaa" : "rgba(255,255,255,.55)"};background:${waiting ? "rgba(255,204,170,.22)" : "rgba(255,255,255,.08)"};color:#ffffff;font:inherit;text-align:left;cursor:pointer;"
+          style="display:grid;width:100%;grid-template-columns:minmax(0,1fr) minmax(90px,auto);align-items:center;gap:10px;min-height:42px;padding:8px 10px;border:2px solid ${waiting ? "#ffccaa" : "rgba(255,255,255,.55)"};background:${waiting ? "rgba(255,204,170,.22)" : "rgba(255,255,255,.08)"};color:#ffffff;font:inherit;text-align:left;cursor:pointer;"
         >
           <span>${escapeHtml(action.label)}</span>
           <strong style="justify-self:end;color:#ffffff;">${escapeHtml(keyLabel)}</strong>
@@ -1188,7 +1188,7 @@ export function createSettingsMenuController({
     keyboardControlsGrid.dataset.settingsControlsGrid = "true";
     Object.assign(keyboardControlsGrid.style, {
       display: "grid",
-      gridTemplateColumns: "repeat(auto-fit, minmax(230px, 1fr))",
+      gridTemplateColumns: "minmax(0, 1fr)",
       gap: "8px"
     });
     keyboardControlsGrid.addEventListener("click", (event) => {

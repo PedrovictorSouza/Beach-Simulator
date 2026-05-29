@@ -196,56 +196,20 @@ describe("createGameplayDialogueController", () => {
     unsubscribeKept();
   });
 
-  it("creates an AI edit instruction from a runtime dialogue draft", () => {
+  it("does not render the AI edit toggle in runtime dialogue", () => {
     const uiLayer = document.createElement("div");
-    const onAiTextEditInstruction = vi.fn();
-    let eventDetail = null;
-    uiLayer.addEventListener("sandbots:dialogue-ai-edit-request", (event) => {
-      eventDetail = event.detail;
-    });
     const controller = createGameplayDialogueController({
       uiLayer,
-      enableAiTextEditor: true,
-      onAiTextEditInstruction
+      enableAiTextEditor: true
     });
 
     controller.openConversation({
       lines: [{ speaker: "Chopper", text: "Old runtime line." }]
     });
 
-    uiLayer.querySelector("[data-dialogue-ai-edit-toggle]")?.dispatchEvent(new MouseEvent("click", {
-      bubbles: true
-    }));
-
-    const textarea = uiLayer.querySelector("[data-dialogue-ai-editor-text]");
-    textarea.value = "Better Sandbots line.";
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-
-    uiLayer.querySelector("[data-dialogue-ai-apply]")?.dispatchEvent(new MouseEvent("click", {
-      bubbles: true
-    }));
-
-    expect(uiLayer.textContent).toContain("Better Sandbots line.");
-
-    uiLayer.querySelector("[data-dialogue-ai-send]")?.dispatchEvent(new MouseEvent("click", {
-      bubbles: true
-    }));
-
-    expect(onAiTextEditInstruction).toHaveBeenCalledWith(expect.objectContaining({
-      speaker: "Chopper",
-      lineIndex: 0,
-      originalText: "Old runtime line.",
-      proposedText: "Better Sandbots line.",
-      instruction: expect.stringContaining("Please update this Sandbots gameplay dialogue line")
-    }));
-    expect(uiLayer.querySelector("[data-dialogue-ai-instruction-text]")?.value).toContain(
-      "Requested text:\nBetter Sandbots line."
-    );
-    expect(eventDetail).toMatchObject({
-      speaker: "Chopper",
-      originalText: "Old runtime line.",
-      proposedText: "Better Sandbots line."
-    });
+    expect(uiLayer.querySelector("[data-dialogue-ai-edit-toggle]")).toBeNull();
+    expect(uiLayer.querySelector("[data-dialogue-ai-editor-text]")).toBeNull();
+    expect(uiLayer.textContent).not.toContain("Edit");
   });
 
   it("opens a name-entry keyboard with typing, delete, navigation and confirm", () => {

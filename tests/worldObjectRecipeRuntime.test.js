@@ -10,9 +10,13 @@ import { WORLD_OBJECT_IDS } from "../app/gameplay/worldObjectCatalog.js";
 import { WORLD_OBJECT_RECIPE_IDS } from "../app/gameplay/worldObjectRecipeCatalog.js";
 import {
   WORLD_OBJECT_RECIPE_CRAFT_REASON,
+  WORLD_OBJECT_RECIPE_BOOK_FLAG,
   craftWorldObjectRecipe,
   createGreenhouseRecipeState,
   createWorldObjectRecipeState,
+  getKnownWorldObjectRecipeIds,
+  getSeenWorldObjectRecipeIds,
+  markWorldObjectRecipesSeenForObject,
   unlockOrganicBusGreenhouseRecipes
 } from "../app/gameplay/worldObjectRecipeRuntime.js";
 
@@ -28,20 +32,24 @@ function createReadyInventory() {
 describe("world object recipe runtime", () => {
   it("unlocks Organic Bus recipes for Greenhouse use", () => {
     const storyState = { flags: {} };
+    const expectedRecipeIds = [
+      WORLD_OBJECT_RECIPE_IDS.PULSE_BERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.BLACKBERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.ROWANBERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.ELDERBERRY_PROPAGATION,
+      WORLD_OBJECT_RECIPE_IDS.LEAF_CULTURE
+    ];
 
     expect(unlockOrganicBusGreenhouseRecipes(storyState)).toEqual({
       ok: true,
       sourceObjectId: WORLD_OBJECT_IDS.ORGANIC_BUS,
       unlockedEventId: "organicBusGreenhouseRecipesReceived",
-      unlockedRecipeIds: [
-        WORLD_OBJECT_RECIPE_IDS.PULSE_BERRY_PROPAGATION,
-        WORLD_OBJECT_RECIPE_IDS.BLACKBERRY_PROPAGATION,
-        WORLD_OBJECT_RECIPE_IDS.ROWANBERRY_PROPAGATION,
-        WORLD_OBJECT_RECIPE_IDS.ELDERBERRY_PROPAGATION,
-        WORLD_OBJECT_RECIPE_IDS.LEAF_CULTURE
-      ]
+      unlockedRecipeIds: expectedRecipeIds
     });
     expect(storyState.flags.organicBusGreenhouseRecipesReceived).toBe(true);
+    expect(storyState.flags[WORLD_OBJECT_RECIPE_BOOK_FLAG].knownRecipeIds).toEqual(expectedRecipeIds);
+    expect(storyState.flags[WORLD_OBJECT_RECIPE_BOOK_FLAG].seenRecipeIds).toEqual([]);
+    expect(getKnownWorldObjectRecipeIds(storyState)).toEqual(expectedRecipeIds);
   });
 
   it("lists unlocked recipes only when inspecting the Greenhouse recipe state", () => {
@@ -72,6 +80,11 @@ describe("world object recipe runtime", () => {
         recipeId: WORLD_OBJECT_RECIPE_IDS.PULSE_BERRY_PROPAGATION,
         sourceObjectId: WORLD_OBJECT_IDS.ORGANIC_BUS,
         useObjectId: WORLD_OBJECT_IDS.GREENHOUSE,
+        chain: expect.objectContaining({
+          learnedFrom: "Learned from Organic Bus",
+          usedAt: "Used inside Greenhouse",
+          summary: "Learned from Organic Bus. Used inside Greenhouse."
+        }),
         unlocked: true,
         canCraft: true,
         missingIngredients: []
@@ -79,6 +92,36 @@ describe("world object recipe runtime", () => {
     ]));
     expect(Object.isFrozen(unlockedState)).toBe(true);
     expect(Object.isFrozen(unlockedState.recipes)).toBe(true);
+  });
+
+  it("tracks new Greenhouse recipes until the player inspects that station", () => {
+    const storyState = { flags: {} };
+    unlockOrganicBusGreenhouseRecipes(storyState);
+
+    const newState = createGreenhouseRecipeState({
+      storyState,
+      inventory: createReadyInventory()
+    });
+
+    expect(newState.recipes.every((recipe) => recipe.isNew)).toBe(true);
+    expect(newState.recipes.every((recipe) => recipe.seen === false)).toBe(true);
+
+    const seenResult = markWorldObjectRecipesSeenForObject({
+      storyState,
+      useObjectId: WORLD_OBJECT_IDS.GREENHOUSE
+    });
+    const seenState = createGreenhouseRecipeState({
+      storyState,
+      inventory: createReadyInventory()
+    });
+
+    expect(seenResult).toMatchObject({
+      ok: true,
+      useObjectId: WORLD_OBJECT_IDS.GREENHOUSE
+    });
+    expect(getSeenWorldObjectRecipeIds(storyState)).toEqual(seenResult.seenRecipeIds);
+    expect(seenState.recipes.every((recipe) => recipe.isNew === false)).toBe(true);
+    expect(seenState.recipes.every((recipe) => recipe.seen)).toBe(true);
   });
 
   it("lists the full Organic Bus Greenhouse recipe set after unlock", () => {

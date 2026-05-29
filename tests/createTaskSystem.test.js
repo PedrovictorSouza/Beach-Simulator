@@ -149,6 +149,103 @@ describe("createTaskSystem", () => {
     expect(taskSystem.getActiveTask()).toBe(null);
   });
 
+  it("requires event criteria before an objective can progress", () => {
+    const tasks = [
+      createSingleTask({
+        objectives: [
+          {
+            id: "place-foundation-in-zone",
+            title: "Place foundation in zone",
+            description: "Place a foundation block inside the marked first base zone.",
+            required: true,
+            progress: {
+              kind: TASK_OBJECTIVE_KIND.EVENT,
+              eventType: TASK_EVENT.BUILD,
+              targetId: "foundation-wall",
+              required: 1,
+              criteria: {
+                itemId: "wood",
+                zoneId: "first-base",
+                cellState: "valid-build"
+              }
+            }
+          }
+        ]
+      })
+    ];
+    const taskSystem = createTaskSystem({ tasks });
+
+    expect(taskSystem.applyEvent({
+      type: TASK_EVENT.BUILD,
+      targetId: "foundation-wall",
+      itemId: "wood",
+      zoneId: "first-base",
+      cellState: "blocked"
+    })).toMatchObject({
+      changed: false,
+      completedTaskIds: []
+    });
+
+    const result = taskSystem.applyEvent({
+      type: TASK_EVENT.BUILD,
+      targetId: "foundation-wall",
+      payload: {
+        itemId: "wood",
+        zoneId: "first-base",
+        cellState: "valid-build"
+      }
+    });
+
+    expect(result).toMatchObject({
+      changed: true,
+      completedTaskIds: ["single-task"]
+    });
+  });
+
+  it("requires counter criteria before incrementing a fact", () => {
+    const tasks = [
+      createSingleTask({
+        objectives: [
+          {
+            id: "restore-greenhouse-cell",
+            title: "Restore greenhouse cell",
+            description: "Only count restoration inside the Greenhouse perimeter.",
+            required: true,
+            progress: {
+              kind: TASK_OBJECTIVE_KIND.COUNTER,
+              counterId: TASK_FACT_IDS.DRY_GRASS_RESTORED_COUNT,
+              required: 2,
+              criteria: {
+                toolId: "waterGun",
+                zoneId: "greenhouse-perimeter"
+              }
+            }
+          }
+        ]
+      })
+    ];
+    const taskSystem = createTaskSystem({ tasks });
+
+    taskSystem.applyEvent({
+      type: TASK_EVENT.RESTORE,
+      targetId: TASK_FACT_IDS.DRY_GRASS_RESTORED_COUNT,
+      amount: 2,
+      toolId: "leafage",
+      zoneId: "greenhouse-perimeter"
+    });
+    expect(taskSystem.getFacts()[TASK_FACT_IDS.DRY_GRASS_RESTORED_COUNT]).toBeUndefined();
+
+    taskSystem.applyEvent({
+      type: TASK_EVENT.RESTORE,
+      targetId: TASK_FACT_IDS.DRY_GRASS_RESTORED_COUNT,
+      amount: 2,
+      toolId: "waterGun",
+      zoneId: "greenhouse-perimeter"
+    });
+    expect(taskSystem.getFacts()[TASK_FACT_IDS.DRY_GRASS_RESTORED_COUNT]).toBe(2);
+    expect(taskSystem.getActiveTask()).toBe(null);
+  });
+
   it("applies effects through the same fact/objective completion path", () => {
     const tasks = [
       createSingleTask({
@@ -181,6 +278,106 @@ describe("createTaskSystem", () => {
       completedTaskIds: ["single-task"]
     });
     expect(taskSystem.getFacts()["test.fact.complete"]).toBe(true);
+  });
+
+  it("supports OR objective requirement groups for task completion", () => {
+    const tasks = [
+      createSingleTask({
+        requirements: [["talk-to-alpha", "talk-to-beta"]],
+        objectives: [
+          {
+            id: "talk-to-alpha",
+            title: "Talk to Alpha",
+            description: "One valid route through the task.",
+            required: true,
+            progress: {
+              kind: TASK_OBJECTIVE_KIND.EVENT,
+              eventType: TASK_EVENT.TALK,
+              targetId: "alpha",
+              required: 1
+            }
+          },
+          {
+            id: "talk-to-beta",
+            title: "Talk to Beta",
+            description: "Another valid route through the task.",
+            required: true,
+            progress: {
+              kind: TASK_OBJECTIVE_KIND.EVENT,
+              eventType: TASK_EVENT.TALK,
+              targetId: "beta",
+              required: 1
+            }
+          }
+        ]
+      })
+    ];
+    const taskSystem = createTaskSystem({ tasks });
+
+    const result = taskSystem.applyEvent({
+      type: TASK_EVENT.TALK,
+      targetId: "beta"
+    });
+
+    expect(result.completedTaskIds).toEqual(["single-task"]);
+    expect(taskSystem.getActiveTask()).toBe(null);
+  });
+
+  it("supports AND groups made from multiple requirement rows", () => {
+    const tasks = [
+      createSingleTask({
+        requirements: [["collect-wood"], ["build-wall", "place-greenhouse"]],
+        objectives: [
+          {
+            id: "collect-wood",
+            title: "Collect Wood",
+            description: "Gather base material.",
+            required: true,
+            progress: {
+              kind: TASK_OBJECTIVE_KIND.EVENT,
+              eventType: TASK_EVENT.COLLECT,
+              targetId: "wood",
+              required: 1
+            }
+          },
+          {
+            id: "build-wall",
+            title: "Build Wall",
+            description: "Build one wall.",
+            required: true,
+            progress: {
+              kind: TASK_OBJECTIVE_KIND.EVENT,
+              eventType: TASK_EVENT.BUILD,
+              targetId: "foundation-wall",
+              required: 1
+            }
+          },
+          {
+            id: "place-greenhouse",
+            title: "Place Greenhouse",
+            description: "Alternative second step.",
+            required: true,
+            progress: {
+              kind: TASK_OBJECTIVE_KIND.EVENT,
+              eventType: TASK_EVENT.PLACE,
+              targetId: "greenhouse",
+              required: 1
+            }
+          }
+        ]
+      })
+    ];
+    const taskSystem = createTaskSystem({ tasks });
+
+    expect(taskSystem.applyEvent({
+      type: TASK_EVENT.COLLECT,
+      targetId: "wood"
+    }).completedTaskIds).toEqual([]);
+
+    expect(taskSystem.applyEvent({
+      type: TASK_EVENT.PLACE,
+      targetId: "greenhouse"
+    }).completedTaskIds).toEqual(["single-task"]);
   });
 
   it("tracks optional objectives for terminal rendering and fallback focus", () => {

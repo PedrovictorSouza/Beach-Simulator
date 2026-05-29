@@ -37,6 +37,9 @@ const SOLAR_STATION_MODEL_TEXTURE_PATH = new URL("../../../Solar-Station/Solar-S
 const GREENHOUSE_MODEL_GLTF_PATH = new URL("../../../Greenhouse/Estufa.gltf", import.meta.url).href;
 const GREENHOUSE_MODEL_BIN_PATH = new URL("../../../Greenhouse/Estufa.bin", import.meta.url).href;
 const GREENHOUSE_MODEL_TEXTURE_PATH = new URL("../../../Greenhouse/Estufa.png", import.meta.url).href;
+const GREEN_ARROW_MODEL_GLTF_PATH = new URL("../../../green-arrow/green-arrow.gltf", import.meta.url).href;
+const GREEN_ARROW_MODEL_BIN_PATH = new URL("../../../green-arrow/green-arrow.bin", import.meta.url).href;
+const GREEN_ARROW_MODEL_TEXTURE_PATH = new URL("../../../green-arrow/green-arrow.png", import.meta.url).href;
 const TRAIN_HOUSE_MODEL_GLTF_PATH = new URL("../../../Train-house/train-house.gltf", import.meta.url).href;
 const TRAIN_HOUSE_MODEL_BIN_PATH = new URL("../../../Train-house/train-house.bin", import.meta.url).href;
 const TRAIN_HOUSE_MODEL_TEXTURE_PATH = new URL("../../../Train-house/train-house.png", import.meta.url).href;
@@ -54,6 +57,9 @@ const DEAD_TREE_MODEL_TEXTURE_PATH = new URL("../../../Trees/Dead-Tree/Dead-Tree
 const TREE_2_MODEL_GLTF_PATH = new URL("../../../Trees/tree-2/tree-2.gltf", import.meta.url).href;
 const TREE_2_MODEL_BIN_PATH = new URL("../../../Trees/tree-2/tree-2.bin", import.meta.url).href;
 const TREE_2_MODEL_TEXTURE_PATH = new URL("../../../Trees/tree-2/tree-2.png", import.meta.url).href;
+const TREE_3_MODEL_GLTF_PATH = new URL("../../../Trees/tree-3/Tree-3.gltf", import.meta.url).href;
+const TREE_3_MODEL_BIN_PATH = new URL("../../../Trees/tree-3/Tree-3.bin", import.meta.url).href;
+const TREE_3_MODEL_TEXTURE_PATH = new URL("../../../Trees/tree-3/Tree-3.png", import.meta.url).href;
 const GARDEN_1_MODEL_GLTF_PATH = new URL("../../../Trees/Garden-1/garden-1.gltf", import.meta.url).href;
 const GARDEN_1_MODEL_BIN_PATH = new URL("../../../Trees/Garden-1/garden-1.bin", import.meta.url).href;
 const GARDEN_1_MODEL_TEXTURE_PATH = new URL("../../../Trees/Garden-1/garden-1.png", import.meta.url).href;
@@ -179,11 +185,13 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     solarEnergyModel,
     solarStationModel,
     greenhouseModel,
+    greenArrowModel,
     trainHouseModel,
     carbonOreModel,
     gearModel,
     cloudModel,
     garden1Model,
+    nativeTreeModel,
     leafDenModel,
     leppaTreeMusicalNoteImages
   ] = await Promise.all([
@@ -324,6 +332,14 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     }),
     loadTexturedModel({
       gl,
+      gltfPath: GREEN_ARROW_MODEL_GLTF_PATH,
+      binPath: GREEN_ARROW_MODEL_BIN_PATH,
+      texturePath: GREEN_ARROW_MODEL_TEXTURE_PATH,
+      normalizedSize: 0.95,
+      onStatus: setStatus
+    }),
+    loadTexturedModel({
+      gl,
       gltfPath: TRAIN_HOUSE_MODEL_GLTF_PATH,
       binPath: TRAIN_HOUSE_MODEL_BIN_PATH,
       texturePath: TRAIN_HOUSE_MODEL_TEXTURE_PATH,
@@ -364,6 +380,14 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     }),
     loadTexturedModel({
       gl,
+      gltfPath: TREE_3_MODEL_GLTF_PATH,
+      binPath: TREE_3_MODEL_BIN_PATH,
+      texturePath: TREE_3_MODEL_TEXTURE_PATH,
+      normalizedSize: 2.8,
+      onStatus: setStatus
+    }),
+    loadTexturedModel({
+      gl,
       gltfPath: LEAF_DEN_MODEL_GLTF_PATH,
       binPath: LEAF_DEN_MODEL_BIN_PATH,
       texturePath: LEAF_DEN_MODEL_TEXTURE_PATH,
@@ -392,11 +416,13 @@ export async function loadTerrainAssets({ gl, setStatus }) {
     solarEnergyModel,
     solarStationModel,
     greenhouseModel,
+    greenArrowModel,
     trainHouseModel,
     carbonOreModel,
     gearModel,
     cloudModel,
     garden1Model,
+    nativeTreeModel,
     leafDenModel,
     leppaTreeMusicalNoteImages,
     cloudShadowModel: createCloudShadowModel(gl)

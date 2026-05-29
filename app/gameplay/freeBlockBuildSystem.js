@@ -345,6 +345,24 @@ function getCellDistanceSquared(a, b) {
   return deltaX * deltaX + deltaY * deltaY;
 }
 
+function getAdjacentPlacedBlockCount(cell, buildState) {
+  if (typeof buildState?.getBlockAtCell !== "function") {
+    return 0;
+  }
+
+  const normalizedCell = normalizeCell(cell);
+  const adjacentCells = [
+    { x: normalizedCell.x - 1, y: normalizedCell.y },
+    { x: normalizedCell.x + 1, y: normalizedCell.y },
+    { x: normalizedCell.x, y: normalizedCell.y - 1 },
+    { x: normalizedCell.x, y: normalizedCell.y + 1 }
+  ];
+
+  return adjacentCells.reduce((count, adjacentCell) => (
+    buildState.getBlockAtCell(adjacentCell) ? count + 1 : count
+  ), 0);
+}
+
 function findNearestUsableBuildZoneCell({
   targetCell,
   buildZone,
@@ -359,6 +377,7 @@ function findNearestUsableBuildZoneCell({
 
   let nearestCell = null;
   let nearestDistanceSquared = Infinity;
+  let nearestAdjacentPlacedBlockCount = -1;
 
   for (const allowedCell of allowedCells) {
     const normalizedCell = normalizeCell(allowedCell);
@@ -373,9 +392,17 @@ function findNearestUsableBuildZoneCell({
     }
 
     const distanceSquared = getCellDistanceSquared(targetCell, normalizedCell);
-    if (distanceSquared < nearestDistanceSquared) {
+    const adjacentPlacedBlockCount = getAdjacentPlacedBlockCount(normalizedCell, buildState);
+    if (
+      distanceSquared < nearestDistanceSquared ||
+      (
+        distanceSquared === nearestDistanceSquared &&
+        adjacentPlacedBlockCount > nearestAdjacentPlacedBlockCount
+      )
+    ) {
       nearestCell = cloneCell(normalizedCell);
       nearestDistanceSquared = distanceSquared;
+      nearestAdjacentPlacedBlockCount = adjacentPlacedBlockCount;
     }
   }
 
@@ -401,10 +428,28 @@ function snapResolvedTargetCellToBuildZone({
   if (
     !zoneCellKeys ||
     !allowedCellKeys ||
-    !zoneCellKeys.has(targetKey) ||
-    allowedCellKeys.has(targetKey)
+    !zoneCellKeys.has(targetKey)
   ) {
     return normalizedTarget;
+  }
+
+  if (allowedCellKeys.has(targetKey)) {
+    const placementResult = buildState?.canPlaceBlock?.(normalizedTarget, {
+      ...options,
+      buildZone,
+      blockType
+    });
+    if (!placementResult || placementResult.placed === true) {
+      return normalizedTarget;
+    }
+
+    return findNearestUsableBuildZoneCell({
+      targetCell: normalizedTarget,
+      buildZone,
+      blockType,
+      buildState,
+      options
+    }) || normalizedTarget;
   }
 
   const projectedCell = projectCellToBuildZoneBorder(normalizedTarget, buildZone);
@@ -1018,9 +1063,15 @@ export function createFreeBlockBuildController({
     }
 
     const result = buildState.removeBlock(targetCell);
+    const definition = result.removed ? definitions.get(result.blockType) : null;
+    const materialCost = definition?.materialCost ?
+      {
+        itemId: definition.materialCost.itemId,
+        quantity: Math.max(0, Number(definition.materialCost.quantity || 0))
+      } :
+      null;
     if (result.removed) {
-      const definition = definitions.get(result.blockType);
-      if (definition?.materialCost) {
+      if (materialCost && options.refundMaterial !== false) {
         refundMaterialCost(options.inventory, definition.materialCost);
       }
       const removedKey = blockCellKey(result.block?.cell || targetCell);
@@ -1035,6 +1086,7 @@ export function createFreeBlockBuildController({
     return {
       ...result,
       handled: true,
+      materialCost,
       targetCell: result.block?.cell || targetCell,
       completionState: buildState.getCompletionState()
     };

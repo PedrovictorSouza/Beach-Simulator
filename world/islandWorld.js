@@ -1084,7 +1084,15 @@ function getInstantiatedObjectLabel(groundGrassPatch) {
     return "Dry Grass";
   }
 
-  return groundGrassPatch?.leafageObjectId === "garden1" ? "Garden-1" : "Tall Grass";
+  if (groundGrassPatch?.leafageObjectId === "garden1") {
+    return "Garden-1";
+  }
+
+  if (groundGrassPatch?.leafageObjectId === "nativeTree") {
+    return "Native tree";
+  }
+
+  return "Tall Grass";
 }
 
 function isDestroyableLandscapePatch(

@@ -4,6 +4,10 @@ import {
   TASK_OBJECTIVE_KIND,
   TASK_STATUS
 } from "./taskData.js";
+import {
+  matchesTaskCounterProgress,
+  matchesTaskEventProgress
+} from "./taskCriteria.js";
 
 const TASK_SYSTEM_STATE_VERSION = 1;
 
@@ -149,8 +153,7 @@ function eventMatchesObjective(event, objective) {
     return false;
   }
 
-  return progress.eventType === event.type &&
-    (!progress.targetId || progress.targetId === event.targetId);
+  return matchesTaskEventProgress(event, progress);
 }
 
 function eventMatchesCounter(event, objective) {
@@ -160,9 +163,7 @@ function eventMatchesCounter(event, objective) {
     return false;
   }
 
-  return progress.counterId === event.targetId ||
-    progress.counterId === event.counterId ||
-    progress.counterId === event.factId;
+  return matchesTaskCounterProgress(event, progress);
 }
 
 function getObjectiveState(state, taskId, objectiveId) {
@@ -228,6 +229,22 @@ function formatObjectiveProgress(state, task, objective) {
 }
 
 function isTaskComplete(state, task) {
+  const requirementGroups = Array.isArray(task.requirements) ?
+    task.requirements
+      .map((group) => (Array.isArray(group) ? group : [group]))
+      .map((group) => group.filter((objectiveId) => typeof objectiveId === "string" && objectiveId.length > 0))
+      .filter((group) => group.length > 0) :
+    null;
+
+  if (requirementGroups?.length) {
+    return requirementGroups.every((group) => (
+      group.some((objectiveId) => {
+        const objective = task.objectives.find((entry) => entry.id === objectiveId);
+        return objective ? isObjectiveComplete(state, task, objective) : false;
+      })
+    ));
+  }
+
   return task.objectives
     .filter((objective) => objective.required)
     .every((objective) => isObjectiveComplete(state, task, objective));

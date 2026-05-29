@@ -2,14 +2,99 @@ export const FIRST_MISSION_COMPLETION_QUEST_ID = "learn-to-move";
 export const FIRST_MISSION_COMPLETION_POP_TEXT = "You took your first steps!";
 export const CHOPPER_MET_COMPLETION_QUEST_ID = "wake-guide";
 export const CHOPPER_MET_COMPLETION_POP_TEXT = "You met Chopper!";
-const FIRST_MISSION_COMPLETION_POP_STYLE_ID = "first-mission-completion-pop-style";
-const MILESTONE_COMPLETION_POP_TEXT_BY_QUEST_ID = Object.freeze({
-  [FIRST_MISSION_COMPLETION_QUEST_ID]: FIRST_MISSION_COMPLETION_POP_TEXT,
-  [CHOPPER_MET_COMPLETION_QUEST_ID]: CHOPPER_MET_COMPLETION_POP_TEXT
+export const HYDRO_BOT_ONLINE_COMPLETION_POP_TEXT = "Hydro Bot is online!";
+export const BIO_GROW_ONLINE_COMPLETION_POP_TEXT = "Bio-Grow online!";
+const MILESTONE_COMPLETION_POP_STYLE_ID = "milestone-completion-pop-style";
+
+export const MILESTONE_COMPLETION_POP_IDS = Object.freeze({
+  FIRST_STEPS: "first-steps",
+  CHOPPER_MET: "chopper-met",
+  HYDRO_BOT_ONLINE: "hydro-bot-online",
+  FIRST_PATCH_RESTORED: "first-patch-restored",
+  TALL_GRASS_RESTORED: "tall-grass-restored",
+  BIO_GROW_ONLINE: "bio-grow-online",
+  HOME_PATCH_GROWN: "home-patch-grown",
+  SNOW_CLEARED: "snow-cleared",
+  COLONY_COMPUTER_ONLINE: "colony-computer-online",
+  BASE_FOUNDATION_BUILT: "base-foundation-built",
+  FIRST_HABITAT_REPORTED: "first-habitat-reported"
 });
+
+export const MILESTONE_COMPLETION_POP_CATALOG = Object.freeze([
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.FIRST_STEPS,
+    questId: FIRST_MISSION_COMPLETION_QUEST_ID,
+    text: FIRST_MISSION_COMPLETION_POP_TEXT
+  },
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.CHOPPER_MET,
+    questId: CHOPPER_MET_COMPLETION_QUEST_ID,
+    text: CHOPPER_MET_COMPLETION_POP_TEXT
+  },
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.HYDRO_BOT_ONLINE,
+    questId: "gather-first-supplies",
+    text: HYDRO_BOT_ONLINE_COMPLETION_POP_TEXT
+  },
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.FIRST_PATCH_RESTORED,
+    questId: "water-first-dry-patch",
+    text: "First patch restored!"
+  },
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.TALL_GRASS_RESTORED,
+    questId: "water-dry-grass",
+    text: "You restored the tall grass!"
+  },
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.BIO_GROW_ONLINE,
+    questId: "inspect-rustling-grass",
+    text: BIO_GROW_ONLINE_COMPLETION_POP_TEXT
+  },
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.HOME_PATCH_GROWN,
+    questId: "grow-a-home-patch",
+    text: "You grew a home patch!"
+  },
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.SNOW_CLEARED,
+    questId: "melt-first-snow",
+    text: "Snow cleared!"
+  },
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.COLONY_COMPUTER_ONLINE,
+    questId: "open-colony-computer",
+    text: "Colony computer online!"
+  },
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.BASE_FOUNDATION_BUILT,
+    questId: "build-first-base",
+    text: "Base foundation built!"
+  },
+  {
+    id: MILESTONE_COMPLETION_POP_IDS.FIRST_HABITAT_REPORTED,
+    questId: "chopper-first-habitat-report",
+    text: "You reported back!"
+  }
+].map(Object.freeze));
+
+const MILESTONE_COMPLETION_POP_BY_QUEST_ID = Object.freeze(Object.fromEntries(
+  MILESTONE_COMPLETION_POP_CATALOG.map((milestone) => [milestone.questId, milestone])
+));
+const MILESTONE_COMPLETION_POP_TEXT_BY_QUEST_ID = Object.freeze(Object.fromEntries(
+  MILESTONE_COMPLETION_POP_CATALOG.map((milestone) => [milestone.questId, milestone.text])
+));
 const MILESTONE_COMPLETION_POP_TEXTS = new Set(
   Object.values(MILESTONE_COMPLETION_POP_TEXT_BY_QUEST_ID)
 );
+
+export function listMilestoneCompletionPops() {
+  return MILESTONE_COMPLETION_POP_CATALOG;
+}
+
+export function getMilestoneCompletionPop(questId) {
+  return MILESTONE_COMPLETION_POP_BY_QUEST_ID[questId] || null;
+}
 
 export function getMilestoneCompletionPopText(questId) {
   return MILESTONE_COMPLETION_POP_TEXT_BY_QUEST_ID[questId] || null;
@@ -28,12 +113,12 @@ export function isFirstMissionCompletionPopText(text) {
 }
 
 export function installFirstMissionCompletionPopStyles(documentRef) {
-  if (!documentRef?.head || documentRef.getElementById(FIRST_MISSION_COMPLETION_POP_STYLE_ID)) {
+  if (!documentRef?.head || documentRef.getElementById(MILESTONE_COMPLETION_POP_STYLE_ID)) {
     return;
   }
 
   const style = documentRef.createElement("style");
-  style.id = FIRST_MISSION_COMPLETION_POP_STYLE_ID;
+  style.id = MILESTONE_COMPLETION_POP_STYLE_ID;
   style.textContent = `
     .act-two-tutorial__speech[data-world-speech-variant="task-pop"][data-task-pop-kind="milestone"] .act-two-tutorial__speech-bubble,
     .act-two-tutorial__speech[data-world-speech-variant="task-pop"][data-task-pop-kind="first-mission"] .act-two-tutorial__speech-bubble {

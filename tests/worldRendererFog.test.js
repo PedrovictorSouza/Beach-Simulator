@@ -179,4 +179,27 @@ describe("worldRenderer PSX distance fog", () => {
     expect(lastUniform(calls.uniform1f, "uInstanceScale")).toBeCloseTo(1.05 * 0.7, 5);
     expect(lastUniform(calls.uniform1f, "uBrightness")).toBeCloseTo(1.4, 5);
   });
+
+  it("renders foundation completion ground cells with animated brightness", () => {
+    const { gl, calls } = createRecordingGl();
+    const renderer = createRenderer(gl);
+
+    renderer.drawGroundCellHighlight(new Float32Array(16), {
+      visible: true,
+      markedGroundCells: [
+        {
+          id: "foundation-complete-ground:1:1",
+          offset: [1, 0, 1],
+          surfaceY: 0,
+          tileSpan: 1,
+          highlightAbilityId: "foundationComplete"
+        }
+      ],
+      pulsePhase: 0.5
+    });
+
+    expect(gl.drawElements).toHaveBeenCalledTimes(1);
+    expect(lastUniform(calls.uniform1f, "uBrightness")).toBeGreaterThan(1.08);
+    expect(lastUniform(calls.uniform1f, "uInstanceScale")).toBeGreaterThan(0.98);
+  });
 });

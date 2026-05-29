@@ -59,6 +59,8 @@ import {
   emitColonyProgressQuestEvents
 } from "../app/story/progressionTriggerContract.js";
 import { MOTION_IMPACT_PRESET_IDS } from "../app/motion/motionImpactPresets.js";
+import { STATION_IDS } from "../app/gameplay/stationIds.js";
+import { resolveStationInteraction } from "../app/gameplay/stationInteractionResolver.js";
 
 const BULBASAUR_RUSTLING_GRASS_RESTORE_COUNT = 4;
 const BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT = 10;
@@ -69,8 +71,20 @@ const LEAFAGE_FLOWER_GROUP_ID = "leafage-flower-bed-habitat-0";
 const LEAFAGE_OBJECT_ID_TALL_GRASS = "tallGrass";
 const LEAFAGE_OBJECT_ID_GARDEN_1 = "garden1";
 const LEAFAGE_OBJECT_ID_FLOWER = "flower";
+const LEAFAGE_OBJECT_ID_NATIVE_TREE = "nativeTree";
 const BOULDER_SHADED_TALL_GRASS_GROUP_ID = "boulder-shaded-tall-grass-habitat-0";
 const LEAFAGE_GROUND_CELL_INTERACT_RADIUS_FACTOR = 0.82;
+const LEAFAGE_NATIVE_TREE_INTERACT_RADIUS_FACTOR = 2.25;
+const LEAFAGE_NATIVE_TREE_MIN_PLAYER_DISTANCE_FACTOR = 0.9;
+const LEAFAGE_NATIVE_TREE_WOOD_DROP_COUNT = 3;
+const LEAFAGE_NATIVE_TREE_WOOD_DROP_SIZE = 0.78;
+const LEAFAGE_NATIVE_TREE_WOOD_PICKUP_RADIUS = 0.64;
+const REBIRTH_OF_NATURE_CELL_ID = "ground-110-82";
+const REBIRTH_OF_NATURE_GRID_CELL = Object.freeze({ x: 110, y: 82 });
+const REBIRTH_OF_NATURE_EVENT_TARGET_ID = "rebirth-of-nature-tree";
+const REBIRTH_OF_NATURE_FACT_ID = "world.rebirthOfNature.completed";
+const REBIRTH_OF_NATURE_COMPLETE_FLAG = "rebirthOfNatureComplete";
+const REBIRTH_OF_NATURE_REWARD_LEAVES = 10;
 const WATER_GUN_GROUND_CELL_PAINT_COUNT = 9;
 const WATER_GUN_GROUND_CELL_PAINT_RADIUS_FACTOR = 1.6;
 const LEPPA_TREE_WATER_HINT_DISTANCE = 2.85;
@@ -284,6 +298,7 @@ export function createGameplayInteractions({
   onWorkbenchRecipesRequested = () => {},
   onWorkbenchCraftOptionsRequested = () => {},
   onWorkbenchCraftMotionRequested = () => {},
+  onStationRecipeCrafted = () => {},
   onWaterGunImpactMotionRequested = () => {},
   onCampfireCraftRequested = () => {},
   onCampfireCrafted = () => {},
@@ -897,7 +912,15 @@ export function createGameplayInteractions({
     return occupiedCellIds;
   }
 
-  function findNearestAvailableGroundCell(playerPosition, groundCellLists, occupiedCellIds) {
+  function findNearestAvailableGroundCell(
+    playerPosition,
+    groundCellLists,
+    occupiedCellIds,
+    {
+      interactRadiusFactor = LEAFAGE_GROUND_CELL_INTERACT_RADIUS_FACTOR,
+      minPlayerDistanceFactor = 0
+    } = {}
+  ) {
     if (!Array.isArray(playerPosition)) {
       return null;
     }
@@ -922,8 +945,8 @@ export function createGameplayInteractions({
           continue;
         }
 
-        const interactDistance =
-          (groundCell.tileSpan || 0) * LEAFAGE_GROUND_CELL_INTERACT_RADIUS_FACTOR;
+        const tileSpan = groundCell.tileSpan || 0;
+        const interactDistance = tileSpan * interactRadiusFactor;
         if (!(interactDistance > 0)) {
           continue;
         }
@@ -932,9 +955,12 @@ export function createGameplayInteractions({
         const dz = playerPosition[2] - groundCell.offset[2];
         const distanceSquared = dx * dx + dz * dz;
         const interactDistanceSquared = interactDistance * interactDistance;
+        const minPlayerDistance = tileSpan * minPlayerDistanceFactor;
+        const minPlayerDistanceSquared = minPlayerDistance * minPlayerDistance;
 
         if (
           distanceSquared <= interactDistanceSquared &&
+          distanceSquared >= minPlayerDistanceSquared &&
           distanceSquared < nearestDistanceSquared
         ) {
           nearestGroundCell = groundCell;
@@ -947,6 +973,127 @@ export function createGameplayInteractions({
       groundCell: nearestGroundCell,
       distance: Math.sqrt(nearestDistanceSquared)
     } : null;
+  }
+
+  function parseGroundCellGridPosition(groundCell) {
+    const match = /^ground-(\d+)-(\d+)$/.exec(String(groundCell?.id || ""));
+    if (!match) {
+      return null;
+    }
+
+    return {
+      x: Number(match[1]),
+      y: Number(match[2])
+    };
+  }
+
+  function isRebirthOfNatureMissionActive(storyState) {
+    return Boolean(
+      storyState?.flags?.bulbasaurDryGrassRequestTurnedIn &&
+      !storyState.flags[REBIRTH_OF_NATURE_COMPLETE_FLAG]
+    );
+  }
+
+  function isRebirthOfNatureTargetCell(groundCell) {
+    return groundCell?.id === REBIRTH_OF_NATURE_CELL_ID;
+  }
+
+  function isRebirthOfNatureNeighborCell(groundCell) {
+    if (isRebirthOfNatureTargetCell(groundCell)) {
+      return false;
+    }
+
+    const gridPosition = parseGroundCellGridPosition(groundCell);
+    if (!gridPosition) {
+      return false;
+    }
+
+    return (
+      Math.abs(gridPosition.x - REBIRTH_OF_NATURE_GRID_CELL.x) <= 1 &&
+      Math.abs(gridPosition.y - REBIRTH_OF_NATURE_GRID_CELL.y) <= 1
+    );
+  }
+
+  function findRebirthOfNatureGroundCell({
+    playerPosition,
+    groundDeadInstances = [],
+    groundPurifiedInstances = [],
+    occupiedCellIds,
+    placementOptions
+  }) {
+    const candidateGroundCells = [
+      ...groundDeadInstances,
+      ...groundPurifiedInstances
+    ];
+    const targetCell = findNearestAvailableGroundCell(
+      playerPosition,
+      [candidateGroundCells.filter(isRebirthOfNatureTargetCell)],
+      occupiedCellIds,
+      placementOptions
+    );
+
+    if (targetCell) {
+      return {
+        ...targetCell,
+        rebirthOfNatureTarget: true
+      };
+    }
+
+    const neighborCell = findNearestAvailableGroundCell(
+      playerPosition,
+      [candidateGroundCells.filter(isRebirthOfNatureNeighborCell)],
+      occupiedCellIds,
+      placementOptions
+    );
+
+    return neighborCell ? {
+      ...neighborCell,
+      blockedRebirthOfNatureNeighbor: true
+    } : null;
+  }
+
+  function completeRebirthOfNatureMission({
+    storyState,
+    inventory,
+    addItems,
+    syncInventoryUi,
+    pushNotice,
+    questSystem,
+    groundCell,
+    groundDeadInstances,
+    groundPurifiedInstances,
+    patch
+  }) {
+    if (
+      !isRebirthOfNatureMissionActive(storyState) ||
+      patch?.cellId !== REBIRTH_OF_NATURE_CELL_ID ||
+      patch?.leafageObjectId !== LEAFAGE_OBJECT_ID_NATIVE_TREE
+    ) {
+      return false;
+    }
+
+    storyState.flags ||= {};
+    purifyGroundCell?.(groundCell, groundDeadInstances, groundPurifiedInstances);
+    storyState.flags[REBIRTH_OF_NATURE_COMPLETE_FLAG] = true;
+    questSystem?.emit?.({
+      type: QUEST_EVENT.PLACE,
+      targetId: REBIRTH_OF_NATURE_EVENT_TARGET_ID
+    });
+    questSystem?.applyEffects?.([
+      {
+        type: "set-fact",
+        id: REBIRTH_OF_NATURE_FACT_ID,
+        value: true
+      }
+    ], {
+      reason: "rebirth-of-nature-complete"
+    });
+    addItems(inventory, {
+      [LEAVES_ITEM_ID]: REBIRTH_OF_NATURE_REWARD_LEAVES
+    });
+    syncInventoryUi?.(inventory);
+    pushNotice("Rebirth of nature complete. +10 Leaf.");
+    return true;
   }
 
   function getDistanceToBoulderShade(groundCell) {
@@ -979,12 +1126,38 @@ export function createGameplayInteractions({
     groundDeadInstances = [],
     groundPurifiedInstances = [],
     groundGrassPatches = [],
-    groundFlowerPatches = []
+    groundFlowerPatches = [],
+    storyState = null
   } = {}) {
+    const selectedLeafageObjectId = storyState?.flags?.leafageObjectId;
+    const placementOptions = selectedLeafageObjectId === LEAFAGE_OBJECT_ID_NATIVE_TREE ? {
+      interactRadiusFactor: LEAFAGE_NATIVE_TREE_INTERACT_RADIUS_FACTOR,
+      minPlayerDistanceFactor: LEAFAGE_NATIVE_TREE_MIN_PLAYER_DISTANCE_FACTOR
+    } : {};
+    const occupiedCellIds = buildOccupiedGroundCellIds(groundGrassPatches, groundFlowerPatches);
+
+    if (
+      selectedLeafageObjectId === LEAFAGE_OBJECT_ID_NATIVE_TREE &&
+      isRebirthOfNatureMissionActive(storyState)
+    ) {
+      const rebirthOfNatureGroundCell = findRebirthOfNatureGroundCell({
+        playerPosition,
+        groundDeadInstances,
+        groundPurifiedInstances,
+        occupiedCellIds,
+        placementOptions
+      });
+
+      if (rebirthOfNatureGroundCell) {
+        return rebirthOfNatureGroundCell;
+      }
+    }
+
     return findNearestAvailableGroundCell(
       playerPosition,
       [groundPurifiedInstances],
-      buildOccupiedGroundCellIds(groundGrassPatches, groundFlowerPatches)
+      occupiedCellIds,
+      placementOptions
     );
   }
 
@@ -1028,7 +1201,9 @@ export function createGameplayInteractions({
     const leafageObjectId =
       selectedLeafageObjectId === LEAFAGE_OBJECT_ID_GARDEN_1 ?
         LEAFAGE_OBJECT_ID_GARDEN_1 :
-        LEAFAGE_OBJECT_ID_TALL_GRASS;
+        selectedLeafageObjectId === LEAFAGE_OBJECT_ID_NATIVE_TREE ?
+          LEAFAGE_OBJECT_ID_NATIVE_TREE :
+          LEAFAGE_OBJECT_ID_TALL_GRASS;
     const patch = {
       id: `leafage-grass-${groundCell.id}`,
       cellId: groundCell.id,
@@ -1040,7 +1215,10 @@ export function createGameplayInteractions({
         (groundCell.surfaceY || 0) + 0.02,
         groundCell.offset[2]
       ],
-      size: leafageObjectId === LEAFAGE_OBJECT_ID_GARDEN_1 ? [1.42, 1.18] : [1.18, 0.96],
+      size:
+        leafageObjectId === LEAFAGE_OBJECT_ID_GARDEN_1 ? [1.42, 1.18] :
+          leafageObjectId === LEAFAGE_OBJECT_ID_NATIVE_TREE ? [1.32, 1.32] :
+            [1.18, 0.96],
       state: "alive"
     };
 
@@ -1088,7 +1266,46 @@ export function createGameplayInteractions({
     });
   }
 
-  function destroyInstantiatedObjectPatch(target, groundGrassPatches, groundFlowerPatches, storyState) {
+  function spawnNativeTreeWoodDrops(patch, woodDrops = []) {
+    if (
+      patch?.leafageObjectId !== LEAFAGE_OBJECT_ID_NATIVE_TREE ||
+      !Array.isArray(woodDrops) ||
+      !Array.isArray(patch.position)
+    ) {
+      return [];
+    }
+
+    const dropRadius = Math.max(Number(patch.size?.[0]) || 1, Number(patch.size?.[1]) || 1) * 0.36 + 0.42;
+    const localOffsets = [
+      [1, 0],
+      [-0.5, 0.86],
+      [-0.5, -0.86]
+    ].slice(0, LEAFAGE_NATIVE_TREE_WOOD_DROP_COUNT);
+    let nextWoodDropId = getNextWoodDropId(woodDrops);
+    const drops = localOffsets.map(([localX, localZ]) => ({
+      id: `wood-${nextWoodDropId++}`,
+      position: [
+        patch.position[0] + localX * dropRadius,
+        0.02,
+        patch.position[2] + localZ * dropRadius
+      ],
+      size: [LEAFAGE_NATIVE_TREE_WOOD_DROP_SIZE, LEAFAGE_NATIVE_TREE_WOOD_DROP_SIZE],
+      uvRect: [0, 0, 1, 1],
+      pickupRadius: LEAFAGE_NATIVE_TREE_WOOD_PICKUP_RADIUS,
+      collected: false
+    }));
+
+    woodDrops.push(...drops);
+    return drops;
+  }
+
+  function destroyInstantiatedObjectPatch(
+    target,
+    groundGrassPatches,
+    groundFlowerPatches,
+    storyState,
+    woodDrops = []
+  ) {
     const collections = [groundGrassPatches, groundFlowerPatches];
     let patchCollection = null;
     let patchIndex = -1;
@@ -1128,6 +1345,7 @@ export function createGameplayInteractions({
     }
 
     patchCollection.splice(patchIndex, 1);
+    const spawnedWoodDrops = spawnNativeTreeWoodDrops(patch, woodDrops);
     const countFlag = patch.source === "leafage" ?
       (
         patch.habitatGroupId === BOULDER_SHADED_TALL_GRASS_GROUP_ID ?
@@ -1147,6 +1365,8 @@ export function createGameplayInteractions({
         "Dry Grass cut." :
         isFlowerInstantiatedPatch(patch) ?
         "Flower destroyed." :
+        patch.leafageObjectId === LEAFAGE_OBJECT_ID_NATIVE_TREE ?
+        spawnedWoodDrops.length > 0 ? "Native tree destroyed. Wood dropped." : "Native tree destroyed." :
         patch.leafageObjectId === LEAFAGE_OBJECT_ID_GARDEN_1 ?
         "Garden-1 destroyed." :
         "Tall Grass destroyed."
@@ -1479,61 +1699,106 @@ export function createGameplayInteractions({
       formatRequirementSummary
     });
   }
+  
 
-  function handleStationInteraction(stationId, storyState, inventory) {
-    if (
-      stationId === "workbench" &&
-      storyState.flags.bulbasaurWorkbenchGuideAvailable &&
-      !storyState.flags.workbenchDiyRecipesReceived
-    ) {
-      onWorkbenchRecipesRequested();
-      return true;
-    }
+function executeOpenWorkbenchIntro() {
+  onWorkbenchRecipesRequested();
+  return true;
+}
 
-    if (
-      stationId === "workbench" &&
-      getWorkbenchRecipeOptions(storyState, inventory).length > 0
-    ) {
-      const recipes = getWorkbenchRecipeOptions(storyState, inventory);
+function executeOpenRecipeOptions(result) {
+  onWorkbenchCraftOptionsRequested({
+    recipes: result.recipes
+  });
 
-      onWorkbenchCraftOptionsRequested({ recipes });
-      return true;
-    }
+  return true;
+}
 
-    const quest = getActiveQuest(storyState);
-    const recipe = quest.recipeId ? placeholderRecipes[quest.recipeId] : null;
+function executeBlockedStationInteraction(result) {
+  pushNotice(result.reason);
+  return false;
+}
 
-    if (!recipe || quest.stationId !== stationId) {
-      pushNotice(
-        stationId === "stove" ?
-          "The stove has no active colony recipe." :
-          "This station has no active colony protocol."
-      );
-      return false;
-    }
+function executeMissingStationMaterials(result, { inventory }) {
+  pushMissingRequirementNotice(result.recipe.ingredients, inventory);
+  return false;
+}
 
-    if (!hasItems(inventory, recipe.ingredients)) {
-      pushMissingRequirementNotice(recipe.ingredients, inventory);
-      return false;
-    }
+function executeCraftQuestRecipe(result, {
+  stationId,
+  storyState,
+  inventory
+}) {
+  const { quest, recipe } = result;
 
-    consumeItems(inventory, recipe.ingredients);
-    addItems(inventory, recipe.output);
+  consumeItems(inventory, recipe.ingredients);
+  addItems(inventory, recipe.output);
 
-    if (recipe.id === "granitePickaxe") {
-      storyState.flags.pickaxeCrafted = true;
-    }
-
-    syncInventoryUi(inventory);
-    questSystem?.emit?.({
-      type: QUEST_EVENT.BUILD,
-      targetId: recipe.id,
-      amount: 1
-    });
-    advanceQuest(storyState, `${recipe.title} pronto.`);
-    return true;
+  if (recipe.id === "granitePickaxe") {
+    storyState.flags.pickaxeCrafted = true;
   }
 
+  syncInventoryUi(inventory);
+
+  questSystem?.emit?.({
+    type: QUEST_EVENT.BUILD,
+    targetId: recipe.id,
+    amount: 1
+  });
+
+  onStationRecipeCrafted({
+    stationId,
+    questId: quest.id,
+    recipeId: recipe.id,
+    recipe,
+    ingredients: recipe.ingredients,
+    output: recipe.output
+  });
+
+  advanceQuest(storyState, `${recipe.title} pronto.`);
+  return true;
+}
+
+const stationInteractionResultHandlers = {
+  "open-workbench-intro": executeOpenWorkbenchIntro,
+  "open-recipe-options": executeOpenRecipeOptions,
+  "blocked": executeBlockedStationInteraction,
+  "missing-materials": executeMissingStationMaterials,
+  "craft-quest-recipe": executeCraftQuestRecipe
+};
+
+function executeStationInteractionResult(result, context = {}) {
+  const handler = stationInteractionResultHandlers[result?.type];
+
+  if (!handler) {
+    return false;
+  }
+
+  return handler(result, context);
+}
+
+function handleStationInteraction(stationId, storyState, inventory) {
+  const workbenchRecipeOptions =
+    stationId === STATION_IDS.WORKBENCH
+      ? getWorkbenchRecipeOptions(storyState, inventory)
+      : [];
+
+  const result = resolveStationInteraction({
+    stationId,
+    storyState,
+    inventory,
+    workbenchRecipeOptions,
+    activeQuest: getActiveQuest(storyState),
+    placeholderRecipes,
+    hasItemsFn: hasItems
+  });
+
+  return executeStationInteractionResult(result, {
+    stationId,
+    storyState,
+    inventory
+  });
+}
   function handleNpcInteraction(npcId, storyState, onDialogueOpen = () => {}) {
     const quest = getActiveQuest(storyState);
     const activeSystemQuest = questSystem?.getActiveQuest?.();
@@ -2050,6 +2315,31 @@ export function createGameplayInteractions({
 
     return nextWoodDropId;
   }
+
+  function findNearbyDestroyableObjectPrompt({
+  playerPosition,
+  storyState,
+  groundGrassPatches = [],
+  groundFlowerPatches = []
+}) {
+  const nearbyDestroyableObject = findNearbyDestroyableInstantiatedObject(
+    playerPosition,
+    groundGrassPatches,
+    storyState,
+    groundFlowerPatches
+  );
+
+  if (!nearbyDestroyableObject?.target) {
+    return null;
+  }
+
+  return {
+    target: nearbyDestroyableObject.target,
+    promptCopy: "Y Remove",
+    worldPosition: nearbyDestroyableObject.target.position || null,
+    cellId: nearbyDestroyableObject.target.cellId || null
+  };
+}
 
   function performInteractAction({
     playerPosition,
@@ -3030,6 +3320,7 @@ export function createGameplayInteractions({
     craftStrawBedAtWorkbench,
     getWorkbenchRecipeOptions,
     findNearbyActionTarget,
+    findNearbyDestroyableObjectPrompt,
     performHarvestAction,
     performInteractAction,
     recordQuestEvent(event) {

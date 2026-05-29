@@ -47,12 +47,42 @@ function freezeStringArray(values = []) {
   return Object.freeze([...values]);
 }
 
+function getWorldObjectLabel(objectId) {
+  return getWorldObjectById(objectId)?.label || objectId;
+}
+
+function getRecipeUseCopy(recipe, useLabel) {
+  if (recipe.useScope === WORLD_OBJECT_RECIPE_USE_SCOPE.INSIDE_OBJECT) {
+    return `Used inside ${useLabel}`;
+  }
+
+  return `Used at ${useLabel}`;
+}
+
+export function createWorldObjectRecipeChain(recipe = {}) {
+  const sourceLabel = getWorldObjectLabel(recipe.sourceObjectId);
+  const useLabel = getWorldObjectLabel(recipe.useObjectId);
+  const learnedFrom = `Learned from ${sourceLabel}`;
+  const usedAt = getRecipeUseCopy(recipe, useLabel);
+
+  return Object.freeze({
+    sourceObjectId: recipe.sourceObjectId,
+    sourceLabel,
+    learnedFrom,
+    useObjectId: recipe.useObjectId,
+    useLabel,
+    usedAt,
+    summary: `${learnedFrom}. ${usedAt}.`
+  });
+}
+
 function freezeRecipe(recipe) {
   return Object.freeze({
     ...recipe,
     ingredients: freezeRecord(recipe.ingredients),
     output: freezeRecord(recipe.output),
-    tags: freezeStringArray(recipe.tags)
+    tags: freezeStringArray(recipe.tags),
+    chain: createWorldObjectRecipeChain(recipe)
   });
 }
 

@@ -1766,6 +1766,35 @@ describe("findNearbyInteractable", () => {
     })).toBe("[Y] Garden-1 • Destroy");
   });
 
+  it("labels nearby Leafage native trees as destroyable", () => {
+    const result = findNearbyDestroyableInstantiatedObject(
+      [1.15, 0, 0.2],
+      [
+        {
+          id: "leafage-native-tree-ground-1",
+          cellId: "ground-1",
+          source: "leafage",
+          leafageObjectId: "nativeTree",
+          state: "alive",
+          position: [1, 0.02, 0],
+          size: [1.32, 1.32]
+        }
+      ],
+      { flags: { bulbasaurRevealed: true } }
+    );
+
+    expect(result).toEqual({
+      target: {
+        kind: "site",
+        id: "leafage-native-tree-ground-1",
+        label: "Native tree",
+        action: "destroyInstantiatedObject",
+        cellId: "ground-1"
+      },
+      distance: expect.any(Number)
+    });
+  });
+
   it("does not detect world dry grass as destroyable before Bulbasaur is unlocked", () => {
     const result = findNearbyDestroyableInstantiatedObject(
       [1.15, 0, 0.2],

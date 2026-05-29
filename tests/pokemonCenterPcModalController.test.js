@@ -40,9 +40,9 @@ function createController() {
 describe("createPokemonCenterPcModalController", () => {
   it("shares terminal status legend display data", () => {
     expect(getTerminalStatusLegendItems()).toEqual([
-      { label: "Green complete", color: "#ffffff" },
-      { label: "Yellow ready/to do", color: "#ffffff" },
-      { label: "Dark locked", color: "#ffffff" }
+      { label: "Green complete", color: "#9bbc0f" },
+      { label: "Yellow ready/to do", color: "#ffe200" },
+      { label: "Dark locked", color: "#6f5a5a" }
     ]);
   });
 
@@ -61,7 +61,7 @@ describe("createPokemonCenterPcModalController", () => {
     });
     expect(getTerminalMissionStatusType("unknown")).toMatchObject({
       label: "Available",
-      palette: { border: "#ffd66d" }
+      palette: { border: "#ffe200" }
     });
   });
 
@@ -107,7 +107,7 @@ describe("createPokemonCenterPcModalController", () => {
       selected: true,
       statusLabel: "Reward Ready"
     });
-    expect(viewModel.palette.border).toBe("#ffd66d");
+    expect(viewModel.palette.border).toBe("#ffe200");
   });
 
   it("keeps terminal cascade selection rules independent from DOM rendering", () => {
@@ -204,7 +204,7 @@ describe("createPokemonCenterPcModalController", () => {
     expect(mount.textContent).toContain("Boulder-Shaded Tall Grass");
     expect(mount.textContent).toContain("Builder Ada");
     expect(mount.textContent).toContain("2/2");
-    expect(mount.textContent).toContain("Check 2");
+    expect(mount.textContent).not.toContain("Check 2");
     expect(mount.textContent).toContain("Press X / Enter to Log Viability.");
     expect(mount.textContent).toContain("X / Enter Log Viability");
     expect(mount.textContent).toContain("B / Esc Close");
@@ -383,9 +383,9 @@ describe("createPokemonCenterPcModalController", () => {
 
     const cards = mount.querySelectorAll(".pokemon-center-pc-modal__cards .pokemon-center-pc-modal__card");
     expect(cards).toHaveLength(3);
-    expect(cards[0]?.getAttribute("style")).toContain("#89ff00");
-    expect(cards[1]?.getAttribute("style")).toContain("#ffd66d");
-    expect(cards[2]?.getAttribute("style")).toContain("#5d6470");
+    expect(cards[0]?.getAttribute("style")).toContain("#9bbc0f");
+    expect(cards[1]?.getAttribute("style")).toContain("#ffe200");
+    expect(cards[2]?.getAttribute("style")).toContain("#6f5a5a");
     expect(cards[0]?.getAttribute("role")).toBe("option");
     expect(cards[0]?.getAttribute("aria-selected")).toBe("true");
     expect(cards[0]?.getAttribute("style")).toContain("minmax(124px, 154px)");

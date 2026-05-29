@@ -120,6 +120,54 @@ export function createWorldRenderer({
     return texture;
   }
 
+  function createFoundationCompleteGroundHighlightTexture() {
+    const size = GROUND_HIGHLIGHT_TEXTURE_SIZE;
+    const pixels = new Uint8Array(size * size * 4);
+
+    for (let y = 0; y < size; y += 1) {
+      for (let x = 0; x < size; x += 1) {
+        const edgeDistance = Math.min(x, y, size - 1 - x, size - 1 - y);
+        const stripe = Math.floor((x + y) / 4) % 3;
+        const pulse = Math.floor((x - y + size) / 5) % 2;
+        const color = edgeDistance < 2 ?
+          [255, 238, 120, 238] :
+          edgeDistance < 4 ?
+            [255, 84, 210, 224] :
+            stripe === 0 ?
+              [86, 238, 255, pulse ? 92 : 66] :
+              stripe === 1 ?
+                [255, 82, 208, pulse ? 84 : 58] :
+                [255, 231, 82, pulse ? 76 : 52];
+        const offset = (y * size + x) * 4;
+        pixels[offset + 0] = color[0];
+        pixels[offset + 1] = color[1];
+        pixels[offset + 2] = color[2];
+        pixels[offset + 3] = color[3];
+      }
+    }
+
+    const texture = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.pixelStorei?.(gl.UNPACK_ALIGNMENT, 1);
+    gl.texImage2D(
+      gl.TEXTURE_2D,
+      0,
+      gl.RGBA,
+      size,
+      size,
+      0,
+      gl.RGBA,
+      gl.UNSIGNED_BYTE,
+      pixels
+    );
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+    return texture;
+  }
+
   const groundHighlightPrimitive = createGroundQuadPrimitive();
   const groundHighlightModel = {
     offset: [0, 0, 0],
@@ -158,6 +206,7 @@ export function createWorldRenderer({
     border: [142, 219, 255, 132],
     outerBorder: [7, 27, 48, 88]
   });
+  const foundationCompleteGroundHighlightTexture = createFoundationCompleteGroundHighlightTexture();
 
   function syncPixelSnap() {
     pixelSnap[0] = worldCanvas.width * 0.5;
@@ -403,6 +452,10 @@ export function createWorldRenderer({
   }
 
   function getSelectedGroundHighlightTexture(groundCell) {
+    if (isFoundationCompleteGroundCell(groundCell)) {
+      return foundationCompleteGroundHighlightTexture;
+    }
+
     if (groundCell?.highlightAbilityId === "leafage") {
       return selectedLeafGroundHighlightTexture;
     }
@@ -420,6 +473,11 @@ export function createWorldRenderer({
 
   function isPowerRadiusGroundCell(groundCell) {
     return groundCell?.highlightTargetState === "powerRadius";
+  }
+
+  function isFoundationCompleteGroundCell(groundCell) {
+    return groundCell?.highlightAbilityId === "foundationComplete" ||
+      groundCell?.highlightTargetState === "foundationComplete";
   }
 
   function getGroundHighlightCellKey(groundCell) {
@@ -568,6 +626,7 @@ export function createWorldRenderer({
       visible = false,
       groundCell = null,
       markedGroundCells = [],
+      pulsePhase = 0,
       actionPulseGroundCell = null,
       actionPulsePhase = 0,
       actionPulseAbilityId = null
@@ -595,11 +654,21 @@ export function createWorldRenderer({
       gl.uniform1f(uniforms.jitterAmount, 0);
       gl.depthMask?.(false);
       const powerRadiusCells = markedCells.filter(isPowerRadiusGroundCell);
-      const standardMarkedCells = markedCells.filter((groundCell) => !isPowerRadiusGroundCell(groundCell));
+      const foundationCompleteCells = markedCells.filter(isFoundationCompleteGroundCell);
+      const standardMarkedCells = markedCells.filter((groundCell) => (
+        !isPowerRadiusGroundCell(groundCell) &&
+        !isFoundationCompleteGroundCell(groundCell)
+      ));
       drawGroundHighlightCells(
         markedPowerRadiusGroundHighlightTexture,
         powerRadiusCells,
         GROUND_HIGHLIGHT_MARKED_SCALE
+      );
+      drawGroundHighlightCells(
+        foundationCompleteGroundHighlightTexture,
+        foundationCompleteCells,
+        GROUND_HIGHLIGHT_MARKED_SCALE + clamp(pulsePhase, 0, 1) * 0.12,
+        1.08 + clamp(pulsePhase, 0, 1) * 0.55
       );
       drawGroundHighlightCells(
         markedGroundHighlightTexture,

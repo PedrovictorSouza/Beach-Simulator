@@ -155,7 +155,12 @@ export function createDialogueCameraController({ camera, cameraOrbit }) {
     cameraOrbit.sync(dialoguePose.direction);
   }
 
-  function focusWorldPoint({ position, height = DIALOGUE_CAMERA_POINT_FOCUS_HEIGHT } = {}) {
+  function focusWorldPoint({
+    position,
+    height = DIALOGUE_CAMERA_POINT_FOCUS_HEIGHT,
+    distance = DIALOGUE_CAMERA_POINT_FOCUS_DISTANCE,
+    zoom = DIALOGUE_CAMERA_POINT_FOCUS_ZOOM
+  } = {}) {
     if (!position) {
       return;
     }
@@ -165,8 +170,8 @@ export function createDialogueCameraController({ camera, cameraOrbit }) {
     const pointPose = {
       target: [position[0], height, position[2]],
       direction: currentPose.direction,
-      zoom: DIALOGUE_CAMERA_POINT_FOCUS_ZOOM,
-      distance: DIALOGUE_CAMERA_POINT_FOCUS_DISTANCE
+      zoom,
+      distance
     };
 
     camera.startPoseTransition(pointPose, {

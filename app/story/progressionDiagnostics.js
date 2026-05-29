@@ -119,6 +119,9 @@ function createWorldObjectRecipeSummary({
     unlockEventId: recipe.unlockEventId || null,
     useObjectId: recipe.useObjectId,
     useScope: recipe.useScope,
+    sourceLabel: recipe.chain?.sourceLabel || recipe.sourceObjectId,
+    useLabel: recipe.chain?.useLabel || recipe.useObjectId,
+    chainSummary: recipe.chain?.summary || "",
     implementationState: recipe.implementationState
   }));
   const bySourceObjectId = {};
@@ -136,6 +139,9 @@ function createWorldObjectRecipeSummary({
     activeRecipeIds: links
       .filter((link) => link.implementationState === WORLD_OBJECT_RECIPE_IMPLEMENTATION_STATE.ACTIVE)
       .map((link) => link.recipeId),
+    chainSummaries: links
+      .map((link) => link.chainSummary)
+      .filter(Boolean),
     bySourceObjectId,
     byUseObjectId,
     links,
