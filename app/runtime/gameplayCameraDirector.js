@@ -73,6 +73,7 @@ function getShakenOpeningPose(openingPose, elapsed, shipLandTime, shakeDuration)
 
 function getOpeningCameraPose({
   elapsed,
+  sequenceElapsed = elapsed,
   openingPose,
   establishingShots,
   shipLandTime,
@@ -89,7 +90,7 @@ function getOpeningCameraPose({
 
   return getShakenOpeningPose(
     openingPose,
-    elapsed,
+    sequenceElapsed,
     shipLandTime,
     impactShakeDuration
   );
@@ -119,14 +120,15 @@ export function createGameplayCameraDirector({
   let smokeUntil = null;
   let crashImpactMotionRequested = false;
 
-  function requestOpening() {
+  function requestOpening({ sequenceDelay = 0 } = {}) {
     if (openingPlayed) {
       return false;
     }
 
     openingShot = {
       playerSpawned: false,
-      startedAt: null
+      startedAt: null,
+      sequenceDelay: Math.max(0, Number(sequenceDelay) || 0)
     };
     smokeUntil = null;
     crashImpactMotionRequested = false;
@@ -143,7 +145,15 @@ export function createGameplayCameraDirector({
 
   function isOpeningActive(now) {
     const elapsed = getElapsed(now);
-    return elapsed !== null && elapsed < openingDuration;
+    return elapsed !== null && elapsed < openingDuration + getSequenceDelay();
+  }
+
+  function getSequenceDelay() {
+    return Math.max(0, Number(openingShot?.sequenceDelay) || 0);
+  }
+
+  function getSequenceElapsed(elapsed) {
+    return Math.max(0, elapsed - getSequenceDelay());
   }
 
   function beginFrame({ now, gameplayActive }) {
@@ -314,21 +324,24 @@ export function createGameplayCameraDirector({
       gameplayActive
     });
     const elapsed = getElapsed(now);
+    const sequenceDelay = getSequenceDelay();
+    const sequenceElapsed = getSequenceElapsed(elapsed);
 
    if (openingActive) {
     camera.setPose(getOpeningCameraPose({
       elapsed,
+      sequenceElapsed,
       openingPose,
       establishingShots,
       shipLandTime,
       impactShakeDuration
     }));
 
-    updateShip(ship, elapsed);
+    updateShip(ship, sequenceElapsed);
 
-    if (elapsed >= playerExitStartTime) {
+    if (sequenceElapsed >= playerExitStartTime) {
       const currentPlayerPosition = ensureOpeningPlayer(playerPosition, spawnPlayer);
-      const nextPlayerPosition = getPlayerExitPosition(elapsed);
+      const nextPlayerPosition = getPlayerExitPosition(sequenceElapsed);
 
       if (currentPlayerPosition) {
         movePlayer?.(nextPlayerPosition);
@@ -343,11 +356,11 @@ export function createGameplayCameraDirector({
     return {
       openingActive: true,
       released: false,
-      phase: establishingPhase !== "establishing" ?
+      phase: elapsed < sequenceDelay && establishingPhase !== "establishing" ?
         establishingPhase :
-        elapsed < shipLandTime ?
+        sequenceElapsed < shipLandTime ?
           "ship-fall" :
-          elapsed < playerExitStartTime ?
+          sequenceElapsed < playerExitStartTime ?
             "ship-landed" :
             "player-exit"
     };
@@ -384,17 +397,21 @@ export function createGameplayCameraDirector({
     beginFrame,
     getState(now) {
       const elapsed = getElapsed(now);
+      const sequenceDelay = getSequenceDelay();
+      const sequenceElapsed = getSequenceElapsed(elapsed);
       return {
         openingActive: isOpeningActive(now),
         openingPlayed,
         openingElapsed: elapsed,
         openingPhase: !openingShot ?
           (openingPlayed ? "played" : "idle") :
-          elapsed < shipStartTime ?
+          elapsed < sequenceDelay ?
+            getGameplayOpeningEstablishingPhase(elapsed, establishingShots) :
+          sequenceElapsed < shipStartTime ?
             "chopper" :
-            elapsed < shipLandTime ?
+            sequenceElapsed < shipLandTime ?
               "ship-fall" :
-              elapsed < playerExitStartTime ?
+              sequenceElapsed < playerExitStartTime ?
                 "ship-landed" :
             isOpeningActive(now) ?
               "player-exit" :

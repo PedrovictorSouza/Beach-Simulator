@@ -10755,25 +10755,11 @@ export function startGameLoop({
     const scriptedInteractionActive = Boolean(controls.isScriptedInteractionActive?.());
     const tutorialCameraFocus = tutorialActive ? actTwoTutorial.getCameraFocusTarget() : null;
 
-    const gameplayInputFrame = gameplayInputRuntime.update({
-      now,
-      deltaTime,
-      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY),
-      cinematicActive,
-      movementBlocked,
-      placementActive: placementPreviewActive,
-      dialogueActive,
-      tutorialActive,
-      skillLearnActive,
-      scriptedInteractionActive
-    });
-
     if (session.actTwoRepairPlant && actTwoTutorial.isRepairPlantFixed()) {
       session.actTwoRepairPlant.fixed = true;
     }
 
     controls.updateGamepads?.(deltaTime);
-    inputModalityPanelController.update(getCurrentInputModalityState());
 
     if (controls.isPaused?.()) {
       controls.clearPendingActions();
@@ -10794,7 +10780,8 @@ export function startGameLoop({
     gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY)
   });
 
-  const gameplayOpeningCameraActive = gameplayOpeningFrameStart.active;
+  const gameplayOpeningCameraLocked = gameplayOpeningRuntime.isCameraLocked();
+  const gameplayOpeningMovementLocked = gameplayOpeningRuntime.isMovementLocked();
   let gameplayOpeningCameraFrame = gameplayOpeningFrameStart.cameraFrame;
 
 
@@ -10805,7 +10792,7 @@ export function startGameLoop({
     placementCameraAssist.update({ placementActive: placementPreviewActive });
     const foundationBuildZoneCameraFocusActive = updateFoundationBuildZoneCameraFocus(now);
     const movementBlocked = Boolean(
-      gameplayOpeningCameraActive ||
+      gameplayOpeningMovementLocked ||
       foundationBuildZoneCameraFocusActive ||
       tutorialMovementLocked ||
       pokedexModalOpen ||
@@ -10814,6 +10801,19 @@ export function startGameLoop({
       scriptedInteractionActive ||
       placementPreviewActive
     );
+    gameplayInputRuntime.update({
+      now,
+      deltaTime,
+      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY),
+      cinematicActive,
+      movementBlocked,
+      placementActive: placementPreviewActive,
+      dialogueActive,
+      tutorialActive,
+      skillLearnActive,
+      scriptedInteractionActive
+    });
+    inputModalityPanelController.update(getCurrentInputModalityState());
     const cameraTransitionActive = camera.isTargetTransitionActive();
 
     if (CAMERA_DEBUG_ENABLED) {
@@ -10836,7 +10836,7 @@ export function startGameLoop({
         },
         camera: {
           ...gameplayCameraDirector.getState(now),
-          openingCameraActiveForInput: gameplayOpeningCameraActive,
+          openingCameraActiveForInput: gameplayOpeningMovementLocked,
           transitionActive: cameraTransitionActive,
           pose: camera.getPose?.() || null
         },
@@ -10870,7 +10870,7 @@ export function startGameLoop({
     }
 
     if (
-      gameplayOpeningCameraActive ||
+      gameplayOpeningMovementLocked ||
       foundationBuildZoneCameraFocusActive ||
       tutorialActive ||
       pokedexModalOpen ||
@@ -10881,7 +10881,7 @@ export function startGameLoop({
     }
 
     if (
-      gameplayOpeningCameraActive ||
+      gameplayOpeningMovementLocked ||
       foundationBuildZoneCameraFocusActive ||
       tutorialMovementLocked ||
       pokedexModalOpen ||
@@ -10905,7 +10905,7 @@ export function startGameLoop({
     const canRotateCamera =
       session.playerCharacter &&
       !cinematicActive &&
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningCameraLocked &&
       !foundationBuildZoneCameraFocusActive &&
       !controls.isBuilderPanelOpen() &&
       !pokedexModalOpen &&
@@ -10917,7 +10917,7 @@ export function startGameLoop({
       session.playerCharacter &&
       !cinematicActive &&
       !tutorialActive &&
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningCameraLocked &&
       !foundationBuildZoneCameraFocusActive &&
       !controls.isBuilderPanelOpen() &&
       !pokedexModalOpen &&
@@ -11044,7 +11044,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
       if (
         playerMovedThisFrame &&
         !runBreadcrumbPromptShown &&
-        !gameplayOpeningCameraActive &&
+        !gameplayOpeningMovementLocked &&
         !tutorialActive &&
         gameplay.getActiveSystemQuest?.()?.id === "learn-to-move" &&
         !controls.isRunActive?.()
@@ -11064,7 +11064,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
       if (
         movedDistance > 0.0005 &&
         !tutorialActive &&
-        !gameplayOpeningCameraActive &&
+        !gameplayOpeningCameraLocked &&
         !foundationBuildZoneCameraFocusActive
       ) {
         restoreActiveZoomPresetOnMovement(nextPlayerPosition);
@@ -11135,7 +11135,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
         buildBlockEquipped &&
         session.playerCharacter &&
         !cinematicActive &&
-        !gameplayOpeningCameraActive &&
+        !gameplayOpeningMovementLocked &&
         !foundationBuildZoneCameraFocusActive &&
         !tutorialActive &&
         !pokedexModalOpen &&
@@ -11898,7 +11898,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     updateBulbasaurLeafageAction(deltaTime);
     const robotIdlePatrolActive = Boolean(
       isGameFlow(gameFlowValues.GAMEPLAY) &&
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !cinematicActive &&
       !tutorialActive &&
       !pokedexModalOpen &&
@@ -12092,7 +12092,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
 
     const nearbyHarvestTarget =
       session.playerCharacter &&
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !cinematicActive &&
       !tutorialActive &&
       !skillLearnActive &&
@@ -12118,7 +12118,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         null;
     const nearbyInvalidMoveTarget =
       session.playerCharacter &&
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !cinematicActive &&
       !tutorialActive &&
       !skillLearnActive &&
@@ -12174,7 +12174,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
           null;
     const nearbyInteractable =
       session.playerCharacter &&
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !cinematicActive &&
       !tutorialActive &&
       !skillLearnActive &&
@@ -12198,7 +12198,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const activeTask = gameplay.getActiveTask?.() || null;
     const activeSystemQuest = gameplay.getActiveSystemQuest?.() || null;
     const pendingWaterGunGroundCells =
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !gameplayOpeningHudHidden &&
       !cinematicActive &&
       !tutorialActive &&
@@ -12208,7 +12208,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         getPendingSquirtleWaterGunGroundCells() :
         [];
     const activeLeafageGroundCells =
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !gameplayOpeningHudHidden &&
       !cinematicActive &&
       !tutorialActive &&
@@ -12219,7 +12219,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         [session.bulbasaurLeafageAction.groundCell] :
         [];
     const activeFireGroundCell =
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !gameplayOpeningHudHidden &&
       !cinematicActive &&
       !tutorialActive &&
@@ -12236,7 +12236,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         null;
     const freeRoamRestorationGroundCells =
       !activeQuest &&
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !gameplayOpeningHudHidden &&
       !cinematicActive &&
       !tutorialActive &&
@@ -12256,7 +12256,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         }) :
         [];
     const leppaTreeMissionGroundCells =
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !gameplayOpeningHudHidden &&
       !cinematicActive &&
       !tutorialActive &&
@@ -12280,7 +12280,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         buildSolarStationFieldMarkedGroundCells(nearbyHarvestTarget.strawBedPlacement) :
         [];
     const boulderShadedTaskGroundCells =
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !gameplayOpeningHudHidden &&
       !cinematicActive &&
       !tutorialActive &&
@@ -12291,7 +12291,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         getBoulderShadedTaskGroundCells(controls.storyState) :
         [];
     const growFirstHabitatTaskGroundCells =
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !gameplayOpeningHudHidden &&
       !cinematicActive &&
       !tutorialActive &&
@@ -12307,7 +12307,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         }) :
         [];
     const foundationBuildZoneGroundCells =
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !gameplayOpeningHudHidden &&
       !cinematicActive &&
       !tutorialActive &&
@@ -12421,7 +12421,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       !campfirePlacementPreview &&
       !leafDenKitPlacementPreview &&
       session.playerCharacter &&
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !cinematicActive &&
       !tutorialActive &&
       !skillLearnActive &&
@@ -12463,7 +12463,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     )
   });
     const promptCopy =
-      gameplayOpeningCameraActive ||
+      gameplayOpeningMovementLocked ||
       cinematicActive ||
       tutorialActive ||
       skillLearnActive ||
@@ -12499,7 +12499,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     workbenchRotationPrompt
   },
   blockedByMode: {
-    gameplayOpeningCameraActive,
+    gameplayOpeningMovementLocked,
     cinematicActive,
     tutorialActive,
     skillLearnActive,
@@ -12508,7 +12508,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
 });
 
     const shouldShowGroundCellHighlight =
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningMovementLocked &&
       !cinematicActive &&
       !tutorialActive &&
       !pokedexModalOpen &&
@@ -12566,7 +12566,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const groundActionFeedbackFrame = getGroundActionFeedback(now);
 
     if (
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningCameraLocked &&
       !gameplayOpeningHudHidden &&
       !cinematicActive &&
       !tutorialActive &&
@@ -12624,7 +12624,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       tangrowthActor?.character?.getPosition?.() ||
       null;
     const canShowWorldSpaceUi =
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningCameraLocked &&
       !cinematicActive &&
       !tutorialActive &&
       !pokedexModalOpen &&
@@ -13299,7 +13299,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     if (
       questCompletionPop?.text &&
       session.playerCharacter &&
-      !gameplayOpeningCameraActive &&
+      !gameplayOpeningCameraLocked &&
       !cinematicActive &&
       !tutorialActive &&
       !pokedexModalOpen

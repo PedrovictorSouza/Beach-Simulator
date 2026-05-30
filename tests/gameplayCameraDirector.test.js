@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createGameplayCameraDirector } from "../app/runtime/gameplayCameraDirector.js";
+import { DEFAULT_GAMEPLAY_OPENING_ESTABLISHING_SHOTS } from "../app/runtime/gameplayOpeningEstablishingShots.js";
 import { GAMEPLAY_OPENING_SHIP_EVENTS } from "../app/session/gameplayOpeningShip.js";
 import { MOTION_IMPACT_PRESET_IDS } from "../app/motion/motionImpactPresets.js";
 import {
@@ -43,6 +44,7 @@ describe("createGameplayCameraDirector", () => {
     const director = createGameplayCameraDirector({
       camera,
       cameraOrbit,
+      establishingShots: [],
       onCrashImpactMotionRequested
     });
 
@@ -195,6 +197,60 @@ describe("createGameplayCameraDirector", () => {
 
     expect(camera.setPose).not.toHaveBeenCalled();
     expect(camera.follow).toHaveBeenLastCalledWith(playerPosition);
+  });
+
+  it("waits for establishing shots before starting the ship fall", () => {
+    const camera = {
+      follow: vi.fn(),
+      setPose: vi.fn()
+    };
+    const cameraOrbit = {
+      sync: vi.fn()
+    };
+    const ship = {
+      visible: false,
+      position: null,
+      dust: [],
+      smoke: []
+    };
+    const establishingShotsDuration = Math.max(
+      ...DEFAULT_GAMEPLAY_OPENING_ESTABLISHING_SHOTS.map((shot) => shot.end)
+    );
+    const director = createGameplayCameraDirector({
+      camera,
+      cameraOrbit
+    });
+
+    director.requestOpening({
+      sequenceDelay: establishingShotsDuration
+    });
+    director.beginFrame({
+      now: 1000,
+      gameplayActive: true
+    });
+
+    const establishingFrame = director.update({
+      now: 1000 + establishingShotsDuration * 1000 - 1,
+      gameplayActive: true,
+      playerPosition: null,
+      ship
+    });
+
+    expect(establishingFrame.phase).toBe("establishing-crash-site");
+    expect(ship.visible).toBe(false);
+
+    const fallFrame = director.update({
+      now: 1000 + (establishingShotsDuration + ACT_TWO_GAMEPLAY_OPENING_SHIP_START) * 1000 + 1,
+      gameplayActive: true,
+      playerPosition: null,
+      ship
+    });
+
+    expect(fallFrame.phase).toBe("ship-fall");
+    expect(ship.visible).toBe(true);
+    expect(ship.events.map((event) => event.type)).toContain(
+      GAMEPLAY_OPENING_SHIP_EVENTS.FALL_STARTED
+    );
   });
 
   it("skips an active gameplay opening to the post-impact follow state", () => {
