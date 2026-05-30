@@ -1,4 +1,10 @@
 import {
+  DEFAULT_GAMEPLAY_OPENING_ESTABLISHING_SHOTS,
+  getGameplayOpeningEstablishingPhase,
+  getGameplayOpeningEstablishingShot
+} from "./gameplayOpeningEstablishingShots.js";
+
+import {
   ACT_TWO_GAMEPLAY_OPENING_CAMERA_HOLD,
   ACT_TWO_GAMEPLAY_OPENING_CAMERA_POSE,
   ACT_TWO_GAMEPLAY_OPENING_IMPACT_SHAKE_DURATION,
@@ -65,11 +71,37 @@ function getShakenOpeningPose(openingPose, elapsed, shipLandTime, shakeDuration)
   };
 }
 
+function getOpeningCameraPose({
+  elapsed,
+  openingPose,
+  establishingShots,
+  shipLandTime,
+  impactShakeDuration
+}) {
+  const establishingShot = getGameplayOpeningEstablishingShot(
+    elapsed,
+    establishingShots
+  );
+
+  if (establishingShot?.pose) {
+    return establishingShot.pose;
+  }
+
+  return getShakenOpeningPose(
+    openingPose,
+    elapsed,
+    shipLandTime,
+    impactShakeDuration
+  );
+}
+
+
 export function createGameplayCameraDirector({
   camera,
   cameraOrbit,
   openingDuration = ACT_TWO_GAMEPLAY_OPENING_CAMERA_HOLD,
   openingPose = ACT_TWO_GAMEPLAY_OPENING_CAMERA_POSE,
+  establishingShots = DEFAULT_GAMEPLAY_OPENING_ESTABLISHING_SHOTS,
   shipStartTime = ACT_TWO_GAMEPLAY_OPENING_SHIP_START,
   shipLandTime = ACT_TWO_GAMEPLAY_OPENING_SHIP_LAND,
   shipStartPosition = ACT_TWO_GAMEPLAY_OPENING_SHIP_START_POSITION,
@@ -283,34 +315,43 @@ export function createGameplayCameraDirector({
     });
     const elapsed = getElapsed(now);
 
-    if (openingActive) {
-      camera.setPose(getShakenOpeningPose(
-        openingPose,
-        elapsed,
-        shipLandTime,
-        impactShakeDuration
-      ));
-      updateShip(ship, elapsed);
-      if (elapsed >= playerExitStartTime) {
-        const currentPlayerPosition = ensureOpeningPlayer(playerPosition, spawnPlayer);
-        const nextPlayerPosition = getPlayerExitPosition(elapsed);
-        if (currentPlayerPosition) {
-          movePlayer?.(nextPlayerPosition);
-        }
+   if (openingActive) {
+    camera.setPose(getOpeningCameraPose({
+      elapsed,
+      openingPose,
+      establishingShots,
+      shipLandTime,
+      impactShakeDuration
+    }));
+
+    updateShip(ship, elapsed);
+
+    if (elapsed >= playerExitStartTime) {
+      const currentPlayerPosition = ensureOpeningPlayer(playerPosition, spawnPlayer);
+      const nextPlayerPosition = getPlayerExitPosition(elapsed);
+
+      if (currentPlayerPosition) {
+        movePlayer?.(nextPlayerPosition);
       }
-      return {
-        openingActive: true,
-        released: false,
-        phase: elapsed < shipStartTime ?
-          "chopper" :
-          elapsed < shipLandTime ?
-            "ship-fall" :
-            elapsed < playerExitStartTime ?
-              "ship-landed" :
-              "player-exit"
-      };
     }
 
+    const establishingPhase = getGameplayOpeningEstablishingPhase(
+      elapsed,
+      establishingShots
+    );
+
+    return {
+      openingActive: true,
+      released: false,
+      phase: establishingPhase !== "establishing" ?
+        establishingPhase :
+        elapsed < shipLandTime ?
+          "ship-fall" :
+          elapsed < playerExitStartTime ?
+            "ship-landed" :
+            "player-exit"
+    };
+  }
     if (openingShot && gameplayActive) {
       return completeOpening({
         now,

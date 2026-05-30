@@ -1,3 +1,5 @@
+import { createGameLoopState } from "./gameLoopState.js";
+
 import {
   BULBASAUR_LEAFAGE_ARRIVE_DISTANCE,
   BULBASAUR_LEAFAGE_ARC_HEIGHT,
@@ -183,8 +185,6 @@ import { createGameplayCameraDirector } from "./gameplayCameraDirector.js";
 import { SOUND_EVENT_IDS } from "./soundEventRuntime.js";
 import {
   appendGameplayOpeningShipBillboards,
-  consumeGameplayOpeningShipEvents,
-  GAMEPLAY_OPENING_SHIP_EVENTS,
   getGameplayOpeningShipSceneObjects
 } from "../session/gameplayOpeningShip.js";
 import {
@@ -261,12 +261,6 @@ import {
   UI_PROMPT_ACTION
 } from "../ui/inputPromptResolver.js";
 import {
-  createCinematicControlState,
-  resetCinematicControlState,
-  setCinematicSkipHoldActive,
-  updateCinematicControlState
-} from "../scene/cinematicControlPolicy.js";
-import {
   SANDBOTS_BOT_NAMES,
   SANDBOTS_ITEM_NAMES,
   SANDBOTS_WORLD_TERMS
@@ -276,8 +270,10 @@ import { resolvePsxDistanceFogSettings } from "../rendering/psxDistanceFogConfig
 import { PLACEMENT_CONTRACTS } from "../gameplay/contracts/placementContracts.js";
 import { cancelPlacementPreview, hasActivePlacementPreview } from "../gameplay/contracts/placementRuntime.js";
 import { createGameplayAudioRuntime } from "./gameplayAudioRuntime.js";
+import { createGameplayOpeningRuntime } from "./opening/createGameplayOpeningRuntime.js";
+import { createGameplayInputRuntime } from "./input/createGameplayInputRuntime.js";
 
-const GAMEPLAY_OPENING_HUD_REVEAL_DELAY_MS = 600;
+
 const LOG_CHAIR_PLACEMENT_PREVIEW_ALPHA = 0.42;
 const BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT = 10;
 const BOULDER_SHADED_TALL_GRASS_TASK_ID = "boulder-shaded-tall-grass";
@@ -2063,18 +2059,14 @@ export function startGameLoop({
   gameplayUiVisibility = null,
   rendering
 }) {
-  let previousTime = performance.now();
-  let movementQuestReported = false;
-  let movementQuestDistance = 0;
-  let gameplayOpeningHudHidden = false;
-  let gameplayOpeningHudRevealAt = null;
-  let gameplayOpeningCameraFrame = null;
-  let pendingWorldCellPlannerClick = null;
-  let foundationBuildZoneCameraFocus = null;
-  const buildBlockDebugOverlay = createBuildBlockDebugOverlay({ mount, worldCanvas });
-  let snowstormFogOverlayElement = null;
-  let snowstormFogOpacity = 0;
-  const gameplayOpeningSkipControl = createCinematicControlState();
+  const loopState = createGameLoopState();
+
+  const buildBlockDebugOverlay = createBuildBlockDebugOverlay({
+    mount,
+    worldCanvas
+  });
+
+  // Controladores de sistemas relacionados à câmera.
   const frameSnapshotController = createFrameSnapshotController({
     camera,
     mount,
@@ -2085,6 +2077,7 @@ export function startGameLoop({
     actTwoTutorial,
     hud
   });
+
   const cameraZoomPresetController = createCameraZoomPresetController({
     camera,
     presets: cameraZoomPresets
@@ -2093,9 +2086,11 @@ export function startGameLoop({
     camera,
     getGameplayPreset: () => cameraZoomPresetController.getCurrentPreset?.()
   });
+  //
 
+  // Controladores de sistemas relacionados ao gameplay.
   function getCurrentInputModalityState() {
-    return controls.getInputModalityState?.() || null;
+    return gameplayInputRuntime.getFrame()?.inputModalityState || null;
   }
   const gameplayCameraDirector = createGameplayCameraDirector({
     camera,
@@ -2108,11 +2103,24 @@ export function startGameLoop({
   const playSoundEvent = (eventId, options) => {
     gameplay?.playSoundEvent?.(eventId, options);
   };
+
   const audio = createGameplayAudioRuntime({
-  getSfxVolumeScale,
-  getMusicVolumeScale,
-  playSoundEvent
-});
+    getSfxVolumeScale,
+    getMusicVolumeScale,
+    playSoundEvent
+  });
+
+  const gameplayInputRuntime = createGameplayInputRuntime({
+    controls
+  });
+
+  const gameplayOpeningRuntime = createGameplayOpeningRuntime({
+    gameplayCameraDirector,
+    session,
+    controls,
+    gameplayUiVisibility,
+    audio
+  });
 
   function cancelActivePlacementPreviews() {
     let canceled = false;
@@ -2133,14 +2141,7 @@ export function startGameLoop({
     return canceled;
   }
 
-  
-  const woodCollectPopEffects = [];
-  const gearPickupParticleEffects = [];
-  let repairBoxElapsed = 0;
-  let waterGunSfxBurstUntilSeconds = 0;
-  let repairBoxRevealFlashElement = null;
-  let companionLostHintKey = null;
-  let companionLostHintNextAt = 0;
+
   let companionLostHintActiveUntil = 0;
   let companionLostHintActive = null;
   let chopperAttentionCueNextAt = 0;
@@ -2156,9 +2157,6 @@ export function startGameLoop({
   let fieldToolTargetPulseAbilityId = null;
   let playerCounterPrompt = null;
   let companionFollowDirection = null;
-  let workbenchRotationSelection = null;
-  let cameraDebugElement = null;
-  const cameraDebugErrors = [];
 
   function getRuntimeNowSeconds() {
     const nowMs =
@@ -2994,11 +2992,11 @@ export function startGameLoop({
   }
 
   function clearWorkbenchConstructionRotationSelection() {
-    if (!workbenchRotationSelection) {
+    if (!loopState.workbenchRotationSelection) {
       return false;
     }
 
-    workbenchRotationSelection = null;
+    loopState.workbenchRotationSelection = null;
     playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
     hud?.pushNotice?.("Rotation canceled.");
     return true;
@@ -3006,14 +3004,14 @@ export function startGameLoop({
 
   function confirmWorkbenchConstructionRotationSelection() {
     const target = getSelectedRotatableWorkbenchPlacement();
-    if (!target?.placement || !workbenchRotationSelection) {
-      workbenchRotationSelection = null;
+    if (!target?.placement || !loopState.workbenchRotationSelection) {
+      loopState.workbenchRotationSelection = null;
       return false;
     }
 
-    target.placement.yaw = normalizePlacementYaw(Number(workbenchRotationSelection.pendingYaw || 0));
-    if (target.rotateSize !== false && Array.isArray(workbenchRotationSelection.pendingSize)) {
-      target.placement.size = [...workbenchRotationSelection.pendingSize];
+    target.placement.yaw = normalizePlacementYaw(Number(loopState.workbenchRotationSelection.pendingYaw || 0));
+    if (target.rotateSize !== false && Array.isArray(loopState.workbenchRotationSelection.pendingSize)) {
+      target.placement.size = [...loopState.workbenchRotationSelection.pendingSize];
     }
 
     if (target.kind === "solarStation") {
@@ -3943,12 +3941,12 @@ export function startGameLoop({
 
   function getSnowstormFogOverlayElement() {
     if (
-      snowstormFogOverlayElement ||
+      loopState.snowstormFogOverlayElement ||
       typeof HTMLElement === "undefined" ||
       !(mount instanceof HTMLElement) ||
       typeof document === "undefined"
     ) {
-      return snowstormFogOverlayElement;
+      return loopState.snowstormFogOverlayElement;
     }
 
     snowstormFogOverlayElement = document.createElement("div");
@@ -3974,17 +3972,17 @@ export function startGameLoop({
         "repeating-linear-gradient(90deg, rgba(218,236,242,0.1) 0 3px, rgba(218,236,242,0) 3px 12px)"
       ].join(",")}`
     ].join(";");
-    mount.append(snowstormFogOverlayElement);
-    return snowstormFogOverlayElement;
+    mount.append(loopState.snowstormFogOverlayElement);
+    return loopState.snowstormFogOverlayElement;
   }
 
   function setSnowstormFogOpacity(opacity, elapsed = 0) {
     const normalizedOpacity = clamp01(opacity);
 
     if (normalizedOpacity <= 0.01) {
-      if (snowstormFogOverlayElement) {
-        snowstormFogOverlayElement.hidden = true;
-        snowstormFogOverlayElement.style.opacity = "0";
+      if (loopState.snowstormFogOverlayElement) {
+        loopState.snowstormFogOverlayElement.hidden = true;
+        loopState.snowstormFogOverlayElement.style.opacity = "0";
       }
       return;
     }
@@ -8816,7 +8814,7 @@ export function startGameLoop({
         continue;
       }
 
-      woodCollectPopEffects.push({
+      loopState.woodCollectPopEffects.push({
         ...snapshot,
         age: 0,
         duration: WOOD_COLLECT_POP_DURATION
@@ -9266,12 +9264,12 @@ export function startGameLoop({
   }
 
   function updateGearPickupParticleEffects(deltaTime) {
-    for (let index = gearPickupParticleEffects.length - 1; index >= 0; index -= 1) {
-      const effect = gearPickupParticleEffects[index];
+    for (let index = loopState.gearPickupParticleEffects.length - 1; index >= 0; index -= 1) {
+      const effect = loopState.gearPickupParticleEffects[index];
       effect.age += deltaTime;
 
       if (effect.age >= effect.duration) {
-        gearPickupParticleEffects.splice(index, 1);
+        loopState.gearPickupParticleEffects.splice(index, 1);
       }
     }
   }
@@ -10742,11 +10740,11 @@ export function startGameLoop({
 
   function frame(now) {
     const nextFrame = frameSnapshotController.beginFrame();
-    const rawDeltaTime = Math.max(0, (now - previousTime) / 1000);
+    const rawDeltaTime = Math.max(0, (now - loopState.previousTime) / 1000);
     const deltaTime = Math.min(0.033, rawDeltaTime);
-    previousTime = now;
+    loopState.previousTime = now;
     fpsPanelController.update(rawDeltaTime);
-    repairBoxElapsed += deltaTime;
+    loopState.repairBoxElapsed += deltaTime;
     let cinematicActive = isGameFlow(gameFlowValues.CINEMATIC);
     const introActive = isGameFlow(gameFlowValues.INTRO);
     let tutorialActive = isGameFlow(gameFlowValues.TUTORIAL);
@@ -10756,6 +10754,19 @@ export function startGameLoop({
     const skillLearnActive = Boolean(controls.isSkillLearnActive?.());
     const scriptedInteractionActive = Boolean(controls.isScriptedInteractionActive?.());
     const tutorialCameraFocus = tutorialActive ? actTwoTutorial.getCameraFocusTarget() : null;
+
+    const gameplayInputFrame = gameplayInputRuntime.update({
+      now,
+      deltaTime,
+      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY),
+      cinematicActive,
+      movementBlocked,
+      placementActive: placementPreviewActive,
+      dialogueActive,
+      tutorialActive,
+      skillLearnActive,
+      scriptedInteractionActive
+    });
 
     if (session.actTwoRepairPlant && actTwoTutorial.isRepairPlantFixed()) {
       session.actTwoRepairPlant.fixed = true;
@@ -10776,53 +10787,17 @@ export function startGameLoop({
     clearInteractionObjectHighlights(session);
     syncWorkbenchInteractable();
     syncPokemonCenterWorkshopVisualState();
-    if (session.gameplayOpeningRequested) {
-      gameplayCameraDirector.requestOpening();
-      session.gameplayOpeningRequested = false;
-      gameplayOpeningHudHidden = false;
-      gameplayOpeningHudRevealAt = null;
-      gameplayUiVisibility?.showSections?.(["hud", "inventory"]);
-    }
+    
+  const gameplayOpeningFrameStart = gameplayOpeningRuntime.beginFrame({
+    now,
+    deltaTime,
+    gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY)
+  });
 
-    const gameplayOpeningCameraActive =
-      gameplayCameraDirector.beginFrame({
-        now,
-        gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY)
-      });
-    gameplayOpeningCameraFrame = null;
-    controls.setGameplayCinematicInputActive?.(gameplayOpeningCameraActive);
-    if (gameplayOpeningCameraActive) {
-      setCinematicSkipHoldActive(
-        gameplayOpeningSkipControl,
-        Boolean(controls.isCinematicSkipActionActive?.()),
-        now * 0.001
-      );
-      const skipControlFrame = updateCinematicControlState(gameplayOpeningSkipControl, deltaTime);
-      if (skipControlFrame.skipCompleted) {
-        gameplayOpeningCameraFrame = gameplayCameraDirector.skipOpening({
-          now,
-          gameplayActive: true,
-          playerPosition: session.playerCharacter?.getPosition?.() || null,
-          canFollow: true,
-          spawnPlayer(spawnPosition) {
-            session.spawnActTwoPlayer?.({
-              configureCamera: false,
-              position: spawnPosition
-            });
-            return session.playerCharacter?.getPosition?.() || null;
-          },
-          movePlayer(playerPosition) {
-            session.playerCharacter?.setPosition?.(playerPosition);
-          },
-          ship: session.gameplayOpeningShip
-        });
-        controls.clearPendingActions();
-        controls.clearMovementInput();
-        resetCinematicControlState(gameplayOpeningSkipControl);
-      }
-    } else {
-      resetCinematicControlState(gameplayOpeningSkipControl);
-    }
+  const gameplayOpeningCameraActive = gameplayOpeningFrameStart.active;
+  let gameplayOpeningCameraFrame = gameplayOpeningFrameStart.cameraFrame;
+
+
     const placementPreviewActive = hasActivePlacementPreview(
       session,
       PLACEMENT_CONTRACTS
@@ -12086,49 +12061,19 @@ if (canProcessDestroyAction && destroyActionRequested) {
       } else if (foundationBuildZoneCameraFocusActive) {
         // The focus transition was started at mission activation; hold the pose until it expires.
       } else if (isGameFlow(gameFlowValues.GAMEPLAY) && !gameplayOpeningCameraFrame?.skipped) {
-        gameplayOpeningCameraFrame = gameplayCameraDirector.update({
+        
+        gameplayOpeningCameraFrame = gameplayOpeningRuntime.updateCamera({
           now,
           gameplayActive: true,
-          playerPosition: session.playerCharacter?.getPosition?.() || null,
-          canFollow: !dialogueActive && !cameraTransitionActive && !scriptedInteractionActive,
-          spawnPlayer(spawnPosition) {
-            session.spawnActTwoPlayer?.({
-              configureCamera: false,
-              position: spawnPosition
-            });
-            return session.playerCharacter?.getPosition?.() || null;
-          },
-          movePlayer(playerPosition) {
-            session.playerCharacter?.setPosition?.(playerPosition);
-          },
-          ship: session.gameplayOpeningShip
+          canFollow: !dialogueActive && !cameraTransitionActive && !scriptedInteractionActive
         });
+
       } else if (session.playerCharacter && !dialogueActive && !camera.isTargetTransitionActive()) {
         camera.follow(session.playerCharacter.getPosition());
       }
     }
 
-    for (const shipEvent of consumeGameplayOpeningShipEvents(session.gameplayOpeningShip)) {
-      if (shipEvent.type === GAMEPLAY_OPENING_SHIP_EVENTS.FALL_STARTED) {
-        audio.updateShipFall({
-          active: true
-        });
-      }
-
-      if (shipEvent.type === GAMEPLAY_OPENING_SHIP_EVENTS.IMPACT) {
-        audio.updateShipFall({
-          active: false
-        });
-        audio.updateShipImpact( now * 0.001
-        );
-      }
-
-      if (shipEvent.type === GAMEPLAY_OPENING_SHIP_EVENTS.SETTLED) {
-        audio.updateShipFall({
-          active: false
-        });
-      }
-    }
+    gameplayOpeningRuntime.updateShipAudio(now);
 
     audio.updatePlayerDriving({
       active: playerMovedThisFrame || gameplayOpeningCameraFrame?.phase === "player-exit"
@@ -12137,20 +12082,13 @@ if (canProcessDestroyAction && destroyActionRequested) {
     updateTrainHouseMusic(nowSeconds);
     gameplay.musicRuntime?.update?.(deltaTime, { nowSeconds });
 
-    if (gameplayOpeningCameraFrame?.released && gameplayOpeningHudHidden) {
-      gameplayOpeningHudRevealAt = now + GAMEPLAY_OPENING_HUD_REVEAL_DELAY_MS;
-    }
+    gameplayOpeningRuntime.updateHudReveal({
+      now,
+      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY)
+    });
 
-    if (
-      gameplayOpeningHudHidden &&
-      gameplayOpeningHudRevealAt !== null &&
-      now >= gameplayOpeningHudRevealAt &&
-      isGameFlow(gameFlowValues.GAMEPLAY)
-    ) {
-      gameplayUiVisibility?.showSections?.(["hud"]);
-      gameplayOpeningHudHidden = false;
-      gameplayOpeningHudRevealAt = null;
-    }
+    gameplayOpeningCameraFrame = gameplayOpeningRuntime.getCameraFrame();
+    const gameplayOpeningHudHidden = gameplayOpeningRuntime.isHudHidden();
 
     const nearbyHarvestTarget =
       session.playerCharacter &&
