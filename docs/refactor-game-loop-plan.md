@@ -76,7 +76,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 - Completed: gameplay opening boundary extraction.
 - Completed: `loopState` migration consistency pass.
-- Next: add `createGameLoopState()` contract tests.
+- Completed: add `createGameLoopState()` contract tests.
+- Next: extract the snowstorm fog runtime.
 
 ## Validation Log
 
@@ -99,3 +100,22 @@ drops. They are outside the game loop state migration and were not modified.
 
 Manual browser validation remains pending because an in-app browser backend was
 not available during this pass.
+
+### Game Loop State Contract
+
+Passed:
+
+```sh
+npm test -- --run tests/gameLoopState.test.js
+git diff --check
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1276` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The two new `createGameLoopState()` contract tests passed. The remaining
+failures are the same Native Tree growth, safe-cell selection and Wood drop
+failures recorded during the loop state migration.
