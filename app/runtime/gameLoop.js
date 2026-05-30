@@ -2141,23 +2141,6 @@ export function startGameLoop({
     return canceled;
   }
 
-
-  let companionLostHintActiveUntil = 0;
-  let companionLostHintActive = null;
-  let chopperAttentionCueNextAt = 0;
-  let chopperAttentionCueActiveUntil = 0;
-  let chopperAttentionCueCycleId = 0;
-  let chopperAttentionCueSoundCycleId = 0;
-  let leafageInvalidTargetPromptUntil = 0;
-  let fireInvalidTargetPromptUntil = 0;
-  let runBreadcrumbPromptShown = false;
-  let runBreadcrumbPromptUntil = 0;
-  let groundActionFeedbacks = [];
-  let fieldToolTargetPulseStartedAt = Number.NEGATIVE_INFINITY;
-  let fieldToolTargetPulseAbilityId = null;
-  let playerCounterPrompt = null;
-  let companionFollowDirection = null;
-
   function getRuntimeNowSeconds() {
     const nowMs =
       typeof performance !== "undefined" && typeof performance.now === "function" ?
@@ -2917,7 +2900,7 @@ export function startGameLoop({
   }
 
   function getSelectedRotatableWorkbenchPlacement() {
-    const selectedKind = workbenchRotationSelection?.kind;
+    const selectedKind = loopState.workbenchRotationSelection?.kind;
     if (!selectedKind) {
       return null;
     }
@@ -2925,7 +2908,7 @@ export function startGameLoop({
     const selected = getRotatableWorkbenchPlacementCandidates()
       .find((candidate) => candidate.kind === selectedKind) || null;
     if (!selected) {
-      workbenchRotationSelection = null;
+      loopState.workbenchRotationSelection = null;
       return null;
     }
 
@@ -2934,7 +2917,7 @@ export function startGameLoop({
     if (Array.isArray(playerPosition) && Array.isArray(position)) {
       const distance = getWorkbenchRotationTargetDistance(playerPosition, selected);
       if (Number.isFinite(distance) && distance > getWorkbenchRotationTriggerDistance() * 1.6) {
-        workbenchRotationSelection = null;
+        loopState.workbenchRotationSelection = null;
         return null;
       }
     }
@@ -2943,7 +2926,7 @@ export function startGameLoop({
   }
 
   function getWorkbenchRotationSelectionForKind(kind) {
-    return workbenchRotationSelection?.kind === kind ? workbenchRotationSelection : null;
+    return loopState.workbenchRotationSelection?.kind === kind ? loopState.workbenchRotationSelection : null;
   }
 
   function getWorkbenchRotationPreviewYaw(target) {
@@ -2961,7 +2944,7 @@ export function startGameLoop({
   }
 
   function applyWorkbenchRotationSelectionTint(kind, instance, nowSeconds = getRuntimeNowSeconds()) {
-    if (!instance || workbenchRotationSelection?.kind !== kind) {
+    if (!instance || loopState.workbenchRotationSelection?.kind !== kind) {
       return false;
     }
 
@@ -2977,7 +2960,7 @@ export function startGameLoop({
       return false;
     }
 
-    workbenchRotationSelection = {
+    loopState.workbenchRotationSelection = {
       kind: target.kind,
       originalYaw: Number(target.placement?.yaw || 0),
       pendingYaw: Number(target.placement?.yaw || 0),
@@ -3018,7 +3001,7 @@ export function startGameLoop({
       syncSolarStationPlacementYaw(target.placement);
     }
 
-    workbenchRotationSelection = null;
+    loopState.workbenchRotationSelection = null;
     playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM);
     hud?.pushNotice?.(`${target.label} rotation set.`);
     return true;
@@ -3075,16 +3058,16 @@ export function startGameLoop({
       return false;
     }
 
-    workbenchRotationSelection.pendingYaw = normalizePlacementYaw(
-      Number(workbenchRotationSelection.pendingYaw || target.placement.yaw || 0) +
+    loopState.workbenchRotationSelection.pendingYaw = normalizePlacementYaw(
+      Number(loopState.workbenchRotationSelection.pendingYaw || target.placement.yaw || 0) +
       steps * PLACEMENT_ROTATION_STEP
     );
 
     if (target.rotateSize !== false) {
-      const currentSize = Array.isArray(workbenchRotationSelection.pendingSize) ?
-        workbenchRotationSelection.pendingSize :
+      const currentSize = Array.isArray(loopState.workbenchRotationSelection.pendingSize) ?
+        loopState.workbenchRotationSelection.pendingSize :
         getPlacementCollisionSize(target.placement, target.fallbackSize || [1, 1]);
-      workbenchRotationSelection.pendingSize = getRotatedPlacementSize(
+      loopState.workbenchRotationSelection.pendingSize = getRotatedPlacementSize(
         currentSize,
         steps * PLACEMENT_ROTATION_STEP
       );
@@ -3435,8 +3418,8 @@ export function startGameLoop({
 
   function triggerWaterGunSfxBurst(duration = SQUIRTLE_WATER_GUN_SPRAY_DURATION) {
     const nowSeconds = getRuntimeNowSeconds();
-    waterGunSfxBurstUntilSeconds = Math.max(
-      waterGunSfxBurstUntilSeconds,
+    loopState.waterGunSfxBurstUntilSeconds = Math.max(
+      loopState.waterGunSfxBurstUntilSeconds,
       nowSeconds + duration
     );
   }
@@ -3477,7 +3460,7 @@ export function startGameLoop({
       0,
       Number(options.durationMs || GROUND_ACTION_FEEDBACK_DURATION_MS)
     );
-    groundActionFeedbacks.push({
+    loopState.groundActionFeedbacks.push({
       groundCells: markedGroundCells,
       abilityId,
       startedAt: now,
@@ -3511,15 +3494,15 @@ export function startGameLoop({
 
   function getGroundActionFeedback(now) {
     flushQueuedGroundActionFeedback(now);
-    groundActionFeedbacks = groundActionFeedbacks.filter((feedback) => {
+    loopState.groundActionFeedbacks = loopState.groundActionFeedbacks.filter((feedback) => {
       return feedback?.expiresAt > now && Array.isArray(feedback.groundCells) && feedback.groundCells.length;
     });
 
-    if (!groundActionFeedbacks.length) {
+    if (!loopState.groundActionFeedbacks.length) {
       return null;
     }
 
-    const newestFeedback = groundActionFeedbacks[groundActionFeedbacks.length - 1];
+    const newestFeedback = loopState.groundActionFeedbacks[loopState.groundActionFeedbacks.length - 1];
     const durationMs = Math.max(1, Number(newestFeedback.durationMs || GROUND_ACTION_FEEDBACK_DURATION_MS));
     const progress = clamp01((now - newestFeedback.startedAt) / durationMs);
     const pulsePhase = newestFeedback.abilityId === "foundationComplete" ?
@@ -3528,7 +3511,7 @@ export function startGameLoop({
     const markedGroundCells = [];
     const seenCellIds = new Set();
 
-    for (const feedback of groundActionFeedbacks) {
+    for (const feedback of loopState.groundActionFeedbacks) {
       for (const groundCell of feedback.groundCells) {
         const cellKey = groundCell.id || groundCell;
         if (seenCellIds.has(cellKey)) {
@@ -3553,28 +3536,28 @@ export function startGameLoop({
   }
 
   function triggerFieldToolTargetPulse(abilityId, now) {
-    fieldToolTargetPulseStartedAt = now;
-    fieldToolTargetPulseAbilityId = abilityId || null;
+    loopState.fieldToolTargetPulseStartedAt = now;
+    loopState.fieldToolTargetPulseAbilityId = abilityId || null;
   }
 
   function getFieldToolTargetPulseFrame(groundCell, now) {
-    if (!groundCell || !Number.isFinite(fieldToolTargetPulseStartedAt)) {
+    if (!groundCell || !Number.isFinite(loopState.fieldToolTargetPulseStartedAt)) {
       return null;
     }
 
     const progress = clamp01(
-      (now - fieldToolTargetPulseStartedAt) / FIELD_TOOL_TARGET_PULSE_DURATION_MS
+      (now - loopState.fieldToolTargetPulseStartedAt) / FIELD_TOOL_TARGET_PULSE_DURATION_MS
     );
 
     if (progress >= 1) {
-      fieldToolTargetPulseStartedAt = Number.NEGATIVE_INFINITY;
-      fieldToolTargetPulseAbilityId = null;
+      loopState.fieldToolTargetPulseStartedAt = Number.NEGATIVE_INFINITY;
+      loopState.fieldToolTargetPulseAbilityId = null;
       return null;
     }
 
     return {
       groundCell,
-      abilityId: fieldToolTargetPulseAbilityId || groundCell.highlightAbilityId,
+      abilityId: loopState.fieldToolTargetPulseAbilityId || groundCell.highlightAbilityId,
       progress,
       scale:
         FIELD_TOOL_TARGET_PULSE_MIN_SCALE +
@@ -3642,7 +3625,7 @@ export function startGameLoop({
       return;
     }
 
-    playerCounterPrompt = {
+    loopState.playerCounterPrompt = {
       text,
       expiresAt: now + PLAYER_COUNTER_PROMPT_DURATION_MS
     };
@@ -3699,12 +3682,12 @@ export function startGameLoop({
   }
 
   function getPlayerCounterPrompt(now) {
-    if (!playerCounterPrompt || playerCounterPrompt.expiresAt <= now) {
-      playerCounterPrompt = null;
+    if (!loopState.playerCounterPrompt || loopState.playerCounterPrompt.expiresAt <= now) {
+      loopState.playerCounterPrompt = null;
       return null;
     }
 
-    return playerCounterPrompt.text;
+    return loopState.playerCounterPrompt.text;
   }
 
   function restoreActiveZoomPresetOnMovement(playerPosition) {
@@ -3752,27 +3735,27 @@ export function startGameLoop({
 
   function updateFoundationBuildZoneCameraFocus(now) {
     if (!isFoundationBuildMissionActive()) {
-      foundationBuildZoneCameraFocus = null;
+      loopState.foundationBuildZoneCameraFocus = null;
       return false;
     }
 
     const buildZone = getActiveFreeBlockBuildZone();
     if (!buildZone || isFoundationBuildZoneUnavailable()) {
-      foundationBuildZoneCameraFocus = null;
+      loopState.foundationBuildZoneCameraFocus = null;
       return false;
     }
 
     const zoneSignature = getBuilderTutorialFoundationZoneSignature(buildZone);
     const flags = controls.storyState?.flags || {};
-    const focusActive = foundationBuildZoneCameraFocus?.zoneSignature === zoneSignature &&
-      foundationBuildZoneCameraFocus.until > now;
+    const focusActive = loopState.foundationBuildZoneCameraFocus?.zoneSignature === zoneSignature &&
+      loopState.foundationBuildZoneCameraFocus.until > now;
 
     if (focusActive) {
       return true;
     }
 
     if (flags[BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG] === zoneSignature) {
-      foundationBuildZoneCameraFocus = null;
+      loopState.foundationBuildZoneCameraFocus = null;
       return false;
     }
 
@@ -3786,7 +3769,7 @@ export function startGameLoop({
       cameraOrbit.sync?.(pose.direction);
     }
     flags[BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG] = zoneSignature;
-    foundationBuildZoneCameraFocus = {
+    loopState.foundationBuildZoneCameraFocus = {
       zoneSignature,
       until: now + BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DURATION_MS
     };
@@ -3796,13 +3779,13 @@ export function startGameLoop({
   }
 
   function pushCameraDebugError(message) {
-    cameraDebugErrors.push({
+    loopState.cameraDebugErrors.push({
       at: Math.round(performance.now()),
       message
     });
 
-    if (cameraDebugErrors.length > 4) {
-      cameraDebugErrors.shift();
+    if (loopState.cameraDebugErrors.length > 4) {
+      loopState.cameraDebugErrors.shift();
     }
   }
 
@@ -3820,9 +3803,9 @@ export function startGameLoop({
       return;
     }
 
-    if (!cameraDebugElement) {
-      cameraDebugElement = document.createElement("pre");
-      cameraDebugElement.style.cssText = [
+    if (!loopState.cameraDebugElement) {
+      loopState.cameraDebugElement = document.createElement("pre");
+      loopState.cameraDebugElement.style.cssText = [
         "position:absolute",
         "right:12px",
         "top:12px",
@@ -3836,26 +3819,26 @@ export function startGameLoop({
         "pointer-events:none",
         "white-space:pre-wrap"
       ].join(";");
-      mount.append(cameraDebugElement);
+      mount.append(loopState.cameraDebugElement);
     }
 
-    cameraDebugElement.textContent = JSON.stringify(debugState, null, 2);
+    loopState.cameraDebugElement.textContent = JSON.stringify(debugState, null, 2);
   }
 
   function getRepairBoxRevealFlashElement() {
     if (
-      repairBoxRevealFlashElement ||
+      loopState.repairBoxRevealFlashElement ||
       typeof HTMLElement === "undefined" ||
       !(mount instanceof HTMLElement) ||
       typeof document === "undefined"
     ) {
-      return repairBoxRevealFlashElement;
+      return loopState.repairBoxRevealFlashElement;
     }
 
-    repairBoxRevealFlashElement = document.createElement("div");
-    repairBoxRevealFlashElement.dataset.repairBoxRevealFlash = "true";
-    repairBoxRevealFlashElement.hidden = true;
-    repairBoxRevealFlashElement.style.cssText = [
+    loopState.repairBoxRevealFlashElement = document.createElement("div");
+    loopState.repairBoxRevealFlashElement.dataset.repairBoxRevealFlash = "true";
+    loopState.repairBoxRevealFlashElement.hidden = true;
+    loopState.repairBoxRevealFlashElement.style.cssText = [
       "position:absolute",
       "inset:0",
       "z-index:11",
@@ -3865,8 +3848,8 @@ export function startGameLoop({
       "will-change:opacity,background",
       "background:#fff"
     ].join(";");
-    mount.append(repairBoxRevealFlashElement);
-    return repairBoxRevealFlashElement;
+    mount.append(loopState.repairBoxRevealFlashElement);
+    return loopState.repairBoxRevealFlashElement;
   }
 
   function getRepairBoxRevealFlashOrigin(encounter) {
@@ -3899,9 +3882,9 @@ export function startGameLoop({
     const normalizedOpacity = clamp01(opacity);
 
     if (normalizedOpacity <= 0.01) {
-      if (repairBoxRevealFlashElement) {
-        repairBoxRevealFlashElement.hidden = true;
-        repairBoxRevealFlashElement.style.opacity = "0";
+      if (loopState.repairBoxRevealFlashElement) {
+        loopState.repairBoxRevealFlashElement.hidden = true;
+        loopState.repairBoxRevealFlashElement.style.opacity = "0";
       }
       return;
     }
@@ -3949,10 +3932,10 @@ export function startGameLoop({
       return loopState.snowstormFogOverlayElement;
     }
 
-    snowstormFogOverlayElement = document.createElement("div");
-    snowstormFogOverlayElement.dataset.snowstormFog = "true";
-    snowstormFogOverlayElement.hidden = true;
-    snowstormFogOverlayElement.style.cssText = [
+    loopState.snowstormFogOverlayElement = document.createElement("div");
+    loopState.snowstormFogOverlayElement.dataset.snowstormFog = "true";
+    loopState.snowstormFogOverlayElement.hidden = true;
+    loopState.snowstormFogOverlayElement.style.cssText = [
       "position:absolute",
       "left:50%",
       "top:50%",
@@ -4008,8 +3991,8 @@ export function startGameLoop({
     const targetOpacity = fogIntensity * SNOWSTORM_FOG_MAX_OPACITY;
     const easedAmount = 1 - Math.exp(-SNOWSTORM_FOG_OPACITY_EASE * Math.max(deltaTime, 0));
 
-    snowstormFogOpacity += (targetOpacity - snowstormFogOpacity) * easedAmount;
-    setSnowstormFogOpacity(snowstormFogOpacity, session.snowstorm?.elapsed || 0);
+    loopState.snowstormFogOpacity += (targetOpacity - loopState.snowstormFogOpacity) * easedAmount;
+    setSnowstormFogOpacity(loopState.snowstormFogOpacity, session.snowstorm?.elapsed || 0);
   }
 
   function getYawToward(fromPosition, toPosition) {
@@ -4825,7 +4808,7 @@ export function startGameLoop({
   }
 
   function getRepairBoxFloatOffset(position) {
-    const bob = Math.sin(repairBoxElapsed * ROBOT_REPAIR_BOX_BOB_SPEED) * ROBOT_REPAIR_BOX_BOB_HEIGHT;
+    const bob = Math.sin(loopState.repairBoxElapsed * ROBOT_REPAIR_BOX_BOB_SPEED) * ROBOT_REPAIR_BOX_BOB_HEIGHT;
     return [
       position[0],
       position[1] + ROBOT_REPAIR_BOX_FLOAT_HEIGHT + bob,
@@ -4870,7 +4853,7 @@ export function startGameLoop({
     instance.repairBoxBaseYaw ??= Number(instance.yaw || 0);
     instance.repairBoxBaseScale ??= Number(instance.scale || 1);
     instance.scale = instance.repairBoxBaseScale;
-    instance.yaw = instance.repairBoxBaseYaw + repairBoxElapsed * ROBOT_REPAIR_BOX_SPIN_SPEED;
+    instance.yaw = instance.repairBoxBaseYaw + loopState.repairBoxElapsed * ROBOT_REPAIR_BOX_SPIN_SPEED;
     instance.pitch = ROBOT_REPAIR_BOX_MODEL_PITCH_OFFSET;
     instance.roll = 0;
 
@@ -5814,12 +5797,12 @@ export function startGameLoop({
       return;
     }
 
-    companionFollowDirection = [deltaX / distance, deltaZ / distance];
+    loopState.companionFollowDirection = [deltaX / distance, deltaZ / distance];
   }
 
   function getCompanionFollowDirection() {
-    if (companionFollowDirection) {
-      return companionFollowDirection;
+    if (loopState.companionFollowDirection) {
+      return loopState.companionFollowDirection;
     }
 
     const playerYaw = Number(session.playerModelInstance?.yaw);
@@ -8524,8 +8507,8 @@ export function startGameLoop({
   }
 
   function resetChopperAttentionCueSchedule() {
-    chopperAttentionCueNextAt = 0;
-    chopperAttentionCueActiveUntil = 0;
+    loopState.chopperAttentionCueNextAt = 0;
+    loopState.chopperAttentionCueActiveUntil = 0;
   }
 
   function getPeriodicChopperAttentionCue({
@@ -8544,33 +8527,33 @@ export function startGameLoop({
       return null;
     }
 
-    if (chopperAttentionCueNextAt <= 0) {
-      chopperAttentionCueNextAt = now + CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS;
+    if (loopState.chopperAttentionCueNextAt <= 0) {
+      loopState.chopperAttentionCueNextAt = now + CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS;
       return null;
     }
 
-    if (now >= chopperAttentionCueNextAt && now >= chopperAttentionCueActiveUntil) {
-      chopperAttentionCueCycleId += 1;
-      chopperAttentionCueActiveUntil = now + CHOPPER_ATTENTION_CUE_DURATION_MS;
-      chopperAttentionCueNextAt = now + CHOPPER_ATTENTION_CUE_REPEAT_MS;
+    if (now >= loopState.chopperAttentionCueNextAt && now >= loopState.chopperAttentionCueActiveUntil) {
+      loopState.chopperAttentionCueCycleId += 1;
+      loopState.chopperAttentionCueActiveUntil = now + CHOPPER_ATTENTION_CUE_DURATION_MS;
+      loopState.chopperAttentionCueNextAt = now + CHOPPER_ATTENTION_CUE_REPEAT_MS;
     }
 
-    if (now >= chopperAttentionCueActiveUntil) {
+    if (now >= loopState.chopperAttentionCueActiveUntil) {
       return null;
     }
 
     return {
-      cycleId: chopperAttentionCueCycleId,
+      cycleId: loopState.chopperAttentionCueCycleId,
       text: CHOPPER_ATTENTION_CUE_TEXT,
       worldPosition: chopperPosition
     };
   }
 
   function resetCompanionLostHintSchedule() {
-    companionLostHintKey = null;
-    companionLostHintNextAt = 0;
-    companionLostHintActiveUntil = 0;
-    companionLostHintActive = null;
+    loopState.companionLostHintKey = null;
+    loopState.companionLostHintNextAt = 0;
+    loopState.companionLostHintActiveUntil = 0;
+    loopState.companionLostHintActive = null;
   }
 
   function resolveWaterGunCompanionLostHint(activeQuest, activeMoveId) {
@@ -8625,28 +8608,28 @@ export function startGameLoop({
       return null;
     }
 
-    if (hint.key !== companionLostHintKey) {
-      companionLostHintKey = hint.key;
-      companionLostHintNextAt = now + COMPANION_LOST_HINT_INITIAL_DELAY_MS;
-      companionLostHintActiveUntil = 0;
-      companionLostHintActive = null;
+    if (hint.key !== loopState.companionLostHintKey) {
+      loopState.companionLostHintKey = hint.key;
+      loopState.companionLostHintNextAt = now + COMPANION_LOST_HINT_INITIAL_DELAY_MS;
+      loopState.companionLostHintActiveUntil = 0;
+      loopState.companionLostHintActive = null;
       return null;
     }
 
-    if (companionLostHintActive && now < companionLostHintActiveUntil) {
+    if (loopState.companionLostHintActive && now < loopState.companionLostHintActiveUntil) {
       return {
         ...companionLostHintActive,
         worldPosition: hint.worldPosition
       };
     }
 
-    if (now < companionLostHintNextAt) {
+    if (now < loopState.companionLostHintNextAt) {
       return null;
     }
 
-    companionLostHintActive = hint;
-    companionLostHintActiveUntil = now + COMPANION_LOST_HINT_DURATION_MS;
-    companionLostHintNextAt = now + COMPANION_LOST_HINT_REPEAT_MS;
+    loopState.companionLostHintActive = hint;
+    loopState.companionLostHintActiveUntil = now + COMPANION_LOST_HINT_DURATION_MS;
+    loopState.companionLostHintNextAt = now + COMPANION_LOST_HINT_REPEAT_MS;
     return hint;
   }
 
@@ -9128,19 +9111,19 @@ export function startGameLoop({
 
     event.preventDefault?.();
     event.stopPropagation?.();
-    pendingWorldCellPlannerClick = {
+    loopState.pendingWorldCellPlannerClick = {
       clientX: event.clientX,
       clientY: event.clientY
     };
   }
 
   function processWorldCellPlannerClick() {
-    if (!pendingWorldCellPlannerClick) {
+    if (!loopState.pendingWorldCellPlannerClick) {
       return;
     }
 
-    const request = pendingWorldCellPlannerClick;
-    pendingWorldCellPlannerClick = null;
+    const request = loopState.pendingWorldCellPlannerClick;
+    loopState.pendingWorldCellPlannerClick = null;
 
     if (!isWorldCellPlannerActive()) {
       return;
@@ -9237,7 +9220,7 @@ export function startGameLoop({
         const speed = 0.62 + (index % 4) * 0.08;
         const size = GEAR_PICKUP_PARTICLE_SIZE * (0.82 + (index % 3) * 0.12);
 
-        gearPickupParticleEffects.push({
+        loopState.gearPickupParticleEffects.push({
           origin: [...sourcePosition],
           age: 0,
           duration: GEAR_PICKUP_PARTICLE_DURATION,
@@ -9253,12 +9236,12 @@ export function startGameLoop({
   }
 
   function updateWoodCollectPopEffects(deltaTime) {
-    for (let index = woodCollectPopEffects.length - 1; index >= 0; index -= 1) {
-      const effect = woodCollectPopEffects[index];
+    for (let index = loopState.woodCollectPopEffects.length - 1; index >= 0; index -= 1) {
+      const effect = loopState.woodCollectPopEffects[index];
       effect.age += deltaTime;
 
       if (effect.age >= effect.duration) {
-        woodCollectPopEffects.splice(index, 1);
+        loopState.woodCollectPopEffects.splice(index, 1);
       }
     }
   }
@@ -9275,11 +9258,11 @@ export function startGameLoop({
   }
 
   function getWoodCollectPopBillboards(texture, fallbackUvRect) {
-    if (!texture || woodCollectPopEffects.length === 0) {
+    if (!texture || loopState.woodCollectPopEffects.length === 0) {
       return [];
     }
 
-    return woodCollectPopEffects.map((effect) => {
+    return loopState.woodCollectPopEffects.map((effect) => {
       const progress = clamp01(effect.age / effect.duration);
       const popScale = 1 + Math.sin(progress * Math.PI) * (WOOD_COLLECT_POP_SCALE - 1);
       const fade = clamp01((1 - progress) / 0.42);
@@ -9303,11 +9286,11 @@ export function startGameLoop({
   }
 
   function getGearPickupParticleBillboards(texture, fallbackUvRect) {
-    if (!texture || gearPickupParticleEffects.length === 0) {
+    if (!texture || loopState.gearPickupParticleEffects.length === 0) {
       return [];
     }
 
-    return gearPickupParticleEffects.map((effect) => {
+    return loopState.gearPickupParticleEffects.map((effect) => {
       const progress = clamp01(effect.age / effect.duration);
       const arc = Math.sin(progress * Math.PI);
       const radius = GEAR_PICKUP_PARTICLE_RADIUS * effect.speed * progress;
@@ -9817,7 +9800,7 @@ export function startGameLoop({
         continue;
       }
 
-      const isSelectedForRotation = workbenchRotationSelection?.kind === `playerHouse:${house.id}`;
+      const isSelectedForRotation = loopState.workbenchRotationSelection?.kind === `playerHouse:${house.id}`;
       const hasSpawnEffect = Boolean(house.spawnEffect);
       if (
         !isSelectedForRotation &&
@@ -10844,7 +10827,7 @@ export function startGameLoop({
           system: gameplay.getActiveSystemQuest?.()?.id || null,
           ui: gameplay.getActiveQuest?.(controls.storyState)?.id || null
         },
-        errors: cameraDebugErrors,
+        errors: loopState.cameraDebugErrors,
         player: session.playerCharacter?.getPosition?.() || null,
         ship: session.gameplayOpeningShip?.visible ?
           session.gameplayOpeningShip.position :
@@ -10961,7 +10944,7 @@ export function startGameLoop({
     }
 
     const shouldConsumePlacementCancel = Boolean(
-      workbenchRotationSelection ||
+      loopState.workbenchRotationSelection ||
       hasActivePlacementPreview(session, PLACEMENT_CONTRACTS) ||
       hasPendingWorkbenchPlacementIntent(session)
     );
@@ -10973,7 +10956,7 @@ export function startGameLoop({
     }
     if (
   placementCancelRequested &&
-  workbenchRotationSelection
+  loopState.workbenchRotationSelection
 ) {
   clearWorkbenchConstructionRotationSelection();
 } else if (
@@ -11043,14 +11026,14 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
       playerMovedThisFrame = movedDistance > 0.0005;
       if (
         playerMovedThisFrame &&
-        !runBreadcrumbPromptShown &&
+        !loopState.runBreadcrumbPromptShown &&
         !gameplayOpeningMovementLocked &&
         !tutorialActive &&
         gameplay.getActiveSystemQuest?.()?.id === "learn-to-move" &&
         !controls.isRunActive?.()
       ) {
-        runBreadcrumbPromptShown = true;
-        runBreadcrumbPromptUntil = now + RUN_BREADCRUMB_PROMPT_DURATION_MS;
+        loopState.runBreadcrumbPromptShown = true;
+        loopState.runBreadcrumbPromptUntil = now + RUN_BREADCRUMB_PROMPT_DURATION_MS;
       }
       updateCompanionFollowDirection(
         nextPlayerPosition[0] - previousPlayerPosition[0],
@@ -11071,17 +11054,17 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
       }
 
       if (
-        !movementQuestReported &&
+        !loopState.movementQuestReported &&
         gameplay.getActiveSystemQuest?.()?.id === "learn-to-move" &&
         movedDistance > 0.0005
       ) {
-        movementQuestDistance += movedDistance;
-        if (movementQuestDistance >= 0.04) {
+        loopState.movementQuestDistance += movedDistance;
+        if (loopState.movementQuestDistance >= 0.04) {
           const movementResult = gameplay.recordQuestEvent?.({
             type: "MOVE",
             targetId: "player"
           });
-          movementQuestReported = Boolean(
+          loopState.movementQuestReported = Boolean(
             movementResult?.changed ||
             movementResult?.completedQuestIds?.length
           );
@@ -11487,7 +11470,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
           bulbasaurEncounter: session.bulbasaurEncounter
         });
       } else if (leafageAutoWaterGunTarget?.groundCell) {
-        leafageInvalidTargetPromptUntil = 0;
+        loopState.leafageInvalidTargetPromptUntil = 0;
         controls.setActiveMoveId?.("waterGun");
         controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
         const squirtleWaterGunResult = startSquirtleWaterGunAction({
@@ -11503,7 +11486,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
           });
         }
       } else if (leafageAutoGrowTarget?.leafageGroundCell) {
-        leafageInvalidTargetPromptUntil = 0;
+        loopState.leafageInvalidTargetPromptUntil = 0;
         controls.setActiveMoveId?.("leafage");
         const bulbasaurLeafageResult = startBulbasaurLeafageAction({
           groundCell: leafageAutoGrowTarget.leafageGroundCell,
@@ -11521,10 +11504,10 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
         triggerInvalidFieldMoveFeedback(primaryActionAlreadyResolvedGroundCell, now);
       } else if (primaryActionInvalidLeafageUse) {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-        leafageInvalidTargetPromptUntil = now + LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS;
+        loopState.leafageInvalidTargetPromptUntil = now + LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS;
       } else if (primaryActionInvalidFireUse) {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-        fireInvalidTargetPromptUntil = now + FIRE_INVALID_TARGET_PROMPT_DURATION_MS;
+        loopState.fireInvalidTargetPromptUntil = now + FIRE_INVALID_TARGET_PROMPT_DURATION_MS;
       } else if (primaryActionPlacementBlocked) {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
         // The trigger is reserved for the selected move. Placements use their own place controls.
@@ -11582,7 +11565,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
             });
           }
         } else if (leafageEquipped && leafagePrimaryMoveRequested && primaryActionTarget?.leafageGroundCell) {
-          leafageInvalidTargetPromptUntil = 0;
+          loopState.leafageInvalidTargetPromptUntil = 0;
           const bulbasaurLeafageResult = startBulbasaurLeafageAction({
             groundCell: primaryActionTarget.leafageGroundCell,
             playerPosition
@@ -11595,7 +11578,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
             });
           }
         } else if (fireEquipped && primaryActionTarget?.fireGroundCell) {
-          fireInvalidTargetPromptUntil = 0;
+          loopState.fireInvalidTargetPromptUntil = 0;
           const charmanderFireResult = startCharmanderFireAction({
             groundCell: primaryActionTarget.fireGroundCell,
             playerPosition
@@ -11892,7 +11875,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     updateSquirtleWaterGunAction(deltaTime);
     audio.updateWaterGun({
       active: session.squirtleWaterGunAction?.phase === "spray" ||
-        (now * 0.001) < waterGunSfxBurstUntilSeconds,
+        (now * 0.001) < loopState.waterGunSfxBurstUntilSeconds,
       nowSeconds: now * 0.001
     });
     updateBulbasaurLeafageAction(deltaTime);
@@ -12853,11 +12836,11 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const shouldShowInvalidLeafageUsePrompt =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
-      leafageInvalidTargetPromptUntil > now;
+      loopState.leafageInvalidTargetPromptUntil > now;
     const shouldShowInvalidFireUsePrompt =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
-      fireInvalidTargetPromptUntil > now;
+      loopState.fireInvalidTargetPromptUntil > now;
     const fieldMoveSwitchPrompt = controls.getFieldMoveSwitchPrompt?.(now) || null;
     const shouldShowFieldMoveSwitchPrompt =
       canShowWorldSpaceUi &&
@@ -12938,7 +12921,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const shouldShowRunBreadcrumbPrompt =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
-      runBreadcrumbPromptUntil > now;
+      loopState.runBreadcrumbPromptUntil > now;
     const playerInteractionPromptText = shouldShowPlayerInteractionPrompt ?
       getPlayerInteractionWorldPromptText(inputModalityState) :
       "";
@@ -13057,9 +13040,9 @@ if (canProcessDestroyAction && destroyActionRequested) {
       nextFrame.worldSpeech.text = chopperAttentionCue.text;
       nextFrame.worldSpeech.worldPosition = chopperAttentionCue.worldPosition;
 
-      if (chopperAttentionCueSoundCycleId !== chopperAttentionCue.cycleId) {
+      if (loopState.chopperAttentionCueSoundCycleId !== chopperAttentionCue.cycleId) {
         playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE);
-        chopperAttentionCueSoundCycleId = chopperAttentionCue.cycleId;
+        loopState.chopperAttentionCueSoundCycleId = chopperAttentionCue.cycleId;
       }
     }
 
