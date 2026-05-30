@@ -78,7 +78,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: `loopState` migration consistency pass.
 - Completed: add `createGameLoopState()` contract tests.
 - Completed: prepare the isolated snowstorm fog runtime.
-- Next: integrate the snowstorm fog runtime into `gameLoop.js`.
+- Completed: integrate the snowstorm fog runtime into `gameLoop.js`.
+- Next: extract the ground action feedback runtime.
 
 ## Validation Log
 
@@ -140,3 +141,27 @@ npm run build
 
 - `1279` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
+
+### Snowstorm Fog Runtime Integration
+
+Integrated `createSnowstormFogRuntime()` into `startGameLoop()`. The game loop
+now keeps the existing frame order while delegating overlay creation, eased
+opacity state and background drift to the dedicated runtime. The obsolete
+`snowstormFogOverlayElement` and `snowstormFogOpacity` fields were removed from
+`createGameLoopState()`.
+
+Passed:
+
+```sh
+npm test -- --run tests/snowstormFogRuntime.test.js tests/gameLoopState.test.js
+git diff --check
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1279` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The Vite dev server started successfully. Manual browser validation remains
+pending because the in-app browser backend was not available during this pass.
