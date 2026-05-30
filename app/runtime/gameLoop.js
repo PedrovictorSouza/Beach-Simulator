@@ -1,4 +1,5 @@
 import { createGameLoopState } from "./gameLoopState.js";
+import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 
 import {
   BULBASAUR_LEAFAGE_ARRIVE_DISTANCE,
@@ -2060,6 +2061,13 @@ export function startGameLoop({
   rendering
 }) {
   const loopState = createGameLoopState();
+  const snowstormFogRuntime = createSnowstormFogRuntime({
+    mount,
+    getSnowstormFogIntensity,
+    maxOpacity: SNOWSTORM_FOG_MAX_OPACITY,
+    opacityEase: SNOWSTORM_FOG_OPACITY_EASE,
+    clamp01
+  });
 
   const buildBlockDebugOverlay = createBuildBlockDebugOverlay({
     mount,
@@ -3920,79 +3928,6 @@ export function startGameLoop({
 
     const pulse = Math.sin(clamp01(flashProgress) * Math.PI);
     setRepairBoxRevealFlashOpacity(pulse * BULBASAUR_REVEAL_FLASH_PEAK_OPACITY, encounter);
-  }
-
-  function getSnowstormFogOverlayElement() {
-    if (
-      loopState.snowstormFogOverlayElement ||
-      typeof HTMLElement === "undefined" ||
-      !(mount instanceof HTMLElement) ||
-      typeof document === "undefined"
-    ) {
-      return loopState.snowstormFogOverlayElement;
-    }
-
-    loopState.snowstormFogOverlayElement = document.createElement("div");
-    loopState.snowstormFogOverlayElement.dataset.snowstormFog = "true";
-    loopState.snowstormFogOverlayElement.hidden = true;
-    loopState.snowstormFogOverlayElement.style.cssText = [
-      "position:absolute",
-      "left:50%",
-      "top:50%",
-      "width:var(--game-stage-width)",
-      "height:var(--game-stage-height)",
-      "transform:translate(-50%, -50%) scale(var(--render-frame-scale))",
-      "transform-origin:center center",
-      "z-index:2",
-      "opacity:0",
-      "pointer-events:none",
-      "image-rendering:pixelated",
-      "will-change:opacity,background-position",
-      "background-blend-mode:normal,screen,screen",
-      `background:${[
-        "radial-gradient(circle at 50% 52%, rgba(236,244,246,0.2) 0%, rgba(208,222,226,0.28) 30%, rgba(170,188,196,0.58) 72%, rgba(138,154,164,0.76) 100%)",
-        "repeating-linear-gradient(0deg, rgba(255,255,255,0.12) 0 2px, rgba(255,255,255,0) 2px 9px)",
-        "repeating-linear-gradient(90deg, rgba(218,236,242,0.1) 0 3px, rgba(218,236,242,0) 3px 12px)"
-      ].join(",")}`
-    ].join(";");
-    mount.append(loopState.snowstormFogOverlayElement);
-    return loopState.snowstormFogOverlayElement;
-  }
-
-  function setSnowstormFogOpacity(opacity, elapsed = 0) {
-    const normalizedOpacity = clamp01(opacity);
-
-    if (normalizedOpacity <= 0.01) {
-      if (loopState.snowstormFogOverlayElement) {
-        loopState.snowstormFogOverlayElement.hidden = true;
-        loopState.snowstormFogOverlayElement.style.opacity = "0";
-      }
-      return;
-    }
-
-    const element = getSnowstormFogOverlayElement();
-    if (!element) {
-      return;
-    }
-
-    element.hidden = false;
-    element.style.opacity = normalizedOpacity.toFixed(3);
-    element.style.backgroundPosition = [
-      "center center",
-      `0 ${Math.round(elapsed * 8)}px`,
-      `${Math.round(elapsed * -5)}px 0`
-    ].join(",");
-  }
-
-  function updateSnowstormFogOverlay(deltaTime) {
-    const playerPosition = session.playerCharacter?.getPosition?.() || null;
-    const fogIntensity = session.snowstorm?.fogIntensity ??
-      getSnowstormFogIntensity(session.snowstorm, playerPosition);
-    const targetOpacity = fogIntensity * SNOWSTORM_FOG_MAX_OPACITY;
-    const easedAmount = 1 - Math.exp(-SNOWSTORM_FOG_OPACITY_EASE * Math.max(deltaTime, 0));
-
-    loopState.snowstormFogOpacity += (targetOpacity - loopState.snowstormFogOpacity) * easedAmount;
-    setSnowstormFogOpacity(loopState.snowstormFogOpacity, session.snowstorm?.elapsed || 0);
   }
 
   function getYawToward(fromPosition, toPosition) {
@@ -11842,7 +11777,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       deltaTime,
       playerPosition: session.playerCharacter?.getPosition?.() || null
     });
-    updateSnowstormFogOverlay(deltaTime);
+    snowstormFogRuntime.update({ session, deltaTime });
     gameplay.syncLeppaTreeState?.(session.leppaTree, controls.storyState);
     updateLeppaTreeDance(now);
     updateLeppaTreeMusicNotes(deltaTime);

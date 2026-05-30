@@ -13,9 +13,6 @@ export function createGameLoopState({
     pendingWorldCellPlannerClick: null,
     foundationBuildZoneCameraFocus: null,
 
-    snowstormFogOverlayElement: null,
-    snowstormFogOpacity: 0,
-
     woodCollectPopEffects: [],
     gearPickupParticleEffects: [],
 
