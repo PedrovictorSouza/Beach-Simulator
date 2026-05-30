@@ -77,7 +77,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: gameplay opening boundary extraction.
 - Completed: `loopState` migration consistency pass.
 - Completed: add `createGameLoopState()` contract tests.
-- Next: extract the snowstorm fog runtime.
+- Completed: prepare the isolated snowstorm fog runtime.
+- Next: integrate the snowstorm fog runtime into `gameLoop.js`.
 
 ## Validation Log
 
@@ -119,3 +120,23 @@ npm run build
 The two new `createGameLoopState()` contract tests passed. The remaining
 failures are the same Native Tree growth, safe-cell selection and Wood drop
 failures recorded during the loop state migration.
+
+### Snowstorm Fog Runtime Preparation
+
+Added the isolated `createSnowstormFogRuntime()` factory and DOM contract tests.
+The runtime owns its overlay element and eased opacity state. Integration into
+`gameLoop.js` remains a separate small step so the visual frame change can be
+reviewed and validated independently.
+
+Passed:
+
+```sh
+npm test -- --run tests/snowstormFogRuntime.test.js
+git diff --check
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1279` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
