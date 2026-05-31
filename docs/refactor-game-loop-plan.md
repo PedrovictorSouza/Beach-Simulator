@@ -80,7 +80,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated snowstorm fog runtime.
 - Completed: integrate the snowstorm fog runtime into `gameLoop.js`.
 - Completed: prepare the isolated ground action feedback runtime.
-- Next: integrate the ground action feedback runtime into `gameLoop.js`.
+- Completed: integrate the ground action feedback runtime into `gameLoop.js`.
+- Next: extract the player counter prompt runtime.
 
 ## Validation Log
 
@@ -187,3 +188,28 @@ npm run build
 
 - `1284` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
+
+### Ground Action Feedback Runtime Integration
+
+Integrated `createGroundActionFeedbackRuntime()` into `startGameLoop()`. The
+game loop now forwards feedback triggers, invalid field-move feedback, queued
+session feedback reads and field-tool target pulse reads to the dedicated
+runtime. The obsolete `groundActionFeedbacks`, `fieldToolTargetPulseStartedAt`
+and `fieldToolTargetPulseAbilityId` fields were removed from
+`createGameLoopState()`.
+
+Passed:
+
+```sh
+npm test -- --run tests/groundActionFeedbackRuntime.test.js tests/gameLoopState.test.js
+git diff --check
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1284` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual tile-feedback validation remains pending because the in-app browser
+backend was not available during this pass.
