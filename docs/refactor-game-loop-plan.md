@@ -91,7 +91,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated companion lost hint runtime core.
 - Completed: define the OpenSpec for incremental frame-runtime extraction.
 - Completed: prepare the isolated game-loop frame clock.
-- Next: integrate the frame clock and remove `previousTime` from loop state.
+- Completed: integrate the frame clock and remove `previousTime` from loop state.
+- Next: review whether a small frame-start context builder removes real complexity.
 
 ## Validation Log
 
@@ -633,6 +634,48 @@ The focused suite passed with `11` tests. The four new clock tests cover normal
 elapsed time, simulation clamp, backward time and sequential updates. The dev
 server returned `HTTP 200` and the OpenSpec change remained valid in strict
 mode. `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1314` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+### Game Loop Frame Clock Integration
+
+Integrated `createGameLoopFrameClock()` into `startGameLoop()` and removed
+`previousTime` from `createGameLoopState()`. Frame timing now has one explicit
+owner.
+
+Study path:
+
+1. `startGameLoop()` creates `frameClock` with the same initial
+   `performance.now()` or `Date.now()` fallback previously used by
+   `createGameLoopState()`.
+2. The clock receives the existing `0.033` simulation-delta maximum.
+3. At the start of `frame(now)`, `frameClock.update(now)` returns
+   `{ rawDeltaTime, deltaTime }`.
+4. `fpsPanelController.update(rawDeltaTime)` still receives unclamped timing.
+5. Simulation paths still receive the clamped `deltaTime`.
+6. `createGameLoopState()` no longer stores timing state unrelated to its
+   remaining gameplay-loop fields.
+
+The next frame-runtime slice is a review step: only add a frame-start context
+builder if it removes real orchestration complexity without moving gameplay
+rules or changing lifecycle order.
+
+Passed:
+
+```sh
+rg -n "previousTime" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/gameLoopFrameClock.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopState.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `13` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
 
 - `1314` passed
 - `3` failed in `tests/gameplayInteractions.test.js`

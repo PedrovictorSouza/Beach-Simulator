@@ -15,8 +15,8 @@
 - [x] Preserve non-negative raw delta calculation.
 - [x] Preserve the current `0.033` delta clamp.
 - [x] Add focused frame-clock tests.
-- [ ] Integrate the clock into `gameLoop.js`.
-- [ ] Remove `previousTime` from `createGameLoopState()` after integration.
+- [x] Integrate the clock into `gameLoop.js`.
+- [x] Remove `previousTime` from `createGameLoopState()` after integration.
 
 ## 3. Frame Start Context Slice
 
