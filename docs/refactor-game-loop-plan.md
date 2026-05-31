@@ -96,8 +96,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the narrow game-loop frame runtime boundary.
 - Completed: integrate the narrow game-loop frame runtime boundary.
 - Completed: route snapshot commits through the frame runtime.
+- Completed: integrate the companion lost hint runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified.
+  boundary is identified, then preflight the next remaining loop-state-owned
+  subsystem.
 
 ## Validation Log
 
@@ -868,3 +870,43 @@ baseline:
 
 - `1314` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
+
+### Companion Lost Hint Runtime Integration
+
+Integrated `createCompanionLostHintRuntime()` into `startGameLoop()` and
+removed the four migrated companion-hint scheduler fields from
+`createGameLoopState()`.
+
+Study path:
+
+1. `resolveWaterGunCompanionLostHint(...)` remains local and still owns the
+   Water Gun quest checks and current companion-position lookup.
+2. `getPeriodicCompanionLostHint(...)` resolves the current hint and delegates
+   scheduling to `companionLostHintRuntime.get(hint, now)`.
+3. The runtime owns the initial delay, repetition window, active lifetime and
+   latest-position forwarding.
+4. The world-speech priority chain and snapshot writes are unchanged.
+5. `createGameLoopState()` no longer stores scheduler state owned by the
+   runtime.
+
+Passed:
+
+```sh
+rg -n "loopState\\.companionLostHint|resetCompanionLostHintSchedule|createCompanionLostHintRuntime|getPeriodicCompanionLostHint" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/companionLostHintRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `14` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1319` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
