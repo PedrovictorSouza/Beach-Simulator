@@ -81,6 +81,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the snowstorm fog runtime into `gameLoop.js`.
 - Completed: prepare the isolated ground action feedback runtime.
 - Completed: integrate the ground action feedback runtime into `gameLoop.js`.
+- Completed: isolate repeated frame lifecycle policies and local frame builders.
 - Next: extract the player counter prompt runtime.
 
 ## Validation Log
@@ -213,3 +214,34 @@ npm run build
 
 Manual tile-feedback validation remains pending because the in-app browser
 backend was not available during this pass.
+
+### Frame Lifecycle Policy Extraction
+
+Added `gameLoopFramePolicies.js` with pure boolean resolvers for input blockers,
+camera permissions, player movement, gameplay actions, nearby target queries,
+ground guidance and world-space UI. `frame(now)` now reads flow state once,
+delegates the repeated policies and uses small internal builders for placement
+prompts and the camera debug payload. Frame ordering and snapshot shapes remain
+unchanged. The frame body is approximately `4.9%` smaller than before this
+round, while additional repeated condition chains are isolated behind tested
+policies.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameLoopFramePolicies.test.js tests/gameLoopState.test.js
+git diff --check
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The dev server returned `HTTP 200`. `npm test` completed with the existing
+Leafage Native Tree baseline:
+
+- `1291` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The remaining failures still cover Native Tree growth, safe-cell selection and
+Wood drops. Manual gameplay validation remains pending because the in-app
+browser backend was not available during this pass.
