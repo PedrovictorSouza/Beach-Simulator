@@ -1,5 +1,6 @@
 import { createGameLoopState } from "./gameLoopState.js";
 import { createGameLoopFrameClock } from "./gameLoopFrameClock.js";
+import { createGameLoopFrameRuntime } from "./gameLoopFrameRuntime.js";
 import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
 import {
   resolveCameraInputPermissions,
@@ -2151,6 +2152,16 @@ export function startGameLoop({
   });
   const fpsPanelController = createFpsPanelController(fpsPanel);
   const inputModalityPanelController = createInputModalityPanelController(inputModalityPanel);
+  const frameRuntime = createGameLoopFrameRuntime({
+    frameClock,
+    frameSnapshotController,
+    fpsPanelController,
+    controls,
+    readFlowState: readGameLoopFlowState,
+    advanceElapsed: (deltaTime) => {
+      loopState.repairBoxElapsed += deltaTime;
+    }
+  });
   const getSfxVolumeScale = () => gameplay?.audioMixRuntime?.getSfxVolumeScale?.() ?? 1;
   const getMusicVolumeScale = () => gameplay?.audioMixRuntime?.getMusicVolumeScale?.() ?? 1;
   const playSoundEvent = (eventId, options) => {
@@ -10499,11 +10510,11 @@ export function startGameLoop({
 
   function frame(now) {
     // Timing and flow state.
-    const nextFrame = frameSnapshotController.beginFrame();
-    const { rawDeltaTime, deltaTime } = frameClock.update(now);
-    fpsPanelController.update(rawDeltaTime);
-    loopState.repairBoxElapsed += deltaTime;
-    const frameFlowState = readGameLoopFlowState();
+    const {
+      nextFrame,
+      deltaTime,
+      flowState: frameFlowState
+    } = frameRuntime.beginFrame(now);
     let { cinematicActive, tutorialActive } = frameFlowState;
     const {
       introActive,
@@ -10519,11 +10530,7 @@ export function startGameLoop({
       session.actTwoRepairPlant.fixed = true;
     }
 
-    controls.updateGamepads?.(deltaTime);
-
-    if (controls.isPaused?.()) {
-      controls.clearPendingActions();
-      controls.clearMovementInput();
+    if (frameRuntime.updateInputAndCheckPaused(deltaTime)) {
       requestAnimationFrame(frame);
       return;
     }
