@@ -14,7 +14,8 @@ function createRuntime({
     }))
   };
   const frameSnapshotController = {
-    beginFrame: vi.fn(() => nextFrame)
+    beginFrame: vi.fn(() => nextFrame),
+    commitFrame: vi.fn()
   };
   const fpsPanelController = {
     update: vi.fn()
@@ -82,6 +83,14 @@ describe("createGameLoopFrameRuntime", () => {
     expect(context.controls.updateGamepads).toHaveBeenCalledWith(0.016);
     expect(context.controls.clearPendingActions).toHaveBeenCalledOnce();
     expect(context.controls.clearMovementInput).toHaveBeenCalledOnce();
+  });
+
+  it("commits the current snapshot through the snapshot controller", () => {
+    const context = createRuntime();
+
+    context.runtime.commitFrame();
+
+    expect(context.frameSnapshotController.commitFrame).toHaveBeenCalledOnce();
   });
 
   it("does not schedule animation frames directly", () => {

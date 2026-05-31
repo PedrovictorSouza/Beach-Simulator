@@ -32,8 +32,13 @@ export function createGameLoopFrameRuntime({
     return true;
   }
 
+  function commitFrame() {
+    frameSnapshotController.commitFrame();
+  }
+
   return {
     beginFrame,
+    commitFrame,
     updateInputAndCheckPaused
   };
 }

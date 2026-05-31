@@ -10593,7 +10593,7 @@ export function startGameLoop({
         deltaTime
       })
     ) {
-      frameSnapshotController.commitFrame();
+      frameRuntime.commitFrame();
       requestAnimationFrame(frame);
       return;
     }
@@ -13620,7 +13620,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     nextFrame.tutorial.playerPosition = session.playerCharacter?.getPosition() || null;
     nextFrame.tutorial.deltaTime = deltaTime;
     // Commit the frame after all snapshot channels are populated.
-    frameSnapshotController.commitFrame();
+    frameRuntime.commitFrame();
     requestAnimationFrame(frame);
   }
 
