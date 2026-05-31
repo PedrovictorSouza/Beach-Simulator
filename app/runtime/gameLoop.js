@@ -1,4 +1,13 @@
 import { createGameLoopState } from "./gameLoopState.js";
+import {
+  resolveCameraInputPermissions,
+  resolveGameplayActionPermission,
+  resolveGameLoopBlockers,
+  resolveGroundGuidanceVisibility,
+  resolveNearbyGameplayQueryPermission,
+  resolvePlayerMovementPermission,
+  resolveWorldSpaceUiVisibility
+} from "./gameLoopFramePolicies.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 
@@ -10524,22 +10533,156 @@ export function startGameLoop({
     });
   }
 
+  function resolveFramePlacementPrompts({
+    solarStationPlacementPreview,
+    greenhousePlacementPreview,
+    campfirePlacementPreview,
+    leafDenKitPlacementPreview,
+    inputModalityState
+  }) {
+    const solarStationPlacementPreviewLabel = getColonyFeedbackPlacementLabel(
+      COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACEMENT_VALID
+    );
+    const houseKitPlacementPreviewLabel = getColonyFeedbackPlacementLabel(
+      COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_VALID
+    );
+    const houseKitNeedsPowerPreviewLabel = getColonyFeedbackPlacementLabel(
+      COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_NEEDS_POWER_RADIUS
+    );
+    const placementBlockedPreviewLabel = getColonyFeedbackPlacementLabel(
+      COLONY_FEEDBACK_IDS.PLACEMENT_BLOCKED_BY_OBJECTS
+    );
+    const solarStationPlacementPrompt = solarStationPlacementPreview ?
+      (
+        solarStationPlacementPreview.valid ?
+          resolvePlacementPreviewPrompt(solarStationPlacementPreviewLabel, inputModalityState) :
+          resolvePlacementPreviewPrompt(placementBlockedPreviewLabel, inputModalityState, {
+            includePlace: false
+          })
+      ) :
+      "";
+    const campfirePlacementPrompt = campfirePlacementPreview ?
+      (
+        campfirePlacementPreview.valid ?
+          resolvePlacementPreviewPrompt(`Move the ${SANDBOTS_ITEM_NAMES.thermalCabin} preview`, inputModalityState) :
+          resolvePlacementPreviewPrompt(placementBlockedPreviewLabel, inputModalityState, {
+            includePlace: false
+          })
+      ) :
+      "";
+    const greenhousePlacementPrompt = greenhousePlacementPreview ?
+      (
+        greenhousePlacementPreview.valid ?
+          resolvePlacementPreviewPrompt("Move the Greenhouse preview", inputModalityState) :
+          resolvePlacementPreviewPrompt(placementBlockedPreviewLabel, inputModalityState, {
+            includePlace: false
+          })
+      ) :
+      "";
+    const leafDenKitPlacementPrompt = leafDenKitPlacementPreview ?
+      (
+        leafDenKitPlacementPreview.valid ?
+          resolvePlacementPreviewPrompt(houseKitPlacementPreviewLabel, inputModalityState) :
+          leafDenKitPlacementPreview.invalidReason === "outside-solar-station-radius" ?
+            resolvePlacementPreviewPrompt(houseKitNeedsPowerPreviewLabel, inputModalityState, {
+              includePlace: false
+            }) :
+            resolvePlacementPreviewPrompt(placementBlockedPreviewLabel, inputModalityState, {
+              includePlace: false
+            })
+      ) :
+      "";
+
+    return {
+      solarStationPlacementPrompt,
+      greenhousePlacementPrompt,
+      campfirePlacementPrompt,
+      leafDenKitPlacementPrompt
+    };
+  }
+
+  function readGameLoopFlowState() {
+    const tutorialActive = isGameFlow(gameFlowValues.TUTORIAL);
+
+    return {
+      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY),
+      cinematicActive: isGameFlow(gameFlowValues.CINEMATIC),
+      introActive: isGameFlow(gameFlowValues.INTRO),
+      tutorialActive,
+      tutorialMovementLocked: tutorialActive ? actTwoTutorial.isMovementLocked() : false,
+      pokedexModalOpen: pokedexUiState.open,
+      dialogueActive: gameplayDialogue.isActive(),
+      skillLearnActive: Boolean(controls.isSkillLearnActive?.()),
+      scriptedInteractionActive: Boolean(controls.isScriptedInteractionActive?.()),
+      tutorialCameraFocus: tutorialActive ? actTwoTutorial.getCameraFocusTarget() : null
+    };
+  }
+
+  function updateCameraDebugFrameOverlay({
+    now,
+    flowState,
+    movementBlocked,
+    gameplayOpeningMovementLocked,
+    cameraTransitionActive
+  }) {
+    if (!CAMERA_DEBUG_ENABLED) {
+      return;
+    }
+
+    updateCameraDebugOverlay({
+      frame: Math.round(now),
+      flow: {
+        gameplay: flowState.gameplayActive,
+        cinematic: flowState.cinematicActive,
+        intro: flowState.introActive,
+        tutorial: flowState.tutorialActive
+      },
+      blockers: {
+        movementBlocked,
+        tutorialMovementLocked: flowState.tutorialMovementLocked,
+        pokedexModalOpen: flowState.pokedexModalOpen,
+        dialogueActive: flowState.dialogueActive,
+        skillLearnActive: flowState.skillLearnActive,
+        scriptedInteractionActive: flowState.scriptedInteractionActive,
+        paused: Boolean(controls.isPaused?.())
+      },
+      camera: {
+        ...gameplayCameraDirector.getState(now),
+        openingCameraActiveForInput: gameplayOpeningMovementLocked,
+        transitionActive: cameraTransitionActive,
+        pose: camera.getPose?.() || null
+      },
+      quest: {
+        system: gameplay.getActiveSystemQuest?.()?.id || null,
+        ui: gameplay.getActiveQuest?.(controls.storyState)?.id || null
+      },
+      errors: loopState.cameraDebugErrors,
+      player: session.playerCharacter?.getPosition?.() || null,
+      ship: session.gameplayOpeningShip?.visible ?
+        session.gameplayOpeningShip.position :
+        null
+    });
+  }
+
   function frame(now) {
+    // Timing and flow state.
     const nextFrame = frameSnapshotController.beginFrame();
     const rawDeltaTime = Math.max(0, (now - loopState.previousTime) / 1000);
     const deltaTime = Math.min(0.033, rawDeltaTime);
     loopState.previousTime = now;
     fpsPanelController.update(rawDeltaTime);
     loopState.repairBoxElapsed += deltaTime;
-    let cinematicActive = isGameFlow(gameFlowValues.CINEMATIC);
-    const introActive = isGameFlow(gameFlowValues.INTRO);
-    let tutorialActive = isGameFlow(gameFlowValues.TUTORIAL);
-    const tutorialMovementLocked = tutorialActive ? actTwoTutorial.isMovementLocked() : false;
-    const pokedexModalOpen = pokedexUiState.open;
-    const dialogueActive = gameplayDialogue.isActive();
-    const skillLearnActive = Boolean(controls.isSkillLearnActive?.());
-    const scriptedInteractionActive = Boolean(controls.isScriptedInteractionActive?.());
-    const tutorialCameraFocus = tutorialActive ? actTwoTutorial.getCameraFocusTarget() : null;
+    const frameFlowState = readGameLoopFlowState();
+    let { cinematicActive, tutorialActive } = frameFlowState;
+    const {
+      introActive,
+      tutorialMovementLocked,
+      pokedexModalOpen,
+      dialogueActive,
+      skillLearnActive,
+      scriptedInteractionActive,
+      tutorialCameraFocus
+    } = frameFlowState;
 
     if (session.actTwoRepairPlant && actTwoTutorial.isRepairPlantFixed()) {
       session.actTwoRepairPlant.fixed = true;
@@ -10559,11 +10702,11 @@ export function startGameLoop({
     clearInteractionObjectHighlights(session);
     syncWorkbenchInteractable();
     syncPokemonCenterWorkshopVisualState();
-    
+    // Opening, input blockers and camera controls.
   const gameplayOpeningFrameStart = gameplayOpeningRuntime.beginFrame({
     now,
     deltaTime,
-    gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY)
+    gameplayActive: frameFlowState.gameplayActive
   });
 
   const gameplayOpeningCameraLocked = gameplayOpeningRuntime.isCameraLocked();
@@ -10577,20 +10720,21 @@ export function startGameLoop({
     );
     placementCameraAssist.update({ placementActive: placementPreviewActive });
     const foundationBuildZoneCameraFocusActive = updateFoundationBuildZoneCameraFocus(now);
-    const movementBlocked = Boolean(
-      gameplayOpeningMovementLocked ||
-      foundationBuildZoneCameraFocusActive ||
-      tutorialMovementLocked ||
-      pokedexModalOpen ||
-      dialogueActive ||
-      skillLearnActive ||
-      scriptedInteractionActive ||
-      placementPreviewActive
-    );
+    const {
+      movementBlocked,
+      shouldClearPendingActions,
+      shouldClearMovementInput,
+      canAdvanceRustlingGrass
+    } = resolveGameLoopBlockers({
+      gameplayOpeningMovementLocked,
+      foundationBuildZoneCameraFocusActive,
+      placementPreviewActive,
+      flowState: frameFlowState
+    });
     gameplayInputRuntime.update({
       now,
       deltaTime,
-      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY),
+      gameplayActive: frameFlowState.gameplayActive,
       cinematicActive,
       movementBlocked,
       placementActive: placementPreviewActive,
@@ -10602,41 +10746,13 @@ export function startGameLoop({
     inputModalityPanelController.update(getCurrentInputModalityState());
     const cameraTransitionActive = camera.isTargetTransitionActive();
 
-    if (CAMERA_DEBUG_ENABLED) {
-      updateCameraDebugOverlay({
-        frame: Math.round(now),
-        flow: {
-          gameplay: isGameFlow(gameFlowValues.GAMEPLAY),
-          cinematic: cinematicActive,
-          intro: introActive,
-          tutorial: tutorialActive
-        },
-        blockers: {
-          movementBlocked,
-          tutorialMovementLocked,
-          pokedexModalOpen,
-          dialogueActive,
-          skillLearnActive,
-          scriptedInteractionActive,
-          paused: Boolean(controls.isPaused?.())
-        },
-        camera: {
-          ...gameplayCameraDirector.getState(now),
-          openingCameraActiveForInput: gameplayOpeningMovementLocked,
-          transitionActive: cameraTransitionActive,
-          pose: camera.getPose?.() || null
-        },
-        quest: {
-          system: gameplay.getActiveSystemQuest?.()?.id || null,
-          ui: gameplay.getActiveQuest?.(controls.storyState)?.id || null
-        },
-        errors: loopState.cameraDebugErrors,
-        player: session.playerCharacter?.getPosition?.() || null,
-        ship: session.gameplayOpeningShip?.visible ?
-          session.gameplayOpeningShip.position :
-          null
-      });
-    }
+    updateCameraDebugFrameOverlay({
+      now,
+      flowState: frameFlowState,
+      movementBlocked,
+      gameplayOpeningMovementLocked,
+      cameraTransitionActive
+    });
 
     processWorldCellPlannerClick();
 
@@ -10655,62 +10771,28 @@ export function startGameLoop({
       return;
     }
 
-    if (
-      gameplayOpeningMovementLocked ||
-      foundationBuildZoneCameraFocusActive ||
-      tutorialActive ||
-      pokedexModalOpen ||
-      skillLearnActive ||
-      scriptedInteractionActive
-    ) {
+    if (shouldClearPendingActions) {
       controls.clearPendingActions();
     }
 
-    if (
-      gameplayOpeningMovementLocked ||
-      foundationBuildZoneCameraFocusActive ||
-      tutorialMovementLocked ||
-      pokedexModalOpen ||
-      dialogueActive ||
-      skillLearnActive ||
-      scriptedInteractionActive
-    ) {
+    if (shouldClearMovementInput) {
       controls.clearMovementInput();
     }
 
-    updateRustlingGrassEvent(deltaTime, !(
-      cinematicActive ||
-      foundationBuildZoneCameraFocusActive ||
-      tutorialActive ||
-      pokedexModalOpen ||
-      dialogueActive ||
-      skillLearnActive ||
-      scriptedInteractionActive
-    ));
+    updateRustlingGrassEvent(deltaTime, canAdvanceRustlingGrass);
 
-    const canRotateCamera =
-      session.playerCharacter &&
-      !cinematicActive &&
-      !gameplayOpeningCameraLocked &&
-      !foundationBuildZoneCameraFocusActive &&
-      !controls.isBuilderPanelOpen() &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !dialogueActive &&
-      actTwoTutorial.allowsCameraLook();
-    const canCycleCameraZoom =
-      session.playerCharacter &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !gameplayOpeningCameraLocked &&
-      !foundationBuildZoneCameraFocusActive &&
-      !controls.isBuilderPanelOpen() &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !dialogueActive &&
-      !placementPreviewActive;
+    const {
+      canRotateCamera,
+      canCycleCameraZoom
+    } = resolveCameraInputPermissions({
+      hasPlayerCharacter: Boolean(session.playerCharacter),
+      gameplayOpeningCameraLocked,
+      foundationBuildZoneCameraFocusActive,
+      builderPanelOpen: controls.isBuilderPanelOpen(),
+      placementPreviewActive,
+      tutorialAllowsCameraLook: actTwoTutorial.allowsCameraLook(),
+      flowState: frameFlowState
+    });
 
     while (controls.consumeCameraZoomCycleRequest?.()) {
       if (canCycleCameraZoom) {
@@ -10738,6 +10820,7 @@ export function startGameLoop({
       controls.clearCameraLookInput?.();
     }
 
+    // Placement and player movement.
     const placementRotationRequest = controls.consumePlacementRotationRequest?.() || 0;
     if (placementRotationRequest) {
       const rotatedPreview = rotateActivePlacementPreview(placementRotationRequest);
@@ -10805,17 +10888,13 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
     updateSolarStationSpawnEffect(deltaTime);
     syncSolarStationWorkbenchRotationVisual(now * 0.001);
     let playerMovedThisFrame = false;
+    const canUpdatePlayerMovement = resolvePlayerMovementPermission({
+      hasPlayerCharacter: Boolean(session.playerCharacter),
+      foundationBuildZoneCameraFocusActive,
+      flowState: frameFlowState
+    });
 
-    if (
-      session.playerCharacter &&
-      !cinematicActive &&
-      !foundationBuildZoneCameraFocusActive &&
-      !tutorialMovementLocked &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !dialogueActive
-    ) {
+    if (canUpdatePlayerMovement) {
       const previousPlayerPosition = session.playerCharacter.getPosition();
       session.playerCharacter.update(deltaTime);
       if (session.playerCharacter.consumeJumpStarted?.()) {
@@ -10880,20 +10959,14 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
     updatePlayerDustParticles(session.playerDust, {
       deltaTime,
       playerPosition: session.playerCharacter?.getPosition?.() || null,
-      active: Boolean(session.playerCharacter) &&
-        !cinematicActive &&
-        !foundationBuildZoneCameraFocusActive &&
-        !tutorialMovementLocked &&
-        !pokedexModalOpen &&
-        !skillLearnActive &&
-        !scriptedInteractionActive &&
-        !dialogueActive
+      active: canUpdatePlayerMovement
     });
     updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
     updateTreeRevivalLeafBursts(deltaTime);
     updateWoodCollectPopEffects(deltaTime);
     updateGearPickupParticleEffects(deltaTime);
 
+    // Gameplay actions and simulation.
     const activeMoveId = controls.getActiveMoveId?.() || null;
     const firstTaughtActionFreedomWindow = syncFirstTaughtActionFreedomWindow(
       controls.storyState,
@@ -11506,14 +11579,11 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
       }
     }
 
-    const canProcessDestroyAction = Boolean(
-      session.playerCharacter &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !dialogueActive
-    );
+    const canProcessGameplayAction = resolveGameplayActionPermission({
+      hasPlayerCharacter: Boolean(session.playerCharacter),
+      flowState: frameFlowState
+    });
+    const canProcessDestroyAction = canProcessGameplayAction;
 
    const destroyActionRequested = controls.consumeDestroyActionRequest?.();
 
@@ -11546,12 +11616,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
 
     if (
       controls.consumeInteractRequest() &&
-      session.playerCharacter &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !dialogueActive
+      canProcessGameplayAction
     ) {
       playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM);
       performGameplayInteractAction({
@@ -11634,6 +11699,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       }
     }
 
+    // Simulation updates.
     hud.updateTransientNotice(deltaTime);
     gameplay.updatePalmShake(deltaTime, session.palmInstances);
     gameplay.updateResourceNodes(deltaTime, session.resourceNodes);
@@ -11875,14 +11941,21 @@ if (canProcessDestroyAction && destroyActionRequested) {
 
     gameplayOpeningCameraFrame = gameplayOpeningRuntime.getCameraFrame();
     const gameplayOpeningHudHidden = gameplayOpeningRuntime.isHudHidden();
+    const currentFlowState = {
+      ...frameFlowState,
+      cinematicActive,
+      tutorialActive,
+      dialogueActive: gameplayDialogue.isActive()
+    };
+    const canQueryNearbyGameplayTargets = resolveNearbyGameplayQueryPermission({
+      hasPlayerCharacter: Boolean(session.playerCharacter),
+      gameplayOpeningMovementLocked,
+      flowState: currentFlowState
+    });
 
+    // Prompt and snapshot preparation.
     const nearbyHarvestTarget =
-      session.playerCharacter &&
-      !gameplayOpeningMovementLocked &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !skillLearnActive &&
-      !scriptedInteractionActive ?
+      canQueryNearbyGameplayTargets ?
         gameplay.findNearbyActionTarget({
           playerPosition: session.playerCharacter.getPosition(),
           palmModel: session.palmModel,
@@ -11903,12 +11976,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         }) :
         null;
     const nearbyInvalidMoveTarget =
-      session.playerCharacter &&
-      !gameplayOpeningMovementLocked &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
+      canQueryNearbyGameplayTargets &&
       (
         (leafageEquipped && !nearbyHarvestTarget?.leafageGroundCell) ||
         (waterGunEquipped && !nearbyHarvestTarget?.groundCell) ||
@@ -11959,12 +12027,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
             "fire" :
           null;
     const nearbyInteractable =
-      session.playerCharacter &&
-      !gameplayOpeningMovementLocked &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !skillLearnActive &&
-      !scriptedInteractionActive ?
+      canQueryNearbyGameplayTargets ?
         gameplay.findNearbyInteractable(
           session.playerCharacter.getPosition(),
           session.npcActors,
@@ -11983,35 +12046,28 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const activeQuest = gameplay.getActiveQuest(controls.storyState);
     const activeTask = gameplay.getActiveTask?.() || null;
     const activeSystemQuest = gameplay.getActiveSystemQuest?.() || null;
+    const canShowGroundGuidance = resolveGroundGuidanceVisibility({
+      gameplayOpeningMovementLocked,
+      gameplayOpeningHudHidden,
+      flowState: currentFlowState
+    });
+    const canShowPassiveGroundGuidance = resolveGroundGuidanceVisibility({
+      gameplayOpeningMovementLocked,
+      gameplayOpeningHudHidden,
+      requireDialogueClosed: true,
+      flowState: currentFlowState
+    });
     const pendingWaterGunGroundCells =
-      !gameplayOpeningMovementLocked &&
-      !gameplayOpeningHudHidden &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive ?
+      canShowGroundGuidance ?
         getPendingSquirtleWaterGunGroundCells() :
         [];
     const activeLeafageGroundCells =
-      !gameplayOpeningMovementLocked &&
-      !gameplayOpeningHudHidden &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
+      canShowGroundGuidance &&
       session.bulbasaurLeafageAction?.groundCell ?
         [session.bulbasaurLeafageAction.groundCell] :
         [];
     const activeFireGroundCell =
-      !gameplayOpeningMovementLocked &&
-      !gameplayOpeningHudHidden &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
+      canShowGroundGuidance &&
       session.charmanderFireAction?.groundCell &&
       !session.charmanderFireAction.impactApplied ?
         {
@@ -12022,14 +12078,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         null;
     const freeRoamRestorationGroundCells =
       !activeQuest &&
-      !gameplayOpeningMovementLocked &&
-      !gameplayOpeningHudHidden &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !gameplayDialogue.isActive() &&
+      canShowPassiveGroundGuidance &&
       !solarStationPlacementPreview &&
       !campfirePlacementPreview &&
       !leafDenKitPlacementPreview &&
@@ -12042,14 +12091,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         }) :
         [];
     const leppaTreeMissionGroundCells =
-      !gameplayOpeningMovementLocked &&
-      !gameplayOpeningHudHidden &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !gameplayDialogue.isActive() &&
+      canShowPassiveGroundGuidance &&
       isOpeningLeppaTreeRequestActive(controls.storyState) ?
         getLeppaTreeSurroundingGroundCells(
           session.leppaTree,
@@ -12066,25 +12108,11 @@ if (canProcessDestroyAction && destroyActionRequested) {
         buildSolarStationFieldMarkedGroundCells(nearbyHarvestTarget.strawBedPlacement) :
         [];
     const boulderShadedTaskGroundCells =
-      !gameplayOpeningMovementLocked &&
-      !gameplayOpeningHudHidden &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !gameplayDialogue.isActive() ?
+      canShowPassiveGroundGuidance ?
         getBoulderShadedTaskGroundCells(controls.storyState) :
         [];
     const growFirstHabitatTaskGroundCells =
-      !gameplayOpeningMovementLocked &&
-      !gameplayOpeningHudHidden &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !gameplayDialogue.isActive() ?
+      canShowPassiveGroundGuidance ?
         getGrowFirstHabitatTaskGroundCells({
           activeQuest,
           activeSystemQuest,
@@ -12093,14 +12121,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         }) :
         [];
     const foundationBuildZoneGroundCells =
-      !gameplayOpeningMovementLocked &&
-      !gameplayOpeningHudHidden &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !gameplayDialogue.isActive() ?
+      canShowPassiveGroundGuidance ?
         buildFoundationBuildZoneGroundCells(activeQuest, activeSystemQuest) :
         [];
     const worldCellPlannerSelectedGroundCell = getWorldCellPlannerSelectedGroundCell();
@@ -12130,60 +12151,20 @@ if (canProcessDestroyAction && destroyActionRequested) {
       leafDenKitPlacementPreview = null;
     }
     const inputModalityState = getCurrentInputModalityState();
-    const solarStationPlacementPreviewLabel = getColonyFeedbackPlacementLabel(
-      COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACEMENT_VALID
-    );
-    const houseKitPlacementPreviewLabel = getColonyFeedbackPlacementLabel(
-      COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_VALID
-    );
-    const houseKitNeedsPowerPreviewLabel = getColonyFeedbackPlacementLabel(
-      COLONY_FEEDBACK_IDS.HOUSE_KIT_PLACEMENT_NEEDS_POWER_RADIUS
-    );
-    const placementBlockedPreviewLabel = getColonyFeedbackPlacementLabel(
-      COLONY_FEEDBACK_IDS.PLACEMENT_BLOCKED_BY_OBJECTS
-    );
     const transientNoticeRoute = resolveTransientNoticeRoute(hud.getNoticeMessage());
     const playerCounterPromptText = getPlayerCounterPrompt(now);
-    const solarStationPlacementPrompt = solarStationPlacementPreview ?
-      (
-        solarStationPlacementPreview.valid ?
-          resolvePlacementPreviewPrompt(solarStationPlacementPreviewLabel, inputModalityState) :
-          resolvePlacementPreviewPrompt(placementBlockedPreviewLabel, inputModalityState, {
-            includePlace: false
-          })
-      ) :
-      "";
-    const campfirePlacementPrompt = campfirePlacementPreview ?
-      (
-        campfirePlacementPreview.valid ?
-          resolvePlacementPreviewPrompt(`Move the ${SANDBOTS_ITEM_NAMES.thermalCabin} preview`, inputModalityState) :
-          resolvePlacementPreviewPrompt(placementBlockedPreviewLabel, inputModalityState, {
-            includePlace: false
-          })
-      ) :
-      "";
-    const greenhousePlacementPrompt = greenhousePlacementPreview ?
-      (
-        greenhousePlacementPreview.valid ?
-          resolvePlacementPreviewPrompt("Move the Greenhouse preview", inputModalityState) :
-          resolvePlacementPreviewPrompt(placementBlockedPreviewLabel, inputModalityState, {
-            includePlace: false
-          })
-      ) :
-      "";
-    const leafDenKitPlacementPrompt = leafDenKitPlacementPreview ?
-      (
-        leafDenKitPlacementPreview.valid ?
-          resolvePlacementPreviewPrompt(houseKitPlacementPreviewLabel, inputModalityState) :
-          leafDenKitPlacementPreview.invalidReason === "outside-solar-station-radius" ?
-            resolvePlacementPreviewPrompt(houseKitNeedsPowerPreviewLabel, inputModalityState, {
-              includePlace: false
-            }) :
-            resolvePlacementPreviewPrompt(placementBlockedPreviewLabel, inputModalityState, {
-              includePlace: false
-            })
-      ) :
-      "";
+    const {
+      solarStationPlacementPrompt,
+      greenhousePlacementPrompt,
+      campfirePlacementPrompt,
+      leafDenKitPlacementPrompt
+    } = resolveFramePlacementPrompts({
+      solarStationPlacementPreview,
+      greenhousePlacementPreview,
+      campfirePlacementPreview,
+      leafDenKitPlacementPreview,
+      inputModalityState
+    });
     const pendingPlacementIntent =
       !solarStationPlacementPreview && !greenhousePlacementPreview && !campfirePlacementPreview && !leafDenKitPlacementPreview ?
         getActivePendingPlacementIntent(session, controls.storyState, controls.inventory) :
@@ -12294,13 +12275,11 @@ if (canProcessDestroyAction && destroyActionRequested) {
 });
 
     const shouldShowGroundCellHighlight =
-      !gameplayOpeningMovementLocked &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !gameplayDialogue.isActive() &&
+      resolveGroundGuidanceVisibility({
+        gameplayOpeningMovementLocked,
+        requireDialogueClosed: true,
+        flowState: currentFlowState
+      }) &&
       Boolean(highlightedGroundCell);
     const fieldToolTargetPulseFrame = shouldShowGroundCellHighlight ?
       groundActionFeedbackRuntime.getPulseFrame(highlightedGroundCell, now) :
@@ -12409,13 +12388,11 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const tangrowthPosition =
       tangrowthActor?.character?.getPosition?.() ||
       null;
-    const canShowWorldSpaceUi =
-      !gameplayOpeningCameraLocked &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !gameplayDialogue.isActive();
+    // World-space UI and render preparation.
+    const canShowWorldSpaceUi = resolveWorldSpaceUiVisibility({
+      gameplayOpeningCameraLocked,
+      flowState: currentFlowState
+    });
     applyWorkbenchGreenArrowCue(session.workbenchGreenArrowModelInstance, {
       active: canShowWorldSpaceUi && shouldShowWorkbenchGreenArrowCue({
         activeQuest,
@@ -13095,6 +13072,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       nextFrame.taskPop.worldPosition = session.playerCharacter.getPosition();
     }
 
+    // Render snapshot preparation.
     if (Array.isArray(session.tallGrassInstances)) {
       session.tallGrassInstances.length = 0;
     }
@@ -13814,6 +13792,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     nextFrame.tutorial.active = true;
     nextFrame.tutorial.playerPosition = session.playerCharacter?.getPosition() || null;
     nextFrame.tutorial.deltaTime = deltaTime;
+    // Commit the frame after all snapshot channels are populated.
     frameSnapshotController.commitFrame();
     requestAnimationFrame(frame);
   }
