@@ -85,7 +85,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the player counter prompt runtime.
 - Completed: extract the camera debug runtime.
 - Completed: extract the repair box reveal flash runtime.
-- Next: preflight the higher-risk workbench rotation runtime extraction.
+- Completed: preflight and prepare the isolated workbench rotation runtime core.
+- Next: integrate the workbench rotation runtime through existing side-effect wrappers.
 
 ## Validation Log
 
@@ -381,3 +382,64 @@ The three new runtime tests cover projected origin and pulse calculation,
 overlay hiding and reuse, and safe fallback behavior without a DOM mount or
 camera projection. Manual reveal-flash validation remains pending because the
 in-app browser backend was not available during this pass.
+
+### Workbench Rotation Runtime Preparation
+
+Added `workbenchRotationRuntime.js` as an isolated, tested core. It is not
+imported by `gameLoop.js` yet, so this preparation step does not change active
+gameplay behavior.
+
+The preflight found that the current workbench rotation flow crosses several
+responsibilities:
+
+- candidate discovery from `session` and story flags;
+- target-distance validation around the player;
+- private selection state;
+- rotation and size preview;
+- HUD notices and audio events;
+- Solar Station yaw synchronization;
+- Train House, House and player-house visual tint;
+- input cancel ordering;
+- prompt selection and ground-cell snapshot preparation.
+
+Moving all of those concerns in one commit would make regression diagnosis
+difficult. The extraction is therefore split into a private state core and a
+later integration pass.
+
+Study path:
+
+1. `createWorkbenchRotationRuntime(...)` receives four pure dependencies:
+   `normalizePlacementYaw`, `getRotatedPlacementSize`, `getTargetSize` and
+   `placementRotationStep`.
+2. `select(target)` stores private pending yaw and size state.
+3. `rotate(target, direction)` updates only the pending preview.
+4. `confirm(target, { syncPlacementYaw })` applies yaw and size, optionally
+   forwards Solar Station synchronization and clears selection.
+5. `getSelectedTarget(candidates, { isTargetValid })` clears stale selection
+   when the selected construction disappears or leaves the valid range.
+6. `applySelectionTint()` and `getGroundCell()` preserve existing preview
+   calculations without depending on `session`, HUD or audio.
+
+The integration pass should keep candidate collection, notices, sound events
+and input ordering in small wrappers inside `startGameLoop()` while replacing
+direct reads and writes of `loopState.workbenchRotationSelection`. Only after
+that integration is validated should the old field be removed from
+`createGameLoopState()`.
+
+Passed:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+git diff --cached --check
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1306` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The five new runtime tests cover selection and clear, pending yaw and size
+rotation, confirmation, stale-target cleanup, tint and ground-cell preview
+calculations. Manual gameplay validation is intentionally deferred until the
+runtime is integrated into `gameLoop.js`.
