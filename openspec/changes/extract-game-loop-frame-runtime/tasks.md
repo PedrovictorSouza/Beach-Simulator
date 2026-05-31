@@ -20,12 +20,13 @@
 
 ## 3. Frame Start Context Slice
 
-- [ ] Review whether a small frame-start context builder removes real
+- [x] Review whether a small frame-start context builder removes real
   orchestration complexity.
-- [ ] Preserve flow-state read order.
-- [ ] Preserve gameplay-opening update order.
-- [ ] Preserve placement-preview and blocker calculation order.
-- [ ] Add focused tests for any pure builder introduced.
+- [x] Preserve flow-state read order.
+- [x] Preserve gameplay-opening update order.
+- [x] Preserve placement-preview and blocker calculation order.
+- [x] Keep the helper internal after the review found no useful pure-builder
+  contract to add.
 
 ## 4. Frame Runtime Slice
 

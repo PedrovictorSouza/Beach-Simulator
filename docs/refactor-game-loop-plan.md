@@ -92,7 +92,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: define the OpenSpec for incremental frame-runtime extraction.
 - Completed: prepare the isolated game-loop frame clock.
 - Completed: integrate the frame clock and remove `previousTime` from loop state.
-- Next: review whether a small frame-start context builder removes real complexity.
+- Completed: isolate the local gameplay frame-start context.
+- Next: preflight a narrow `gameLoopFrameRuntime` boundary before moving orchestration.
 
 ## Validation Log
 
@@ -634,6 +635,49 @@ The focused suite passed with `11` tests. The four new clock tests cover normal
 elapsed time, simulation clamp, backward time and sequential updates. The dev
 server returned `HTTP 200` and the OpenSpec change remained valid in strict
 mode. `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1314` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+### Gameplay Frame Start Context
+
+Added the internal `beginGameplayFrameContext(...)` helper inside
+`startGameLoop()`. The review rejected a separate pure builder because it would
+only forward values while leaving the meaningful side effects scattered across
+`frame(now)`.
+
+Study path:
+
+1. `frame(now)` still reads flow state before any opening work.
+2. After base camera and interactable synchronization,
+   `beginGameplayFrameContext(...)` runs the existing opening `beginFrame`.
+3. It reads opening camera and movement locks immediately afterward.
+4. It checks active placement previews and updates `placementCameraAssist`.
+5. It updates foundation-build camera focus.
+6. It calls the existing tested `resolveGameLoopBlockers(...)` policy last.
+7. It returns one context object for `frame(now)` to destructure before
+   updating `gameplayInputRuntime`.
+
+This keeps all side effects and their order unchanged while removing detailed
+opening, placement-assist and blocker assembly from the main frame body. The
+helper remains local because its dependencies belong to `startGameLoop()`;
+creating a new external runtime for this block would widen the dependency
+surface without adding ownership value.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/gameLoopFramePolicies.test.js tests/gameLoopFrameClock.test.js tests/gameLoopState.test.js tests/gameplayOpeningShip.test.js tests/placementCameraAssist.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `17` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
 
 - `1314` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
