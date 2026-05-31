@@ -94,7 +94,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the frame clock and remove `previousTime` from loop state.
 - Completed: isolate the local gameplay frame-start context.
 - Completed: prepare the narrow game-loop frame runtime boundary.
-- Next: integrate the prepared frame runtime into the start of `frame(now)`.
+- Completed: integrate the narrow game-loop frame runtime boundary.
+- Next: run a fresh preflight before expanding the runtime boundary further.
 
 ## Validation Log
 
@@ -685,6 +686,50 @@ curl -sI http://127.0.0.1:5173/
 ```
 
 The focused suite passed with `15` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1318` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+### Game Loop Frame Runtime Integration
+
+Integrated `createGameLoopFrameRuntime()` into `startGameLoop()` without moving
+animation-frame scheduling or domain behavior.
+
+Study path:
+
+1. `startGameLoop()` creates `frameRuntime` after the snapshot and FPS panel
+   controllers are available.
+2. `frameRuntime.beginFrame(now)` now owns snapshot start, clock update, FPS
+   panel update, repair-box elapsed callback and flow-state read.
+3. `frame(now)` still applies the repaired-plant session flag immediately after
+   flow-state reading.
+4. `frameRuntime.updateInputAndCheckPaused(deltaTime)` runs next, preserving
+   gamepad update and pause input clearing order.
+5. On pause, `frame(now)` still schedules the next animation frame and returns.
+6. Intro-room early commit, opening, camera permissions, simulation, render
+   snapshot population, final commit and all `requestAnimationFrame(frame)`
+   calls remain in `gameLoop.js`.
+
+The boundary is intentionally narrow. Moving intro-room commit or final frame
+commit into the runtime now would require passing wider orchestration callbacks
+and would reduce readability without removing domain coupling. Any expansion
+should start with a new preflight and a separately testable contract.
+
+Passed:
+
+```sh
+rg -n "frameRuntime|requestAnimationFrame\\(frame\\)|controls\\.updateGamepads|controls\\.isPaused|frameClock\\.update|fpsPanelController\\.update|loopState\\.repairBoxElapsed \\+=" app/runtime/gameLoop.js app/runtime/gameLoopFrameRuntime.js
+git diff --check
+npm test -- --run tests/gameLoopFrameRuntime.test.js tests/gameLoopFrameClock.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopState.test.js tests/gameplayOpeningShip.test.js tests/placementCameraAssist.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `21` tests and the dev server returned
 `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 

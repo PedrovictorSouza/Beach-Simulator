@@ -31,13 +31,13 @@
 ## 4. Frame Runtime Slice
 
 - [x] Add `app/runtime/gameLoopFrameRuntime.js` only after earlier slices pass.
-- [ ] Integrate the prepared frame runtime into `gameLoop.js`.
-- [ ] Keep dependency wiring in `startGameLoop()`.
-- [ ] Keep `requestAnimationFrame` scheduling in `startGameLoop()`.
-- [ ] Preserve pause clearing behavior.
-- [ ] Preserve intro-room early commit behavior.
-- [ ] Preserve camera permission and input ordering.
-- [ ] Preserve snapshot output shape and final commit ordering.
+- [x] Integrate the prepared frame runtime into `gameLoop.js`.
+- [x] Keep dependency wiring in `startGameLoop()`.
+- [x] Keep `requestAnimationFrame` scheduling in `startGameLoop()`.
+- [x] Preserve pause clearing behavior.
+- [x] Preserve intro-room early commit behavior.
+- [x] Preserve camera permission and input ordering.
+- [x] Preserve snapshot output shape and final commit ordering.
 
 ## 5. Validation
 
