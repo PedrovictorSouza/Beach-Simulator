@@ -93,7 +93,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated game-loop frame clock.
 - Completed: integrate the frame clock and remove `previousTime` from loop state.
 - Completed: isolate the local gameplay frame-start context.
-- Next: preflight a narrow `gameLoopFrameRuntime` boundary before moving orchestration.
+- Completed: prepare the narrow game-loop frame runtime boundary.
+- Next: integrate the prepared frame runtime into the start of `frame(now)`.
 
 ## Validation Log
 
@@ -637,6 +638,57 @@ server returned `HTTP 200` and the OpenSpec change remained valid in strict
 mode. `npm test` completed with the existing Leafage Native Tree baseline:
 
 - `1314` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+### Game Loop Frame Runtime Preparation
+
+Added `gameLoopFrameRuntime.js` as an isolated, tested orchestration boundary.
+It is not imported by `gameLoop.js` yet, so active frame behavior remains
+unchanged during this preparation slice.
+
+The runtime stays intentionally narrow:
+
+1. `beginFrame(now)` begins the snapshot, asks `frameClock` for timing, updates
+   the FPS panel, advances elapsed visual time through a callback and reads
+   flow state.
+2. `updateInputAndCheckPaused(deltaTime)` updates gamepads and returns whether
+   the frame is paused.
+3. When paused, it clears pending actions and movement input exactly once.
+4. It does not call `requestAnimationFrame`, commit snapshots, run opening,
+   update placement or implement gameplay rules.
+
+The two-method API is deliberate. `gameLoop.js` currently updates the repaired
+plant session flag after reading flow state and before updating gamepads. The
+future integration can keep that rule in place between
+`frameRuntime.beginFrame(now)` and
+`frameRuntime.updateInputAndCheckPaused(deltaTime)`.
+
+The next integration pass should:
+
+1. Create `createGameLoopFrameRuntime(...)` inside `startGameLoop()`.
+2. Replace snapshot, timing, FPS, elapsed and flow-state setup with
+   `frameRuntime.beginFrame(now)`.
+3. Preserve the repaired-plant session update in its current relative order.
+4. Replace the inline gamepad and pause block with
+   `frameRuntime.updateInputAndCheckPaused(deltaTime)`.
+5. Keep all three `requestAnimationFrame(frame)` calls in `startGameLoop()`.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/gameLoopFrameRuntime.test.js tests/gameLoopFrameClock.test.js tests/gameLoopFramePolicies.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `15` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1318` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 ### Gameplay Frame Start Context

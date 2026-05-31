@@ -30,7 +30,8 @@
 
 ## 4. Frame Runtime Slice
 
-- [ ] Add `app/runtime/gameLoopFrameRuntime.js` only after earlier slices pass.
+- [x] Add `app/runtime/gameLoopFrameRuntime.js` only after earlier slices pass.
+- [ ] Integrate the prepared frame runtime into `gameLoop.js`.
 - [ ] Keep dependency wiring in `startGameLoop()`.
 - [ ] Keep `requestAnimationFrame` scheduling in `startGameLoop()`.
 - [ ] Preserve pause clearing behavior.
@@ -40,13 +41,13 @@
 
 ## 5. Validation
 
-- [ ] Run focused frame-clock tests.
-- [ ] Run `npm test -- --run tests/gameLoopFramePolicies.test.js`.
-- [ ] Run `git diff --check`.
-- [ ] Run `npm test`.
-- [ ] Run `npm run build`.
-- [ ] Run local HTTP smoke.
+- [x] Run focused frame-clock tests.
+- [x] Run `npm test -- --run tests/gameLoopFramePolicies.test.js`.
+- [x] Run `git diff --check`.
+- [x] Run `npm test`.
+- [x] Run `npm run build`.
+- [x] Run local HTTP smoke.
 - [ ] Run manual opening, pause, camera and movement checks when browser
   automation is available.
-- [ ] Validate this OpenSpec change with
+- [x] Validate this OpenSpec change with
   `openspec validate extract-game-loop-frame-runtime --strict`.
