@@ -13,7 +13,6 @@ describe("createGameLoopState", () => {
       foundationBuildZoneCameraFocus: null,
       repairBoxElapsed: 0,
       waterGunSfxBurstUntilSeconds: 0,
-      playerCounterPrompt: null,
       companionFollowDirection: null,
       workbenchRotationSelection: null,
       cameraDebugErrors: []

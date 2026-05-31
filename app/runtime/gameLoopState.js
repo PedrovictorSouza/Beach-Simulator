@@ -36,7 +36,6 @@ export function createGameLoopState({
     runBreadcrumbPromptShown: false,
     runBreadcrumbPromptUntil: 0,
 
-    playerCounterPrompt: null,
     companionFollowDirection: null,
     workbenchRotationSelection: null,
 
