@@ -13,6 +13,7 @@ import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
+import { createWorkbenchRotationRuntime } from "./workbenchRotationRuntime.js";
 
 import {
   BULBASAUR_LEAFAGE_ARRIVE_DISTANCE,
@@ -2091,6 +2092,12 @@ export function startGameLoop({
     repairBoxFloatHeight: ROBOT_REPAIR_BOX_FLOAT_HEIGHT,
     getRepairBoxPosition: getEncounterRepairBoxPosition
   });
+  const workbenchRotationRuntime = createWorkbenchRotationRuntime({
+    normalizePlacementYaw,
+    getRotatedPlacementSize,
+    getTargetSize: getWorkbenchRotationTargetSize,
+    placementRotationStep: PLACEMENT_ROTATION_STEP
+  });
   const snowstormFogRuntime = createSnowstormFogRuntime({
     mount,
     getSnowstormFogIntensity,
@@ -2947,73 +2954,43 @@ export function startGameLoop({
   }
 
   function getSelectedRotatableWorkbenchPlacement() {
-    const selectedKind = loopState.workbenchRotationSelection?.kind;
-    if (!selectedKind) {
-      return null;
-    }
+    return workbenchRotationRuntime.getSelectedTarget(
+      getRotatableWorkbenchPlacementCandidates(),
+      {
+        isTargetValid: (target) => {
+          const playerPosition = session.playerCharacter?.getPosition?.();
+          const position = target.placement?.position;
+          if (!Array.isArray(playerPosition) || !Array.isArray(position)) {
+            return true;
+          }
 
-    const selected = getRotatableWorkbenchPlacementCandidates()
-      .find((candidate) => candidate.kind === selectedKind) || null;
-    if (!selected) {
-      loopState.workbenchRotationSelection = null;
-      return null;
-    }
-
-    const playerPosition = session.playerCharacter?.getPosition?.();
-    const position = selected.placement?.position;
-    if (Array.isArray(playerPosition) && Array.isArray(position)) {
-      const distance = getWorkbenchRotationTargetDistance(playerPosition, selected);
-      if (Number.isFinite(distance) && distance > getWorkbenchRotationTriggerDistance() * 1.6) {
-        loopState.workbenchRotationSelection = null;
-        return null;
+          const distance = getWorkbenchRotationTargetDistance(playerPosition, target);
+          return !(
+            Number.isFinite(distance) &&
+            distance > getWorkbenchRotationTriggerDistance() * 1.6
+          );
+        }
       }
-    }
-
-    return selected;
-  }
-
-  function getWorkbenchRotationSelectionForKind(kind) {
-    return loopState.workbenchRotationSelection?.kind === kind ? loopState.workbenchRotationSelection : null;
+    );
   }
 
   function getWorkbenchRotationPreviewYaw(target) {
-    const selection = getWorkbenchRotationSelectionForKind(target?.kind);
-    return Number(selection?.pendingYaw ?? target?.placement?.yaw ?? 0);
+    return workbenchRotationRuntime.getPreviewYaw(target);
   }
 
   function getWorkbenchRotationPreviewSize(target) {
-    const selection = getWorkbenchRotationSelectionForKind(target?.kind);
-    if (Array.isArray(selection?.pendingSize)) {
-      return selection.pendingSize;
-    }
-
-    return getWorkbenchRotationTargetSize(target);
+    return workbenchRotationRuntime.getPreviewSize(target);
   }
 
   function applyWorkbenchRotationSelectionTint(kind, instance, nowSeconds = getRuntimeNowSeconds()) {
-    if (!instance || loopState.workbenchRotationSelection?.kind !== kind) {
-      return false;
-    }
-
-    const pulse = (Math.sin(nowSeconds * 5.4) + 1) * 0.5;
-    instance.tint = [0.35, 1.2, 0.35];
-    instance.tintStrength = 0.38 + pulse * 0.24;
-    instance.alpha = 1;
-    return true;
+    return workbenchRotationRuntime.applySelectionTint(kind, instance, nowSeconds);
   }
 
   function selectWorkbenchConstructionForRotation(target) {
-    if (!target?.kind) {
+    if (!workbenchRotationRuntime.select(target)) {
       return false;
     }
 
-    loopState.workbenchRotationSelection = {
-      kind: target.kind,
-      originalYaw: Number(target.placement?.yaw || 0),
-      pendingYaw: Number(target.placement?.yaw || 0),
-      originalSize: getWorkbenchRotationTargetSize(target),
-      pendingSize: getWorkbenchRotationTargetSize(target)
-    };
     hud?.pushNotice?.(
       `${target.label} selected. ${resolveWorkbenchRotationPrompt(getCurrentInputModalityState())}.`
     );
@@ -3022,11 +2999,10 @@ export function startGameLoop({
   }
 
   function clearWorkbenchConstructionRotationSelection() {
-    if (!loopState.workbenchRotationSelection) {
+    if (!workbenchRotationRuntime.clear()) {
       return false;
     }
 
-    loopState.workbenchRotationSelection = null;
     playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
     hud?.pushNotice?.("Rotation canceled.");
     return true;
@@ -3034,21 +3010,19 @@ export function startGameLoop({
 
   function confirmWorkbenchConstructionRotationSelection() {
     const target = getSelectedRotatableWorkbenchPlacement();
-    if (!target?.placement || !loopState.workbenchRotationSelection) {
-      loopState.workbenchRotationSelection = null;
+    if (!target?.placement) {
+      workbenchRotationRuntime.clear();
       return false;
     }
 
-    target.placement.yaw = normalizePlacementYaw(Number(loopState.workbenchRotationSelection.pendingYaw || 0));
-    if (target.rotateSize !== false && Array.isArray(loopState.workbenchRotationSelection.pendingSize)) {
-      target.placement.size = [...loopState.workbenchRotationSelection.pendingSize];
+    if (!workbenchRotationRuntime.confirm(target, {
+      syncPlacementYaw: target.kind === "solarStation" ?
+        syncSolarStationPlacementYaw :
+        undefined
+    })) {
+      return false;
     }
 
-    if (target.kind === "solarStation") {
-      syncSolarStationPlacementYaw(target.placement);
-    }
-
-    loopState.workbenchRotationSelection = null;
     playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM);
     hud?.pushNotice?.(`${target.label} rotation set.`);
     return true;
@@ -3105,19 +3079,8 @@ export function startGameLoop({
       return false;
     }
 
-    loopState.workbenchRotationSelection.pendingYaw = normalizePlacementYaw(
-      Number(loopState.workbenchRotationSelection.pendingYaw || target.placement.yaw || 0) +
-      steps * PLACEMENT_ROTATION_STEP
-    );
-
-    if (target.rotateSize !== false) {
-      const currentSize = Array.isArray(loopState.workbenchRotationSelection.pendingSize) ?
-        loopState.workbenchRotationSelection.pendingSize :
-        getPlacementCollisionSize(target.placement, target.fallbackSize || [1, 1]);
-      loopState.workbenchRotationSelection.pendingSize = getRotatedPlacementSize(
-        currentSize,
-        steps * PLACEMENT_ROTATION_STEP
-      );
+    if (!workbenchRotationRuntime.rotate(target, steps)) {
+      return false;
     }
 
     playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE);
@@ -3126,21 +3089,7 @@ export function startGameLoop({
   }
 
   function getWorkbenchRotationGroundCell(target) {
-    const placement = target?.placement;
-    const position = placement?.position;
-    if (!Array.isArray(position)) {
-      return null;
-    }
-
-    const size = getWorkbenchRotationPreviewSize(target);
-    return {
-      id: `workbench-rotation-${target.kind}`,
-      offset: position,
-      surfaceY: position[1] || 0.02,
-      tileSpan: Math.max(size[0], size[1]) + 0.36,
-      highlightTargetState: "valid",
-      highlightAbilityId: "leafage"
-    };
+    return workbenchRotationRuntime.getGroundCell(target);
   }
 
   function updateLeafDenKitPlacementPreview(timeSeconds = 0) {
@@ -9458,7 +9407,8 @@ export function startGameLoop({
         continue;
       }
 
-      const isSelectedForRotation = loopState.workbenchRotationSelection?.kind === `playerHouse:${house.id}`;
+      const isSelectedForRotation =
+        workbenchRotationRuntime.getSelection()?.kind === `playerHouse:${house.id}`;
       const hasSpawnEffect = Boolean(house.spawnEffect);
       if (
         !isSelectedForRotation &&
@@ -10675,7 +10625,7 @@ export function startGameLoop({
     }
 
     const shouldConsumePlacementCancel = Boolean(
-      loopState.workbenchRotationSelection ||
+      workbenchRotationRuntime.getSelection() ||
       hasActivePlacementPreview(session, PLACEMENT_CONTRACTS) ||
       hasPendingWorkbenchPlacementIntent(session)
     );
@@ -10687,7 +10637,7 @@ export function startGameLoop({
     }
     if (
   placementCancelRequested &&
-  loopState.workbenchRotationSelection
+  workbenchRotationRuntime.getSelection()
 ) {
   clearWorkbenchConstructionRotationSelection();
 } else if (
