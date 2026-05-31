@@ -12,11 +12,6 @@ export function createGameLoopState() {
     repairBoxElapsed: 0,
     waterGunSfxBurstUntilSeconds: 0,
 
-    companionLostHintKey: null,
-    companionLostHintNextAt: 0,
-    companionLostHintActiveUntil: 0,
-    companionLostHintActive: null,
-
     chopperAttentionCueNextAt: 0,
     chopperAttentionCueActiveUntil: 0,
     chopperAttentionCueCycleId: 0,

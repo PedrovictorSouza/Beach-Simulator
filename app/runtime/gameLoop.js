@@ -2,6 +2,7 @@ import { createGameLoopState } from "./gameLoopState.js";
 import { createGameLoopFrameClock } from "./gameLoopFrameClock.js";
 import { createGameLoopFrameRuntime } from "./gameLoopFrameRuntime.js";
 import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
+import { createCompanionLostHintRuntime } from "./companionLostHintRuntime.js";
 import {
   resolveCameraInputPermissions,
   resolveGameplayActionPermission,
@@ -2091,6 +2092,11 @@ export function startGameLoop({
   cameraDebugRuntime.attachGlobalListeners();
   const playerCounterPromptRuntime = createPlayerCounterPromptRuntime({
     durationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
+  });
+  const companionLostHintRuntime = createCompanionLostHintRuntime({
+    initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
+    repeatMs: COMPANION_LOST_HINT_REPEAT_MS,
+    durationMs: COMPANION_LOST_HINT_DURATION_MS
   });
   const repairBoxRevealFlashRuntime = createRepairBoxRevealFlashRuntime({
     mount,
@@ -8175,13 +8181,6 @@ export function startGameLoop({
     };
   }
 
-  function resetCompanionLostHintSchedule() {
-    loopState.companionLostHintKey = null;
-    loopState.companionLostHintNextAt = 0;
-    loopState.companionLostHintActiveUntil = 0;
-    loopState.companionLostHintActive = null;
-  }
-
   function resolveWaterGunCompanionLostHint(activeQuest, activeMoveId) {
     const flags = controls.storyState?.flags || {};
     const restoredGrassCount = Number(flags.restoredGrassCount || 0);
@@ -8229,34 +8228,7 @@ export function startGameLoop({
   }) {
     const hint = resolveWaterGunCompanionLostHint(activeQuest, activeMoveId);
 
-    if (!hint) {
-      resetCompanionLostHintSchedule();
-      return null;
-    }
-
-    if (hint.key !== loopState.companionLostHintKey) {
-      loopState.companionLostHintKey = hint.key;
-      loopState.companionLostHintNextAt = now + COMPANION_LOST_HINT_INITIAL_DELAY_MS;
-      loopState.companionLostHintActiveUntil = 0;
-      loopState.companionLostHintActive = null;
-      return null;
-    }
-
-    if (loopState.companionLostHintActive && now < loopState.companionLostHintActiveUntil) {
-      return {
-        ...loopState.companionLostHintActive,
-        worldPosition: hint.worldPosition
-      };
-    }
-
-    if (now < loopState.companionLostHintNextAt) {
-      return null;
-    }
-
-    loopState.companionLostHintActive = hint;
-    loopState.companionLostHintActiveUntil = now + COMPANION_LOST_HINT_DURATION_MS;
-    loopState.companionLostHintNextAt = now + COMPANION_LOST_HINT_REPEAT_MS;
-    return hint;
+    return companionLostHintRuntime.get(hint, now);
   }
 
   function getSquirtleStaminaBillboards(fillTexture, uvRect) {
