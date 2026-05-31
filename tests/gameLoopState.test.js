@@ -14,8 +14,7 @@ describe("createGameLoopState", () => {
       repairBoxElapsed: 0,
       waterGunSfxBurstUntilSeconds: 0,
       companionFollowDirection: null,
-      workbenchRotationSelection: null,
-      cameraDebugErrors: []
+      workbenchRotationSelection: null
     });
   });
 
@@ -25,11 +24,9 @@ describe("createGameLoopState", () => {
 
     first.woodCollectPopEffects.push({ id: "wood-1" });
     first.gearPickupParticleEffects.push({ id: "gear-1" });
-    first.cameraDebugErrors.push({ message: "boom" });
 
     expect(second.previousTime).toBe(456);
     expect(second.woodCollectPopEffects).toEqual([]);
     expect(second.gearPickupParticleEffects).toEqual([]);
-    expect(second.cameraDebugErrors).toEqual([]);
   });
 });

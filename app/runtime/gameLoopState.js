@@ -37,9 +37,6 @@ export function createGameLoopState({
     runBreadcrumbPromptUntil: 0,
 
     companionFollowDirection: null,
-    workbenchRotationSelection: null,
-
-    cameraDebugElement: null,
-    cameraDebugErrors: []
+    workbenchRotationSelection: null
   };
 }
