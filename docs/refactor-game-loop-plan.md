@@ -86,7 +86,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the camera debug runtime.
 - Completed: extract the repair box reveal flash runtime.
 - Completed: preflight and prepare the isolated workbench rotation runtime core.
-- Next: integrate the workbench rotation runtime through existing side-effect wrappers.
+- Completed: integrate the workbench rotation runtime through existing side-effect wrappers.
+- Next: review frame lifecycle ordering and run the final state audit.
 
 ## Validation Log
 
@@ -443,3 +444,49 @@ The five new runtime tests cover selection and clear, pending yaw and size
 rotation, confirmation, stale-target cleanup, tint and ground-cell preview
 calculations. Manual gameplay validation is intentionally deferred until the
 runtime is integrated into `gameLoop.js`.
+
+### Workbench Rotation Runtime Integration
+
+Integrated `createWorkbenchRotationRuntime()` into `startGameLoop()` and
+removed `workbenchRotationSelection` from `createGameLoopState()`. The runtime
+is now the only owner of pending selection, yaw and size state.
+
+Study path:
+
+1. Candidate collection remains in `getRotatableWorkbenchPlacementCandidates()`
+   because it reads `session` objects and story flags.
+2. `getSelectedRotatableWorkbenchPlacement()` forwards those candidates to
+   `workbenchRotationRuntime.getSelectedTarget(...)` and keeps the existing
+   player-distance invalidation callback local.
+3. The local select, clear, rotate and confirm wrappers delegate private state
+   changes to the runtime, then emit the existing HUD notices and sound events
+   in their original order.
+4. Solar Station confirmation passes `syncSolarStationPlacementYaw` only for
+   the `solarStation` target, preserving its model-specific visual sync.
+5. Train House, House, player-house and Solar Station model sync functions keep
+   their existing call sites while reading preview yaw and tint through the
+   runtime wrappers.
+6. Placement cancel ordering remains unchanged: active workbench selection is
+   still handled before placement previews and pending placement intents.
+7. Snapshot preparation still builds the same workbench rotation ground-cell
+   object through the runtime.
+
+Passed:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js tests/workbenchRuntime.test.js tests/gameLoopState.test.js
+git diff --check
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The dev server returned `HTTP 200`. `npm test` completed with the existing
+Leafage Native Tree baseline:
+
+- `1306` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual validation is still required for selecting, rotating, canceling and
+confirming each rotatable construction. The in-app browser backend was not
+available during this pass.
