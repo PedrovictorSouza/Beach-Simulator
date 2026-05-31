@@ -84,7 +84,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: isolate repeated frame lifecycle policies and local frame builders.
 - Completed: extract the player counter prompt runtime.
 - Completed: extract the camera debug runtime.
-- Next: extract the repair box reveal flash runtime.
+- Completed: extract the repair box reveal flash runtime.
+- Next: preflight the higher-risk workbench rotation runtime extraction.
 
 ## Validation Log
 
@@ -333,3 +334,50 @@ The three new runtime tests cover disabled mode, listener forwarding with the
 four-error limit and overlay element reuse. Manual `?cameraDebug=1` overlay
 validation remains pending because the in-app browser backend was not
 available during this pass.
+
+### Repair Box Reveal Flash Runtime
+
+Added `repairBoxRevealFlashRuntime.js`. The runtime owns the reveal flash DOM
+element, opacity updates, projected gradient origin and the sinusoidal flash
+pulse. `createGameLoopState()` no longer stores `repairBoxRevealFlashElement`.
+
+Study path:
+
+1. `startGameLoop()` creates `createRepairBoxRevealFlashRuntime(...)` with the
+   stage mount, canvas, camera, tuning values and the existing
+   `getEncounterRepairBoxPosition()` callback.
+2. `updateBotRevealBoxOpening()` continues to own reveal-box gameplay timing
+   and bot visibility. It delegates only visual flash work to
+   `repairBoxRevealFlashRuntime.update({ opening, encounter })`.
+3. The runtime derives progress from `opening.elapsed`, `flashStart` and
+   `flashDuration`, then applies the existing `Math.sin(progress * Math.PI)`
+   pulse.
+4. The runtime projects the floating repair-box position into canvas space and
+   preserves the same radial-gradient origin format.
+5. Reset paths call `repairBoxRevealFlashRuntime.setOpacity(0)` so the existing
+   element is hidden and reused.
+
+The extraction also adds a guarded fallback to `"50% 55%"` when
+`camera.project` is unavailable, matching the existing fallback used for
+missing canvas or invalid projection data.
+
+Passed:
+
+```sh
+npm test -- --run tests/repairBoxRevealFlashRuntime.test.js tests/gameLoopState.test.js
+git diff --check
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The dev server returned `HTTP 200`. `npm test` completed with the existing
+Leafage Native Tree baseline:
+
+- `1301` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The three new runtime tests cover projected origin and pulse calculation,
+overlay hiding and reuse, and safe fallback behavior without a DOM mount or
+camera projection. Manual reveal-flash validation remains pending because the
+in-app browser backend was not available during this pass.
