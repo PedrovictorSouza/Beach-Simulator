@@ -8225,7 +8225,7 @@ export function startGameLoop({
 
     if (loopState.companionLostHintActive && now < loopState.companionLostHintActiveUntil) {
       return {
-        ...companionLostHintActive,
+        ...loopState.companionLostHintActive,
         worldPosition: hint.worldPosition
       };
     }
