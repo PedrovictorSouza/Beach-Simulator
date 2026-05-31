@@ -10422,6 +10422,36 @@ export function startGameLoop({
     };
   }
 
+  function beginGameplayFrameContext({ now, deltaTime, flowState }) {
+    const gameplayOpeningFrameStart = gameplayOpeningRuntime.beginFrame({
+      now,
+      deltaTime,
+      gameplayActive: flowState.gameplayActive
+    });
+    const gameplayOpeningCameraLocked = gameplayOpeningRuntime.isCameraLocked();
+    const gameplayOpeningMovementLocked = gameplayOpeningRuntime.isMovementLocked();
+    const placementPreviewActive = hasActivePlacementPreview(
+      session,
+      PLACEMENT_CONTRACTS
+    );
+    placementCameraAssist.update({ placementActive: placementPreviewActive });
+    const foundationBuildZoneCameraFocusActive = updateFoundationBuildZoneCameraFocus(now);
+
+    return {
+      gameplayOpeningCameraFrame: gameplayOpeningFrameStart.cameraFrame,
+      gameplayOpeningCameraLocked,
+      gameplayOpeningMovementLocked,
+      placementPreviewActive,
+      foundationBuildZoneCameraFocusActive,
+      ...resolveGameLoopBlockers({
+        gameplayOpeningMovementLocked,
+        foundationBuildZoneCameraFocusActive,
+        placementPreviewActive,
+        flowState
+      })
+    };
+  }
+
   function updateCameraDebugFrameOverlay({
     now,
     flowState,
@@ -10503,35 +10533,24 @@ export function startGameLoop({
     clearInteractionObjectHighlights(session);
     syncWorkbenchInteractable();
     syncPokemonCenterWorkshopVisualState();
+
     // Opening, input blockers and camera controls.
-  const gameplayOpeningFrameStart = gameplayOpeningRuntime.beginFrame({
-    now,
-    deltaTime,
-    gameplayActive: frameFlowState.gameplayActive
-  });
-
-  const gameplayOpeningCameraLocked = gameplayOpeningRuntime.isCameraLocked();
-  const gameplayOpeningMovementLocked = gameplayOpeningRuntime.isMovementLocked();
-  let gameplayOpeningCameraFrame = gameplayOpeningFrameStart.cameraFrame;
-
-
-    const placementPreviewActive = hasActivePlacementPreview(
-      session,
-      PLACEMENT_CONTRACTS
-    );
-    placementCameraAssist.update({ placementActive: placementPreviewActive });
-    const foundationBuildZoneCameraFocusActive = updateFoundationBuildZoneCameraFocus(now);
-    const {
+    let {
+      gameplayOpeningCameraFrame,
+      gameplayOpeningCameraLocked,
+      gameplayOpeningMovementLocked,
+      placementPreviewActive,
+      foundationBuildZoneCameraFocusActive,
       movementBlocked,
       shouldClearPendingActions,
       shouldClearMovementInput,
       canAdvanceRustlingGrass
-    } = resolveGameLoopBlockers({
-      gameplayOpeningMovementLocked,
-      foundationBuildZoneCameraFocusActive,
-      placementPreviewActive,
+    } = beginGameplayFrameContext({
+      now,
+      deltaTime,
       flowState: frameFlowState
     });
+
     gameplayInputRuntime.update({
       now,
       deltaTime,
