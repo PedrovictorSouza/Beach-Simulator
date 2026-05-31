@@ -1,4 +1,5 @@
 import { createGameLoopState } from "./gameLoopState.js";
+import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 
 import {
@@ -2165,6 +2166,15 @@ export function startGameLoop({
     audio.playFieldMoveInvalid();
   }
 
+  const groundActionFeedbackRuntime = createGroundActionFeedbackRuntime({
+    clamp01,
+    playInvalidSfx: playFieldMoveInvalidSfx,
+    feedbackDurationMs: GROUND_ACTION_FEEDBACK_DURATION_MS,
+    fieldToolTargetPulseDurationMs: FIELD_TOOL_TARGET_PULSE_DURATION_MS,
+    fieldToolTargetPulseMinScale: FIELD_TOOL_TARGET_PULSE_MIN_SCALE,
+    fieldToolTargetPulseFlashBrightness: FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS
+  });
+
   function playTreeBirthSfx() {
     audio.playTreeBirth();
   }
@@ -3430,148 +3440,6 @@ export function startGameLoop({
       loopState.waterGunSfxBurstUntilSeconds,
       nowSeconds + duration
     );
-  }
-
-  function normalizeGroundActionFeedbackCells(groundCells, abilityId) {
-    const cells = Array.isArray(groundCells) ? groundCells : [groundCells];
-    const seenCellIds = new Set();
-    const targetState = abilityId === "invalid" ? "invalid" : "valid";
-
-    return cells
-      .filter((groundCell) => {
-        if (!groundCell || !Array.isArray(groundCell.offset)) {
-          return false;
-        }
-
-        const cellKey = groundCell.id || groundCell;
-        if (seenCellIds.has(cellKey)) {
-          return false;
-        }
-
-        seenCellIds.add(cellKey);
-        return true;
-      })
-      .map((groundCell) => ({
-        ...groundCell,
-        highlightTargetState: groundCell.highlightTargetState || targetState,
-        highlightAbilityId: groundCell.highlightAbilityId || abilityId
-      }));
-  }
-
-  function triggerGroundActionFeedback(groundCells, abilityId, now, options = {}) {
-    const markedGroundCells = normalizeGroundActionFeedbackCells(groundCells, abilityId);
-    if (!markedGroundCells.length) {
-      return;
-    }
-
-    const durationMs = Math.max(
-      0,
-      Number(options.durationMs || GROUND_ACTION_FEEDBACK_DURATION_MS)
-    );
-    loopState.groundActionFeedbacks.push({
-      groundCells: markedGroundCells,
-      abilityId,
-      startedAt: now,
-      expiresAt: now + durationMs,
-      durationMs
-    });
-  }
-
-  function flushQueuedGroundActionFeedback(now) {
-    const queuedFeedback = Array.isArray(session.groundActionFeedbackQueue) ?
-      session.groundActionFeedbackQueue.splice(0) :
-      [];
-
-    for (const feedback of queuedFeedback) {
-      triggerGroundActionFeedback(
-        feedback?.groundCells || feedback?.groundCell,
-        feedback?.abilityId || "waterGun",
-        Number.isFinite(feedback?.startedAt) ? feedback.startedAt : now
-      );
-    }
-  }
-
-  function triggerInvalidFieldMoveFeedback(groundCell, now) {
-    if (!groundCell) {
-      return;
-    }
-
-    triggerGroundActionFeedback(groundCell, "invalid", now);
-    playFieldMoveInvalidSfx();
-  }
-
-  function getGroundActionFeedback(now) {
-    flushQueuedGroundActionFeedback(now);
-    loopState.groundActionFeedbacks = loopState.groundActionFeedbacks.filter((feedback) => {
-      return feedback?.expiresAt > now && Array.isArray(feedback.groundCells) && feedback.groundCells.length;
-    });
-
-    if (!loopState.groundActionFeedbacks.length) {
-      return null;
-    }
-
-    const newestFeedback = loopState.groundActionFeedbacks[loopState.groundActionFeedbacks.length - 1];
-    const durationMs = Math.max(1, Number(newestFeedback.durationMs || GROUND_ACTION_FEEDBACK_DURATION_MS));
-    const progress = clamp01((now - newestFeedback.startedAt) / durationMs);
-    const pulsePhase = newestFeedback.abilityId === "foundationComplete" ?
-      0.5 + Math.sin(progress * Math.PI * 6) * 0.5 :
-      Math.sin(progress * Math.PI);
-    const markedGroundCells = [];
-    const seenCellIds = new Set();
-
-    for (const feedback of loopState.groundActionFeedbacks) {
-      for (const groundCell of feedback.groundCells) {
-        const cellKey = groundCell.id || groundCell;
-        if (seenCellIds.has(cellKey)) {
-          continue;
-        }
-
-        seenCellIds.add(cellKey);
-        markedGroundCells.push(groundCell);
-      }
-    }
-
-    return {
-      groundCell: markedGroundCells[0] || null,
-      markedGroundCells,
-      abilityId: newestFeedback.abilityId,
-      pulsePhase
-    };
-  }
-
-  function isFieldToolTargetPulseSource(source) {
-    return source === "gamepadPrimary" || source === "keyboardPrimary";
-  }
-
-  function triggerFieldToolTargetPulse(abilityId, now) {
-    loopState.fieldToolTargetPulseStartedAt = now;
-    loopState.fieldToolTargetPulseAbilityId = abilityId || null;
-  }
-
-  function getFieldToolTargetPulseFrame(groundCell, now) {
-    if (!groundCell || !Number.isFinite(loopState.fieldToolTargetPulseStartedAt)) {
-      return null;
-    }
-
-    const progress = clamp01(
-      (now - loopState.fieldToolTargetPulseStartedAt) / FIELD_TOOL_TARGET_PULSE_DURATION_MS
-    );
-
-    if (progress >= 1) {
-      loopState.fieldToolTargetPulseStartedAt = Number.NEGATIVE_INFINITY;
-      loopState.fieldToolTargetPulseAbilityId = null;
-      return null;
-    }
-
-    return {
-      groundCell,
-      abilityId: loopState.fieldToolTargetPulseAbilityId || groundCell.highlightAbilityId,
-      progress,
-      scale:
-        FIELD_TOOL_TARGET_PULSE_MIN_SCALE +
-        (1 - FIELD_TOOL_TARGET_PULSE_MIN_SCALE) * progress,
-      brightness: 1 + (1 - progress) * FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS
-    };
   }
 
   function getLeafResourceBillboards(resourceNodes, texture, uvRect, storyState, renderCenter = null) {
@@ -6313,7 +6181,7 @@ export function startGameLoop({
     const nowMs = Date.now();
     if (!interiorEffectPlayed) {
       flags.builderTutorialFoundationInteriorEffectPlayed = true;
-      triggerGroundActionFeedback(
+      groundActionFeedbackRuntime.triggerFeedback(
         buildFoundationCompletionInteriorGroundCells(),
         "foundationComplete",
         now,
@@ -6450,7 +6318,7 @@ export function startGameLoop({
   function handleFreeBlockPlacementResult(result, now) {
     const feedbackGroundCell = buildFreeBlockFeedbackGroundCell(result);
     if (feedbackGroundCell) {
-      triggerGroundActionFeedback(
+      groundActionFeedbackRuntime.triggerFeedback(
         feedbackGroundCell,
         result.placed ? "build" : "invalid",
         now
@@ -6907,7 +6775,7 @@ export function startGameLoop({
       placed: true
     });
     if (feedbackGroundCell) {
-      triggerGroundActionFeedback(feedbackGroundCell, "build", now);
+      groundActionFeedbackRuntime.triggerFeedback(feedbackGroundCell, "build", now);
     }
     playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_IMPACT);
     hud?.pushNotice?.(dropCount > 0 ? "Block broken. Wood dropped." : "Block removed.");
@@ -7366,7 +7234,7 @@ export function startGameLoop({
     if (result) {
       hud.syncInventoryUi(controls.inventory);
       triggerSupplyCounterPrompt(CARBON_ITEM_ID, controls.inventory, performance.now());
-      triggerGroundActionFeedback(action.groundCell, "fire", performance.now());
+      groundActionFeedbackRuntime.triggerFeedback(action.groundCell, "fire", performance.now());
     }
 
     return result;
@@ -11136,7 +11004,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
       }
 
       if (result && options.useFire && options.forcedHarvestTarget?.fireGroundCell) {
-        triggerGroundActionFeedback(options.forcedHarvestTarget.fireGroundCell, "fire", now);
+        groundActionFeedbackRuntime.triggerFeedback(options.forcedHarvestTarget.fireGroundCell, "fire", now);
       }
 
       return result;
@@ -11209,9 +11077,9 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
         );
       if (
         primaryActionWantsFieldMove &&
-        isFieldToolTargetPulseSource(harvestRequestSource)
+        groundActionFeedbackRuntime.isPulseSource(harvestRequestSource)
       ) {
-        triggerFieldToolTargetPulse(activeMoveId, now);
+        groundActionFeedbackRuntime.triggerPulse(activeMoveId, now);
       }
       const primaryActionIsPlacement =
         primaryActionPlacementTarget && !gamepadPrimaryMoveRequested && !buildBlockEquipped;
@@ -11436,7 +11304,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
         }
       } else if (primaryActionRepeatedFieldMove) {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-        triggerInvalidFieldMoveFeedback(primaryActionAlreadyResolvedGroundCell, now);
+        groundActionFeedbackRuntime.triggerInvalid(primaryActionAlreadyResolvedGroundCell, now);
       } else if (primaryActionInvalidLeafageUse) {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
         loopState.leafageInvalidTargetPromptUntil = now + LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS;
@@ -12435,7 +12303,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       !gameplayDialogue.isActive() &&
       Boolean(highlightedGroundCell);
     const fieldToolTargetPulseFrame = shouldShowGroundCellHighlight ?
-      getFieldToolTargetPulseFrame(highlightedGroundCell, now) :
+      groundActionFeedbackRuntime.getPulseFrame(highlightedGroundCell, now) :
       null;
     const solarStationPlacementGroundCells = buildPlacementPreviewFootprintCells(
       solarStationPlacementPreview,
@@ -12481,7 +12349,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const workbenchRotationGroundCell = selectedWorkbenchRotationTarget ?
       getWorkbenchRotationGroundCell(selectedWorkbenchRotationTarget) :
       null;
-    const groundActionFeedbackFrame = getGroundActionFeedback(now);
+    const groundActionFeedbackFrame = groundActionFeedbackRuntime.getFeedbackFrame({ session, now });
 
     if (
       !gameplayOpeningCameraLocked &&

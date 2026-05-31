@@ -36,11 +36,6 @@ export function createGameLoopState({
     runBreadcrumbPromptShown: false,
     runBreadcrumbPromptUntil: 0,
 
-    groundActionFeedbacks: [],
-
-    fieldToolTargetPulseStartedAt: Number.NEGATIVE_INFINITY,
-    fieldToolTargetPulseAbilityId: null,
-
     playerCounterPrompt: null,
     companionFollowDirection: null,
     workbenchRotationSelection: null,

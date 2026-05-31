@@ -13,9 +13,6 @@ describe("createGameLoopState", () => {
       foundationBuildZoneCameraFocus: null,
       repairBoxElapsed: 0,
       waterGunSfxBurstUntilSeconds: 0,
-      groundActionFeedbacks: [],
-      fieldToolTargetPulseStartedAt: Number.NEGATIVE_INFINITY,
-      fieldToolTargetPulseAbilityId: null,
       playerCounterPrompt: null,
       companionFollowDirection: null,
       workbenchRotationSelection: null,
@@ -27,13 +24,11 @@ describe("createGameLoopState", () => {
     const first = createGameLoopState({ now: 123 });
     const second = createGameLoopState({ now: 456 });
 
-    first.groundActionFeedbacks.push({ id: "cell-1" });
     first.woodCollectPopEffects.push({ id: "wood-1" });
     first.gearPickupParticleEffects.push({ id: "gear-1" });
     first.cameraDebugErrors.push({ message: "boom" });
 
     expect(second.previousTime).toBe(456);
-    expect(second.groundActionFeedbacks).toEqual([]);
     expect(second.woodCollectPopEffects).toEqual([]);
     expect(second.gearPickupParticleEffects).toEqual([]);
     expect(second.cameraDebugErrors).toEqual([]);
