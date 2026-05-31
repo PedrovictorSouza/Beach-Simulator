@@ -83,7 +83,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the ground action feedback runtime into `gameLoop.js`.
 - Completed: isolate repeated frame lifecycle policies and local frame builders.
 - Completed: extract the player counter prompt runtime.
-- Next: extract the camera debug runtime.
+- Completed: extract the camera debug runtime.
+- Next: extract the repair box reveal flash runtime.
 
 ## Validation Log
 
@@ -290,3 +291,45 @@ The four new runtime tests cover expiry, ignored empty text, bounded quest
 counter formatting and preservation of an active prompt after an empty quest
 counter update. Manual HUD prompt validation remains pending because the
 in-app browser backend was not available during this pass.
+
+### Camera Debug Runtime
+
+Added `cameraDebugRuntime.js`. The runtime owns the debug overlay element, the
+four-entry error buffer and global listener registration. `createGameLoopState()`
+no longer stores `cameraDebugElement` or `cameraDebugErrors`.
+
+Study path:
+
+1. `CAMERA_DEBUG_ENABLED` in `gameLoop.js` continues to read
+   `?cameraDebug=1`.
+2. `startGameLoop()` creates `createCameraDebugRuntime({ enabled, mount })` and
+   calls `attachGlobalListeners()` once.
+3. The runtime listens for `error` and `unhandledrejection`, normalizes their
+   messages and retains only the four latest records.
+4. `updateCameraDebugFrameOverlay()` remains inside `startGameLoop()` because
+   it assembles camera, quest and session data from orchestration-level
+   dependencies.
+5. The builder forwards that payload to `cameraDebugRuntime.update(payload)`.
+   The runtime appends its private `errors` array and updates the same `<pre>`
+   overlay shape and CSS used before the extraction.
+
+Passed:
+
+```sh
+npm test -- --run tests/cameraDebugRuntime.test.js tests/gameLoopState.test.js
+git diff --check
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The dev server returned `HTTP 200`. `npm test` completed with the existing
+Leafage Native Tree baseline:
+
+- `1298` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The three new runtime tests cover disabled mode, listener forwarding with the
+four-error limit and overlay element reuse. Manual `?cameraDebug=1` overlay
+validation remains pending because the in-app browser backend was not
+available during this pass.
