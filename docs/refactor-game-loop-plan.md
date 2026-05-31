@@ -88,7 +88,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preflight and prepare the isolated workbench rotation runtime core.
 - Completed: integrate the workbench rotation runtime through existing side-effect wrappers.
 - Completed: review frame lifecycle ordering and run the final state audit.
-- Next: run the manual gameplay checklist when a browser backend is available.
+- Completed: prepare the isolated companion lost hint runtime core.
+- Next: integrate the companion lost hint runtime and remove its migrated loop state.
 
 ## Validation Log
 
@@ -543,3 +544,52 @@ baseline:
 
 Manual gameplay validation remains pending because the in-app browser backend
 was not available during this pass.
+
+### Companion Lost Hint Runtime Preparation
+
+Added `companionLostHintRuntime.js` as an isolated, tested scheduler core. It is
+not imported by `gameLoop.js` yet, so this preparation step does not change
+active gameplay behavior.
+
+The runtime intentionally owns only periodic hint scheduling:
+
+1. `get(hint, now)` accepts an already resolved hint or `null`.
+2. A new hint key starts the existing initial-delay window.
+3. Once active, the runtime preserves the existing duration and repetition
+   windows.
+4. While active, it keeps the stored copy but forwards the latest
+   `worldPosition`, so speech follows a moving companion.
+5. A missing hint resets the private schedule.
+
+The Water Gun quest checks, Squirtle and Bulbasaur position lookup, speech
+priority and world-speech snapshot writes remain in `gameLoop.js`. This keeps
+the preparation independent from narrative and rendering behavior.
+
+The next integration pass should:
+
+1. Create `createCompanionLostHintRuntime(...)` inside `startGameLoop()`.
+2. Keep `resolveWaterGunCompanionLostHint(...)` local.
+3. Replace `getPeriodicCompanionLostHint(...)` scheduling internals with
+   `companionLostHintRuntime.get(hint, now)`.
+4. Remove `companionLostHintKey`, `companionLostHintNextAt`,
+   `companionLostHintActiveUntil` and `companionLostHintActive` from
+   `createGameLoopState()`.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/companionLostHintRuntime.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The four new runtime tests cover initial delay and expiration, moving companion
+position forwarding, key-change and missing-hint reset, and repeat scheduling.
+The dev server returned `HTTP 200`. `npm test` completed with the existing
+Leafage Native Tree baseline:
+
+- `1310` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
