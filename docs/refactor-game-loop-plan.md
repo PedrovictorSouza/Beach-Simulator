@@ -95,7 +95,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: isolate the local gameplay frame-start context.
 - Completed: prepare the narrow game-loop frame runtime boundary.
 - Completed: integrate the narrow game-loop frame runtime boundary.
-- Next: run a fresh preflight before expanding the runtime boundary further.
+- Completed: route snapshot commits through the frame runtime.
+- Next: keep camera and intro-room decisions local until a smaller tested
+  boundary is identified.
 
 ## Validation Log
 
@@ -690,6 +692,52 @@ The focused suite passed with `15` tests and the dev server returned
 baseline:
 
 - `1318` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+### Frame Snapshot Commit Ownership
+
+Expanded `createGameLoopFrameRuntime()` with a narrow `commitFrame()` method.
+Both snapshot commits now delegate through the runtime, while `frame(now)`
+continues to decide when a commit occurs.
+
+Study path:
+
+1. `frameRuntime.beginFrame(now)` starts the working snapshot.
+2. If the intro room consumes the frame, `frame(now)` calls
+   `frameRuntime.commitFrame()`, schedules the next frame and returns.
+3. For a normal gameplay frame, snapshot channels continue to be populated in
+   their existing order.
+4. At the end, `frame(now)` calls `frameRuntime.commitFrame()` and schedules the
+   next frame.
+5. `gameLoopFrameRuntime.js` delegates both commits to
+   `frameSnapshotController.commitFrame()`.
+
+The preflight deliberately stopped here:
+
+- Moving the intro-room condition would require scene, camera, canvas, snapshot
+  and timing dependencies without reducing domain coupling.
+- Moving camera update or camera-input consumption would mix camera policy,
+  controls and tutorial side effects into the generic frame runtime.
+- Moving `requestAnimationFrame(frame)` would violate the OpenSpec ownership
+  rule that scheduling stays in `startGameLoop()`.
+
+Passed:
+
+```sh
+rg -n "frameSnapshotController\\.commitFrame|frameRuntime\\.commitFrame|requestAnimationFrame\\(frame\\)" app/runtime/gameLoop.js app/runtime/gameLoopFrameRuntime.js tests/gameLoopFrameRuntime.test.js
+git diff --check
+npm test -- --run tests/gameLoopFrameRuntime.test.js tests/frameSnapshotController.test.js tests/gameLoopFrameClock.test.js tests/gameLoopFramePolicies.test.js tests/gameplayOpeningShip.test.js tests/introRoomScene.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `28` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1319` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 ### Game Loop Frame Runtime Integration

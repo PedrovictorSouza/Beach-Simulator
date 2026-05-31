@@ -38,6 +38,8 @@
 - [x] Preserve intro-room early commit behavior.
 - [x] Preserve camera permission and input ordering.
 - [x] Preserve snapshot output shape and final commit ordering.
+- [x] Route snapshot commits through the frame runtime while keeping commit
+  decisions in `startGameLoop()`.
 
 ## 5. Validation
 

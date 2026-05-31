@@ -105,6 +105,18 @@ The runtime boundary must preserve:
 - frame commit ordering;
 - existing `nextFrame` shape.
 
+The implemented narrow boundary exposes three methods instead of a single
+`update(now)` call:
+
+- `beginFrame(now)` for snapshot start, timing, FPS and flow-state read;
+- `updateInputAndCheckPaused(deltaTime)` for gamepad update and pause clearing;
+- `commitFrame()` for snapshot commit delegation.
+
+This keeps the decisions to early-return, commit the intro frame and schedule
+the next animation frame inside `startGameLoop()`. Those decisions still
+surround domain-specific orchestration and should not move until a later
+preflight identifies a smaller tested contract.
+
 ## Ownership Rules
 
 `startGameLoop()` continues to wire domain runtimes. The frame runtime may call
