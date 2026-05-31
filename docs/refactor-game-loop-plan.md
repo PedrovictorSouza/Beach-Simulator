@@ -79,7 +79,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: add `createGameLoopState()` contract tests.
 - Completed: prepare the isolated snowstorm fog runtime.
 - Completed: integrate the snowstorm fog runtime into `gameLoop.js`.
-- Next: extract the ground action feedback runtime.
+- Completed: prepare the isolated ground action feedback runtime.
+- Next: integrate the ground action feedback runtime into `gameLoop.js`.
 
 ## Validation Log
 
@@ -165,3 +166,24 @@ npm run build
 
 The Vite dev server started successfully. Manual browser validation remains
 pending because the in-app browser backend was not available during this pass.
+
+### Ground Action Feedback Runtime Preparation
+
+Added the isolated `createGroundActionFeedbackRuntime()` factory and contract
+tests. The runtime owns queued feedback accumulation, expiry, cell
+deduplication, invalid feedback SFX forwarding and field-tool target pulse
+state. Integration into `gameLoop.js` remains a separate small step so tile
+feedback behavior can be reviewed independently.
+
+Passed:
+
+```sh
+npm test -- --run tests/groundActionFeedbackRuntime.test.js
+git diff --check
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1284` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
