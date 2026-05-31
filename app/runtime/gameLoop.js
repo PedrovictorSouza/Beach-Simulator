@@ -11,6 +11,7 @@ import {
 } from "./gameLoopFramePolicies.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
+import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 
 import {
@@ -2081,6 +2082,15 @@ export function startGameLoop({
   const playerCounterPromptRuntime = createPlayerCounterPromptRuntime({
     durationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
   });
+  const repairBoxRevealFlashRuntime = createRepairBoxRevealFlashRuntime({
+    mount,
+    worldCanvas,
+    camera,
+    clamp01,
+    peakOpacity: BULBASAUR_REVEAL_FLASH_PEAK_OPACITY,
+    repairBoxFloatHeight: ROBOT_REPAIR_BOX_FLOAT_HEIGHT,
+    getRepairBoxPosition: getEncounterRepairBoxPosition
+  });
   const snowstormFogRuntime = createSnowstormFogRuntime({
     mount,
     getSnowstormFogIntensity,
@@ -3641,103 +3651,6 @@ export function startGameLoop({
     controls.clearPendingActions?.();
     controls.clearMovementInput?.();
     return true;
-  }
-
-  function getRepairBoxRevealFlashElement() {
-    if (
-      loopState.repairBoxRevealFlashElement ||
-      typeof HTMLElement === "undefined" ||
-      !(mount instanceof HTMLElement) ||
-      typeof document === "undefined"
-    ) {
-      return loopState.repairBoxRevealFlashElement;
-    }
-
-    loopState.repairBoxRevealFlashElement = document.createElement("div");
-    loopState.repairBoxRevealFlashElement.dataset.repairBoxRevealFlash = "true";
-    loopState.repairBoxRevealFlashElement.hidden = true;
-    loopState.repairBoxRevealFlashElement.style.cssText = [
-      "position:absolute",
-      "inset:0",
-      "z-index:11",
-      "opacity:0",
-      "pointer-events:none",
-      "mix-blend-mode:screen",
-      "will-change:opacity,background",
-      "background:#fff"
-    ].join(";");
-    mount.append(loopState.repairBoxRevealFlashElement);
-    return loopState.repairBoxRevealFlashElement;
-  }
-
-  function getRepairBoxRevealFlashOrigin(encounter) {
-    const repairBoxPosition = getEncounterRepairBoxPosition(encounter);
-
-    if (!Array.isArray(repairBoxPosition) || !worldCanvas?.width || !worldCanvas?.height) {
-      return "50% 55%";
-    }
-
-    const projected = camera.project(
-      [
-        repairBoxPosition[0],
-        repairBoxPosition[1] + ROBOT_REPAIR_BOX_FLOAT_HEIGHT,
-        repairBoxPosition[2]
-      ],
-      worldCanvas.width,
-      worldCanvas.height
-    );
-
-    if (!projected || projected.depth > 1) {
-      return "50% 55%";
-    }
-
-    const originX = clamp01(projected.x / worldCanvas.width) * 100;
-    const originY = clamp01(projected.y / worldCanvas.height) * 100;
-    return `${originX.toFixed(2)}% ${originY.toFixed(2)}%`;
-  }
-
-  function setRepairBoxRevealFlashOpacity(opacity, encounter) {
-    const normalizedOpacity = clamp01(opacity);
-
-    if (normalizedOpacity <= 0.01) {
-      if (loopState.repairBoxRevealFlashElement) {
-        loopState.repairBoxRevealFlashElement.hidden = true;
-        loopState.repairBoxRevealFlashElement.style.opacity = "0";
-      }
-      return;
-    }
-
-    const element = getRepairBoxRevealFlashElement();
-    if (!element) {
-      return;
-    }
-
-    const origin = getRepairBoxRevealFlashOrigin(encounter);
-    element.hidden = false;
-    element.style.opacity = normalizedOpacity.toFixed(3);
-    element.style.background = [
-      `radial-gradient(circle at ${origin}, rgba(255,255,255,1) 0%, rgba(255,255,255,0.98) 18%, rgba(255,255,255,0.76) 38%, rgba(255,255,255,0.34) 62%, rgba(255,255,255,0) 84%)`,
-      "linear-gradient(180deg, rgba(255,255,255,0.24), rgba(255,255,255,0.42))"
-    ].join(",");
-  }
-
-  function updateRepairBoxRevealFlash(opening, encounter) {
-    const flashDuration = Number(opening?.flashDuration || 0);
-    const flashStart = Number(opening?.flashStart || 0);
-
-    if (!opening?.active || flashDuration <= 0) {
-      setRepairBoxRevealFlashOpacity(0);
-      return;
-    }
-
-    const flashProgress = (Number(opening.elapsed || 0) - flashStart) / flashDuration;
-    if (flashProgress < 0 || flashProgress > 1) {
-      setRepairBoxRevealFlashOpacity(0);
-      return;
-    }
-
-    const pulse = Math.sin(clamp01(flashProgress) * Math.PI);
-    setRepairBoxRevealFlashOpacity(pulse * BULBASAUR_REVEAL_FLASH_PEAK_OPACITY, encounter);
   }
 
   function getYawToward(fromPosition, toPosition) {
@@ -9762,14 +9675,14 @@ export function startGameLoop({
 
     if (!Array.isArray(encounter.repairPosition)) {
       opening.active = false;
-      setRepairBoxRevealFlashOpacity(0);
+      repairBoxRevealFlashRuntime.setOpacity(0);
       return false;
     }
 
     opening.duration = Number(opening.duration || BULBASAUR_REVEAL_BOX_DURATION);
     opening.elapsed = Math.min(opening.duration, Number(opening.elapsed || 0) + deltaTime);
     const progress = clamp01(opening.elapsed / opening.duration);
-    updateRepairBoxRevealFlash(opening, encounter);
+    repairBoxRevealFlashRuntime.update({ opening, encounter });
     if (!opening.sfxStarted) {
       playGrowBotRevealSfx();
       opening.sfxStarted = true;
@@ -9797,7 +9710,7 @@ export function startGameLoop({
       const onComplete = opening.onComplete;
       opening.onComplete = null;
       encounter.revealBoxOpening = null;
-      setRepairBoxRevealFlashOpacity(0);
+      repairBoxRevealFlashRuntime.setOpacity(0);
       syncModelInstance?.();
       if (typeof onComplete === "function") {
         onComplete();
