@@ -9,6 +9,7 @@ import {
   resolveWorldSpaceUiVisibility
 } from "./gameLoopFramePolicies.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
+import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 
 import {
@@ -2071,6 +2072,9 @@ export function startGameLoop({
   rendering
 }) {
   const loopState = createGameLoopState();
+  const playerCounterPromptRuntime = createPlayerCounterPromptRuntime({
+    durationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
+  });
   const snowstormFogRuntime = createSnowstormFogRuntime({
     mount,
     getSnowstormFogIntensity,
@@ -3505,27 +3509,6 @@ export function startGameLoop({
       }));
   }
 
-  function triggerPlayerCounterPrompt(text, now) {
-    if (!text) {
-      return;
-    }
-
-    loopState.playerCounterPrompt = {
-      text,
-      expiresAt: now + PLAYER_COUNTER_PROMPT_DURATION_MS
-    };
-  }
-
-  function triggerQuestCounterPrompt({ count, total, label, now }) {
-    const safeTotal = Math.max(1, Number(total || 1));
-    const safeCount = Math.min(safeTotal, Math.max(0, Number(count || 0)));
-    if (safeCount <= 0) {
-      return;
-    }
-
-    triggerPlayerCounterPrompt(`${safeCount}/${safeTotal} ${label}`, now);
-  }
-
   function getSupplyCounterSnapshot(inventory = {}) {
     return Object.fromEntries(
       Object.keys(inventory || {}).map((itemId) => [
@@ -3547,7 +3530,7 @@ export function startGameLoop({
       return false;
     }
 
-    triggerPlayerCounterPrompt(formatResourcePickupPrompt({
+    playerCounterPromptRuntime.trigger(formatResourcePickupPrompt({
       itemId,
       label,
       count
@@ -3564,15 +3547,6 @@ export function startGameLoop({
     }
 
     return false;
-  }
-
-  function getPlayerCounterPrompt(now) {
-    if (!loopState.playerCounterPrompt || loopState.playerCounterPrompt.expiresAt <= now) {
-      loopState.playerCounterPrompt = null;
-      return null;
-    }
-
-    return loopState.playerCounterPrompt.text;
   }
 
   function restoreActiveZoomPresetOnMovement(playerPosition) {
@@ -11049,7 +11023,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
         options.useWaterGun &&
         nextRestoredGrassCount > previousRestoredGrassCount
       ) {
-        triggerQuestCounterPrompt({
+        playerCounterPromptRuntime.triggerQuestCounter({
           count: nextRestoredGrassCount,
           total: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
           label: "dry grass",
@@ -11061,7 +11035,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
         nextWateredTreeCount > previousWateredTreeCount
       ) {
         playTreeBirthSfx();
-        triggerQuestCounterPrompt({
+        playerCounterPromptRuntime.triggerQuestCounter({
           count: nextWateredTreeCount,
           total: 5,
           label: "trees",
@@ -12152,7 +12126,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     }
     const inputModalityState = getCurrentInputModalityState();
     const transientNoticeRoute = resolveTransientNoticeRoute(hud.getNoticeMessage());
-    const playerCounterPromptText = getPlayerCounterPrompt(now);
+    const playerCounterPromptText = playerCounterPromptRuntime.get(now);
     const {
       solarStationPlacementPrompt,
       greenhousePlacementPrompt,
