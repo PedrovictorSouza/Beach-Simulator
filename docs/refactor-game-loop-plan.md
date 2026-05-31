@@ -89,7 +89,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the workbench rotation runtime through existing side-effect wrappers.
 - Completed: review frame lifecycle ordering and run the final state audit.
 - Completed: prepare the isolated companion lost hint runtime core.
-- Next: integrate the companion lost hint runtime and remove its migrated loop state.
+- Completed: define the OpenSpec for incremental frame-runtime extraction.
+- Completed: prepare the isolated game-loop frame clock.
+- Next: integrate the frame clock and remove `previousTime` from loop state.
 
 ## Validation Log
 
@@ -592,4 +594,45 @@ The dev server returned `HTTP 200`. `npm test` completed with the existing
 Leafage Native Tree baseline:
 
 - `1310` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+### Game Loop Frame Clock Preparation
+
+Added `gameLoopFrameClock.js` as the first implementation slice from
+`openspec/changes/extract-game-loop-frame-runtime`. It is not imported by
+`gameLoop.js` yet, so frame timing behavior is unchanged in active gameplay.
+
+Study path:
+
+1. `createGameLoopFrameClock({ now, maxDeltaTime })` stores private
+   `previousTime`.
+2. `update(nextTime)` calculates non-negative `rawDeltaTime` in seconds.
+3. It returns `deltaTime` with the existing `0.033` maximum supplied as
+   configuration.
+4. It advances the private previous-frame timestamp after each update.
+5. `gameLoop.js` still performs the existing inline calculation until the next
+   integration slice.
+
+The next integration pass should create the clock inside `startGameLoop()`,
+replace the three inline timing statements with `frameClock.update(now)` and
+remove `previousTime` from `createGameLoopState()`.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/gameLoopFrameClock.test.js tests/gameLoopFramePolicies.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+openspec validate extract-game-loop-frame-runtime --strict
+```
+
+The focused suite passed with `11` tests. The four new clock tests cover normal
+elapsed time, simulation clamp, backward time and sequential updates. The dev
+server returned `HTTP 200` and the OpenSpec change remained valid in strict
+mode. `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1314` passed
 - `3` failed in `tests/gameplayInteractions.test.js`

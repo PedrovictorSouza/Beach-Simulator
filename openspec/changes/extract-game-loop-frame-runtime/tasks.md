@@ -10,11 +10,11 @@
 
 ## 2. Frame Clock Slice
 
-- [ ] Add `app/runtime/gameLoopFrameClock.js`.
-- [ ] Keep previous-frame time private to the clock.
-- [ ] Preserve non-negative raw delta calculation.
-- [ ] Preserve the current `0.033` delta clamp.
-- [ ] Add focused frame-clock tests.
+- [x] Add `app/runtime/gameLoopFrameClock.js`.
+- [x] Keep previous-frame time private to the clock.
+- [x] Preserve non-negative raw delta calculation.
+- [x] Preserve the current `0.033` delta clamp.
+- [x] Add focused frame-clock tests.
 - [ ] Integrate the clock into `gameLoop.js`.
 - [ ] Remove `previousTime` from `createGameLoopState()` after integration.
 
