@@ -13,8 +13,7 @@ describe("createGameLoopState", () => {
       foundationBuildZoneCameraFocus: null,
       repairBoxElapsed: 0,
       waterGunSfxBurstUntilSeconds: 0,
-      companionFollowDirection: null,
-      workbenchRotationSelection: null
+      companionFollowDirection: null
     });
   });
 
