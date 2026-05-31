@@ -18,7 +18,6 @@ export function createGameLoopState({
 
     repairBoxElapsed: 0,
     waterGunSfxBurstUntilSeconds: 0,
-    repairBoxRevealFlashElement: null,
 
     companionLostHintKey: null,
     companionLostHintNextAt: 0,
