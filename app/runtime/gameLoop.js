@@ -1,4 +1,5 @@
 import { createGameLoopState } from "./gameLoopState.js";
+import { createGameLoopFrameClock } from "./gameLoopFrameClock.js";
 import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
 import {
   resolveCameraInputPermissions,
@@ -2075,6 +2076,13 @@ export function startGameLoop({
   rendering
 }) {
   const loopState = createGameLoopState();
+  const frameClock = createGameLoopFrameClock({
+    now: typeof performance !== "undefined" &&
+      typeof performance.now === "function" ?
+        performance.now() :
+        Date.now(),
+    maxDeltaTime: 0.033
+  });
   const cameraDebugRuntime = createCameraDebugRuntime({
     enabled: CAMERA_DEBUG_ENABLED,
     mount
@@ -10462,9 +10470,7 @@ export function startGameLoop({
   function frame(now) {
     // Timing and flow state.
     const nextFrame = frameSnapshotController.beginFrame();
-    const rawDeltaTime = Math.max(0, (now - loopState.previousTime) / 1000);
-    const deltaTime = Math.min(0.033, rawDeltaTime);
-    loopState.previousTime = now;
+    const { rawDeltaTime, deltaTime } = frameClock.update(now);
     fpsPanelController.update(rawDeltaTime);
     loopState.repairBoxElapsed += deltaTime;
     const frameFlowState = readGameLoopFlowState();

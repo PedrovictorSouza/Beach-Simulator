@@ -1,12 +1,5 @@
-export function createGameLoopState({
-  now = typeof performance !== "undefined" &&
-    typeof performance.now === "function" ?
-      performance.now() :
-      Date.now()
-} = {}) {
+export function createGameLoopState() {
   return {
-    previousTime: now,
-
     movementQuestReported: false,
     movementQuestDistance: 0,
 
