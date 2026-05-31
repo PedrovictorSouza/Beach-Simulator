@@ -87,7 +87,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the repair box reveal flash runtime.
 - Completed: preflight and prepare the isolated workbench rotation runtime core.
 - Completed: integrate the workbench rotation runtime through existing side-effect wrappers.
-- Next: review frame lifecycle ordering and run the final state audit.
+- Completed: review frame lifecycle ordering and run the final state audit.
+- Next: run the manual gameplay checklist when a browser backend is available.
 
 ## Validation Log
 
@@ -490,3 +491,55 @@ Leafage Native Tree baseline:
 Manual validation is still required for selecting, rotating, canceling and
 confirming each rotatable construction. The in-app browser backend was not
 available during this pass.
+
+### Frame Lifecycle Review And Final State Audit
+
+Reviewed `frame(now)` without moving another subsystem. The lifecycle already
+calculates the values required by input in the correct order:
+
+1. Begin the frame snapshot, calculate timing and read flow state.
+2. Update controls, handle pause and update the camera base state.
+3. Start the gameplay opening frame and read its camera and movement locks.
+4. Resolve placement preview state and foundation-build camera focus.
+5. Resolve movement blockers before calling `gameplayInputRuntime.update(...)`.
+6. Resolve camera input permissions before consuming camera movement.
+7. Preserve the existing placement, player movement, simulation and snapshot
+   preparation order.
+8. Commit the frame snapshot before scheduling the next animation frame.
+
+The audit found one remaining incomplete `loopState` migration:
+`getPeriodicCompanionLostHint()` checked
+`loopState.companionLostHintActive`, but spread an old bare
+`companionLostHintActive` reference when returning an active hint. The spread
+now reads `loopState.companionLostHintActive`, preventing a possible
+`ReferenceError` without changing hint timing, text or position updates.
+
+State audit classification:
+
+- `companionFollowDirection`, `companionLostHintActive` and
+  `companionLostHintActiveUntil` remain valid `createGameLoopState()` fields.
+- `playerCounterPrompt` results refer only to
+  `createPlayerCounterPromptRuntime()` and its tests.
+- Snowstorm fog, ground action feedback, field-tool pulse, camera debug,
+  repair-box flash and workbench rotation private state no longer remain in
+  `gameLoop.js` or `gameLoopState.js`.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/workbenchRotationRuntime.test.js
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `14` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1306` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
