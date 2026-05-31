@@ -82,7 +82,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated ground action feedback runtime.
 - Completed: integrate the ground action feedback runtime into `gameLoop.js`.
 - Completed: isolate repeated frame lifecycle policies and local frame builders.
-- Next: extract the player counter prompt runtime.
+- Completed: extract the player counter prompt runtime.
+- Next: extract the camera debug runtime.
 
 ## Validation Log
 
@@ -245,3 +246,47 @@ Leafage Native Tree baseline:
 The remaining failures still cover Native Tree growth, safe-cell selection and
 Wood drops. Manual gameplay validation remains pending because the in-app
 browser backend was not available during this pass.
+
+### Player Counter Prompt Runtime
+
+Added `playerCounterPromptRuntime.js`. The runtime owns the current prompt,
+expiry timestamp and quest-counter formatting. `createGameLoopState()` no
+longer stores `playerCounterPrompt`.
+
+Study path:
+
+1. `createPlayerCounterPromptRuntime({ durationMs })` creates private prompt
+   state.
+2. Supply pickup adapters in `gameLoop.js` still resolve inventory labels and
+   call `playerCounterPromptRuntime.trigger(text, now)`.
+3. Water Gun quest progress calls
+   `playerCounterPromptRuntime.triggerQuestCounter(...)`.
+4. During snapshot preparation, `frame(now)` calls
+   `playerCounterPromptRuntime.get(now)` and forwards the returned text without
+   changing the existing HUD snapshot shape.
+
+The supply adapters remain in `gameLoop.js` because they still depend on
+`gameplay.getItemLabel()`, inventory reads and `formatResourcePickupPrompt()`.
+Moving them now would widen the dependency surface without reducing runtime
+ownership.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerCounterPromptRuntime.test.js tests/gameLoopState.test.js
+git diff --check
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The dev server returned `HTTP 200`. `npm test` completed with the existing
+Leafage Native Tree baseline:
+
+- `1295` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The four new runtime tests cover expiry, ignored empty text, bounded quest
+counter formatting and preservation of an active prompt after an empty quest
+counter update. Manual HUD prompt validation remains pending because the
+in-app browser backend was not available during this pass.
