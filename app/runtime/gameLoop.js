@@ -1,4 +1,5 @@
 import { createGameLoopState } from "./gameLoopState.js";
+import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
 import {
   resolveCameraInputPermissions,
   resolveGameplayActionPermission,
@@ -2072,6 +2073,11 @@ export function startGameLoop({
   rendering
 }) {
   const loopState = createGameLoopState();
+  const cameraDebugRuntime = createCameraDebugRuntime({
+    enabled: CAMERA_DEBUG_ENABLED,
+    mount
+  });
+  cameraDebugRuntime.attachGlobalListeners();
   const playerCounterPromptRuntime = createPlayerCounterPromptRuntime({
     durationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
   });
@@ -3635,53 +3641,6 @@ export function startGameLoop({
     controls.clearPendingActions?.();
     controls.clearMovementInput?.();
     return true;
-  }
-
-  function pushCameraDebugError(message) {
-    loopState.cameraDebugErrors.push({
-      at: Math.round(performance.now()),
-      message
-    });
-
-    if (loopState.cameraDebugErrors.length > 4) {
-      loopState.cameraDebugErrors.shift();
-    }
-  }
-
-  if (CAMERA_DEBUG_ENABLED && typeof globalThis.addEventListener === "function") {
-    globalThis.addEventListener("error", (event) => {
-      pushCameraDebugError(event?.message || "Unknown window error");
-    });
-    globalThis.addEventListener("unhandledrejection", (event) => {
-      pushCameraDebugError(String(event?.reason?.message || event?.reason || "Unhandled rejection"));
-    });
-  }
-
-  function updateCameraDebugOverlay(debugState) {
-    if (!CAMERA_DEBUG_ENABLED || typeof document === "undefined") {
-      return;
-    }
-
-    if (!loopState.cameraDebugElement) {
-      loopState.cameraDebugElement = document.createElement("pre");
-      loopState.cameraDebugElement.style.cssText = [
-        "position:absolute",
-        "right:12px",
-        "top:12px",
-        "z-index:9999",
-        "margin:0",
-        "padding:10px",
-        "max-width:360px",
-        "background:rgba(0,0,0,0.78)",
-        "color:#7dff9a",
-        "font:12px/1.35 monospace",
-        "pointer-events:none",
-        "white-space:pre-wrap"
-      ].join(";");
-      mount.append(loopState.cameraDebugElement);
-    }
-
-    loopState.cameraDebugElement.textContent = JSON.stringify(debugState, null, 2);
   }
 
   function getRepairBoxRevealFlashElement() {
@@ -10603,7 +10562,7 @@ export function startGameLoop({
       return;
     }
 
-    updateCameraDebugOverlay({
+    cameraDebugRuntime.update({
       frame: Math.round(now),
       flow: {
         gameplay: flowState.gameplayActive,
@@ -10630,7 +10589,6 @@ export function startGameLoop({
         system: gameplay.getActiveSystemQuest?.()?.id || null,
         ui: gameplay.getActiveQuest?.(controls.storyState)?.id || null
       },
-      errors: loopState.cameraDebugErrors,
       player: session.playerCharacter?.getPosition?.() || null,
       ship: session.gameplayOpeningShip?.visible ?
         session.gameplayOpeningShip.position :
