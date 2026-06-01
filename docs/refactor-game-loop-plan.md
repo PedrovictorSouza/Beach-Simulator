@@ -99,9 +99,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the companion lost hint runtime.
 - Completed: prepare the isolated Chopper attention cue runtime core.
 - Completed: integrate the Chopper attention cue runtime.
+- Completed: prepare the isolated run breadcrumb prompt runtime core.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the next remaining loop-state-owned
-  subsystem.
+  boundary is identified, then integrate the prepared run breadcrumb prompt
+  runtime.
 
 ## Validation Log
 
@@ -645,6 +646,58 @@ The focused suite passed with `18` tests and the dev server returned
 baseline:
 
 - `1323` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Run Breadcrumb Prompt Runtime Preparation
+
+Added `runBreadcrumbPromptRuntime.js` as an isolated, tested one-shot prompt
+core. It is not imported by `gameLoop.js` yet, so this preparation step does
+not change active gameplay behavior.
+
+The runtime intentionally owns only prompt lifetime state:
+
+1. `trigger(now)` exposes the prompt for the configured duration the first
+   time it is called.
+2. Further `trigger(now)` calls return `false`, including after the prompt
+   expires.
+3. `isVisible(now)` preserves the existing strict `until > now` visibility
+   check.
+4. Each factory call owns independent private state.
+
+The movement threshold, opening and tutorial blockers, `learn-to-move` quest
+check, run-input check, prompt text and world-space UI priority remain in
+`gameLoop.js`.
+
+The next integration pass should:
+
+1. Create `createRunBreadcrumbPromptRuntime(...)` inside `startGameLoop()`.
+2. Keep the existing movement and tutorial condition local.
+3. Replace the two direct state writes with
+   `runBreadcrumbPromptRuntime.trigger(now)`.
+4. Replace the visibility read with
+   `runBreadcrumbPromptRuntime.isVisible(now)`.
+5. Remove `runBreadcrumbPromptShown` and `runBreadcrumbPromptUntil` from
+   `createGameLoopState()`.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/runBreadcrumbPromptRuntime.test.js tests/gameLoopState.test.js tests/chopperAttentionCueRuntime.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `9` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1326` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
