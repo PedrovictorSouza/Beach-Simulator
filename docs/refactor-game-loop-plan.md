@@ -97,9 +97,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the narrow game-loop frame runtime boundary.
 - Completed: route snapshot commits through the frame runtime.
 - Completed: integrate the companion lost hint runtime.
+- Completed: prepare the isolated Chopper attention cue runtime core.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the next remaining loop-state-owned
-  subsystem.
+  boundary is identified, then integrate the prepared Chopper attention cue
+  runtime.
 
 ## Validation Log
 
@@ -550,6 +551,59 @@ The focused suite passed with `14` tests and the dev server returned
 baseline:
 
 - `1306` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Chopper Attention Cue Runtime Preparation
+
+Added `chopperAttentionCueRuntime.js` as an isolated, tested scheduler core. It
+is not imported by `gameLoop.js` yet, so this preparation step does not change
+active gameplay behavior.
+
+The runtime intentionally owns only periodic cue scheduling:
+
+1. `get(cue, now)` accepts an already resolved cue or `null`.
+2. A valid cue starts the existing initial-delay window.
+3. Once active, the runtime preserves the existing duration and repetition
+   windows.
+4. While active, it forwards the latest `worldPosition`, so the cue follows
+   Chopper.
+5. A missing cue resets the private timing schedule without reusing a
+   `cycleId`.
+
+The wake-guide task check, player-distance check, `"Hey!"` text, speech
+priority and voice sound dispatch remain in `gameLoop.js`. This keeps the
+preparation independent from narrative, world-space UI and audio behavior.
+
+The next integration pass should:
+
+1. Create `createChopperAttentionCueRuntime(...)` inside `startGameLoop()`.
+2. Keep the wake-guide and distance checks local.
+3. Replace the timing internals of `getPeriodicChopperAttentionCue(...)` with
+   `chopperAttentionCueRuntime.get(cue, now)`.
+4. Remove `chopperAttentionCueNextAt`, `chopperAttentionCueActiveUntil` and
+   `chopperAttentionCueCycleId` from `createGameLoopState()`.
+5. Keep `chopperAttentionCueSoundCycleId` local until audio dispatch receives
+   its own narrow ownership boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/chopperAttentionCueRuntime.test.js tests/companionLostHintRuntime.test.js tests/gameLoopState.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `10` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1323` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
