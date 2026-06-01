@@ -101,9 +101,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the Chopper attention cue runtime.
 - Completed: prepare the isolated run breadcrumb prompt runtime core.
 - Completed: integrate the run breadcrumb prompt runtime.
+- Completed: prepare Chopper cue sound-cycle ownership.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the next remaining loop-state-owned
-  subsystem.
+  boundary is identified, then integrate Chopper cue sound-cycle ownership.
 
 ## Validation Log
 
@@ -739,6 +739,51 @@ The focused suite passed with `17` tests and the dev server returned
 baseline:
 
 - `1326` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Chopper Cue Sound Cycle Ownership Preparation
+
+Extended `createChopperAttentionCueRuntime()` with a private sound-cycle
+deduplication API. `gameLoop.js` does not call the new method yet, so this
+preparation step does not change active gameplay behavior.
+
+Study path:
+
+1. The runtime already creates a monotonically increasing `cycleId` for each
+   visible Chopper attention cue window.
+2. `consumeSoundCycle(cycleId)` returns `true` only for the first consumption
+   of a cycle and `false` for repeated calls.
+3. The runtime does not import audio dependencies and does not dispatch sound.
+4. The active `gameLoop.js` branch still uses
+   `loopState.chopperAttentionCueSoundCycleId` until the next integration
+   pass.
+
+The next integration pass should:
+
+1. Replace the direct sound-cycle comparison and assignment with
+   `chopperAttentionCueRuntime.consumeSoundCycle(chopperAttentionCue.cycleId)`.
+2. Keep `playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE)` in `gameLoop.js`.
+3. Remove `chopperAttentionCueSoundCycleId` from `createGameLoopState()`.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/chopperAttentionCueRuntime.test.js tests/gameLoopState.test.js tests/runBreadcrumbPromptRuntime.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `10` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1327` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
