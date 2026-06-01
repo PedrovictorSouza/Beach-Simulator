@@ -109,9 +109,11 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the repair box motion runtime.
 - Completed: prepare the isolated Water Gun SFX burst runtime core.
 - Completed: integrate the Water Gun SFX burst runtime.
+- Completed: prepare the isolated field-move invalid-target prompt runtime
+  core.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the next remaining loop-state-owned
-  subsystem.
+  boundary is identified, then integrate the prepared field-move
+  invalid-target prompt runtime.
 
 ## Validation Log
 
@@ -1101,6 +1103,56 @@ The focused suite passed with `20` tests and the dev server returned
 baseline:
 
 - `1339` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Field-Move Invalid-Target Prompt Runtime Preparation
+
+Added `fieldMoveInvalidTargetPromptRuntime.js` as an isolated, tested temporal
+core. It is not imported by `gameLoop.js` yet, so this preparation step does
+not change active gameplay behavior.
+
+The runtime intentionally owns only the two visibility clocks:
+
+1. `triggerLeafage(now)` and `triggerFire(now)` preserve the existing
+   `now + durationMs` windows.
+2. `resetLeafage()` and `resetFire()` preserve the existing explicit resets.
+3. `isLeafageVisible(now)` and `isFireVisible(now)` preserve the existing
+   strict `until > now` checks.
+4. Leafage and Fire clocks remain independent.
+5. Each factory call owns independent private state.
+
+Field-move target decisions, texts, durations, cancel SFX, world-prompt
+priority and HUD snapshot writes remain unchanged in `gameLoop.js`.
+
+The next integration pass should:
+
+1. Create `createFieldMoveInvalidTargetPromptRuntime(...)` inside
+   `startGameLoop()` with the two existing duration constants.
+2. Replace direct Leafage and Fire clock writes with the explicit trigger and
+   reset methods.
+3. Replace the two inline visibility comparisons with the runtime queries.
+4. Remove `leafageInvalidTargetPromptUntil` and
+   `fireInvalidTargetPromptUntil` from `createGameLoopState()`.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/fieldMoveInvalidTargetPromptRuntime.test.js tests/gameLoopState.test.js tests/groundActionFeedbackRuntime.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `11` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1343` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
