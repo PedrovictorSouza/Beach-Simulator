@@ -13,8 +13,6 @@ export function createGameLoopState() {
     waterGunSfxBurstUntilSeconds: 0,
 
     leafageInvalidTargetPromptUntil: 0,
-    fireInvalidTargetPromptUntil: 0,
-
-    companionFollowDirection: null
+    fireInvalidTargetPromptUntil: 0
   };
 }

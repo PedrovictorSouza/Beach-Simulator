@@ -11,8 +11,7 @@ describe("createGameLoopState", () => {
       pendingWorldCellPlannerClick: null,
       foundationBuildZoneCameraFocus: null,
       repairBoxElapsed: 0,
-      waterGunSfxBurstUntilSeconds: 0,
-      companionFollowDirection: null
+      waterGunSfxBurstUntilSeconds: 0
     });
   });
 

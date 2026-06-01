@@ -3,6 +3,7 @@ import { createGameLoopFrameClock } from "./gameLoopFrameClock.js";
 import { createGameLoopFrameRuntime } from "./gameLoopFrameRuntime.js";
 import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
 import { createChopperAttentionCueRuntime } from "./chopperAttentionCueRuntime.js";
+import { createCompanionFollowDirectionRuntime } from "./companionFollowDirectionRuntime.js";
 import { createCompanionLostHintRuntime } from "./companionLostHintRuntime.js";
 import {
   resolveCameraInputPermissions,
@@ -2105,6 +2106,7 @@ export function startGameLoop({
     repeatMs: CHOPPER_ATTENTION_CUE_REPEAT_MS,
     durationMs: CHOPPER_ATTENTION_CUE_DURATION_MS
   });
+  const companionFollowDirectionRuntime = createCompanionFollowDirectionRuntime();
   const runBreadcrumbPromptRuntime = createRunBreadcrumbPromptRuntime({
     durationMs: RUN_BREADCRUMB_PROMPT_DURATION_MS
   });
@@ -5433,28 +5435,6 @@ export function startGameLoop({
     return true;
   }
 
-  function updateCompanionFollowDirection(deltaX, deltaZ) {
-    const distance = Math.hypot(deltaX, deltaZ);
-    if (distance <= 0.0005) {
-      return;
-    }
-
-    loopState.companionFollowDirection = [deltaX / distance, deltaZ / distance];
-  }
-
-  function getCompanionFollowDirection() {
-    if (loopState.companionFollowDirection) {
-      return loopState.companionFollowDirection;
-    }
-
-    const playerYaw = Number(session.playerModelInstance?.yaw);
-    if (Number.isFinite(playerYaw)) {
-      return [Math.cos(playerYaw), Math.sin(playerYaw)];
-    }
-
-    return [0, -1];
-  }
-
   function getFreeBlockBuildGridConfig() {
     const config = session.buildGridConfig || session.gridPlacement?.gridConfig || FREE_BLOCK_BUILD_GRID_CONFIG;
     return {
@@ -6627,7 +6607,9 @@ export function startGameLoop({
       return null;
     }
 
-    const [directionX, directionZ] = getCompanionFollowDirection();
+    const [directionX, directionZ] = companionFollowDirectionRuntime.get(
+      session.playerModelInstance?.yaw
+    );
     return [
       playerPosition[0] - directionX * followDistance,
       0.04,
@@ -10703,7 +10685,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
       ) {
         runBreadcrumbPromptRuntime.trigger(now);
       }
-      updateCompanionFollowDirection(
+      companionFollowDirectionRuntime.update(
         nextPlayerPosition[0] - previousPlayerPosition[0],
         nextPlayerPosition[2] - previousPlayerPosition[2]
       );
