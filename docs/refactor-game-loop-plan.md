@@ -98,9 +98,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: route snapshot commits through the frame runtime.
 - Completed: integrate the companion lost hint runtime.
 - Completed: prepare the isolated Chopper attention cue runtime core.
+- Completed: integrate the Chopper attention cue runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared Chopper attention cue
-  runtime.
+  boundary is identified, then preflight the next remaining loop-state-owned
+  subsystem.
 
 ## Validation Log
 
@@ -600,6 +601,46 @@ curl -sI http://127.0.0.1:5173/
 ```
 
 The focused suite passed with `10` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1323` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Chopper Attention Cue Runtime Integration
+
+Integrated `createChopperAttentionCueRuntime()` into `startGameLoop()` and
+removed the three migrated scheduler fields from `createGameLoopState()`.
+
+Study path:
+
+1. `getPeriodicChopperAttentionCue(...)` still owns the wake-guide task check,
+   player-distance check, `"Hey!"` text and current Chopper position.
+2. The helper passes a resolved cue or `null` to
+   `chopperAttentionCueRuntime.get(cue, now)`.
+3. The runtime owns the initial delay, repetition window, active lifetime and
+   `cycleId`.
+4. `chopperAttentionCueSoundCycleId` remains in `createGameLoopState()` and
+   the existing world-speech branch still uses it to dispatch one voice sound
+   per visible cycle.
+5. Speech priority and snapshot writes are unchanged.
+
+Passed:
+
+```sh
+rg -n "loopState\\.chopperAttentionCue(NextAt|ActiveUntil|CycleId)|resetChopperAttentionCueSchedule|createChopperAttentionCueRuntime|chopperAttentionCueSoundCycleId" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/chopperAttentionCueRuntime.test.js tests/companionLostHintRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `18` tests and the dev server returned
 `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
