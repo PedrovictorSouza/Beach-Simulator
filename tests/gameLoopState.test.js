@@ -10,7 +10,6 @@ describe("createGameLoopState", () => {
       movementQuestDistance: 0,
       pendingWorldCellPlannerClick: null,
       foundationBuildZoneCameraFocus: null,
-      repairBoxElapsed: 0,
       waterGunSfxBurstUntilSeconds: 0
     });
   });

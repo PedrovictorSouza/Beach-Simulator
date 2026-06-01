@@ -16,6 +16,7 @@ import {
 } from "./gameLoopFramePolicies.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
+import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
@@ -2170,6 +2171,12 @@ export function startGameLoop({
   });
   const fpsPanelController = createFpsPanelController(fpsPanel);
   const inputModalityPanelController = createInputModalityPanelController(inputModalityPanel);
+  const repairBoxMotionRuntime = createRepairBoxMotionRuntime({
+    floatHeight: ROBOT_REPAIR_BOX_FLOAT_HEIGHT,
+    bobHeight: ROBOT_REPAIR_BOX_BOB_HEIGHT,
+    bobSpeed: ROBOT_REPAIR_BOX_BOB_SPEED,
+    spinSpeed: ROBOT_REPAIR_BOX_SPIN_SPEED
+  });
   const frameRuntime = createGameLoopFrameRuntime({
     frameClock,
     frameSnapshotController,
@@ -2177,7 +2184,7 @@ export function startGameLoop({
     controls,
     readFlowState: readGameLoopFlowState,
     advanceElapsed: (deltaTime) => {
-      loopState.repairBoxElapsed += deltaTime;
+      repairBoxMotionRuntime.update(deltaTime);
     }
   });
   const getSfxVolumeScale = () => gameplay?.audioMixRuntime?.getSfxVolumeScale?.() ?? 1;
@@ -4451,15 +4458,6 @@ export function startGameLoop({
     syncInteractablePosition("squirtle", session.actTwoSquirtle.position);
   }
 
-  function getRepairBoxFloatOffset(position) {
-    const bob = Math.sin(loopState.repairBoxElapsed * ROBOT_REPAIR_BOX_BOB_SPEED) * ROBOT_REPAIR_BOX_BOB_HEIGHT;
-    return [
-      position[0],
-      position[1] + ROBOT_REPAIR_BOX_FLOAT_HEIGHT + bob,
-      position[2]
-    ];
-  }
-
   function getEncounterRepairBoxPosition(encounter) {
     return encounter?.repairBoxPosition || encounter?.repairPosition || null;
   }
@@ -4493,11 +4491,11 @@ export function startGameLoop({
     const opened = easeOutCubic(openingProgress);
 
     instance.baseOffset = [...basePosition];
-    instance.offset = getRepairBoxFloatOffset(basePosition);
+    instance.offset = repairBoxMotionRuntime.getFloatOffset(basePosition);
     instance.repairBoxBaseYaw ??= Number(instance.yaw || 0);
     instance.repairBoxBaseScale ??= Number(instance.scale || 1);
     instance.scale = instance.repairBoxBaseScale;
-    instance.yaw = instance.repairBoxBaseYaw + loopState.repairBoxElapsed * ROBOT_REPAIR_BOX_SPIN_SPEED;
+    instance.yaw = repairBoxMotionRuntime.getYaw(instance.repairBoxBaseYaw);
     instance.pitch = ROBOT_REPAIR_BOX_MODEL_PITCH_OFFSET;
     instance.roll = 0;
 
