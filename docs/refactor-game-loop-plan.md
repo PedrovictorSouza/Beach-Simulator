@@ -104,9 +104,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare Chopper cue sound-cycle ownership.
 - Completed: integrate Chopper cue sound-cycle ownership.
 - Completed: prepare the isolated companion follow direction runtime core.
+- Completed: integrate the companion follow direction runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared companion follow
-  direction runtime.
+  boundary is identified, then preflight the next remaining loop-state-owned
+  subsystem.
 
 ## Validation Log
 
@@ -871,6 +872,46 @@ curl -sI http://127.0.0.1:5173/
 ```
 
 The focused suite passed with `11` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1332` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Companion Follow Direction Runtime Integration
+
+Integrated `createCompanionFollowDirectionRuntime()` into `startGameLoop()`
+and removed `companionFollowDirection` from `createGameLoopState()`.
+
+Study path:
+
+1. `startGameLoop()` creates one private direction runtime for the gameplay
+   loop instance.
+2. Player movement now calls `companionFollowDirectionRuntime.update(...)` at
+   the same point after position updates.
+3. Companion target-position assembly asks
+   `companionFollowDirectionRuntime.get(session.playerModelInstance?.yaw)`.
+4. The runtime preserves normalization, the `0.0005` threshold, player-yaw
+   fallback and `[0, -1]` default.
+5. Formation spacing, follow distance, follow speed and companion movement
+   remain in `gameLoop.js`.
+
+Passed:
+
+```sh
+rg -n "loopState\\.companionFollowDirection|updateCompanionFollowDirection|getCompanionFollowDirection|createCompanionFollowDirectionRuntime|companionFollowDirectionRuntime" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/companionFollowDirectionRuntime.test.js tests/companionFollowFormation.test.js tests/gameLoopState.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `19` tests and the dev server returned
 `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
