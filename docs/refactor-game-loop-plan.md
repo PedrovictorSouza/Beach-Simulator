@@ -107,9 +107,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the companion follow direction runtime.
 - Completed: prepare the isolated repair box motion runtime core.
 - Completed: integrate the repair box motion runtime.
+- Completed: prepare the isolated Water Gun SFX burst runtime core.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the next remaining loop-state-owned
-  subsystem.
+  boundary is identified, then integrate the prepared Water Gun SFX burst
+  runtime.
 
 ## Validation Log
 
@@ -1011,6 +1012,54 @@ The focused suite passed with `16` tests and the dev server returned
 baseline:
 
 - `1335` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Water Gun SFX Burst Runtime Preparation
+
+Added `waterGunSfxBurstRuntime.js` as an isolated, tested temporal core. It is
+not imported by `gameLoop.js` yet, so this preparation step does not change
+active gameplay behavior.
+
+The runtime intentionally owns only the temporary SFX extension window:
+
+1. `trigger(nowSeconds, durationSeconds)` extends `untilSeconds` with the same
+   `Math.max(...)` rule used by the loop.
+2. `isActive(nowSeconds)` preserves the existing strict
+   `nowSeconds < untilSeconds` check.
+3. Retriggering with a shorter window cannot shorten an active burst.
+4. Each factory call owns independent private state.
+
+Water Gun action phases, stamina, field-move tuning, particles and
+`audio.updateWaterGun(...)` remain unchanged.
+
+The next integration pass should:
+
+1. Create `createWaterGunSfxBurstRuntime()` inside `startGameLoop()`.
+2. Route `triggerWaterGunSfxBurst(duration)` to
+   `waterGunSfxBurstRuntime.trigger(getRuntimeNowSeconds(), duration)`.
+3. Replace the inline SFX extension-window comparison with
+   `waterGunSfxBurstRuntime.isActive(now * 0.001)`.
+4. Remove `waterGunSfxBurstUntilSeconds` from `createGameLoopState()` and its
+   state contract test.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/waterGunSfxBurstRuntime.test.js tests/gameLoopState.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `6` tests and the dev server returned `HTTP 200`.
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1339` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
