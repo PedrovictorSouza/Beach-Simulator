@@ -106,9 +106,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated companion follow direction runtime core.
 - Completed: integrate the companion follow direction runtime.
 - Completed: prepare the isolated repair box motion runtime core.
+- Completed: integrate the repair box motion runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared repair box motion
-  runtime.
+  boundary is identified, then preflight the next remaining loop-state-owned
+  subsystem.
 
 ## Validation Log
 
@@ -966,6 +967,46 @@ curl -sI http://127.0.0.1:5173/
 ```
 
 The focused suite passed with `13` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1335` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Repair Box Motion Runtime Integration
+
+Integrated `createRepairBoxMotionRuntime()` into `startGameLoop()` and removed
+`repairBoxElapsed` from `createGameLoopState()`.
+
+Study path:
+
+1. `startGameLoop()` creates one private motion runtime using the four existing
+   repair-box visual tuning constants.
+2. The frame runtime keeps the same `advanceElapsed(deltaTime)` callback point,
+   but forwards the clamped frame delta to `repairBoxMotionRuntime.update(...)`.
+3. Repair-box model sync asks `repairBoxMotionRuntime.getFloatOffset(...)` for
+   the same float-height and sine-bob offset.
+4. Repair-box model sync asks `repairBoxMotionRuntime.getYaw(...)` for the same
+   base-yaw plus elapsed-spin calculation.
+5. Opening progress, opened-box pose, reveal flash and model synchronization
+   remain in `gameLoop.js`.
+
+Passed:
+
+```sh
+rg -n "repairBoxElapsed|getRepairBoxFloatOffset|repairBoxMotionRuntime" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/repairBoxMotionRuntime.test.js tests/repairBoxRevealFlashRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `16` tests and the dev server returned
 `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
