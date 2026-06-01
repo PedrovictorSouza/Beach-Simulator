@@ -100,9 +100,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated Chopper attention cue runtime core.
 - Completed: integrate the Chopper attention cue runtime.
 - Completed: prepare the isolated run breadcrumb prompt runtime core.
+- Completed: integrate the run breadcrumb prompt runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared run breadcrumb prompt
-  runtime.
+  boundary is identified, then preflight the next remaining loop-state-owned
+  subsystem.
 
 ## Validation Log
 
@@ -694,6 +695,46 @@ curl -sI http://127.0.0.1:5173/
 ```
 
 The focused suite passed with `9` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1326` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Run Breadcrumb Prompt Runtime Integration
+
+Integrated `createRunBreadcrumbPromptRuntime()` into `startGameLoop()` and
+removed `runBreadcrumbPromptShown` and `runBreadcrumbPromptUntil` from
+`createGameLoopState()`.
+
+Study path:
+
+1. The existing movement, opening lock, tutorial, `learn-to-move` quest and
+   run-input checks remain local in `frame(now)`.
+2. When those checks pass, the frame calls
+   `runBreadcrumbPromptRuntime.trigger(now)`.
+3. The runtime owns the one-shot guard and configured visibility lifetime.
+4. World-space UI gating now asks
+   `runBreadcrumbPromptRuntime.isVisible(now)`.
+5. Prompt text, placement in the priority chain and snapshot writes are
+   unchanged.
+
+Passed:
+
+```sh
+rg -n "loopState\\.runBreadcrumbPrompt|createRunBreadcrumbPromptRuntime|runBreadcrumbPromptRuntime" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/runBreadcrumbPromptRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js tests/chopperAttentionCueRuntime.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `17` tests and the dev server returned
 `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
