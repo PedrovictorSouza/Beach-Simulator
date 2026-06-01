@@ -12606,9 +12606,8 @@ if (canProcessDestroyAction && destroyActionRequested) {
       nextFrame.worldSpeech.text = chopperAttentionCue.text;
       nextFrame.worldSpeech.worldPosition = chopperAttentionCue.worldPosition;
 
-      if (loopState.chopperAttentionCueSoundCycleId !== chopperAttentionCue.cycleId) {
+      if (chopperAttentionCueRuntime.consumeSoundCycle(chopperAttentionCue.cycleId)) {
         playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE);
-        loopState.chopperAttentionCueSoundCycleId = chopperAttentionCue.cycleId;
       }
     }
 
