@@ -108,9 +108,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated repair box motion runtime core.
 - Completed: integrate the repair box motion runtime.
 - Completed: prepare the isolated Water Gun SFX burst runtime core.
+- Completed: integrate the Water Gun SFX burst runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared Water Gun SFX burst
-  runtime.
+  boundary is identified, then preflight the next remaining loop-state-owned
+  subsystem.
 
 ## Validation Log
 
@@ -1058,6 +1059,46 @@ curl -sI http://127.0.0.1:5173/
 
 The focused suite passed with `6` tests and the dev server returned `HTTP 200`.
 `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1339` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Water Gun SFX Burst Runtime Integration
+
+Integrated `createWaterGunSfxBurstRuntime()` into `startGameLoop()` and removed
+`waterGunSfxBurstUntilSeconds` from `createGameLoopState()`.
+
+Study path:
+
+1. `startGameLoop()` creates one private SFX burst runtime.
+2. The existing five gameplay call sites still call
+   `triggerWaterGunSfxBurst()` at the same points.
+3. `triggerWaterGunSfxBurst(duration)` forwards the existing runtime clock and
+   duration to `waterGunSfxBurstRuntime.trigger(...)`.
+4. `audio.updateWaterGun(...)` keeps the existing active spray-phase check and
+   asks `waterGunSfxBurstRuntime.isActive(now * 0.001)` for the extension
+   window.
+5. Water Gun action state, stamina, particles, targeting and audio internals
+   remain unchanged.
+
+Passed:
+
+```sh
+rg -n "waterGunSfxBurstUntilSeconds|triggerWaterGunSfxBurst|createWaterGunSfxBurstRuntime|waterGunSfxBurstRuntime|audio\\.updateWaterGun" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/waterGunSfxBurstRuntime.test.js tests/gameLoopState.test.js tests/soundEventRuntime.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `20` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
 
 - `1339` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
