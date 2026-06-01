@@ -20,6 +20,7 @@ import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
+import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createWorkbenchRotationRuntime } from "./workbenchRotationRuntime.js";
 
 import {
@@ -2177,6 +2178,7 @@ export function startGameLoop({
     bobSpeed: ROBOT_REPAIR_BOX_BOB_SPEED,
     spinSpeed: ROBOT_REPAIR_BOX_SPIN_SPEED
   });
+  const waterGunSfxBurstRuntime = createWaterGunSfxBurstRuntime();
   const frameRuntime = createGameLoopFrameRuntime({
     frameClock,
     frameSnapshotController,
@@ -3457,11 +3459,7 @@ export function startGameLoop({
   }
 
   function triggerWaterGunSfxBurst(duration = SQUIRTLE_WATER_GUN_SPRAY_DURATION) {
-    const nowSeconds = getRuntimeNowSeconds();
-    loopState.waterGunSfxBurstUntilSeconds = Math.max(
-      loopState.waterGunSfxBurstUntilSeconds,
-      nowSeconds + duration
-    );
+    waterGunSfxBurstRuntime.trigger(getRuntimeNowSeconds(), duration);
   }
 
   function getLeafResourceBillboards(resourceNodes, texture, uvRect, storyState, renderCenter = null) {
@@ -11510,7 +11508,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     updateSquirtleWaterGunAction(deltaTime);
     audio.updateWaterGun({
       active: session.squirtleWaterGunAction?.phase === "spray" ||
-        (now * 0.001) < loopState.waterGunSfxBurstUntilSeconds,
+        waterGunSfxBurstRuntime.isActive(now * 0.001),
       nowSeconds: now * 0.001
     });
     updateBulbasaurLeafageAction(deltaTime);

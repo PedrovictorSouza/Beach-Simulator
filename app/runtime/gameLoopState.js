@@ -9,8 +9,6 @@ export function createGameLoopState() {
     woodCollectPopEffects: [],
     gearPickupParticleEffects: [],
 
-    waterGunSfxBurstUntilSeconds: 0,
-
     leafageInvalidTargetPromptUntil: 0,
     fireInvalidTargetPromptUntil: 0
   };
