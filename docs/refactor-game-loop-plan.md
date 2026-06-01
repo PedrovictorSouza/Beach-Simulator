@@ -105,9 +105,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate Chopper cue sound-cycle ownership.
 - Completed: prepare the isolated companion follow direction runtime core.
 - Completed: integrate the companion follow direction runtime.
+- Completed: prepare the isolated repair box motion runtime core.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the next remaining loop-state-owned
-  subsystem.
+  boundary is identified, then integrate the prepared repair box motion
+  runtime.
 
 ## Validation Log
 
@@ -916,6 +917,59 @@ The focused suite passed with `19` tests and the dev server returned
 baseline:
 
 - `1332` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Repair Box Motion Runtime Preparation
+
+Added `repairBoxMotionRuntime.js` as an isolated, tested visual-motion core. It
+is not imported by `gameLoop.js` yet, so this preparation step does not change
+active gameplay behavior.
+
+The runtime intentionally owns only repair-box motion state:
+
+1. `update(deltaTime)` accumulates the same clamped frame delta forwarded by
+   the existing frame runtime callback.
+2. `getFloatOffset(position)` preserves the existing float height and
+   `Math.sin(elapsed * bobSpeed) * bobHeight` calculation.
+3. `getYaw(baseYaw)` preserves the existing `baseYaw + elapsed * spinSpeed`
+   calculation.
+4. Each factory call owns independent private elapsed state.
+
+Repair-box model sync, opening progress, reveal flash, DOM overlay and all four
+visual tuning constants remain unchanged.
+
+The next integration pass should:
+
+1. Create `createRepairBoxMotionRuntime(...)` inside `startGameLoop()` with the
+   existing float, bob and spin constants.
+2. Route the frame runtime `advanceElapsed(deltaTime)` callback to
+   `repairBoxMotionRuntime.update(deltaTime)`.
+3. Replace `getRepairBoxFloatOffset(...)` with
+   `repairBoxMotionRuntime.getFloatOffset(...)`.
+4. Replace the inline spin-yaw calculation with
+   `repairBoxMotionRuntime.getYaw(instance.repairBoxBaseYaw)`.
+5. Remove `repairBoxElapsed` from `createGameLoopState()` and its state
+   contract test.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/repairBoxMotionRuntime.test.js tests/repairBoxRevealFlashRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFrameRuntime.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `13` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1335` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
