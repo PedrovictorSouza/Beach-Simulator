@@ -103,9 +103,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the run breadcrumb prompt runtime.
 - Completed: prepare Chopper cue sound-cycle ownership.
 - Completed: integrate Chopper cue sound-cycle ownership.
+- Completed: prepare the isolated companion follow direction runtime core.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the next remaining loop-state-owned
-  subsystem.
+  boundary is identified, then integrate the prepared companion follow
+  direction runtime.
 
 ## Validation Log
 
@@ -826,6 +827,54 @@ The focused suite passed with `24` tests and the dev server returned
 baseline:
 
 - `1327` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Companion Follow Direction Runtime Preparation
+
+Added `companionFollowDirectionRuntime.js` as an isolated, tested direction
+memory core. It is not imported by `gameLoop.js` yet, so this preparation step
+does not change active gameplay behavior.
+
+The runtime intentionally owns only companion follow-direction memory:
+
+1. `update(deltaX, deltaZ)` preserves the existing `0.0005` movement threshold.
+2. Valid movement stores a normalized planar direction.
+3. `get(playerYaw)` returns the stored movement direction when available.
+4. Before movement establishes a direction, `get(playerYaw)` preserves the
+   existing player-yaw fallback.
+5. Without movement or a finite yaw, the existing `[0, -1]` default remains.
+
+Formation spacing, follow distance, follow speed, target-position assembly and
+companion movement remain in `gameLoop.js`.
+
+The next integration pass should:
+
+1. Create `createCompanionFollowDirectionRuntime()` inside `startGameLoop()`.
+2. Replace `updateCompanionFollowDirection(...)` with
+   `companionFollowDirectionRuntime.update(...)`.
+3. Replace `getCompanionFollowDirection()` with
+   `companionFollowDirectionRuntime.get(session.playerModelInstance?.yaw)`.
+4. Remove `companionFollowDirection` from `createGameLoopState()`.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/companionFollowDirectionRuntime.test.js tests/companionFollowFormation.test.js tests/gameLoopState.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `11` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1332` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
