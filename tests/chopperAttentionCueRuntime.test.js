@@ -86,4 +86,13 @@ describe("createChopperAttentionCueRuntime", () => {
       cycleId: 2
     });
   });
+
+  it("consumes each sound cycle once without dispatching audio itself", () => {
+    const runtime = createRuntime();
+
+    expect(runtime.consumeSoundCycle(1)).toBe(true);
+    expect(runtime.consumeSoundCycle(1)).toBe(false);
+    expect(runtime.consumeSoundCycle(2)).toBe(true);
+    expect(runtime.consumeSoundCycle(2)).toBe(false);
+  });
 });

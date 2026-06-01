@@ -6,6 +6,7 @@ export function createChopperAttentionCueRuntime({
   let nextAt = 0;
   let activeUntil = 0;
   let cycleId = 0;
+  let soundCycleId = 0;
 
   function resetSchedule() {
     nextAt = 0;
@@ -39,7 +40,17 @@ export function createChopperAttentionCueRuntime({
     };
   }
 
+  function consumeSoundCycle(nextCycleId) {
+    if (nextCycleId === soundCycleId) {
+      return false;
+    }
+
+    soundCycleId = nextCycleId;
+    return true;
+  }
+
   return {
+    consumeSoundCycle,
     get,
     resetSchedule
   };
