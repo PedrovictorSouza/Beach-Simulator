@@ -16,6 +16,7 @@ import {
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
+import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import { createWorkbenchRotationRuntime } from "./workbenchRotationRuntime.js";
 
@@ -2103,6 +2104,9 @@ export function startGameLoop({
     initialDelayMs: CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS,
     repeatMs: CHOPPER_ATTENTION_CUE_REPEAT_MS,
     durationMs: CHOPPER_ATTENTION_CUE_DURATION_MS
+  });
+  const runBreadcrumbPromptRuntime = createRunBreadcrumbPromptRuntime({
+    durationMs: RUN_BREADCRUMB_PROMPT_DURATION_MS
   });
   const repairBoxRevealFlashRuntime = createRepairBoxRevealFlashRuntime({
     mount,
@@ -10692,14 +10696,12 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
       playerMovedThisFrame = movedDistance > 0.0005;
       if (
         playerMovedThisFrame &&
-        !loopState.runBreadcrumbPromptShown &&
         !gameplayOpeningMovementLocked &&
         !tutorialActive &&
         gameplay.getActiveSystemQuest?.()?.id === "learn-to-move" &&
         !controls.isRunActive?.()
       ) {
-        loopState.runBreadcrumbPromptShown = true;
-        loopState.runBreadcrumbPromptUntil = now + RUN_BREADCRUMB_PROMPT_DURATION_MS;
+        runBreadcrumbPromptRuntime.trigger(now);
       }
       updateCompanionFollowDirection(
         nextPlayerPosition[0] - previousPlayerPosition[0],
@@ -12485,7 +12487,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const shouldShowRunBreadcrumbPrompt =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
-      loopState.runBreadcrumbPromptUntil > now;
+      runBreadcrumbPromptRuntime.isVisible(now);
     const playerInteractionPromptText = shouldShowPlayerInteractionPrompt ?
       getPlayerInteractionWorldPromptText(inputModalityState) :
       "";

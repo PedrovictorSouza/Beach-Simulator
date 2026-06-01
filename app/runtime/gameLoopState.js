@@ -17,9 +17,6 @@ export function createGameLoopState() {
     leafageInvalidTargetPromptUntil: 0,
     fireInvalidTargetPromptUntil: 0,
 
-    runBreadcrumbPromptShown: false,
-    runBreadcrumbPromptUntil: 0,
-
     companionFollowDirection: null
   };
 }
