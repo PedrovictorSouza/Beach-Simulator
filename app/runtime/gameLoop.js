@@ -2,6 +2,7 @@ import { createGameLoopState } from "./gameLoopState.js";
 import { createGameLoopFrameClock } from "./gameLoopFrameClock.js";
 import { createGameLoopFrameRuntime } from "./gameLoopFrameRuntime.js";
 import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
+import { createChopperAttentionCueRuntime } from "./chopperAttentionCueRuntime.js";
 import { createCompanionLostHintRuntime } from "./companionLostHintRuntime.js";
 import {
   resolveCameraInputPermissions,
@@ -2097,6 +2098,11 @@ export function startGameLoop({
     initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
     repeatMs: COMPANION_LOST_HINT_REPEAT_MS,
     durationMs: COMPANION_LOST_HINT_DURATION_MS
+  });
+  const chopperAttentionCueRuntime = createChopperAttentionCueRuntime({
+    initialDelayMs: CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS,
+    repeatMs: CHOPPER_ATTENTION_CUE_REPEAT_MS,
+    durationMs: CHOPPER_ATTENTION_CUE_DURATION_MS
   });
   const repairBoxRevealFlashRuntime = createRepairBoxRevealFlashRuntime({
     mount,
@@ -8138,11 +8144,6 @@ export function startGameLoop({
     return charmander?.position || charmander?.modelInstance?.offset || null;
   }
 
-  function resetChopperAttentionCueSchedule() {
-    loopState.chopperAttentionCueNextAt = 0;
-    loopState.chopperAttentionCueActiveUntil = 0;
-  }
-
   function getPeriodicChopperAttentionCue({
     activeTask,
     activeSystemQuest,
@@ -8154,31 +8155,15 @@ export function startGameLoop({
       Array.isArray(chopperPosition) &&
       !isPlayerNearWorldPosition(chopperPosition, POKEMON_TALK_INTERACT_DISTANCE + 0.45);
 
-    if (!shouldCueChopper) {
-      resetChopperAttentionCueSchedule();
-      return null;
-    }
-
-    if (loopState.chopperAttentionCueNextAt <= 0) {
-      loopState.chopperAttentionCueNextAt = now + CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS;
-      return null;
-    }
-
-    if (now >= loopState.chopperAttentionCueNextAt && now >= loopState.chopperAttentionCueActiveUntil) {
-      loopState.chopperAttentionCueCycleId += 1;
-      loopState.chopperAttentionCueActiveUntil = now + CHOPPER_ATTENTION_CUE_DURATION_MS;
-      loopState.chopperAttentionCueNextAt = now + CHOPPER_ATTENTION_CUE_REPEAT_MS;
-    }
-
-    if (now >= loopState.chopperAttentionCueActiveUntil) {
-      return null;
-    }
-
-    return {
-      cycleId: loopState.chopperAttentionCueCycleId,
-      text: CHOPPER_ATTENTION_CUE_TEXT,
-      worldPosition: chopperPosition
-    };
+    return chopperAttentionCueRuntime.get(
+      shouldCueChopper ?
+        {
+          text: CHOPPER_ATTENTION_CUE_TEXT,
+          worldPosition: chopperPosition
+        } :
+        null,
+      now
+    );
   }
 
   function resolveWaterGunCompanionLostHint(activeQuest, activeMoveId) {

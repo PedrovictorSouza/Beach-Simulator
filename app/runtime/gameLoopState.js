@@ -12,9 +12,6 @@ export function createGameLoopState() {
     repairBoxElapsed: 0,
     waterGunSfxBurstUntilSeconds: 0,
 
-    chopperAttentionCueNextAt: 0,
-    chopperAttentionCueActiveUntil: 0,
-    chopperAttentionCueCycleId: 0,
     chopperAttentionCueSoundCycleId: 0,
 
     leafageInvalidTargetPromptUntil: 0,
