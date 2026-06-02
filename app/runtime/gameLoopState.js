@@ -1,5 +1,3 @@
 export function createGameLoopState() {
-  return {
-    foundationBuildZoneCameraFocus: null
-  };
+  return {};
 }

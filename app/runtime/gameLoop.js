@@ -1,10 +1,10 @@
-import { createGameLoopState } from "./gameLoopState.js";
 import { createGameLoopFrameClock } from "./gameLoopFrameClock.js";
 import { createGameLoopFrameRuntime } from "./gameLoopFrameRuntime.js";
 import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
 import { createChopperAttentionCueRuntime } from "./chopperAttentionCueRuntime.js";
 import { createCompanionFollowDirectionRuntime } from "./companionFollowDirectionRuntime.js";
 import { createCompanionLostHintRuntime } from "./companionLostHintRuntime.js";
+import { createFoundationBuildZoneCameraFocusRuntime } from "./foundationBuildZoneCameraFocusRuntime.js";
 import {
   resolveCameraInputPermissions,
   resolveGameplayActionPermission,
@@ -2087,7 +2087,6 @@ export function startGameLoop({
   gameplayUiVisibility = null,
   rendering
 }) {
-  const loopState = createGameLoopState();
   const frameClock = createGameLoopFrameClock({
     now: typeof performance !== "undefined" &&
       typeof performance.now === "function" ?
@@ -2126,6 +2125,10 @@ export function startGameLoop({
     lift: GEAR_PICKUP_PARTICLE_LIFT,
     radius: GEAR_PICKUP_PARTICLE_RADIUS,
     size: GEAR_PICKUP_PARTICLE_SIZE
+  });
+  const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime({
+    durationMs: BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DURATION_MS,
+    focusFlag: BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG
   });
   const companionLostHintRuntime = createCompanionLostHintRuntime({
     initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
@@ -3629,48 +3632,47 @@ export function startGameLoop({
   }
 
   function updateFoundationBuildZoneCameraFocus(now) {
-    if (!isFoundationBuildMissionActive()) {
-      loopState.foundationBuildZoneCameraFocus = null;
-      return false;
+    const missionActive = isFoundationBuildMissionActive();
+    if (!missionActive) {
+      return foundationBuildZoneCameraFocusRuntime.update({
+        now,
+        missionActive: false
+      });
     }
 
     const buildZone = getActiveFreeBlockBuildZone();
-    if (!buildZone || isFoundationBuildZoneUnavailable()) {
-      loopState.foundationBuildZoneCameraFocus = null;
-      return false;
+    const zoneAvailable = Boolean(buildZone && !isFoundationBuildZoneUnavailable());
+    if (!zoneAvailable) {
+      return foundationBuildZoneCameraFocusRuntime.update({
+        now,
+        missionActive: true,
+        zoneAvailable: false
+      });
     }
 
-    const zoneSignature = getBuilderTutorialFoundationZoneSignature(buildZone);
-    const flags = controls.storyState?.flags || {};
-    const focusActive = loopState.foundationBuildZoneCameraFocus?.zoneSignature === zoneSignature &&
-      loopState.foundationBuildZoneCameraFocus.until > now;
+    return foundationBuildZoneCameraFocusRuntime.update({
+      now,
+      missionActive: true,
+      zoneAvailable: true,
+      zoneSignature: getBuilderTutorialFoundationZoneSignature(buildZone),
+      flags: controls.storyState?.flags || {},
+      startFocus: () => {
+        const pose = getFoundationBuildZoneCameraFocusPose(buildZone);
+        if (!pose) {
+          return false;
+        }
 
-    if (focusActive) {
-      return true;
-    }
-
-    if (flags[BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG] === zoneSignature) {
-      loopState.foundationBuildZoneCameraFocus = null;
-      return false;
-    }
-
-    const pose = getFoundationBuildZoneCameraFocusPose(buildZone);
-    if (!pose) {
-      return false;
-    }
-
-    camera.startPoseTransition?.(pose, { duration: 0.45 });
-    if (pose.direction) {
-      cameraOrbit.sync?.(pose.direction);
-    }
-    flags[BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG] = zoneSignature;
-    loopState.foundationBuildZoneCameraFocus = {
-      zoneSignature,
-      until: now + BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DURATION_MS
-    };
-    controls.clearPendingActions?.();
-    controls.clearMovementInput?.();
-    return true;
+        camera.startPoseTransition?.(pose, { duration: 0.45 });
+        if (pose.direction) {
+          cameraOrbit.sync?.(pose.direction);
+        }
+        return true;
+      },
+      onFocusStarted: () => {
+        controls.clearPendingActions?.();
+        controls.clearMovementInput?.();
+      }
+    });
   }
 
   function getYawToward(fromPosition, toPosition) {
