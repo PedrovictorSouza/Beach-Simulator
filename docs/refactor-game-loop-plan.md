@@ -116,8 +116,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the world-cell planner click runtime.
 - Completed: prepare the isolated movement quest runtime core.
 - Completed: preserve lazy movement-quest activity lookup before integration.
+- Completed: integrate the movement quest runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared movement quest runtime.
+  boundary is identified, then preflight the next remaining loop-state-owned
+  subsystem.
 
 ## Validation Log
 
@@ -1372,6 +1374,50 @@ curl -sI http://127.0.0.1:5173/
 ```
 
 The focused suite passed with `20` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1353` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Movement Quest Runtime Integration
+
+Integrated `createMovementQuestRuntime()` into `startGameLoop()` and removed
+`movementQuestReported` and `movementQuestDistance` from
+`createGameLoopState()`.
+
+Study path:
+
+1. `startGameLoop()` creates one private movement-quest runtime with the
+   existing `0.0005` minimum movement distance and `0.04` report threshold.
+2. The player-movement section still calculates `movedDistance` at the same
+   frame point.
+3. It now forwards that distance to `movementQuestRuntime.update(...)`.
+4. The `active` resolver keeps the existing lazy
+   `gameplay.getActiveSystemQuest()` lookup and the reporter keeps the same
+   `{ type: "MOVE", targetId: "player" }` event payload.
+5. The runtime privately owns accumulated distance and the acknowledged-report
+   flag, so those fields no longer belong to general loop state.
+
+The breadcrumb prompt check remains separate because it controls tutorial UI,
+not movement-quest progress.
+
+Passed:
+
+```sh
+rg -n "movementQuestReported|movementQuestDistance|createMovementQuestRuntime|movementQuestRuntime|learn-to-move|type: \"MOVE\"" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/movementQuestRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js tests/questFlowGuards.test.js tests/createMissionSystemAdapter.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `28` tests and the dev server returned
 `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
