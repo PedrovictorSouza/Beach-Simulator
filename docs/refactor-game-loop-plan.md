@@ -126,8 +126,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the foundation build-zone camera focus scheduler.
 - Completed: prepare the isolated tree-revival leaf-burst runtime core.
 - Completed: integrate the tree-revival leaf-burst runtime.
-- Next: select the next small runtime-owned visual state boundary without
-  moving field-move, placement or camera rules.
+- Completed: prepare the isolated landscape-cut effect runtime core.
+- Next: integrate the prepared landscape-cut effect runtime while keeping
+  model-instance rendering local.
 
 ## Validation Log
 
@@ -1863,6 +1864,66 @@ The focused suite passed with `20` tests and the dev server returned
 baseline:
 
 - `1370` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Landscape Cut Effect Runtime Preparation
+
+Added `landscapeCutEffectRuntime.js` as an isolated, tested visual-effect
+runtime. It is not imported by `gameLoop.js` yet, so this preparation step does
+not change active gameplay or rendering behavior.
+
+This boundary was selected because the state lifecycle and pose calculation
+are self-contained:
+
+1. `queue(patch)` clones the destroyed patch, preserves the existing fallback
+   size and creates the same temporal identifier shape.
+2. `update(deltaTime)` advances elapsed time and removes expired effects.
+3. `forEachEffect(callback)` exposes each active cloned patch with its current
+   pose.
+4. The pose keeps the existing two phases: initial shrink/lift and final
+   pop/fade.
+5. Each factory call owns an independent private effect list.
+
+The following rules remain unchanged in `gameLoop.js`:
+
+- finding the destroyable landscape patch;
+- deciding whether the interact action changed garden progress;
+- dispatching autosave feedback;
+- choosing grass, garden, Native Tree or dead-grass model instances;
+- falling back to grass billboards when no model instance is available;
+- frame update and render ordering.
+
+The next integration pass should:
+
+1. Create `createLandscapeCutEffectRuntime(...)` inside `startGameLoop()` with
+   the existing constants and math helpers.
+2. Delegate `queueLandscapeCutEffect(...)` to `runtime.queue(...)`.
+3. Delegate the existing frame update to `runtime.update(deltaTime)`.
+4. Replace the local effect loop with `runtime.forEachEffect(...)` while
+   preserving the current model-instance and billboard rendering block.
+5. Remove `session.landscapeCutEffects` ownership and the local pose helper
+   only after all three paths are wired.
+
+Passed:
+
+```sh
+rg -n "landscapeCutEffectRuntime|landscapeCutEffects|queueLandscapeCutEffect|updateLandscapeCutEffects|getLandscapeCutEffectPose|appendLandscapeCutEffectRenderables" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/landscapeCutEffectRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `20` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1374` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
