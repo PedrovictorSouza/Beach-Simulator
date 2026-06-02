@@ -120,9 +120,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated wood collect pop runtime core.
 - Completed: integrate the wood collect pop runtime.
 - Completed: prepare the isolated gear pickup particle runtime core.
+- Completed: integrate the gear pickup particle runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared gear pickup particle
-  runtime.
+  boundary is identified, then preflight the remaining foundation build-zone
+  camera focus state separately.
 
 ## Validation Log
 
@@ -1574,6 +1575,52 @@ The focused suite passed with `14` tests and the dev server returned
 baseline:
 
 - `1361` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Gear Pickup Particle Runtime Integration
+
+Integrated `createGearPickupParticleRuntime()` into `startGameLoop()` and
+removed `gearPickupParticleEffects` from `createGameLoopState()`.
+
+Study path:
+
+1. `startGameLoop()` creates one private gear-particle runtime with the
+   existing count, duration, base height, lift, radius and size constants.
+2. The resource-collection section continues to calculate
+   `collectedGearPositions` at the same point and forwards them to
+   `gearPickupParticleRuntime.trigger(...)`.
+3. The frame lifecycle calls `gearPickupParticleRuntime.update(deltaTime)`
+   where the local age update previously ran.
+4. Render preparation appends
+   `gearPickupParticleRuntime.getBillboards(...)` into the same
+   `nextFrame.render.genericBillboards` array.
+5. `createGameLoopState()` now stores only
+   `foundationBuildZoneCameraFocus`.
+
+The old mutable-array independence test was removed from `gameLoopState.test.js`
+because no arrays remain in that state contract. Runtime instance independence
+continues to be covered directly by `gearPickupParticleRuntime.test.js`.
+
+Passed:
+
+```sh
+rg -n "gearPickupParticleEffects|createGearPickupParticleRuntime|gearPickupParticleRuntime|triggerGearPickupParticleEffects|updateGearPickupParticleEffects|getGearPickupParticleBillboards|foundationBuildZoneCameraFocus" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/gearPickupParticleRuntime.test.js tests/gameLoopState.test.js tests/gameplayWoodDrops.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `16` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1360` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
