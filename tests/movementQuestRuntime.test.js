@@ -54,6 +54,18 @@ describe("createMovementQuestRuntime", () => {
     expect(reportMovement).toHaveBeenCalledTimes(2);
   });
 
+  it("stops resolving quest activity after progress is acknowledged", () => {
+    const active = vi.fn(() => true);
+    const reportMovement = vi.fn(() => ({ changed: true, completedQuestIds: [] }));
+    const runtime = createRuntime();
+
+    runtime.update({ active, movedDistance: 0.04, reportMovement });
+    runtime.update({ active, movedDistance: 0.04, reportMovement });
+
+    expect(active).toHaveBeenCalledTimes(1);
+    expect(reportMovement).toHaveBeenCalledTimes(1);
+  });
+
   it("keeps state independent between runtime instances", () => {
     const reportMovement = vi.fn(() => ({ changed: true, completedQuestIds: [] }));
     const first = createRuntime();

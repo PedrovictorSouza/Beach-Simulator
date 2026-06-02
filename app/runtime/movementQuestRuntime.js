@@ -11,8 +11,16 @@ export function createMovementQuestRuntime({
     reportMovement
   } = {}) {
     if (
-      reported ||
-      !active ||
+      reported
+    ) {
+      return false;
+    }
+
+    const resolvedActive = typeof active === "function" ?
+      active() :
+      active;
+    if (
+      !resolvedActive ||
       !(movedDistance > minimumMovementDistance)
     ) {
       return false;
