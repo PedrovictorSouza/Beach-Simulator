@@ -124,9 +124,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated foundation build-zone camera focus scheduler.
 - Completed: preserve foundation-focus side-effect order before integration.
 - Completed: integrate the foundation build-zone camera focus scheduler.
-- Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then select the next small runtime-owned state
-  boundary.
+- Completed: prepare the isolated tree-revival leaf-burst runtime core.
+- Next: integrate the prepared tree-revival leaf-burst runtime while keeping
+  revival detection local.
 
 ## Validation Log
 
@@ -1760,6 +1760,62 @@ The focused suite passed with `22` tests and the dev server returned
 baseline:
 
 - `1366` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Tree Revival Leaf-Burst Runtime Preparation
+
+Added `treeRevivalLeafBurstRuntime.js` as an isolated, tested visual-effect
+runtime. It is not imported by `gameLoop.js` yet, so this preparation step does
+not change active gameplay or rendering behavior.
+
+This boundary was selected because it has transient visual state and explicit
+dependencies. The runtime owns only leaf-particle details:
+
+1. `queue(position, sourceId)` creates one deterministic burst shape using the
+   supplied random source and unchanged tuning values.
+2. `update(deltaTime)` applies the existing gravity, velocity, drift and
+   expiration calculations.
+3. `appendBillboards(...)` preserves the current billboard data shape,
+   including texture, position, size, UV rectangle, alpha and rotation.
+4. Each factory call owns an independent private burst list.
+
+The following rules remain unchanged in `gameLoop.js`:
+
+- snapshotting palm and Leppa-tree revival state;
+- deciding whether a tree became newly revived;
+- selecting the leaves texture fallback order;
+- choosing when updates and billboard appends occur in the frame.
+
+The next integration pass should:
+
+1. Create `createTreeRevivalLeafBurstRuntime(...)` inside `startGameLoop()` with
+   the existing constants and math helpers.
+2. Delegate `queueTreeRevivalLeafBurst(...)` to `runtime.queue(...)`.
+3. Delegate the existing frame update to `runtime.update(deltaTime)`.
+4. Delegate billboard append after resolving the existing texture fallback.
+5. Remove the transient `session.treeRevivalLeafBursts` ownership only after
+   the three call sites are wired.
+
+Passed:
+
+```sh
+rg -n "TREE_REVIVAL_LEAF_BURST_|queueTreeRevivalLeafBurst|updateTreeRevivalLeafBursts|appendTreeRevivalLeafBurstBillboards" app/runtime/gameLoop.js tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/treeRevivalLeafBurstRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `20` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1370` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
