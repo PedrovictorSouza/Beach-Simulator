@@ -23,6 +23,7 @@ import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.j
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
+import { getSavePointStarBillboards } from "./savePointStarBillboards.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
@@ -625,6 +626,12 @@ const SAVE_POINT_STAR_PARTICLE_COUNT = 10;
 const SAVE_POINT_STAR_PARTICLE_RADIUS = 0.64;
 const SAVE_POINT_STAR_PARTICLE_HEIGHT = 1.18;
 const SAVE_POINT_STAR_PARTICLE_DURATION = 1.9;
+const SAVE_POINT_STAR_BILLBOARD_CONFIG = Object.freeze({
+  count: SAVE_POINT_STAR_PARTICLE_COUNT,
+  radius: SAVE_POINT_STAR_PARTICLE_RADIUS,
+  height: SAVE_POINT_STAR_PARTICLE_HEIGHT,
+  duration: SAVE_POINT_STAR_PARTICLE_DURATION
+});
 const CAMERA_DEBUG_ENABLED = (() => {
   try {
     return new URLSearchParams(globalThis.location?.search || "").get("cameraDebug") === "1";
@@ -9955,39 +9962,6 @@ export function startGameLoop({
     });
   }
 
-  function getSavePointStarBillboards(logChair, texture, uvRect, now) {
-    if (!Array.isArray(logChair?.position) || !texture) {
-      return [];
-    }
-
-    const time = now * 0.001;
-    const [saveX, saveY, saveZ] = logChair.position;
-
-    return Array.from({ length: SAVE_POINT_STAR_PARTICLE_COUNT }, (_, index) => {
-      const cycle =
-        (time / SAVE_POINT_STAR_PARTICLE_DURATION + index / SAVE_POINT_STAR_PARTICLE_COUNT) % 1;
-      const angle = time * (0.84 + (index % 3) * 0.11) + index * 2.39996;
-      const radius = SAVE_POINT_STAR_PARTICLE_RADIUS * (0.34 + cycle * 0.66);
-      const fadeIn = clamp01(cycle / 0.16);
-      const fadeOut = clamp01((1 - cycle) / 0.28);
-      const pulse = 0.78 + Math.sin(time * 7.2 + index * 1.37) * 0.16;
-      const size = (0.12 + (index % 3) * 0.024) * pulse * (1 + cycle * 0.18);
-
-      return {
-        texture,
-        position: [
-          saveX + Math.cos(angle) * radius,
-          saveY + 0.24 + cycle * SAVE_POINT_STAR_PARTICLE_HEIGHT,
-          saveZ + Math.sin(angle) * radius
-        ],
-        size: [size, size],
-        uvRect,
-        alpha: fadeIn * fadeOut,
-        rotation: angle * 0.22 + time * 0.45
-      };
-    });
-  }
-
   function getBulbasaurInteractionRadiusGizmoBillboards(encounter, texture, uvRect, now) {
     if (!encounter?.visible || !Array.isArray(encounter.position) || !texture) {
       return [];
@@ -13014,12 +12988,14 @@ if (canProcessDestroyAction && destroyActionRequested) {
         }, deltaTime)
       );
       nextFrame.render.genericBillboards.push(
-        ...getSavePointStarBillboards(
-          session.logChair,
-          session.logChairStarTexture,
-          rendering.fullUvRect,
-          now
-        )
+        ...getSavePointStarBillboards({
+          logChair: session.logChair,
+          texture: session.logChairStarTexture,
+          uvRect: rendering.fullUvRect,
+          now,
+          clamp01,
+          config: SAVE_POINT_STAR_BILLBOARD_CONFIG
+        })
       );
     }
     if (session.strawBed && controls.storyState.flags.strawBedPlacedInBulbasaurHabitat) {
