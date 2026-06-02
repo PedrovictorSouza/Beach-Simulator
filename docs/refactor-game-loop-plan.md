@@ -119,9 +119,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
 - Completed: integrate the wood collect pop runtime.
+- Completed: prepare the isolated gear pickup particle runtime core.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the remaining gear pickup particle
-  state.
+  boundary is identified, then integrate the prepared gear pickup particle
+  runtime.
 
 ## Validation Log
 
@@ -1523,6 +1524,56 @@ The focused suite passed with `17` tests and the dev server returned
 baseline:
 
 - `1357` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Gear Pickup Particle Runtime Preparation
+
+Added `gearPickupParticleRuntime.js` as an isolated, tested visual-effect core.
+It is not imported by `gameLoop.js` yet, so this preparation step does not
+change active gameplay behavior.
+
+The runtime intentionally owns only the private particle array and its visual
+lifecycle:
+
+1. `trigger(sourcePositions)` creates the existing particle ring for each
+   valid collected-gear position.
+2. `update(deltaTime)` preserves the existing age increment and expiry rule.
+3. `getBillboards(texture, fallbackUvRect)` preserves the existing radial
+   spread, arc lift, pulse, fade and rotation formulas.
+4. Each factory call owns independent private state.
+
+The collectible snapshots, gear-count comparison, HUD feedback, audio and
+render-snapshot append point remain unchanged in `gameLoop.js`.
+
+The next integration pass should:
+
+1. Create `createGearPickupParticleRuntime(...)` inside `startGameLoop()` with
+   the existing count, duration, height, lift, radius and size constants.
+2. Replace the local trigger, update and billboard-builder calls with runtime
+   calls at the same points.
+3. Remove `gearPickupParticleEffects` from `createGameLoopState()` and its
+   state contract test.
+
+Passed:
+
+```sh
+rg -n "createGearPickupParticleRuntime|gearPickupParticleEffects|triggerGearPickupParticleEffects|updateGearPickupParticleEffects|getGearPickupParticleBillboards" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/gearPickupParticleRuntime.test.js tests/gameLoopState.test.js tests/gameplayWoodDrops.test.js tests/gameLoopFrameRuntime.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `14` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1361` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
