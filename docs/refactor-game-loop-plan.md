@@ -130,8 +130,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the landscape-cut effect runtime.
 - Completed: prepare the isolated save-point star billboard helper.
 - Completed: integrate the save-point star billboard helper.
-- Next: select the next small visual helper boundary without moving
-  placement, construction, music, field moves or camera rules.
+- Completed: prepare the isolated Leppa Tree mission-particle billboard
+  helper.
+- Next: integrate the prepared Leppa Tree mission-particle billboard helper
+  without moving narrative conditions or changing render ordering.
 
 ## Validation Log
 
@@ -2062,6 +2064,57 @@ The focused suite passed with `19` tests and the dev server returned
 baseline:
 
 - `1377` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Leppa Tree Mission-Particle Billboard Helper Preparation
+
+Added `leppaTreeMissionParticleBillboards.js` as an isolated, tested pure visual
+helper. It is not imported by `gameLoop.js` yet, so this preparation step does
+not change active rendering behavior.
+
+The narrative condition intentionally remains outside the helper. The new
+helper receives an `active` boolean instead of importing or reproducing
+`isOpeningLeppaTreeRequestActive(...)`. It owns only the deterministic visual
+calculation:
+
+1. Inactive effects, invalid tree positions or missing textures return an empty
+   list.
+2. The configured particle count is preserved.
+3. Cycle, orbit radius, vertical lift, pulse, alpha and rotation are derived
+   from the current frame timestamp.
+4. Each billboard preserves texture, position, size, UV rectangle, alpha and
+   rotation.
+
+The next integration pass should:
+
+1. Import the helper into `gameLoop.js`.
+2. Remove the local `getLeppaTreeMissionParticleBillboards(...)`.
+3. Keep `isOpeningLeppaTreeRequestActive(controls.storyState)` in
+   `gameLoop.js`.
+4. Pass the existing four constants through a config object at the current
+   render call site.
+5. Keep the render push in the same order.
+
+Passed:
+
+```sh
+rg -n "leppaTreeMissionParticleBillboards|getLeppaTreeMissionParticleBillboards|LEPPA_TREE_MISSION_PARTICLE" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `22` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1380` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
