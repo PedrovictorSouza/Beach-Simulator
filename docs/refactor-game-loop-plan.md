@@ -115,6 +115,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated world-cell planner click runtime core.
 - Completed: integrate the world-cell planner click runtime.
 - Completed: prepare the isolated movement quest runtime core.
+- Completed: preserve lazy movement-quest activity lookup before integration.
 - Next: keep camera and intro-room decisions local until a smaller tested
   boundary is identified, then integrate the prepared movement quest runtime.
 
@@ -1341,6 +1342,40 @@ The focused suite passed with `19` tests and the dev server returned
 baseline:
 
 - `1352` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Movement Quest Lazy Activity Lookup
+
+Refined `movementQuestRuntime.js` before active wiring. The `active` input may
+now be either the existing boolean form or a resolver function.
+
+This preserves an ordering detail from `gameLoop.js`: after movement progress
+has been acknowledged, the old `movementQuestReported` guard prevents further
+`gameplay.getActiveSystemQuest()` reads. The integration pass can provide a
+lazy resolver so the private runtime state keeps that short-circuit behavior.
+
+The new test confirms that the activity resolver and report callback each run
+only once after progress is acknowledged.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/movementQuestRuntime.test.js tests/gameLoopState.test.js tests/questFlowGuards.test.js tests/createMissionSystemAdapter.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `20` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1353` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
