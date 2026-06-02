@@ -113,9 +113,10 @@ There is no dedicated lint or typecheck script in `package.json`.
   core.
 - Completed: integrate the field-move invalid-target prompt runtime.
 - Completed: prepare the isolated world-cell planner click runtime core.
+- Completed: integrate the world-cell planner click runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared world-cell planner
-  click runtime.
+  boundary is identified, then preflight the next remaining loop-state-owned
+  subsystem.
 
 ## Validation Log
 
@@ -1242,6 +1243,46 @@ curl -sI http://127.0.0.1:5173/
 ```
 
 The focused suite passed with `11` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1347` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### World-Cell Planner Click Runtime Integration
+
+Integrated `createWorldCellPlannerClickRuntime()` into `startGameLoop()` and
+removed `pendingWorldCellPlannerClick` from `createGameLoopState()`.
+
+Study path:
+
+1. `startGameLoop()` creates one private planner-click mailbox runtime.
+2. The existing pointer listener keeps the same active-planner, primary-button
+   and editable-target guards.
+3. Accepted pointer events now call `worldCellPlannerClickRuntime.queue(...)`
+   with the same viewport coordinates.
+4. The existing frame-processing function calls
+   `worldCellPlannerClickRuntime.consume()` once at its start.
+5. Planner-active revalidation, ground-cell projection, nearest-cell pick,
+   session selection, rendering callback and HUD notices remain in
+   `gameLoop.js`.
+
+Passed:
+
+```sh
+rg -n "pendingWorldCellPlannerClick|createWorldCellPlannerClickRuntime|worldCellPlannerClickRuntime|handleWorldCellPlannerPointerDown|processWorldCellPlannerClick" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/worldCellPlannerClickRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `14` tests and the dev server returned
 `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
