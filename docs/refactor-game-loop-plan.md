@@ -112,9 +112,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated field-move invalid-target prompt runtime
   core.
 - Completed: integrate the field-move invalid-target prompt runtime.
+- Completed: prepare the isolated world-cell planner click runtime core.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the next remaining loop-state-owned
-  subsystem.
+  boundary is identified, then integrate the prepared world-cell planner
+  click runtime.
 
 ## Validation Log
 
@@ -1196,6 +1197,55 @@ The focused suite passed with `19` tests and the dev server returned
 baseline:
 
 - `1343` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### World-Cell Planner Click Runtime Preparation
+
+Added `worldCellPlannerClickRuntime.js` as an isolated, tested mailbox core. It
+is not imported by `gameLoop.js` yet, so this preparation step does not change
+active gameplay behavior.
+
+The runtime intentionally owns only the pending debug-planner click:
+
+1. `queue({ clientX, clientY })` stores the next click request.
+2. A newer queued click replaces an older unconsumed request, preserving the
+   existing latest-click-wins behavior.
+3. `consume()` returns the queued request once and clears it.
+4. Each factory call owns independent private state.
+
+The pointer listener, planner-active guard, ground-cell projection, nearest-cell
+pick, session selection, rendering callback and HUD notices remain unchanged in
+`gameLoop.js`.
+
+The next integration pass should:
+
+1. Create `createWorldCellPlannerClickRuntime()` inside `startGameLoop()`.
+2. Route accepted pointer events to `worldCellPlannerClickRuntime.queue(...)`.
+3. Read the pending request through
+   `worldCellPlannerClickRuntime.consume()` at the existing frame-processing
+   point.
+4. Remove `pendingWorldCellPlannerClick` from `createGameLoopState()` and its
+   state contract test.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/worldCellPlannerClickRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFrameRuntime.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `11` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1347` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
