@@ -18,6 +18,7 @@ import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTar
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import { createLandscapeCutEffectRuntime } from "./landscapeCutEffectRuntime.js";
+import { getLeppaTreeMissionParticleBillboards } from "./leppaTreeMissionParticleBillboards.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
@@ -622,6 +623,12 @@ const LEPPA_TREE_MISSION_PARTICLE_COUNT = 9;
 const LEPPA_TREE_MISSION_PARTICLE_RADIUS = 0.72;
 const LEPPA_TREE_MISSION_PARTICLE_BASE_HEIGHT = 0.62;
 const LEPPA_TREE_MISSION_PARTICLE_HEIGHT = 1.64;
+const LEPPA_TREE_MISSION_PARTICLE_BILLBOARD_CONFIG = Object.freeze({
+  count: LEPPA_TREE_MISSION_PARTICLE_COUNT,
+  radius: LEPPA_TREE_MISSION_PARTICLE_RADIUS,
+  baseHeight: LEPPA_TREE_MISSION_PARTICLE_BASE_HEIGHT,
+  height: LEPPA_TREE_MISSION_PARTICLE_HEIGHT
+});
 const SAVE_POINT_STAR_PARTICLE_COUNT = 10;
 const SAVE_POINT_STAR_PARTICLE_RADIUS = 0.64;
 const SAVE_POINT_STAR_PARTICLE_HEIGHT = 1.18;
@@ -9924,44 +9931,6 @@ export function startGameLoop({
     });
   }
 
-  function getLeppaTreeMissionParticleBillboards(leppaTree, texture, uvRect, now, storyState) {
-    if (
-      !isOpeningLeppaTreeRequestActive(storyState) ||
-      !Array.isArray(leppaTree?.position) ||
-      !texture
-    ) {
-      return [];
-    }
-
-    const time = now * 0.001;
-    const [treeX, treeY, treeZ] = leppaTree.position;
-
-    return Array.from({ length: LEPPA_TREE_MISSION_PARTICLE_COUNT }, (_, index) => {
-      const cycle = (time * 0.38 + index * 0.137) % 1;
-      const angle = time * (0.68 + (index % 3) * 0.08) + index * 2.399;
-      const radius =
-        LEPPA_TREE_MISSION_PARTICLE_RADIUS *
-        (0.54 + (index % 4) * 0.12 + Math.sin(time * 1.7 + index) * 0.035);
-      const fadeIn = clamp01(cycle / 0.22);
-      const fadeOut = clamp01((1 - cycle) / 0.28);
-      const pulse = 0.82 + Math.sin(time * 5.2 + index * 1.31) * 0.18;
-      const size = (0.15 + (index % 3) * 0.024) * pulse * (1 - cycle * 0.18);
-
-      return {
-        texture,
-        position: [
-          treeX + Math.cos(angle) * radius,
-          treeY + LEPPA_TREE_MISSION_PARTICLE_BASE_HEIGHT + cycle * LEPPA_TREE_MISSION_PARTICLE_HEIGHT,
-          treeZ + Math.sin(angle) * radius
-        ],
-        size: [size, size],
-        uvRect,
-        alpha: fadeIn * fadeOut,
-        rotation: angle * 0.18
-      };
-    });
-  }
-
   function getBulbasaurInteractionRadiusGizmoBillboards(encounter, texture, uvRect, now) {
     if (!encounter?.visible || !Array.isArray(encounter.position) || !texture) {
       return [];
@@ -12919,13 +12888,15 @@ if (canProcessDestroyAction && destroyActionRequested) {
       )
     );
     nextFrame.render.genericBillboards.push(
-      ...getLeppaTreeMissionParticleBillboards(
-        session.leppaTree,
-        session.natureRevivalSparkTexture,
-        rendering.fullUvRect,
+      ...getLeppaTreeMissionParticleBillboards({
+        active: isOpeningLeppaTreeRequestActive(controls.storyState),
+        leppaTree: session.leppaTree,
+        texture: session.natureRevivalSparkTexture,
+        uvRect: rendering.fullUvRect,
         now,
-        controls.storyState
-      )
+        clamp01,
+        config: LEPPA_TREE_MISSION_PARTICLE_BILLBOARD_CONFIG
+      })
     );
     nextFrame.render.genericBillboards.push(
       ...getSnowstormBillboards(
