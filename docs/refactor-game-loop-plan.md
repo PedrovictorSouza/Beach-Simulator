@@ -125,8 +125,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve foundation-focus side-effect order before integration.
 - Completed: integrate the foundation build-zone camera focus scheduler.
 - Completed: prepare the isolated tree-revival leaf-burst runtime core.
-- Next: integrate the prepared tree-revival leaf-burst runtime while keeping
-  revival detection local.
+- Completed: integrate the tree-revival leaf-burst runtime.
+- Next: select the next small runtime-owned visual state boundary without
+  moving field-move, placement or camera rules.
 
 ## Validation Log
 
@@ -1803,6 +1804,52 @@ Passed:
 
 ```sh
 rg -n "TREE_REVIVAL_LEAF_BURST_|queueTreeRevivalLeafBurst|updateTreeRevivalLeafBursts|appendTreeRevivalLeafBurstBillboards" app/runtime/gameLoop.js tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/treeRevivalLeafBurstRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `20` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1370` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Tree Revival Leaf-Burst Runtime Integration
+
+Integrated `createTreeRevivalLeafBurstRuntime()` into `startGameLoop()` and
+removed `74` net lines from `gameLoop.js`.
+
+Study path:
+
+1. `startGameLoop()` creates the runtime with the existing visual constants and
+   math helpers.
+2. `queueTreeRevivalLeafBurstsForNewlyRevivedTrees(...)` still detects newly
+   revived palms and the Leppa tree locally.
+3. The two detected revival paths delegate particle creation to
+   `treeRevivalLeafBurstRuntime.queue(...)`.
+4. The frame still updates leaf particles immediately after nature-revival
+   effects, now through `treeRevivalLeafBurstRuntime.update(deltaTime)`.
+5. `appendTreeRevivalLeafBurstBillboards(...)` still resolves the existing
+   texture fallback order locally and delegates billboard creation.
+6. The runtime now owns the transient burst list privately. The old
+   `session.treeRevivalLeafBursts` array no longer exists.
+
+This extraction removes visual particle details from `gameLoop.js` without
+moving tree-revival detection, harvest rules, texture selection or render
+ordering.
+
+Passed:
+
+```sh
+rg -n "session\\.treeRevivalLeafBursts|queueTreeRevivalLeafBurst\\(|updateTreeRevivalLeafBursts\\(|treeRevivalLeafBurstRuntime|appendTreeRevivalLeafBurstBillboards" app/runtime tests --glob '!*.bak'
 git diff --check
 npm test -- --run tests/treeRevivalLeafBurstRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
 npm test
