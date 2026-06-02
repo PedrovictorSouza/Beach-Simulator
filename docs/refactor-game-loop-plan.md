@@ -123,9 +123,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the gear pickup particle runtime.
 - Completed: prepare the isolated foundation build-zone camera focus scheduler.
 - Completed: preserve foundation-focus side-effect order before integration.
+- Completed: integrate the foundation build-zone camera focus scheduler.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared foundation build-zone
-  camera focus scheduler conservatively.
+  boundary is identified, then select the next small runtime-owned state
+  boundary.
 
 ## Validation Log
 
@@ -1700,6 +1701,52 @@ callbacks and that the private focus window is active immediately afterward.
 Passed:
 
 ```sh
+git diff --check
+npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `22` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1366` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Foundation Build-Zone Camera Focus Runtime Integration
+
+Integrated `createFoundationBuildZoneCameraFocusRuntime()` into
+`startGameLoop()` without moving mission, zone, pose or blocker rules.
+
+Study path:
+
+1. `startGameLoop()` creates the runtime with the existing duration and story
+   flag constants.
+2. `updateFoundationBuildZoneCameraFocus(now)` still resolves mission activity
+   and the active build zone locally.
+3. The runtime receives zone availability, signature and story flags.
+4. The local `startFocus()` callback still builds the pose, starts the camera
+   transition and synchronizes orbit direction in the existing order.
+5. The runtime records its private focus window and one-time story flag.
+6. The local `onFocusStarted()` callback then clears pending actions and
+   movement input.
+7. The returned boolean still flows through the existing blocker and camera
+   priority paths.
+
+`createGameLoopState()` no longer owns active state. Its export remains as an
+empty compatibility factory while callers outside `gameLoop.js` are audited
+separately.
+
+Passed:
+
+```sh
+rg -n "loopState|foundationBuildZoneCameraFocus|createGameLoopState|createFoundationBuildZoneCameraFocusRuntime|foundationBuildZoneCameraFocusRuntime|updateFoundationBuildZoneCameraFocus|startPoseTransition|clearPendingActions|clearMovementInput" app/runtime tests --glob '!*.bak'
 git diff --check
 npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
 npm test
