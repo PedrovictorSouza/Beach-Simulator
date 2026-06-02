@@ -6,8 +6,6 @@ describe("createGameLoopState", () => {
     const state = createGameLoopState();
 
     expect(state).toMatchObject({
-      movementQuestReported: false,
-      movementQuestDistance: 0,
       foundationBuildZoneCameraFocus: null
     });
   });

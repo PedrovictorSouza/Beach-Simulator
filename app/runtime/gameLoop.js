@@ -16,6 +16,7 @@ import {
 } from "./gameLoopFramePolicies.js";
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
+import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
@@ -2105,6 +2106,10 @@ export function startGameLoop({
     fireDurationMs: FIRE_INVALID_TARGET_PROMPT_DURATION_MS
   });
   const worldCellPlannerClickRuntime = createWorldCellPlannerClickRuntime();
+  const movementQuestRuntime = createMovementQuestRuntime({
+    minimumMovementDistance: 0.0005,
+    reportDistance: 0.04
+  });
   const companionLostHintRuntime = createCompanionLostHintRuntime({
     initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
     repeatMs: COMPANION_LOST_HINT_REPEAT_MS,
@@ -10704,23 +10709,14 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
         restoreActiveZoomPresetOnMovement(nextPlayerPosition);
       }
 
-      if (
-        !loopState.movementQuestReported &&
-        gameplay.getActiveSystemQuest?.()?.id === "learn-to-move" &&
-        movedDistance > 0.0005
-      ) {
-        loopState.movementQuestDistance += movedDistance;
-        if (loopState.movementQuestDistance >= 0.04) {
-          const movementResult = gameplay.recordQuestEvent?.({
-            type: "MOVE",
-            targetId: "player"
-          });
-          loopState.movementQuestReported = Boolean(
-            movementResult?.changed ||
-            movementResult?.completedQuestIds?.length
-          );
-        }
-      }
+      movementQuestRuntime.update({
+        active: () => gameplay.getActiveSystemQuest?.()?.id === "learn-to-move",
+        movedDistance,
+        reportMovement: () => gameplay.recordQuestEvent?.({
+          type: "MOVE",
+          targetId: "player"
+        })
+      });
     } else {
       syncPlayerModelInstance(deltaTime);
     }
