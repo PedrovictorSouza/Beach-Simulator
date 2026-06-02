@@ -17,6 +17,7 @@ import {
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
+import { createLandscapeCutEffectRuntime } from "./landscapeCutEffectRuntime.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
@@ -2142,6 +2143,17 @@ export function startGameLoop({
       sizeMax: TREE_REVIVAL_LEAF_BURST_SIZE_MAX
     }
   });
+  const landscapeCutEffectRuntime = createLandscapeCutEffectRuntime({
+    clamp01,
+    easeOutCubic,
+    lerp,
+    config: {
+      duration: LANDSCAPE_CUT_EFFECT_DURATION,
+      lerpPortion: LANDSCAPE_CUT_EFFECT_LERP_PORTION,
+      lift: LANDSCAPE_CUT_EFFECT_LIFT,
+      popScale: LANDSCAPE_CUT_EFFECT_POP_SCALE
+    }
+  });
   const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime({
     durationMs: BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DURATION_MS,
     focusFlag: BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG
@@ -4161,18 +4173,7 @@ export function startGameLoop({
   }
 
   function queueLandscapeCutEffect(patch) {
-    const effectPatch = cloneGroundGrassPatchForCutEffect(patch);
-    if (!effectPatch) {
-      return;
-    }
-
-    session.landscapeCutEffects ||= [];
-    session.landscapeCutEffects.push({
-      id: `landscape-cut-${effectPatch.id || effectPatch.cellId || session.landscapeCutEffects.length}-${performance.now().toFixed(1)}`,
-      patch: effectPatch,
-      elapsed: 0,
-      duration: LANDSCAPE_CUT_EFFECT_DURATION
-    });
+    landscapeCutEffectRuntime.queue(patch);
   }
 
   function performGameplayInteractAction(options) {
@@ -4219,63 +4220,15 @@ export function startGameLoop({
     return result;
   }
 
-  function updateLandscapeCutEffects(deltaTime) {
-    if (!Array.isArray(session.landscapeCutEffects) || !session.landscapeCutEffects.length) {
-      return;
-    }
-
-    session.landscapeCutEffects = session.landscapeCutEffects.filter((effect) => {
-      effect.elapsed = Math.min(
-        Number(effect.duration || LANDSCAPE_CUT_EFFECT_DURATION),
-        Number(effect.elapsed || 0) + deltaTime
-      );
-      return effect.elapsed < Number(effect.duration || LANDSCAPE_CUT_EFFECT_DURATION);
-    });
-  }
-
-  function getLandscapeCutEffectPose(effect) {
-    const duration = Number(effect?.duration || LANDSCAPE_CUT_EFFECT_DURATION);
-    const progress = clamp01(Number(effect?.elapsed || 0) / Math.max(0.001, duration));
-
-    if (progress < LANDSCAPE_CUT_EFFECT_LERP_PORTION) {
-      const lerpProgress = easeOutCubic(progress / LANDSCAPE_CUT_EFFECT_LERP_PORTION);
-      return {
-        alpha: 1,
-        scale: lerp(1, 0.72, lerpProgress),
-        yOffset: lerp(0, LANDSCAPE_CUT_EFFECT_LIFT * 0.45, lerpProgress)
-      };
-    }
-
-    const popProgress = easeOutCubic(
-      (progress - LANDSCAPE_CUT_EFFECT_LERP_PORTION) /
-      Math.max(0.001, 1 - LANDSCAPE_CUT_EFFECT_LERP_PORTION)
-    );
-
-    return {
-      alpha: 1 - popProgress,
-      scale: lerp(0.72, LANDSCAPE_CUT_EFFECT_POP_SCALE, popProgress),
-      yOffset: lerp(
-        LANDSCAPE_CUT_EFFECT_LIFT * 0.45,
-        LANDSCAPE_CUT_EFFECT_LIFT,
-        popProgress
-      )
-    };
-  }
-
   function appendLandscapeCutEffectRenderables(nextFrame) {
-    if (!Array.isArray(session.landscapeCutEffects) || !session.landscapeCutEffects.length) {
-      return;
-    }
-
-    for (const effect of session.landscapeCutEffects) {
+    landscapeCutEffectRuntime.forEachEffect((effect, pose) => {
       const groundGrassPatch = effect.patch;
       if (!groundGrassPatch || !Array.isArray(groundGrassPatch.position)) {
-        continue;
+        return;
       }
 
-      const pose = getLandscapeCutEffectPose(effect);
       if (pose.alpha <= 0.01) {
-        continue;
+        return;
       }
 
       const offset = [
@@ -4377,7 +4330,7 @@ export function startGameLoop({
           alpha: pose.alpha
         });
       }
-    }
+    });
   }
 
   function findGrassPatchForGroundCell(groundCell) {
@@ -11296,7 +11249,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     gameplay.updatePalmShake(deltaTime, session.palmInstances);
     gameplay.updateResourceNodes(deltaTime, session.resourceNodes);
     gameplay.updateResourceNodes(deltaTime, session.woodDrops);
-    updateLandscapeCutEffects(deltaTime);
+    landscapeCutEffectRuntime.update(deltaTime);
     syncModelResourceInstances(session.resourceNodes, controls.storyState, deltaTime);
     session.updateCloudAtmosphere?.(deltaTime);
     updateSnowstormParticleField(session.snowstorm, {
