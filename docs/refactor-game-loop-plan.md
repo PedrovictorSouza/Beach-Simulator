@@ -129,8 +129,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated landscape-cut effect runtime core.
 - Completed: integrate the landscape-cut effect runtime.
 - Completed: prepare the isolated save-point star billboard helper.
-- Next: integrate the prepared save-point star billboard helper without
-  changing render ordering.
+- Completed: integrate the save-point star billboard helper.
+- Next: select the next small visual helper boundary without moving
+  placement, construction, music, field moves or camera rules.
 
 ## Validation Log
 
@@ -2002,6 +2003,47 @@ The next integration pass should:
 3. Pass the existing four constants through a config object at the existing
    render call site.
 4. Keep the render push in the same order.
+
+Passed:
+
+```sh
+rg -n "savePointStarBillboards|getSavePointStarBillboards|SAVE_POINT_STAR_" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `19` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1377` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Save-Point Star Billboard Helper Integration
+
+Integrated `getSavePointStarBillboards(...)` into `gameLoop.js` and removed
+`24` net lines from the loop module.
+
+Study path:
+
+1. `gameLoop.js` imports the pure helper from `savePointStarBillboards.js`.
+2. The four existing particle constants keep their original values.
+3. `SAVE_POINT_STAR_BILLBOARD_CONFIG` groups those constants without changing
+   tuning.
+4. The local `getSavePointStarBillboards(...)` implementation was removed.
+5. The existing `nextFrame.render.genericBillboards.push(...)` call remains in
+   the same render position and now passes explicit helper dependencies.
+
+The helper owns only deterministic billboard calculation. Save-point state,
+texture selection, render collection ownership and render ordering remain in
+`gameLoop.js`.
 
 Passed:
 
