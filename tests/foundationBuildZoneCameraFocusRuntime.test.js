@@ -108,6 +108,43 @@ describe("createFoundationBuildZoneCameraFocusRuntime", () => {
     expect(flags).toEqual({});
   });
 
+  it("runs post-start side effects after recording the focus window", () => {
+    const calls = [];
+    const flags = new Proxy({}, {
+      set(target, key, value) {
+        calls.push(`flag:${value}`);
+        target[key] = value;
+        return true;
+      }
+    });
+    const runtime = createRuntime();
+
+    runtime.update({
+      now: 1000,
+      missionActive: true,
+      zoneAvailable: true,
+      zoneSignature: "zone-a",
+      flags,
+      startFocus: () => {
+        calls.push("start");
+        return true;
+      },
+      onFocusStarted: () => {
+        calls.push("after");
+      }
+    });
+
+    expect(calls).toEqual(["start", "flag:zone-a", "after"]);
+    expect(runtime.update({
+      now: 1001,
+      missionActive: true,
+      zoneAvailable: true,
+      zoneSignature: "zone-a",
+      flags,
+      startFocus: () => false
+    })).toBe(true);
+  });
+
   it("keeps state independent between runtime instances", () => {
     const firstFlags = {};
     const secondFlags = {};

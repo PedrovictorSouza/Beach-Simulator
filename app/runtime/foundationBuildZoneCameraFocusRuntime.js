@@ -10,7 +10,8 @@ export function createFoundationBuildZoneCameraFocusRuntime({
     zoneAvailable,
     zoneSignature,
     flags = {},
-    startFocus
+    startFocus,
+    onFocusStarted
   } = {}) {
     if (!missionActive || !zoneAvailable) {
       focus = null;
@@ -38,6 +39,7 @@ export function createFoundationBuildZoneCameraFocusRuntime({
       zoneSignature,
       until: now + durationMs
     };
+    onFocusStarted?.();
     return true;
   }
 
