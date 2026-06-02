@@ -127,8 +127,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated tree-revival leaf-burst runtime core.
 - Completed: integrate the tree-revival leaf-burst runtime.
 - Completed: prepare the isolated landscape-cut effect runtime core.
-- Next: integrate the prepared landscape-cut effect runtime while keeping
-  model-instance rendering local.
+- Completed: integrate the landscape-cut effect runtime.
+- Next: select the next small runtime-owned visual state boundary without
+  moving model-instance rendering, field moves, placement or camera rules.
 
 ## Validation Log
 
@@ -1911,6 +1912,53 @@ Passed:
 
 ```sh
 rg -n "landscapeCutEffectRuntime|landscapeCutEffects|queueLandscapeCutEffect|updateLandscapeCutEffects|getLandscapeCutEffectPose|appendLandscapeCutEffectRenderables" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/landscapeCutEffectRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `20` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1374` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Landscape Cut Effect Runtime Integration
+
+Integrated `createLandscapeCutEffectRuntime()` into `startGameLoop()` and
+removed `47` net lines from `gameLoop.js`.
+
+Study path:
+
+1. `startGameLoop()` creates the runtime with the existing visual constants and
+   math helpers.
+2. `getDestroyableLandscapePatchForInteractOptions(...)` still captures the
+   patch before the gameplay interaction mutates session state.
+3. `queueLandscapeCutEffect(...)` delegates the captured patch to
+   `landscapeCutEffectRuntime.queue(...)`.
+4. The simulation frame still updates the effect immediately after resource
+   node updates, now through `landscapeCutEffectRuntime.update(deltaTime)`.
+5. `appendLandscapeCutEffectRenderables(...)` iterates private runtime effects
+   and receives the calculated pose from `runtime.forEachEffect(...)`.
+6. The existing render block still chooses garden, Native Tree, tall-grass,
+   dead-grass or billboard output locally.
+7. The old `session.landscapeCutEffects` array no longer exists.
+
+This extraction moves transient state, cloning, timing, expiration and pose
+math out of `gameLoop.js`. Interaction rules, autosave feedback, model assets
+and render ordering remain local.
+
+Passed:
+
+```sh
+rg -n "session\\.landscapeCutEffects|updateLandscapeCutEffects|getLandscapeCutEffectPose|queueLandscapeCutEffect|landscapeCutEffectRuntime|appendLandscapeCutEffectRenderables" . --glob '!node_modules/**' --glob '!dist/**' --glob '!*.bak'
 git diff --check
 npm test -- --run tests/landscapeCutEffectRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
 npm test
