@@ -117,9 +117,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated movement quest runtime core.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
+- Completed: prepare the isolated wood collect pop runtime core.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the next remaining loop-state-owned
-  subsystem.
+  boundary is identified, then integrate the prepared wood collect pop runtime.
 
 ## Validation Log
 
@@ -1422,6 +1422,61 @@ The focused suite passed with `28` tests and the dev server returned
 baseline:
 
 - `1353` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Wood Collect Pop Runtime Preparation
+
+Added `woodCollectPopRuntime.js` as an isolated, tested visual-effect core. It
+is not imported by `gameLoop.js` yet, so this preparation step does not change
+active gameplay behavior.
+
+This boundary was selected before the remaining foundation build-zone camera
+focus because the camera path starts a transition, synchronizes orbit state,
+clears input and contributes to multiple frame blockers. The wood collection
+pop effect has a narrower contract and no gameplay side effects.
+
+The runtime intentionally owns only the private effect array and its visual
+lifecycle:
+
+1. `trigger(woodDropSnapshots)` queues snapshots whose drop became collected.
+2. `update(deltaTime)` preserves the existing age increment and expiry rule.
+3. `getBillboards(texture, fallbackUvRect)` preserves the existing sinusoidal
+   lift, scale pulse, fade curve and snapshot UV preference.
+4. Each factory call owns independent private state.
+
+The pre-collection snapshot, wood-drop comparison, resource collection flow
+and render-snapshot append point remain unchanged in `gameLoop.js`.
+
+The next integration pass should:
+
+1. Create `createWoodCollectPopRuntime(...)` inside `startGameLoop()` with the
+   existing duration, lift and scale constants.
+2. Replace the local trigger, update and billboard-builder calls with runtime
+   calls at the same points.
+3. Keep `snapshotAvailableWoodDrops(...)` in `gameLoop.js`.
+4. Remove `woodCollectPopEffects` from `createGameLoopState()` and its state
+   contract test.
+
+Passed:
+
+```sh
+rg -n "createWoodCollectPopRuntime|woodCollectPopEffects|triggerWoodCollectPopEffects|getWoodCollectPopBillboards|updateWoodCollectPopEffects" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/woodCollectPopRuntime.test.js tests/gameLoopState.test.js tests/gameplayWoodDrops.test.js tests/gameLoopFrameRuntime.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `14` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1357` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
