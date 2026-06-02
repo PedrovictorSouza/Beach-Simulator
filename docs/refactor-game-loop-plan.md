@@ -122,6 +122,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated gear pickup particle runtime core.
 - Completed: integrate the gear pickup particle runtime.
 - Completed: prepare the isolated foundation build-zone camera focus scheduler.
+- Completed: preserve foundation-focus side-effect order before integration.
 - Next: keep camera and intro-room decisions local until a smaller tested
   boundary is identified, then integrate the prepared foundation build-zone
   camera focus scheduler conservatively.
@@ -1653,9 +1654,11 @@ The next integration pass should:
    `startGameLoop()` with the existing duration and story-flag constant.
 2. Keep mission, zone and pose resolution local.
 3. Route the scheduler decision through `runtime.update(...)`.
-4. Perform camera transition, orbit sync and input clearing inside the local
-   `startFocus()` callback at the same execution point.
-5. Remove `foundationBuildZoneCameraFocus` from `createGameLoopState()` and
+4. Perform camera transition and orbit sync inside the local `startFocus()`
+   callback at the same execution point.
+5. Clear pending actions and movement input inside `onFocusStarted()` after
+   the runtime records the story flag and private focus window.
+6. Remove `foundationBuildZoneCameraFocus` from `createGameLoopState()` and
    adjust its contract test.
 
 Passed:
@@ -1675,6 +1678,41 @@ The focused suite passed with `21` tests and the dev server returned
 baseline:
 
 - `1365` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Foundation Focus Side-Effect Order
+
+Refined `foundationBuildZoneCameraFocusRuntime.js` before active wiring. The
+scheduler now separates two callback phases:
+
+1. `startFocus()` prepares camera transition and orbit sync.
+2. The runtime records the story flag and private focus window.
+3. `onFocusStarted()` performs post-start effects such as clearing pending
+   actions and movement input.
+
+This preserves the existing observable order in `gameLoop.js`. The new test
+verifies that the flag is recorded between the pre-start and post-start
+callbacks and that the private focus window is active immediately afterward.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `22` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1366` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
