@@ -111,9 +111,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the Water Gun SFX burst runtime.
 - Completed: prepare the isolated field-move invalid-target prompt runtime
   core.
+- Completed: integrate the field-move invalid-target prompt runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared field-move
-  invalid-target prompt runtime.
+  boundary is identified, then preflight the next remaining loop-state-owned
+  subsystem.
 
 ## Validation Log
 
@@ -1149,6 +1150,48 @@ curl -sI http://127.0.0.1:5173/
 ```
 
 The focused suite passed with `11` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1343` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Field-Move Invalid-Target Prompt Runtime Integration
+
+Integrated `createFieldMoveInvalidTargetPromptRuntime()` into
+`startGameLoop()` and removed `leafageInvalidTargetPromptUntil` and
+`fireInvalidTargetPromptUntil` from `createGameLoopState()`.
+
+Study path:
+
+1. `startGameLoop()` creates one private prompt runtime using the two existing
+   duration constants.
+2. Successful Leafage-related actions keep resetting the Leafage clock at the
+   same three branches.
+3. Successful Fire actions keep resetting the Fire clock at the same branch.
+4. Invalid Leafage and Fire actions keep playing cancel SFX, then trigger their
+   respective clock with the existing frame timestamp.
+5. World-space prompt gating keeps the same player and UI conditions and asks
+   the runtime whether each prompt is visible.
+6. Prompt messages, prompt ordering, target decisions and HUD snapshot writes
+   remain in `gameLoop.js`.
+
+Passed:
+
+```sh
+rg -n "leafageInvalidTargetPromptUntil|fireInvalidTargetPromptUntil|createFieldMoveInvalidTargetPromptRuntime|fieldMoveInvalidTargetPromptRuntime" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/fieldMoveInvalidTargetPromptRuntime.test.js tests/gameLoopState.test.js tests/groundActionFeedbackRuntime.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `19` tests and the dev server returned
 `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
