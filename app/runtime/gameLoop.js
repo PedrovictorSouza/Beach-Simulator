@@ -15,6 +15,7 @@ import {
   resolveWorldSpaceUiVisibility
 } from "./gameLoopFramePolicies.js";
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
+import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
@@ -2116,6 +2117,15 @@ export function startGameLoop({
     duration: WOOD_COLLECT_POP_DURATION,
     lift: WOOD_COLLECT_POP_LIFT,
     scale: WOOD_COLLECT_POP_SCALE
+  });
+  const gearPickupParticleRuntime = createGearPickupParticleRuntime({
+    clamp01,
+    count: GEAR_PICKUP_PARTICLE_COUNT,
+    duration: GEAR_PICKUP_PARTICLE_DURATION,
+    baseHeight: GEAR_PICKUP_PARTICLE_BASE_HEIGHT,
+    lift: GEAR_PICKUP_PARTICLE_LIFT,
+    radius: GEAR_PICKUP_PARTICLE_RADIUS,
+    size: GEAR_PICKUP_PARTICLE_SIZE
   });
   const companionLostHintRuntime = createCompanionLostHintRuntime({
     initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
@@ -8776,71 +8786,6 @@ export function startGameLoop({
     triggerSupplyCounterPrompt(itemId, controls.inventory, now);
   }
 
-  function triggerGearPickupParticleEffects(sourcePositions = []) {
-    for (const sourcePosition of sourcePositions) {
-      if (!Array.isArray(sourcePosition)) {
-        continue;
-      }
-
-      for (let index = 0; index < GEAR_PICKUP_PARTICLE_COUNT; index += 1) {
-        const spread = index / GEAR_PICKUP_PARTICLE_COUNT;
-        const angle = spread * Math.PI * 2;
-        const speed = 0.62 + (index % 4) * 0.08;
-        const size = GEAR_PICKUP_PARTICLE_SIZE * (0.82 + (index % 3) * 0.12);
-
-        loopState.gearPickupParticleEffects.push({
-          origin: [...sourcePosition],
-          age: 0,
-          duration: GEAR_PICKUP_PARTICLE_DURATION,
-          angle,
-          speed,
-          size,
-          rotation: angle * 0.5,
-          spin: (index % 2 === 0 ? 1 : -1) * (3.4 + spread * 2.2),
-          phase: spread * Math.PI
-        });
-      }
-    }
-  }
-
-  function updateGearPickupParticleEffects(deltaTime) {
-    for (let index = loopState.gearPickupParticleEffects.length - 1; index >= 0; index -= 1) {
-      const effect = loopState.gearPickupParticleEffects[index];
-      effect.age += deltaTime;
-
-      if (effect.age >= effect.duration) {
-        loopState.gearPickupParticleEffects.splice(index, 1);
-      }
-    }
-  }
-
-  function getGearPickupParticleBillboards(texture, fallbackUvRect) {
-    if (!texture || loopState.gearPickupParticleEffects.length === 0) {
-      return [];
-    }
-
-    return loopState.gearPickupParticleEffects.map((effect) => {
-      const progress = clamp01(effect.age / effect.duration);
-      const arc = Math.sin(progress * Math.PI);
-      const radius = GEAR_PICKUP_PARTICLE_RADIUS * effect.speed * progress;
-      const alpha = clamp01(progress / 0.14) * clamp01((1 - progress) / 0.38);
-      const pulse = 1 + arc * 0.55;
-
-      return {
-        texture,
-        position: [
-          effect.origin[0] + Math.cos(effect.angle) * radius,
-          effect.origin[1] + GEAR_PICKUP_PARTICLE_BASE_HEIGHT + arc * GEAR_PICKUP_PARTICLE_LIFT,
-          effect.origin[2] + Math.sin(effect.angle) * radius
-        ],
-        size: [effect.size * pulse, effect.size * pulse],
-        uvRect: fallbackUvRect,
-        alpha,
-        rotation: effect.rotation + effect.spin * effect.age + effect.phase
-      };
-    });
-  }
-
   function getCampfireWoodPileBillboards(campfire, texture, uvRect) {
     if (!campfire?.position || !texture) {
       return [];
@@ -10683,7 +10628,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
     updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
     updateTreeRevivalLeafBursts(deltaTime);
     woodCollectPopRuntime.update(deltaTime);
-    updateGearPickupParticleEffects(deltaTime);
+    gearPickupParticleRuntime.update(deltaTime);
 
     // Gameplay actions and simulation.
     const activeMoveId = controls.getActiveMoveId?.() || null;
@@ -11570,7 +11515,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
 
         if (collectedGearCount > 0) {
           const collectedGearPositions = getNewlyCollectedResourcePositions(gearResourceSnapshots);
-          triggerGearPickupParticleEffects(collectedGearPositions);
+          gearPickupParticleRuntime.trigger(collectedGearPositions);
           pushSupplyResourceCollectFeedback({
             itemId: GEAR_ITEM_ID,
             count: collectedGearCount,
@@ -13074,7 +13019,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       ...woodCollectPopRuntime.getBillboards(session.woodTexture, rendering.fullUvRect)
     );
     nextFrame.render.genericBillboards.push(
-      ...getGearPickupParticleBillboards(session.natureRevivalSparkTexture, rendering.fullUvRect)
+      ...gearPickupParticleRuntime.getBillboards(session.natureRevivalSparkTexture, rendering.fullUvRect)
     );
     nextFrame.render.genericBillboards.push(
       ...getLeafDropBillboards(

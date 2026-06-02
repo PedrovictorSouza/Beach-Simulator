@@ -9,13 +9,4 @@ describe("createGameLoopState", () => {
       foundationBuildZoneCameraFocus: null
     });
   });
-
-  it("does not share mutable arrays between instances", () => {
-    const first = createGameLoopState();
-    const second = createGameLoopState();
-
-    first.gearPickupParticleEffects.push({ id: "gear-1" });
-
-    expect(second.gearPickupParticleEffects).toEqual([]);
-  });
 });
