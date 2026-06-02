@@ -114,9 +114,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the field-move invalid-target prompt runtime.
 - Completed: prepare the isolated world-cell planner click runtime core.
 - Completed: integrate the world-cell planner click runtime.
+- Completed: prepare the isolated movement quest runtime core.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the next remaining loop-state-owned
-  subsystem.
+  boundary is identified, then integrate the prepared movement quest runtime.
 
 ## Validation Log
 
@@ -1287,6 +1287,60 @@ The focused suite passed with `14` tests and the dev server returned
 baseline:
 
 - `1347` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Movement Quest Runtime Preparation
+
+Added `movementQuestRuntime.js` as an isolated, tested progression core. It is
+not imported by `gameLoop.js` yet, so this preparation step does not change
+active gameplay behavior.
+
+The runtime intentionally owns only movement accumulation and report
+acknowledgement:
+
+1. `update({ active, movedDistance, reportMovement })` ignores inactive quest
+   frames.
+2. Movement at or below the existing `0.0005` minimum is ignored.
+3. Accepted movement accumulates until the existing `0.04` report threshold.
+4. Once the threshold is reached, the runtime calls the supplied reporter and
+   preserves the existing acknowledgement rule: `changed` or a non-empty
+   `completedQuestIds`.
+5. An unacknowledged report is retried on later accepted movement.
+6. Each factory call owns independent private state.
+
+The `learn-to-move` quest lookup, `MOVE` event payload, gameplay adapter and
+quest side effects remain unchanged in `gameLoop.js`.
+
+The next integration pass should:
+
+1. Create `createMovementQuestRuntime(...)` inside `startGameLoop()` with the
+   existing `0.0005` minimum and `0.04` report threshold.
+2. Replace the local accumulation block with
+   `movementQuestRuntime.update(...)`.
+3. Keep the active-system-quest lookup and `gameplay.recordQuestEvent(...)`
+   callback in `gameLoop.js`.
+4. Remove `movementQuestReported` and `movementQuestDistance` from
+   `createGameLoopState()` and its state contract test.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/movementQuestRuntime.test.js tests/gameLoopState.test.js tests/questFlowGuards.test.js tests/createMissionSystemAdapter.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `19` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1352` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
