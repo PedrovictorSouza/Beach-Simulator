@@ -24,6 +24,7 @@ import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.j
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createWorkbenchRotationRuntime } from "./workbenchRotationRuntime.js";
+import { createWoodCollectPopRuntime } from "./woodCollectPopRuntime.js";
 import { createWorldCellPlannerClickRuntime } from "./worldCellPlannerClickRuntime.js";
 
 import {
@@ -2109,6 +2110,12 @@ export function startGameLoop({
   const movementQuestRuntime = createMovementQuestRuntime({
     minimumMovementDistance: 0.0005,
     reportDistance: 0.04
+  });
+  const woodCollectPopRuntime = createWoodCollectPopRuntime({
+    clamp01,
+    duration: WOOD_COLLECT_POP_DURATION,
+    lift: WOOD_COLLECT_POP_LIFT,
+    scale: WOOD_COLLECT_POP_SCALE
   });
   const companionLostHintRuntime = createCompanionLostHintRuntime({
     initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
@@ -8368,20 +8375,6 @@ export function startGameLoop({
     return snapshots;
   }
 
-  function triggerWoodCollectPopEffects(woodDropSnapshots) {
-    for (const [woodDrop, snapshot] of woodDropSnapshots) {
-      if (!woodDrop.collected) {
-        continue;
-      }
-
-      loopState.woodCollectPopEffects.push({
-        ...snapshot,
-        age: 0,
-        duration: WOOD_COLLECT_POP_DURATION
-      });
-    }
-  }
-
   function snapshotCollectibleSources(collectibles = [], predicate = () => true) {
     const snapshots = new Map();
 
@@ -8810,17 +8803,6 @@ export function startGameLoop({
     }
   }
 
-  function updateWoodCollectPopEffects(deltaTime) {
-    for (let index = loopState.woodCollectPopEffects.length - 1; index >= 0; index -= 1) {
-      const effect = loopState.woodCollectPopEffects[index];
-      effect.age += deltaTime;
-
-      if (effect.age >= effect.duration) {
-        loopState.woodCollectPopEffects.splice(index, 1);
-      }
-    }
-  }
-
   function updateGearPickupParticleEffects(deltaTime) {
     for (let index = loopState.gearPickupParticleEffects.length - 1; index >= 0; index -= 1) {
       const effect = loopState.gearPickupParticleEffects[index];
@@ -8830,34 +8812,6 @@ export function startGameLoop({
         loopState.gearPickupParticleEffects.splice(index, 1);
       }
     }
-  }
-
-  function getWoodCollectPopBillboards(texture, fallbackUvRect) {
-    if (!texture || loopState.woodCollectPopEffects.length === 0) {
-      return [];
-    }
-
-    return loopState.woodCollectPopEffects.map((effect) => {
-      const progress = clamp01(effect.age / effect.duration);
-      const popScale = 1 + Math.sin(progress * Math.PI) * (WOOD_COLLECT_POP_SCALE - 1);
-      const fade = clamp01((1 - progress) / 0.42);
-      const lift = Math.sin(progress * Math.PI) * WOOD_COLLECT_POP_LIFT;
-
-      return {
-        texture,
-        position: [
-          effect.position[0],
-          effect.position[1] + lift,
-          effect.position[2]
-        ],
-        size: [
-          effect.size[0] * popScale,
-          effect.size[1] * popScale
-        ],
-        uvRect: effect.uvRect || fallbackUvRect,
-        alpha: fade
-      };
-    });
   }
 
   function getGearPickupParticleBillboards(texture, fallbackUvRect) {
@@ -10728,7 +10682,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
     });
     updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
     updateTreeRevivalLeafBursts(deltaTime);
-    updateWoodCollectPopEffects(deltaTime);
+    woodCollectPopRuntime.update(deltaTime);
     updateGearPickupParticleEffects(deltaTime);
 
     // Gameplay actions and simulation.
@@ -11548,7 +11502,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         );
 
         if (collectedWoodCount > 0) {
-          triggerWoodCollectPopEffects(woodDropSnapshots);
+          woodCollectPopRuntime.trigger(woodDropSnapshots);
           const collectedWoodPositions = getNewlyCollectedDropPositions(woodDropSnapshots);
           for (let woodIndex = 0; woodIndex < collectedWoodCount; woodIndex += 1) {
             audio.playWoodGrab({
@@ -13117,7 +13071,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       );
     });
     nextFrame.render.genericBillboards.push(
-      ...getWoodCollectPopBillboards(session.woodTexture, rendering.fullUvRect)
+      ...woodCollectPopRuntime.getBillboards(session.woodTexture, rendering.fullUvRect)
     );
     nextFrame.render.genericBillboards.push(
       ...getGearPickupParticleBillboards(session.natureRevivalSparkTexture, rendering.fullUvRect)

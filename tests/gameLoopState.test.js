@@ -14,10 +14,8 @@ describe("createGameLoopState", () => {
     const first = createGameLoopState();
     const second = createGameLoopState();
 
-    first.woodCollectPopEffects.push({ id: "wood-1" });
     first.gearPickupParticleEffects.push({ id: "gear-1" });
 
-    expect(second.woodCollectPopEffects).toEqual([]);
     expect(second.gearPickupParticleEffects).toEqual([]);
   });
 });
