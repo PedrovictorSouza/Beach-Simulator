@@ -23,6 +23,7 @@ import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
+import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createWorkbenchRotationRuntime } from "./workbenchRotationRuntime.js";
 import { createWoodCollectPopRuntime } from "./woodCollectPopRuntime.js";
@@ -2126,6 +2127,21 @@ export function startGameLoop({
     radius: GEAR_PICKUP_PARTICLE_RADIUS,
     size: GEAR_PICKUP_PARTICLE_SIZE
   });
+  const treeRevivalLeafBurstRuntime = createTreeRevivalLeafBurstRuntime({
+    clamp01,
+    easeOutCubic,
+    lerp,
+    config: {
+      count: TREE_REVIVAL_LEAF_BURST_COUNT,
+      duration: TREE_REVIVAL_LEAF_BURST_DURATION,
+      drift: TREE_REVIVAL_LEAF_BURST_DRIFT,
+      gravity: TREE_REVIVAL_LEAF_BURST_GRAVITY,
+      baseHeight: TREE_REVIVAL_LEAF_BURST_BASE_HEIGHT,
+      heightRange: TREE_REVIVAL_LEAF_BURST_HEIGHT_RANGE,
+      sizeMin: TREE_REVIVAL_LEAF_BURST_SIZE_MIN,
+      sizeMax: TREE_REVIVAL_LEAF_BURST_SIZE_MAX
+    }
+  });
   const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime({
     durationMs: BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DURATION_MS,
     focusFlag: BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG
@@ -4033,55 +4049,6 @@ export function startGameLoop({
     };
   }
 
-  function queueTreeRevivalLeafBurst(position, sourceId = "tree") {
-    if (!Array.isArray(position)) {
-      return;
-    }
-
-    session.treeRevivalLeafBursts ||= [];
-    const burstId = `tree-revival-leaves-${sourceId}-${session.treeRevivalLeafBursts.length}`;
-    const leaves = [];
-
-    for (let index = 0; index < TREE_REVIVAL_LEAF_BURST_COUNT; index += 1) {
-      const angle =
-        (index / TREE_REVIVAL_LEAF_BURST_COUNT) * Math.PI * 2 +
-        (Math.random() - 0.5) * 0.72;
-      const distance = 0.16 + Math.random() * 0.78;
-      const speed = TREE_REVIVAL_LEAF_BURST_DRIFT * (0.55 + Math.random() * 0.75);
-      const size = lerp(
-        TREE_REVIVAL_LEAF_BURST_SIZE_MIN,
-        TREE_REVIVAL_LEAF_BURST_SIZE_MAX,
-        Math.random()
-      );
-
-      leaves.push({
-        age: 0,
-        duration: TREE_REVIVAL_LEAF_BURST_DURATION * (0.72 + Math.random() * 0.42),
-        position: [
-          position[0] + Math.cos(angle) * distance,
-          position[1] + TREE_REVIVAL_LEAF_BURST_BASE_HEIGHT +
-            Math.random() * TREE_REVIVAL_LEAF_BURST_HEIGHT_RANGE,
-          position[2] + Math.sin(angle) * distance
-        ],
-        velocity: [
-          Math.cos(angle) * speed,
-          0.34 + Math.random() * 0.46,
-          Math.sin(angle) * speed
-        ],
-        size,
-        phase: Math.random() * Math.PI * 2,
-        spin: (Math.random() < 0.5 ? -1 : 1) * (3.2 + Math.random() * 5.6),
-        flipSpeed: 7.2 + Math.random() * 7.6,
-        driftPhase: Math.random() * Math.PI * 2
-      });
-    }
-
-    session.treeRevivalLeafBursts.push({
-      id: burstId,
-      leaves
-    });
-  }
-
   function queueTreeRevivalLeafBurstsForNewlyRevivedTrees(snapshot) {
     if (!snapshot) {
       return;
@@ -4090,7 +4057,7 @@ export function startGameLoop({
     for (const palmInstance of session.palmInstances || []) {
       const wasAlive = snapshot.palmAliveById?.get(palmInstance?.id);
       if (!wasAlive && palmInstance?.alive && Array.isArray(palmInstance.offset)) {
-        queueTreeRevivalLeafBurst(palmInstance.offset, palmInstance.id);
+        treeRevivalLeafBurstRuntime.queue(palmInstance.offset, palmInstance.id);
       }
     }
 
@@ -4103,30 +4070,11 @@ export function startGameLoop({
       leppaTreeRevived &&
       Array.isArray(session.leppaTree?.position)
     ) {
-      queueTreeRevivalLeafBurst(session.leppaTree.position, session.leppaTree.id || "leppa-tree");
+      treeRevivalLeafBurstRuntime.queue(
+        session.leppaTree.position,
+        session.leppaTree.id || "leppa-tree"
+      );
     }
-  }
-
-  function updateTreeRevivalLeafBursts(deltaTime) {
-    if (!Array.isArray(session.treeRevivalLeafBursts) || !session.treeRevivalLeafBursts.length) {
-      return;
-    }
-
-    session.treeRevivalLeafBursts = session.treeRevivalLeafBursts.filter((burst) => {
-      burst.leaves = (burst.leaves || []).filter((leaf) => {
-        leaf.age += deltaTime;
-        leaf.velocity[1] -= TREE_REVIVAL_LEAF_BURST_GRAVITY * deltaTime;
-        leaf.position[0] += leaf.velocity[0] * deltaTime;
-        leaf.position[1] += leaf.velocity[1] * deltaTime;
-        leaf.position[2] += leaf.velocity[2] * deltaTime;
-        leaf.position[0] += Math.sin(leaf.age * 6.1 + leaf.driftPhase) * 0.08 * deltaTime;
-        leaf.position[2] += Math.cos(leaf.age * 5.4 + leaf.driftPhase) * 0.08 * deltaTime;
-
-        return leaf.age < leaf.duration;
-      });
-
-      return burst.leaves.length > 0;
-    });
   }
 
   function appendTreeRevivalLeafBurstBillboards(nextFrame) {
@@ -4135,33 +4083,11 @@ export function startGameLoop({
       session.greenGrassTexture ||
       session.natureRevivalSparkTexture;
 
-    if (
-      !texture ||
-      !Array.isArray(session.treeRevivalLeafBursts) ||
-      !session.treeRevivalLeafBursts.length
-    ) {
-      return;
-    }
-
-    for (const burst of session.treeRevivalLeafBursts) {
-      for (const leaf of burst.leaves || []) {
-        const progress = clamp01(leaf.age / Math.max(0.001, leaf.duration));
-        const fadeProgress = clamp01((progress - 0.48) / 0.52);
-        const alpha = 1 - easeOutCubic(fadeProgress);
-        const flip = Math.abs(Math.cos(leaf.age * leaf.flipSpeed + leaf.phase));
-        const width = leaf.size * lerp(0.18, 1, flip);
-        const height = leaf.size * lerp(0.86, 1.18, 1 - flip);
-
-        nextFrame.render.genericBillboards.push({
-          texture,
-          position: leaf.position,
-          size: [width, height],
-          uvRect: rendering.fullUvRect,
-          alpha,
-          rotation: leaf.phase + leaf.spin * leaf.age
-        });
-      }
-    }
+    treeRevivalLeafBurstRuntime.appendBillboards({
+      billboards: nextFrame.render.genericBillboards,
+      texture,
+      uvRect: rendering.fullUvRect
+    });
   }
 
   function performGameplayHarvestAction(options, autosaveContext = {}) {
@@ -10628,7 +10554,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
       active: canUpdatePlayerMovement
     });
     updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
-    updateTreeRevivalLeafBursts(deltaTime);
+    treeRevivalLeafBurstRuntime.update(deltaTime);
     woodCollectPopRuntime.update(deltaTime);
     gearPickupParticleRuntime.update(deltaTime);
 
