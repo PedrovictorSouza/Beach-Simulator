@@ -14,6 +14,7 @@ import {
   resolvePlayerMovementPermission,
   resolveWorldSpaceUiVisibility
 } from "./gameLoopFramePolicies.js";
+import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
@@ -2097,6 +2098,10 @@ export function startGameLoop({
   cameraDebugRuntime.attachGlobalListeners();
   const playerCounterPromptRuntime = createPlayerCounterPromptRuntime({
     durationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
+  });
+  const fieldMoveInvalidTargetPromptRuntime = createFieldMoveInvalidTargetPromptRuntime({
+    leafageDurationMs: LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS,
+    fireDurationMs: FIRE_INVALID_TARGET_PROMPT_DURATION_MS
   });
   const companionLostHintRuntime = createCompanionLostHintRuntime({
     initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
@@ -11110,7 +11115,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
           bulbasaurEncounter: session.bulbasaurEncounter
         });
       } else if (leafageAutoWaterGunTarget?.groundCell) {
-        loopState.leafageInvalidTargetPromptUntil = 0;
+        fieldMoveInvalidTargetPromptRuntime.resetLeafage();
         controls.setActiveMoveId?.("waterGun");
         controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
         const squirtleWaterGunResult = startSquirtleWaterGunAction({
@@ -11126,7 +11131,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
           });
         }
       } else if (leafageAutoGrowTarget?.leafageGroundCell) {
-        loopState.leafageInvalidTargetPromptUntil = 0;
+        fieldMoveInvalidTargetPromptRuntime.resetLeafage();
         controls.setActiveMoveId?.("leafage");
         const bulbasaurLeafageResult = startBulbasaurLeafageAction({
           groundCell: leafageAutoGrowTarget.leafageGroundCell,
@@ -11144,10 +11149,10 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
         groundActionFeedbackRuntime.triggerInvalid(primaryActionAlreadyResolvedGroundCell, now);
       } else if (primaryActionInvalidLeafageUse) {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-        loopState.leafageInvalidTargetPromptUntil = now + LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS;
+        fieldMoveInvalidTargetPromptRuntime.triggerLeafage(now);
       } else if (primaryActionInvalidFireUse) {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-        loopState.fireInvalidTargetPromptUntil = now + FIRE_INVALID_TARGET_PROMPT_DURATION_MS;
+        fieldMoveInvalidTargetPromptRuntime.triggerFire(now);
       } else if (primaryActionPlacementBlocked) {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
         // The trigger is reserved for the selected move. Placements use their own place controls.
@@ -11205,7 +11210,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
             });
           }
         } else if (leafageEquipped && leafagePrimaryMoveRequested && primaryActionTarget?.leafageGroundCell) {
-          loopState.leafageInvalidTargetPromptUntil = 0;
+          fieldMoveInvalidTargetPromptRuntime.resetLeafage();
           const bulbasaurLeafageResult = startBulbasaurLeafageAction({
             groundCell: primaryActionTarget.leafageGroundCell,
             playerPosition
@@ -11218,7 +11223,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
             });
           }
         } else if (fireEquipped && primaryActionTarget?.fireGroundCell) {
-          loopState.fireInvalidTargetPromptUntil = 0;
+          fieldMoveInvalidTargetPromptRuntime.resetFire();
           const charmanderFireResult = startCharmanderFireAction({
             groundCell: primaryActionTarget.fireGroundCell,
             playerPosition
@@ -12380,11 +12385,11 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const shouldShowInvalidLeafageUsePrompt =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
-      loopState.leafageInvalidTargetPromptUntil > now;
+      fieldMoveInvalidTargetPromptRuntime.isLeafageVisible(now);
     const shouldShowInvalidFireUsePrompt =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
-      loopState.fireInvalidTargetPromptUntil > now;
+      fieldMoveInvalidTargetPromptRuntime.isFireVisible(now);
     const fieldMoveSwitchPrompt = controls.getFieldMoveSwitchPrompt?.(now) || null;
     const shouldShowFieldMoveSwitchPrompt =
       canShowWorldSpaceUi &&

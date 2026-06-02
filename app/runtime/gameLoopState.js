@@ -7,9 +7,6 @@ export function createGameLoopState() {
     foundationBuildZoneCameraFocus: null,
 
     woodCollectPopEffects: [],
-    gearPickupParticleEffects: [],
-
-    leafageInvalidTargetPromptUntil: 0,
-    fireInvalidTargetPromptUntil: 0
+    gearPickupParticleEffects: []
   };
 }
