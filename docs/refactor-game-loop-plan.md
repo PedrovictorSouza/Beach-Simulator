@@ -128,8 +128,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the tree-revival leaf-burst runtime.
 - Completed: prepare the isolated landscape-cut effect runtime core.
 - Completed: integrate the landscape-cut effect runtime.
-- Next: select the next small runtime-owned visual state boundary without
-  moving model-instance rendering, field moves, placement or camera rules.
+- Completed: prepare the isolated save-point star billboard helper.
+- Next: integrate the prepared save-point star billboard helper without
+  changing render ordering.
 
 ## Validation Log
 
@@ -1972,6 +1973,53 @@ The focused suite passed with `20` tests and the dev server returned
 baseline:
 
 - `1374` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Save-Point Star Billboard Helper Preparation
+
+Added `savePointStarBillboards.js` as an isolated, tested pure visual helper.
+It is not imported by `gameLoop.js` yet, so this preparation step does not
+change active rendering behavior.
+
+This boundary was selected after mutable-state candidates were excluded because
+they belong to placement, construction or music. The helper owns no runtime
+state and preserves the current deterministic billboard calculation:
+
+1. Invalid save-point positions or missing textures return an empty list.
+2. The configured particle count is preserved.
+3. Cycle, orbit radius, vertical lift, pulse, alpha and rotation are derived
+   from the current frame timestamp.
+4. Each billboard preserves texture, position, size, UV rectangle, alpha and
+   rotation.
+
+The next integration pass should:
+
+1. Import the helper into `gameLoop.js`.
+2. Remove the local `getSavePointStarBillboards(...)`.
+3. Pass the existing four constants through a config object at the existing
+   render call site.
+4. Keep the render push in the same order.
+
+Passed:
+
+```sh
+rg -n "savePointStarBillboards|getSavePointStarBillboards|SAVE_POINT_STAR_" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `19` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1377` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
