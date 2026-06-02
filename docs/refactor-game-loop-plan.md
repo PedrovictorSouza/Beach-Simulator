@@ -118,8 +118,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+- Completed: integrate the wood collect pop runtime.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then integrate the prepared wood collect pop runtime.
+  boundary is identified, then preflight the remaining gear pickup particle
+  state.
 
 ## Validation Log
 
@@ -1473,6 +1475,50 @@ curl -sI http://127.0.0.1:5173/
 ```
 
 The focused suite passed with `14` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1357` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Wood Collect Pop Runtime Integration
+
+Integrated `createWoodCollectPopRuntime()` into `startGameLoop()` and removed
+`woodCollectPopEffects` from `createGameLoopState()`.
+
+Study path:
+
+1. `startGameLoop()` creates one private wood-pop runtime with the existing
+   duration, lift and scale constants.
+2. `snapshotAvailableWoodDrops(...)` remains local and continues to capture
+   uncollected drop data before the existing destroy action runs.
+3. When collected wood is detected, the loop calls
+   `woodCollectPopRuntime.trigger(woodDropSnapshots)` at the same point.
+4. The frame lifecycle calls `woodCollectPopRuntime.update(deltaTime)` where
+   the local age update previously ran.
+5. Render preparation appends
+   `woodCollectPopRuntime.getBillboards(...)` into the same
+   `nextFrame.render.genericBillboards` array.
+
+The resource collection flow, audio loop, HUD feedback and fly-to-slot
+animation remain in `gameLoop.js`.
+
+Passed:
+
+```sh
+rg -n "woodCollectPopEffects|createWoodCollectPopRuntime|woodCollectPopRuntime|triggerWoodCollectPopEffects|updateWoodCollectPopEffects|getWoodCollectPopBillboards|snapshotAvailableWoodDrops" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/woodCollectPopRuntime.test.js tests/gameLoopState.test.js tests/gameplayWoodDrops.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `17` tests and the dev server returned
 `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
