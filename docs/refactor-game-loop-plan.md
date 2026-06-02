@@ -121,9 +121,10 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the wood collect pop runtime.
 - Completed: prepare the isolated gear pickup particle runtime core.
 - Completed: integrate the gear pickup particle runtime.
+- Completed: prepare the isolated foundation build-zone camera focus scheduler.
 - Next: keep camera and intro-room decisions local until a smaller tested
-  boundary is identified, then preflight the remaining foundation build-zone
-  camera focus state separately.
+  boundary is identified, then integrate the prepared foundation build-zone
+  camera focus scheduler conservatively.
 
 ## Validation Log
 
@@ -1621,6 +1622,59 @@ The focused suite passed with `16` tests and the dev server returned
 baseline:
 
 - `1360` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Foundation Build-Zone Camera Focus Runtime Preparation
+
+Added `foundationBuildZoneCameraFocusRuntime.js` as an isolated, tested
+scheduler core. It is not imported by `gameLoop.js` yet, so this preparation
+step does not change active camera or input behavior.
+
+This extraction deliberately stops before camera side effects. The runtime
+owns only the private focus window and one-time zone decision:
+
+1. `update(...)` resets private focus when the mission or zone is unavailable.
+2. The same zone remains active until the existing duration expires.
+3. The story flag prevents the same zone from starting focus twice.
+4. A supplied `startFocus()` callback must succeed before the runtime records
+   the story flag or private focus window.
+5. Each factory call owns independent private state.
+
+The mission lookup, active build-zone lookup, pose builder,
+`camera.startPoseTransition(...)`, orbit sync, input clearing and frame
+blockers remain unchanged in `gameLoop.js`.
+
+The next integration pass should:
+
+1. Create `createFoundationBuildZoneCameraFocusRuntime(...)` inside
+   `startGameLoop()` with the existing duration and story-flag constant.
+2. Keep mission, zone and pose resolution local.
+3. Route the scheduler decision through `runtime.update(...)`.
+4. Perform camera transition, orbit sync and input clearing inside the local
+   `startFocus()` callback at the same execution point.
+5. Remove `foundationBuildZoneCameraFocus` from `createGameLoopState()` and
+   adjust its contract test.
+
+Passed:
+
+```sh
+rg -n "createFoundationBuildZoneCameraFocusRuntime|foundationBuildZoneCameraFocus|updateFoundationBuildZoneCameraFocus|startPoseTransition|clearPendingActions|clearMovementInput" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `21` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1365` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
