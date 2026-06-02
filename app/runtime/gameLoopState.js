@@ -3,7 +3,6 @@ export function createGameLoopState() {
     movementQuestReported: false,
     movementQuestDistance: 0,
 
-    pendingWorldCellPlannerClick: null,
     foundationBuildZoneCameraFocus: null,
 
     woodCollectPopEffects: [],

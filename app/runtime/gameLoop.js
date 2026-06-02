@@ -23,6 +23,7 @@ import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.j
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createWorkbenchRotationRuntime } from "./workbenchRotationRuntime.js";
+import { createWorldCellPlannerClickRuntime } from "./worldCellPlannerClickRuntime.js";
 
 import {
   BULBASAUR_LEAFAGE_ARRIVE_DISTANCE,
@@ -2103,6 +2104,7 @@ export function startGameLoop({
     leafageDurationMs: LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS,
     fireDurationMs: FIRE_INVALID_TARGET_PROMPT_DURATION_MS
   });
+  const worldCellPlannerClickRuntime = createWorldCellPlannerClickRuntime();
   const companionLostHintRuntime = createCompanionLostHintRuntime({
     initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
     repeatMs: COMPANION_LOST_HINT_REPEAT_MS,
@@ -8681,19 +8683,17 @@ export function startGameLoop({
 
     event.preventDefault?.();
     event.stopPropagation?.();
-    loopState.pendingWorldCellPlannerClick = {
+    worldCellPlannerClickRuntime.queue({
       clientX: event.clientX,
       clientY: event.clientY
-    };
+    });
   }
 
   function processWorldCellPlannerClick() {
-    if (!loopState.pendingWorldCellPlannerClick) {
+    const request = worldCellPlannerClickRuntime.consume();
+    if (!request) {
       return;
     }
-
-    const request = loopState.pendingWorldCellPlannerClick;
-    loopState.pendingWorldCellPlannerClick = null;
 
     if (!isWorldCellPlannerActive()) {
       return;

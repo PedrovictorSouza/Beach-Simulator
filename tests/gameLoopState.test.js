@@ -8,7 +8,6 @@ describe("createGameLoopState", () => {
     expect(state).toMatchObject({
       movementQuestReported: false,
       movementQuestDistance: 0,
-      pendingWorldCellPlannerClick: null,
       foundationBuildZoneCameraFocus: null
     });
   });
