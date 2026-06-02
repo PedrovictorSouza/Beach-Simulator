@@ -132,8 +132,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the save-point star billboard helper.
 - Completed: prepare the isolated Leppa Tree mission-particle billboard
   helper.
-- Next: integrate the prepared Leppa Tree mission-particle billboard helper
-  without moving narrative conditions or changing render ordering.
+- Completed: integrate the Leppa Tree mission-particle billboard helper.
+- Next: select the next small visual helper boundary without moving
+  placement, construction, music, field moves or camera rules.
 
 ## Validation Log
 
@@ -2097,6 +2098,51 @@ The next integration pass should:
 4. Pass the existing four constants through a config object at the current
    render call site.
 5. Keep the render push in the same order.
+
+Passed:
+
+```sh
+rg -n "leppaTreeMissionParticleBillboards|getLeppaTreeMissionParticleBillboards|LEPPA_TREE_MISSION_PARTICLE" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `22` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1380` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Leppa Tree Mission-Particle Billboard Helper Integration
+
+Integrated `getLeppaTreeMissionParticleBillboards(...)` into `gameLoop.js` and
+removed `29` net lines from the loop module.
+
+Study path:
+
+1. `gameLoop.js` imports the pure helper from
+   `leppaTreeMissionParticleBillboards.js`.
+2. The four existing particle constants keep their original values.
+3. `LEPPA_TREE_MISSION_PARTICLE_BILLBOARD_CONFIG` groups those constants
+   without changing tuning.
+4. The local `getLeppaTreeMissionParticleBillboards(...)` implementation was
+   removed.
+5. `isOpeningLeppaTreeRequestActive(controls.storyState)` remains visible in
+   `gameLoop.js` and supplies the helper's `active` argument.
+6. The existing `nextFrame.render.genericBillboards.push(...)` call remains in
+   the same render position.
+
+The helper owns only deterministic visual calculation. Narrative policy,
+session state, texture selection, render collection ownership and render
+ordering remain in `gameLoop.js`.
 
 Passed:
 
