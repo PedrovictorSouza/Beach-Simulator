@@ -133,8 +133,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated Leppa Tree mission-particle billboard
   helper.
 - Completed: integrate the Leppa Tree mission-particle billboard helper.
-- Next: select the next small visual helper boundary without moving
-  placement, construction, music, field moves or camera rules.
+- Completed: prepare the isolated Bulbasaur interaction-radius gizmo helper.
+- Next: integrate the prepared Bulbasaur interaction-radius gizmo helper
+  without changing encounter visibility or render ordering.
 
 ## Validation Log
 
@@ -2161,6 +2162,55 @@ The focused suite passed with `22` tests and the dev server returned
 baseline:
 
 - `1380` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Bulbasaur Interaction-Radius Gizmo Helper Preparation
+
+Added `bulbasaurInteractionRadiusGizmoBillboards.js` as an isolated, tested pure
+visual helper. It is not imported by `gameLoop.js` yet, so this preparation
+step does not change active rendering behavior.
+
+The helper receives `interactDistance` through config instead of importing the
+gameplay tuning constant. This keeps the visual ring calculation independent
+from encounter policy and preserves the current dependency direction:
+
+1. Hidden encounters, invalid positions or missing textures return an empty
+   list.
+2. The configured dot count is preserved.
+3. Ring radius, dot pulse, alpha and rotation are derived from the current
+   frame timestamp and config.
+4. Each billboard preserves texture, position, size, UV rectangle, alpha and
+   rotation.
+
+The next integration pass should:
+
+1. Import the helper into `gameLoop.js`.
+2. Remove the local `getBulbasaurInteractionRadiusGizmoBillboards(...)`.
+3. Pass `BULBASAUR_TALK_INTERACT_DISTANCE`,
+   `BULBASAUR_INTERACTION_GIZMO_DOT_COUNT` and
+   `BULBASAUR_INTERACTION_GIZMO_DOT_SIZE` through a config object.
+4. Keep encounter visibility checks and render push ordering unchanged.
+
+Passed:
+
+```sh
+rg -n "bulbasaurInteractionRadiusGizmoBillboards|getBulbasaurInteractionRadiusGizmoBillboards|BULBASAUR_INTERACTION_GIZMO" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `25` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1383` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
