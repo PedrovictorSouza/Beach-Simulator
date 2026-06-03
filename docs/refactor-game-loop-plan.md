@@ -134,8 +134,9 @@ There is no dedicated lint or typecheck script in `package.json`.
   helper.
 - Completed: integrate the Leppa Tree mission-particle billboard helper.
 - Completed: prepare the isolated Bulbasaur interaction-radius gizmo helper.
-- Next: integrate the prepared Bulbasaur interaction-radius gizmo helper
-  without changing encounter visibility or render ordering.
+- Completed: integrate the Bulbasaur interaction-radius gizmo helper.
+- Next: select the next small visual helper boundary without moving
+  placement, construction, music, field moves or camera rules.
 
 ## Validation Log
 
@@ -2198,6 +2199,48 @@ Passed:
 
 ```sh
 rg -n "bulbasaurInteractionRadiusGizmoBillboards|getBulbasaurInteractionRadiusGizmoBillboards|BULBASAUR_INTERACTION_GIZMO" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `25` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1383` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Bulbasaur Interaction-Radius Gizmo Helper Integration
+
+Integrated `getBulbasaurInteractionRadiusGizmoBillboards(...)` into
+`gameLoop.js` and removed `21` net lines from the loop module.
+
+Study path:
+
+1. `gameLoop.js` imports the pure helper from
+   `bulbasaurInteractionRadiusGizmoBillboards.js`.
+2. `BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG` groups the existing dot count,
+   dot size and interact-distance constants without changing tuning.
+3. The local `getBulbasaurInteractionRadiusGizmoBillboards(...)`
+   implementation was removed.
+4. The existing `nextFrame.render.genericBillboards.push(...)` call remains in
+   the same render position and passes explicit helper dependencies.
+
+The helper owns only deterministic ring-billboard calculation. Encounter
+state, texture selection, render collection ownership and render ordering remain
+in `gameLoop.js`.
+
+Passed:
+
+```sh
+rg -n "bulbasaurInteractionRadiusGizmoBillboards|getBulbasaurInteractionRadiusGizmoBillboards|BULBASAUR_INTERACTION_GIZMO|BULBASAUR_INTERACTION_RADIUS_GIZMO" app/runtime tests --glob '!*.bak'
 git diff --check
 npm test -- --run tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
 npm test
