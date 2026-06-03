@@ -14,6 +14,7 @@ import {
   resolvePlayerMovementPermission,
   resolveWorldSpaceUiVisibility
 } from "./gameLoopFramePolicies.js";
+import { getBulbasaurInteractionRadiusGizmoBillboards } from "./bulbasaurInteractionRadiusGizmoBillboards.js";
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
@@ -521,6 +522,11 @@ const CAMPFIRE_WOOD_PILE_OFFSETS = Object.freeze([
 ]);
 const BULBASAUR_INTERACTION_GIZMO_DOT_COUNT = 36;
 const BULBASAUR_INTERACTION_GIZMO_DOT_SIZE = 0.16;
+const BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG = Object.freeze({
+  dotCount: BULBASAUR_INTERACTION_GIZMO_DOT_COUNT,
+  dotSize: BULBASAUR_INTERACTION_GIZMO_DOT_SIZE,
+  interactDistance: BULBASAUR_TALK_INTERACT_DISTANCE
+});
 const COMPANION_LOST_HINT_INITIAL_DELAY_MS = 5200;
 const COMPANION_LOST_HINT_REPEAT_MS = 13000;
 const COMPANION_LOST_HINT_DURATION_MS = 3400;
@@ -9931,34 +9937,6 @@ export function startGameLoop({
     });
   }
 
-  function getBulbasaurInteractionRadiusGizmoBillboards(encounter, texture, uvRect, now) {
-    if (!encounter?.visible || !Array.isArray(encounter.position) || !texture) {
-      return [];
-    }
-
-    const [centerX, centerY, centerZ] = encounter.position;
-    const time = now * 0.001;
-
-    return Array.from({ length: BULBASAUR_INTERACTION_GIZMO_DOT_COUNT }, (_, index) => {
-      const angle = (index / BULBASAUR_INTERACTION_GIZMO_DOT_COUNT) * Math.PI * 2;
-      const pulse = 0.82 + Math.sin(time * 4 + index * 0.71) * 0.18;
-      const size = BULBASAUR_INTERACTION_GIZMO_DOT_SIZE * pulse;
-
-      return {
-        texture,
-        position: [
-          centerX + Math.cos(angle) * BULBASAUR_TALK_INTERACT_DISTANCE,
-          centerY + 0.14,
-          centerZ + Math.sin(angle) * BULBASAUR_TALK_INTERACT_DISTANCE
-        ],
-        size: [size, size],
-        uvRect,
-        alpha: 0.74,
-        rotation: angle + time * 0.25
-      };
-    });
-  }
-
   function getRustlingGrassParticleBillboards(groundGrassPatch, texture, now, uvRect) {
     if (!texture) {
       return [];
@@ -13227,12 +13205,13 @@ if (canProcessDestroyAction && destroyActionRequested) {
       });
     }
     nextFrame.render.genericBillboards.push(
-      ...getBulbasaurInteractionRadiusGizmoBillboards(
-        session.bulbasaurEncounter,
-        session.natureRevivalSparkTexture,
-        rendering.fullUvRect,
-        now
-      )
+      ...getBulbasaurInteractionRadiusGizmoBillboards({
+        encounter: session.bulbasaurEncounter,
+        texture: session.natureRevivalSparkTexture,
+        uvRect: rendering.fullUvRect,
+        now,
+        config: BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG
+      })
     );
     if (!session.charmanderEncounter?.modelInstance) {
       nextFrame.render.genericBillboards.push({
