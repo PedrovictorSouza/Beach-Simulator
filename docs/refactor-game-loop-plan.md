@@ -140,8 +140,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated rustling-grass particle helper.
 - Completed: integrate the rustling-grass particle helper.
 - Completed: prepare the isolated leaf billboard helper.
-- Next: integrate the prepared leaf billboard helper without changing leaf drop
-  filtering, resource-node visibility or render ordering.
+- Completed: integrate the leaf billboard helper.
+- Next: select the next small visual helper boundary without moving placement,
+  construction, music, field moves or camera rules.
 
 ## Validation Log
 
@@ -2495,6 +2496,48 @@ existing Leafage Native Tree baseline:
 
 Manual gameplay validation remains pending because this pass did not change
 active runtime wiring.
+
+### Leaf Billboard Helper Integration
+
+Integrated `getLeafDropBillboards(...)` and `getLeafResourceBillboards(...)`
+into `gameLoop.js` and removed `41` net lines from the loop module.
+
+Study path:
+
+1. `gameLoop.js` imports both pure helper functions from `leafBillboards.js`.
+2. The local leaf drop and leaf resource billboard implementations were
+   removed from `startGameLoop()`.
+3. The two render call sites now pass explicit options:
+   `LEAVES_ITEM_ID`, render-distance predicate, prepare distance, leaf resource
+   size and Y offset.
+4. Existing ordering is unchanged: leaf drops are pushed before leaf resource
+   node billboards.
+
+The helper owns only deterministic billboard mapping. Leaf collection,
+resource-node lifecycle, `rendering.isResourceNodeActive`, render-center
+selection and render collection ownership remain in `gameLoop.js`.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "function getLeafResourceBillboards|function getLeafDropBillboards|getLeafResourceBillboards|getLeafDropBillboards|leafBillboards" app/runtime/gameLoop.js app/runtime/leafBillboards.js tests/leafBillboards.test.js
+npm test -- --run tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `35` tests, the production build passed and the
+dev server returned `HTTP 200`. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1393` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not available during this pass.
 
 ### Companion Lost Hint Runtime Preparation
 
