@@ -137,8 +137,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the Bulbasaur interaction-radius gizmo helper.
 - Completed: prepare the isolated repair-box reveal ray helper.
 - Completed: integrate the repair-box reveal ray helper.
-- Next: select the next small visual helper boundary without moving
-  placement, construction, music, field moves or camera rules.
+- Completed: prepare the isolated rustling-grass particle helper.
+- Next: integrate the prepared rustling-grass particle helper without changing
+  Repair Box target selection or render ordering.
 
 ## Validation Log
 
@@ -2349,6 +2350,55 @@ The focused suite passed with `29` tests and the dev server returned
 baseline:
 
 - `1387` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Rustling-Grass Particle Helper Preparation
+
+Added `rustlingGrassParticleBillboards.js` as an isolated, tested pure visual
+helper. It is not imported by `gameLoop.js` yet, so this preparation step does
+not change active rendering behavior.
+
+The helper intentionally keeps the current positional signature from the local
+`gameLoop.js` function. That lets the next integration remove the local
+implementation with minimal call-site churn while preserving the two Repair Box
+render paths.
+
+The helper preserves:
+
+1. empty output when the texture is missing;
+2. the existing five-particle output;
+3. particle cycle, angle, radius, size and vertical lift;
+4. texture, position, size and UV rectangle shape;
+5. deterministic output for a given frame timestamp.
+
+The next integration pass should:
+
+1. Import the helper into `gameLoop.js`.
+2. Remove the local `getRustlingGrassParticleBillboards(...)`.
+3. Keep both existing call sites unchanged or mechanically equivalent.
+4. Preserve the current render ordering: reveal rays first, rustling particles
+   second.
+
+Passed:
+
+```sh
+rg -n "rustlingGrassParticleBillboards|getRustlingGrassParticleBillboards" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `32` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1390` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
