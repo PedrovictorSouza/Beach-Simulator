@@ -136,8 +136,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated Bulbasaur interaction-radius gizmo helper.
 - Completed: integrate the Bulbasaur interaction-radius gizmo helper.
 - Completed: prepare the isolated repair-box reveal ray helper.
-- Next: integrate the prepared repair-box reveal ray helper without changing
-  reveal timing or render ordering.
+- Completed: integrate the repair-box reveal ray helper.
+- Next: select the next small visual helper boundary without moving
+  placement, construction, music, field moves or camera rules.
 
 ## Validation Log
 
@@ -2288,6 +2289,48 @@ The next integration pass should:
    through config.
 4. Keep the existing `repairBoxRevealParticleTarget` render block and push
    ordering unchanged.
+
+Passed:
+
+```sh
+rg -n "repairBoxRevealRayBillboards|getRepairBoxRevealRayBillboards|BULBASAUR_REVEAL_BOX_RAY" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `29` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1387` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Repair-Box Reveal Ray Helper Integration
+
+Integrated `getRepairBoxRevealRayBillboards(...)` into `gameLoop.js` and
+removed `26` net lines from the loop module.
+
+Study path:
+
+1. `gameLoop.js` imports the pure helper from
+   `repairBoxRevealRayBillboards.js`.
+2. `BULBASAUR_REVEAL_BOX_RAY_BILLBOARD_CONFIG` groups the existing ray count,
+   base size and charge-progress tuning without changing numeric behavior.
+3. The local `getRepairBoxRevealRayBillboards(...)` implementation was
+   removed.
+4. The existing `repairBoxRevealParticleTarget` render block remains in the
+   same position and still pushes ray billboards before rustling particles.
+
+The helper owns only deterministic ray-billboard math. Repair Box lifecycle,
+target selection, texture selection, render collection ownership and render
+ordering remain in `gameLoop.js`.
 
 Passed:
 
