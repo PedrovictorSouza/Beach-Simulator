@@ -150,6 +150,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move tall grass instance scale math into the tall grass helper.
 - Completed: extract the interaction info billboard helper.
 - Completed: extract the train house dance helper.
+- Completed: extract the mission target indicator billboard helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -2936,6 +2937,53 @@ passed with `62` tests, the production build passed and the dev server returned
 baseline:
 
 - `1409` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Mission Target Indicator Billboard Helper Extraction
+
+Added `missionTargetIndicatorBillboard.js` for the small spinning mission
+target marker. This moves the marker tuning and billboard math out of
+`gameLoop.js` while keeping mission target resolution and render push order in
+the loop.
+
+Study path:
+
+1. `missionTargetIndicatorBillboard.js` owns
+   `createMissionTargetIndicatorBillboard(...)`.
+2. The helper receives `texture`, `targetPosition`, `now` and `uvRect`
+   explicitly.
+3. `gameLoop.js` still resolves active mission target positions from quest and
+   story state.
+4. `gameLoop.js` still decides when world-space UI is visible and when the
+   billboard is pushed into `nextFrame.render.genericBillboards`.
+5. The helper preserves the same height, size, spin speed, bob, pixel jitter,
+   alpha and rotation math.
+
+This extraction only moves billboard shape/math. It does not change mission
+resolution, quest state, HUD behavior or frame order.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "MISSION_TARGET_INDICATOR|createMissionTargetIndicatorBillboard|missionTargetIndicatorBillboard" app/runtime/gameLoop.js app/runtime/missionTargetIndicatorBillboard.js tests/missionTargetIndicatorBillboard.test.js
+npm test -- --run tests/missionTargetIndicatorBillboard.test.js
+npm test -- --run tests/missionTargetIndicatorBillboard.test.js tests/trainHouseRuntime.test.js tests/workbenchRuntime.test.js tests/tallGrassMotion.test.js tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The mission-target focused test passed with `2` tests, the broader focused
+suite passed with `64` tests, the production build passed and the dev server
+returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1411` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
