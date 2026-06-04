@@ -24,6 +24,7 @@ import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
+import { getRepairBoxRevealRayBillboards } from "./repairBoxRevealRayBillboards.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { getSavePointStarBillboards } from "./savePointStarBillboards.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
@@ -562,6 +563,12 @@ const BULBASAUR_REVEAL_BOX_SHAKE_END_PROGRESS = 0.56;
 const BULBASAUR_REVEAL_BOX_SPIN_ACCELERATION = Math.PI * 8.2;
 const BULBASAUR_REVEAL_BOX_RAY_COUNT = 10;
 const BULBASAUR_REVEAL_BOX_RAY_BASE_SIZE = 0.18;
+const BULBASAUR_REVEAL_BOX_RAY_CHARGE_PROGRESS_MAX = 0.72;
+const BULBASAUR_REVEAL_BOX_RAY_BILLBOARD_CONFIG = Object.freeze({
+  count: BULBASAUR_REVEAL_BOX_RAY_COUNT,
+  baseSize: BULBASAUR_REVEAL_BOX_RAY_BASE_SIZE,
+  chargeProgressMax: BULBASAUR_REVEAL_BOX_RAY_CHARGE_PROGRESS_MAX
+});
 const BULBASAUR_REVEAL_FLASH_PEAK_OPACITY = 1;
 const BULBASAUR_REVEAL_BOT_FALL_HEIGHT = 1.82;
 const BULBASAUR_REVEAL_BOT_FALL_END_PROGRESS = 0.96;
@@ -9963,41 +9970,6 @@ export function startGameLoop({
     });
   }
 
-  function getRepairBoxRevealRayBillboards(target, texture, now, uvRect) {
-    if (!texture || !target?.position) {
-      return [];
-    }
-
-    const progress = clamp01(Number(target.progress || 0));
-    const charge = Math.sin(clamp01(progress / 0.72) * Math.PI * 0.5);
-    const time = now * 0.001;
-
-    return Array.from({ length: BULBASAUR_REVEAL_BOX_RAY_COUNT }, (_, index) => {
-      const lane = index / BULBASAUR_REVEAL_BOX_RAY_COUNT;
-      const cycle = (time * (0.72 + charge * 1.2) + lane) % 1;
-      const angle = lane * Math.PI * 2 + time * (0.7 + charge * 2.2);
-      const radius = 0.14 + cycle * (0.62 + charge * 0.34);
-      const lift = 0.14 + cycle * (1.32 + charge * 0.54);
-      const size =
-        BULBASAUR_REVEAL_BOX_RAY_BASE_SIZE *
-        (0.8 + charge * 1.15) *
-        (1 - cycle * 0.34);
-
-      return {
-        texture,
-        position: [
-          target.position[0] + Math.cos(angle) * radius,
-          target.position[1] + lift,
-          target.position[2] + Math.sin(angle) * radius
-        ],
-        size: [size * 0.72, size * 1.9],
-        uvRect,
-        alpha: 0.38 + charge * 0.5,
-        rotation: angle + Math.PI * 0.5
-      };
-    });
-  }
-
   function resolveFramePlacementPrompts({
     solarStationPlacementPreview,
     greenhousePlacementPreview,
@@ -12746,12 +12718,14 @@ if (canProcessDestroyAction && destroyActionRequested) {
 
     if (repairBoxRevealParticleTarget) {
       nextFrame.render.genericBillboards.push(
-        ...getRepairBoxRevealRayBillboards(
-          repairBoxRevealParticleTarget,
-          session.natureRevivalSparkTexture,
+        ...getRepairBoxRevealRayBillboards({
+          target: repairBoxRevealParticleTarget,
+          texture: session.natureRevivalSparkTexture,
           now,
-          rendering.fullUvRect
-        ),
+          uvRect: rendering.fullUvRect,
+          clamp01,
+          config: BULBASAUR_REVEAL_BOX_RAY_BILLBOARD_CONFIG
+        }),
         ...getRustlingGrassParticleBillboards(
           repairBoxRevealParticleTarget,
           session.natureRevivalSparkTexture,
