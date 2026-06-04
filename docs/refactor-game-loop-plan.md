@@ -152,6 +152,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the train house dance helper.
 - Completed: extract the mission target indicator billboard helper.
 - Completed: extract the Leppa Tree music notes helper.
+- Completed: extract the Campfire wood pile billboard helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3032,6 +3033,53 @@ server returned `HTTP 200`. `npm test` completed with the existing Leafage
 Native Tree baseline:
 
 - `1414` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Campfire Wood Pile Billboard Helper Extraction
+
+Added `campfireWoodPileBillboards.js` for the unlit Campfire Wood pile visual.
+This moves the static wood offsets and billboard construction out of
+`gameLoop.js`.
+
+Study path:
+
+1. `campfireWoodPileBillboards.js` owns
+   `getCampfireWoodPileBillboards(...)`.
+2. The helper imports `CAMPFIRE_WOOD_PILE_SIZE` from the existing presentation
+   tuning module.
+3. `gameLoop.js` still decides whether the campfire is spat out, lit, or
+   replaced by the train-house model.
+4. `gameLoop.js` still pushes the returned billboards into
+   `nextFrame.render.genericBillboards` in the same render-prep position.
+5. The helper preserves the same five offsets, rotations, texture, uvRect and
+   size behavior.
+
+This extraction does not change Campfire placement, crafting, lighting,
+Charmander story flags, train-house model behavior or frame order. It only
+moves the wood-pile billboard shape.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "CAMPFIRE_WOOD_PILE|getCampfireWoodPileBillboards|campfireWoodPileBillboards" app/runtime/gameLoop.js app/runtime/campfireWoodPileBillboards.js tests/campfireWoodPileBillboards.test.js
+npm test -- --run tests/campfireWoodPileBillboards.test.js
+npm test -- --run tests/campfireWoodPileBillboards.test.js tests/leppaTreeMusicNotes.test.js tests/missionTargetIndicatorBillboard.test.js tests/trainHouseRuntime.test.js tests/workbenchRuntime.test.js tests/tallGrassMotion.test.js tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The Campfire wood-pile focused test passed with `2` tests, the broader focused
+suite passed with `69` tests, the production build passed and the dev server
+returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1416` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
