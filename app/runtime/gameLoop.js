@@ -32,6 +32,7 @@ import {
   getLeafResourceBillboards
 } from "./leafBillboards.js";
 import { getLeppaTreeMissionParticleBillboards } from "./leppaTreeMissionParticleBillboards.js";
+import { createMissionTargetIndicatorBillboard } from "./missionTargetIndicatorBillboard.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
@@ -455,9 +456,6 @@ const BULBASAUR_WORKBENCH_GUIDE_WAYPOINT_DISTANCE = 0.08;
 const BULBASAUR_WORKBENCH_GUIDE_RAMP_COLLIDER_ID = "workbench-ramp-collider";
 const BULBASAUR_WORKBENCH_GUIDE_RAMP_APPROACH_MARGIN = 0.92;
 const BULBASAUR_WORKBENCH_GUIDE_SIDE_APPROACH_MARGIN = 1.22;
-const MISSION_TARGET_INDICATOR_HEIGHT = 2.35;
-const MISSION_TARGET_INDICATOR_SIZE = 0.82;
-const MISSION_TARGET_INDICATOR_SPIN_SPEED = 0.0048;
 const CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET = [-1.12, 0, -0.86];
 const CHOPPER_BULBASAUR_REPAIR_BOX_SPEECH = "What is this?";
 const BEE_FIELD_FLOWER_GROUP_ID = "water-gun-flower-field-0";
@@ -2490,34 +2488,6 @@ export function startGameLoop({
     addUniqueMissionTargetPositions(targetPositions, getTrackedMissionTargetPositions(storyState));
     addUniqueMissionTargetPositions(targetPositions, getActiveQuestMissionTargetPositions(activeQuest, storyState));
     return targetPositions;
-  }
-
-  function createMissionTargetIndicatorBillboard(targetPosition, now, fullUvRect) {
-    if (!session.missionTargetIndicatorTexture || !Array.isArray(targetPosition)) {
-      return null;
-    }
-
-    const spin = now * MISSION_TARGET_INDICATOR_SPIN_SPEED;
-    const widthScale = 0.18 + Math.abs(Math.cos(spin)) * 0.82;
-    const bob = Math.sin(now * 0.0052) * 0.13;
-    const pixelJitter = Math.round(Math.sin(now * 0.031) * 2) * 0.01;
-    const alpha = 0.72 + Math.abs(Math.sin(spin)) * 0.22;
-
-    return {
-      texture: session.missionTargetIndicatorTexture,
-      position: [
-        targetPosition[0] + pixelJitter,
-        targetPosition[1] + MISSION_TARGET_INDICATOR_HEIGHT + bob,
-        targetPosition[2]
-      ],
-      size: [
-        MISSION_TARGET_INDICATOR_SIZE * widthScale,
-        MISSION_TARGET_INDICATOR_SIZE
-      ],
-      uvRect: fullUvRect,
-      alpha,
-      rotation: Math.sin(spin * 2) * 0.035
-    };
   }
 
   function getSnappedSolarStationPreviewPosition(preview) {
@@ -12760,11 +12730,12 @@ if (canProcessDestroyAction && destroyActionRequested) {
     if (canShowWorldSpaceUi) {
       const missionTargetPositions = getMissionTargetPositions(activeQuest, controls.storyState);
       for (const missionTargetPosition of missionTargetPositions) {
-        const missionTargetIndicatorBillboard = createMissionTargetIndicatorBillboard(
-          missionTargetPosition,
+        const missionTargetIndicatorBillboard = createMissionTargetIndicatorBillboard({
+          texture: session.missionTargetIndicatorTexture,
+          targetPosition: missionTargetPosition,
           now,
-          rendering.fullUvRect
-        );
+          uvRect: rendering.fullUvRect
+        });
 
         if (missionTargetIndicatorBillboard) {
           nextFrame.render.genericBillboards.push(missionTargetIndicatorBillboard);
