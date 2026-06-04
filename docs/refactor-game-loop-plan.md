@@ -143,8 +143,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the leaf billboard helper.
 - Completed: prepare the isolated flower arrangement billboard helper.
 - Completed: integrate the flower arrangement billboard helper.
-- Next: select the next small visual helper boundary without moving placement,
-  construction, music, field moves or camera rules.
+- Completed: prepare the isolated grass player bend helper.
+- Next: integrate the prepared grass player bend helper without changing grass
+  bend radius, offset, sway or overlap fallback behavior.
 
 ## Validation Log
 
@@ -2629,6 +2630,54 @@ Native Tree baseline:
 
 Manual visual gameplay validation remains pending because the in-app browser
 backend was not available during this pass.
+
+### Grass Player Bend Helper Preparation
+
+Added `grassPlayerBend.js` as an isolated, tested visual helper. It is not
+imported by `gameLoop.js` yet, so this preparation step does not change active
+grass rendering behavior.
+
+The helper preserves the current grass-player interaction math:
+
+1. invalid patch or player inputs return a neutral bend;
+2. patches at or beyond the bend radius return a neutral bend;
+3. nearby player position produces the existing `offsetX`, `offsetZ` and
+   `swayStrength`;
+4. exact player/patch overlap preserves the current fallback behavior, including
+   the large offset caused by `deltaX = 1` with `distance = 0.001`.
+
+That overlap behavior looks surprising, but it is existing behavior and was
+documented in the test instead of being changed during this refactor.
+
+The next integration pass should:
+
+1. Import `getGrassPlayerBend(...)` into `gameLoop.js`.
+2. Remove the local `getGrassPlayerBend(...)` implementation and the
+   `GRASS_PLAYER_BEND_*` constants from `gameLoop.js`.
+3. Keep the existing call site in the `groundGrassPatches` render loop.
+4. Preserve model-selection branches, rustle offsets, tall grass sway, Leafage
+   object visuals and render ordering.
+
+Passed:
+
+```sh
+npm test -- --run tests/grassPlayerBend.test.js
+git diff --check
+rg -n "grassPlayerBend|getGrassPlayerBend|GRASS_PLAYER_BEND" app/runtime tests --glob '!*.bak'
+npm test -- --run tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+```
+
+The isolated helper test passed with `4` tests, the focused suite passed with
+`42` tests and the production build passed. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1400` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because this pass did not change
+active runtime wiring.
 
 ### Companion Lost Hint Runtime Preparation
 
