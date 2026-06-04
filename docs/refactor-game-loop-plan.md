@@ -139,8 +139,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the repair-box reveal ray helper.
 - Completed: prepare the isolated rustling-grass particle helper.
 - Completed: integrate the rustling-grass particle helper.
-- Next: select the next small visual helper boundary without moving placement,
-  construction, music, field moves or camera rules.
+- Completed: prepare the isolated leaf billboard helper.
+- Next: integrate the prepared leaf billboard helper without changing leaf drop
+  filtering, resource-node visibility or render ordering.
 
 ## Validation Log
 
@@ -2445,6 +2446,55 @@ baseline:
 
 Manual gameplay validation remains pending because the in-app browser backend
 was not available during this pass.
+
+### Leaf Billboard Helper Preparation
+
+Added `leafBillboards.js` as an isolated, tested pure visual helper. It is not
+imported by `gameLoop.js` yet, so this preparation step does not change active
+rendering behavior.
+
+The helper owns only billboard projection for existing leaf sources:
+
+1. `getLeafResourceBillboards(...)` maps active matching resource nodes to leaf
+   billboards.
+2. `getLeafDropBillboards(...)` maps uncollected matching field drops to leaf
+   billboards.
+3. Item id, render-distance predicate, resource-active predicate and tuning are
+   passed explicitly.
+4. The helper has no imports and does not read `gameLoop.js` state.
+
+The next integration pass should:
+
+1. Import both helper functions into `gameLoop.js`.
+2. Remove the local `getLeafResourceBillboards(...)` and
+   `getLeafDropBillboards(...)` implementations.
+3. Pass the existing `LEAVES_ITEM_ID`, `rendering.isResourceNodeActive`,
+   `isWorldPositionWithinRenderDistance`, `NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE`,
+   `LEAF_RESOURCE_BILLBOARD_Y_OFFSET` and `LEAF_RESOURCE_BILLBOARD_SIZE` values
+   through the helper options.
+4. Preserve the current render ordering: field drops first, resource nodes
+   second.
+
+Passed:
+
+```sh
+npm test -- --run tests/leafBillboards.test.js
+git diff --check
+rg -n "leafBillboards|getLeafResourceBillboards|getLeafDropBillboards" app/runtime tests --glob '!*.bak'
+npm test -- --run tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+```
+
+The isolated helper test passed with `3` tests, the focused suite passed with
+`35` tests and the production build passed. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1393` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because this pass did not change
+active runtime wiring.
 
 ### Companion Lost Hint Runtime Preparation
 
