@@ -144,8 +144,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated flower arrangement billboard helper.
 - Completed: integrate the flower arrangement billboard helper.
 - Completed: prepare the isolated grass player bend helper.
-- Next: integrate the prepared grass player bend helper without changing grass
-  bend radius, offset, sway or overlap fallback behavior.
+- Completed: integrate the grass player bend helper.
+- Next: select the next small visual helper boundary without moving placement,
+  construction, music, field moves or camera rules.
 
 ## Validation Log
 
@@ -2678,6 +2679,44 @@ existing Leafage Native Tree baseline:
 
 Manual gameplay validation remains pending because this pass did not change
 active runtime wiring.
+
+### Grass Player Bend Helper Integration
+
+Integrated `getGrassPlayerBend(...)` into `gameLoop.js` and removed `41` net
+lines from the loop module.
+
+Study path:
+
+1. `gameLoop.js` imports `getGrassPlayerBend(...)` from `grassPlayerBend.js`.
+2. The local `GRASS_PLAYER_BEND_*` constants were removed from `gameLoop.js`.
+3. The local `getGrassPlayerBend(...)` implementation was removed.
+4. The existing call site remains in the `groundGrassPatches` render loop.
+
+The helper owns only grass-player bend math. Grass patch filtering,
+model-selection branches, rustle offsets, tall grass sway, Leafage object
+visuals and render ordering remain in `gameLoop.js`.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "function getGrassPlayerBend|GRASS_PLAYER_BEND|getGrassPlayerBend|grassPlayerBend" app/runtime/gameLoop.js app/runtime/grassPlayerBend.js tests/grassPlayerBend.test.js
+npm test -- --run tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `42` tests, the production build passed and the
+dev server returned `HTTP 200`. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1400` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not available during this pass.
 
 ### Companion Lost Hint Runtime Preparation
 
