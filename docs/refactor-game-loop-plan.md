@@ -151,6 +151,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the interaction info billboard helper.
 - Completed: extract the train house dance helper.
 - Completed: extract the mission target indicator billboard helper.
+- Completed: extract the Leppa Tree music notes helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -2984,6 +2985,53 @@ returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
 - `1411` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Leppa Tree Music Notes Helper Extraction
+
+Added `leppaTreeMusicNotes.js` for the revived Leppa Tree music-note particle
+loop. This moves particle creation, note emission, particle aging and billboard
+mapping out of `gameLoop.js`.
+
+Study path:
+
+1. `leppaTreeMusicNotes.js` owns `updateLeppaTreeMusicNotes(...)` and
+   `getLeppaTreeMusicNoteBillboards(...)`.
+2. The helper still stores runtime particle state on `leppaTree.musicNotes`,
+   matching the previous behavior.
+3. `gameLoop.js` still calls the update immediately after
+   `gameplay.syncLeppaTreeState(...)` and `updateLeppaTreeDance(...)`.
+4. `gameLoop.js` still pushes the resulting billboards into
+   `nextFrame.render.genericBillboards` in the same render-prep position.
+5. The helper preserves the same emit interval, max particle count, burst
+   count, duration, base height, image aspects, drift, fade and wobble math.
+
+This extraction does not change Leppa Tree revival rules, mission particles,
+Leafage behavior, music/audio, quest state or frame order. It only moves the
+note-particle state update and billboard mapping.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "LEPPA_TREE_MUSIC_NOTE|createLeppaTreeMusicNoteParticle|resetLeppaTreeMusicNotes|updateLeppaTreeMusicNotes|getLeppaTreeMusicNoteBillboards|leppaTreeMusicNotes" app/runtime/gameLoop.js app/runtime/leppaTreeMusicNotes.js tests/leppaTreeMusicNotes.test.js
+npm test -- --run tests/leppaTreeMusicNotes.test.js
+npm test -- --run tests/leppaTreeMusicNotes.test.js tests/missionTargetIndicatorBillboard.test.js tests/trainHouseRuntime.test.js tests/workbenchRuntime.test.js tests/tallGrassMotion.test.js tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The Leppa Tree music-notes focused test passed with `3` tests, the broader
+focused suite passed with `67` tests, the production build passed and the dev
+server returned `HTTP 200`. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1414` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
