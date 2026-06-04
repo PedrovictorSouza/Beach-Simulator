@@ -145,8 +145,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the flower arrangement billboard helper.
 - Completed: prepare the isolated grass player bend helper.
 - Completed: integrate the grass player bend helper.
-- Next: select the next small visual helper boundary without moving placement,
-  construction, music, field moves or camera rules.
+- Completed: prepare the isolated tall grass motion helper.
+- Next: integrate the prepared tall grass motion helper without changing tall
+  grass yaw, ambient sway, rustle sway or render ordering.
 
 ## Validation Log
 
@@ -2717,6 +2718,51 @@ Native Tree baseline:
 
 Manual visual gameplay validation remains pending because the in-app browser
 backend was not available during this pass.
+
+### Tall Grass Motion Helper Preparation
+
+Added `tallGrassMotion.js` as an isolated, tested visual helper. It is not
+imported by `gameLoop.js` yet, so this preparation step does not change active
+grass rendering behavior.
+
+The helper preserves the current tall-grass visual motion math:
+
+1. `getTallGrassYaw(...)` keeps the stable hash-based yaw from patch
+   `cellId:id`.
+2. Missing patch identity still resolves to the same fallback yaw.
+3. `getTallGrassSway(...)` keeps the ambient time/position sway.
+4. Rustling encounters add the existing rustle sway term.
+
+The next integration pass should:
+
+1. Import `getTallGrassYaw(...)` and `getTallGrassSway(...)` into
+   `gameLoop.js`.
+2. Remove the local `getTallGrassYaw(...)`, local `getTallGrassSway(...)` and
+   local `getStableHash(...)` from `gameLoop.js` if no longer used there.
+3. Keep all existing call sites in place.
+4. Preserve model-selection branches, rustle offsets, grass player bend,
+   Leafage object visuals and render ordering.
+
+Passed:
+
+```sh
+npm test -- --run tests/tallGrassMotion.test.js
+git diff --check
+rg -n "tallGrassMotion|getTallGrassYaw|getTallGrassSway|getStableHash" app/runtime tests --glob '!*.bak'
+npm test -- --run tests/tallGrassMotion.test.js tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+```
+
+The isolated helper test passed with `4` tests, the focused suite passed with
+`46` tests and the production build passed. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1404` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because this pass did not change
+active runtime wiring.
 
 ### Companion Lost Hint Runtime Preparation
 
