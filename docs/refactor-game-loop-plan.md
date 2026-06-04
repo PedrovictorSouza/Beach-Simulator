@@ -141,8 +141,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the rustling-grass particle helper.
 - Completed: prepare the isolated leaf billboard helper.
 - Completed: integrate the leaf billboard helper.
-- Next: select the next small visual helper boundary without moving placement,
-  construction, music, field moves or camera rules.
+- Completed: prepare the isolated flower arrangement billboard helper.
+- Next: integrate the prepared flower arrangement billboard helper without
+  changing flower jitter caching, player reaction or render ordering.
 
 ## Validation Log
 
@@ -2538,6 +2539,54 @@ Native Tree baseline:
 
 Manual visual gameplay validation remains pending because the in-app browser
 backend was not available during this pass.
+
+### Flower Arrangement Billboard Helper Preparation
+
+Added `flowerArrangementBillboards.js` as an isolated, tested visual helper. It
+is not imported by `gameLoop.js` yet, so this preparation step does not change
+active rendering behavior.
+
+The helper intentionally preserves the current side effect on
+`groundFlowerPatch`:
+
+1. It stores `flowerArrangementSeedHash` on the patch.
+2. It stores `flowerArrangementJitters` on the patch.
+3. It reuses that cached jitter on later calls.
+
+This cache belongs to the visual arrangement behavior because it keeps flowers
+stable between frames. The helper also preserves the existing player reaction:
+nearby player position can add scatter, lift, scale and rotation response.
+
+The next integration pass should:
+
+1. Import `getFlowerArrangementBillboards(...)` into `gameLoop.js`.
+2. Remove the local implementation and the flower-arrangement constants from
+   `gameLoop.js`.
+3. Keep the existing call site inside the `groundFlowerPatches` render loop.
+4. Preserve the current behavior: alive flower patches append arrangement
+   billboards to `nextFrame.render.flowerBillboards`; dead flower patches still
+   push the existing single dead-flower billboard.
+
+Passed:
+
+```sh
+npm test -- --run tests/flowerArrangementBillboards.test.js
+git diff --check
+rg -n "flowerArrangementBillboards|getFlowerArrangementBillboards" app/runtime tests --glob '!*.bak'
+npm test -- --run tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+```
+
+The isolated helper test passed with `3` tests, the focused suite passed with
+`38` tests and the production build passed. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1396` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because this pass did not change
+active runtime wiring.
 
 ### Companion Lost Hint Runtime Preparation
 
