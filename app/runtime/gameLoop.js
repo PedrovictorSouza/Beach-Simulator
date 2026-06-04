@@ -18,6 +18,7 @@ import { getBulbasaurInteractionRadiusGizmoBillboards } from "./bulbasaurInterac
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
 import { getFlowerArrangementBillboards } from "./flowerArrangementBillboards.js";
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
+import { getGrassPlayerBend } from "./grassPlayerBend.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import { createLandscapeCutEffectRuntime } from "./landscapeCutEffectRuntime.js";
 import {
@@ -604,9 +605,6 @@ const PLAYER_WALK_ARM_BACK_PITCH = -0.16;
 const PLAYER_WALK_BODY_BOB = 0.075;
 const PLAYER_JUMP_FLIP_DURATION = 0.58;
 const PLAYER_JUMP_FLIP_ROTATION = Math.PI * 2;
-const GRASS_PLAYER_BEND_RADIUS = 0.92;
-const GRASS_PLAYER_BEND_OFFSET = 0.14;
-const GRASS_PLAYER_BEND_SWAY = 0.18;
 const GRASS_OBJECT_COLLISION_ALPHA = 0.5;
 const GRASS_OBJECT_COLLISION_BASE_RADIUS = 0.58;
 const NATURE_PATCH_GRASS_MODEL_LOD_DISTANCE = 28;
@@ -703,45 +701,6 @@ function getTallGrassSway(groundGrassPatch, shouldRustle, now) {
   const ambient = Math.sin(now * 0.0018 + position[0] * 0.63 + position[2] * 0.41) * 0.018;
   const rustle = shouldRustle ? Math.sin(now * 0.024) * 0.09 : 0;
   return ambient + rustle;
-}
-
-function getGrassPlayerBend(groundGrassPatch, playerPosition) {
-  if (!Array.isArray(groundGrassPatch?.position) || !Array.isArray(playerPosition)) {
-    return {
-      offsetX: 0,
-      offsetZ: 0,
-      swayStrength: 0
-    };
-  }
-
-  let deltaX = groundGrassPatch.position[0] - playerPosition[0];
-  let deltaZ = groundGrassPatch.position[2] - playerPosition[2];
-  let distance = Math.hypot(deltaX, deltaZ);
-
-  if (distance >= GRASS_PLAYER_BEND_RADIUS) {
-    return {
-      offsetX: 0,
-      offsetZ: 0,
-      swayStrength: 0
-    };
-  }
-
-  if (distance < 0.001) {
-    deltaX = 1;
-    deltaZ = 0;
-    distance = 0.001;
-  }
-
-  const proximity = 1 - distance / GRASS_PLAYER_BEND_RADIUS;
-  const strength = proximity * proximity;
-  const directionX = deltaX / distance;
-  const directionZ = deltaZ / distance;
-
-  return {
-    offsetX: directionX * GRASS_PLAYER_BEND_OFFSET * strength,
-    offsetZ: directionZ * GRASS_PLAYER_BEND_OFFSET * strength,
-    swayStrength: directionX * GRASS_PLAYER_BEND_SWAY * strength
-  };
 }
 
 function clamp01(value) {
