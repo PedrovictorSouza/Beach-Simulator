@@ -149,6 +149,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the tall grass motion helper.
 - Completed: move tall grass instance scale math into the tall grass helper.
 - Completed: extract the interaction info billboard helper.
+- Completed: extract the train house dance helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -2886,6 +2887,51 @@ curl -sI http://127.0.0.1:5173/
 
 The Workbench focused test passed with `8` tests, the broader focused suite
 passed with `57` tests, the production build passed and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1409` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Train House Dance Helper Extraction
+
+Added `trainHouseDance.js` for the Thermal Cabin model dance animation. This
+removed `28` local implementation lines from `gameLoop.js` and moved the
+`TRAIN_HOUSE_DANCE_*` tuning imports into the helper.
+
+Study path:
+
+1. `trainHouseDance.js` owns `applyTrainHouseDance(...)`.
+2. `gameLoop.js` imports that helper for its existing internal call site.
+3. `gameLoop.js` re-exports `applyTrainHouseDance(...)`, preserving the public
+   test/import contract used by `tests/trainHouseRuntime.test.js`.
+4. The helper still mutates the same model instance fields: base scale, base
+   yaw, ground pivot, offset, scale, yaw, sway strength and active flag.
+5. Thermal Cabin music, completion rules, placement/construction and render
+   order remain in `gameLoop.js`.
+
+This extraction only moves the visual dance mutation for the Thermal Cabin
+model. It does not alter tuning values, home-beat conditions, audio, placement
+or frame order.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "applyTrainHouseDance|TRAIN_HOUSE_DANCE" app/runtime/gameLoop.js app/runtime/trainHouseDance.js tests/trainHouseRuntime.test.js --glob '!*.bak'
+npm test -- --run tests/trainHouseRuntime.test.js
+npm test -- --run tests/trainHouseRuntime.test.js tests/workbenchRuntime.test.js tests/tallGrassMotion.test.js tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The Thermal Cabin focused test passed with `5` tests, the broader focused suite
+passed with `62` tests, the production build passed and the dev server returned
 `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
