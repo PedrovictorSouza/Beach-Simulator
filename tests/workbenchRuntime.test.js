@@ -6,8 +6,39 @@ import {
   hasPendingWorkbenchPlacementIntent,
   shouldShowWorkbenchGreenArrowCue
 } from "../app/runtime/gameLoop.js";
+import {
+  createInteractionInfoBillboard,
+  WORKBENCH_INFO_ICON_OFFSET
+} from "../app/runtime/interactionInfoBillboards.js";
 
 describe("Workbench runtime feedback", () => {
+  it("creates an interaction info billboard from a base position and offset", () => {
+    const texture = { id: "workbench-marker" };
+    const billboard = createInteractionInfoBillboard(
+      texture,
+      [10, 0.02, -4],
+      WORKBENCH_INFO_ICON_OFFSET,
+      [0, 0, 1, 1]
+    );
+
+    expect(billboard).toEqual({
+      texture,
+      position: [
+        11.42,
+        1.36,
+        -4.42
+      ],
+      size: [0.72, 0.72],
+      uvRect: [0, 0, 1, 1]
+    });
+  });
+
+  it("skips interaction info billboards without required inputs", () => {
+    expect(createInteractionInfoBillboard(null, [0, 0, 0], [1, 1, 1], null)).toBeNull();
+    expect(createInteractionInfoBillboard({ id: "marker" }, null, [1, 1, 1], null)).toBeNull();
+    expect(createInteractionInfoBillboard({ id: "marker" }, [0, 0, 0], null, null)).toBeNull();
+  });
+
   it("creates a stable particle marker around the Workbench interaction spot", () => {
     const texture = { id: "spark" };
     const billboards = getWorkbenchInteractionParticleBillboards({
