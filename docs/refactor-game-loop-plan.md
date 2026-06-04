@@ -147,6 +147,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the grass player bend helper.
 - Completed: prepare the isolated tall grass motion helper.
 - Completed: integrate the tall grass motion helper.
+- Completed: move tall grass instance scale math into the tall grass helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -2801,6 +2802,48 @@ dev server returned `HTTP 200`. `npm test` completed with the existing Leafage
 Native Tree baseline:
 
 - `1404` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Tall Grass Instance Scale Helper Extension
+
+Moved `getTallGrassInstanceScale(...)` and the `TALL_GRASS_MIN_FOOTPRINT`
+constant into `tallGrassMotion.js`. This keeps the same `1.28` minimum
+footprint and preserves all existing render call sites in `gameLoop.js`.
+
+Study path:
+
+1. `tallGrassMotion.js` now exports `TALL_GRASS_MIN_FOOTPRINT`.
+2. `tallGrassMotion.js` now exports `getTallGrassInstanceScale(...)`.
+3. `gameLoop.js` imports both values and no longer owns the local scale helper.
+4. Existing uses in landscape-cut renderables and grass render preparation
+   remain in the same order.
+5. Grass billboard fallback sizing still uses the same minimum footprint value.
+
+The helper owns only pure tall-grass visual math. Model availability checks,
+Leafage object branches, session instance pushes, player bend and render
+ordering remain in `gameLoop.js`.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "const TALL_GRASS_MIN_FOOTPRINT|function getTallGrassInstanceScale|getTallGrassInstanceScale|tallGrassMotion" app/runtime/gameLoop.js app/runtime/tallGrassMotion.js tests/tallGrassMotion.test.js --glob '!*.bak'
+npm test -- --run tests/tallGrassMotion.test.js
+npm test -- --run tests/tallGrassMotion.test.js tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The isolated helper test passed with `7` tests, the focused suite passed with
+`49` tests, the production build passed and the dev server returned `HTTP 200`.
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1407` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
