@@ -138,8 +138,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated repair-box reveal ray helper.
 - Completed: integrate the repair-box reveal ray helper.
 - Completed: prepare the isolated rustling-grass particle helper.
-- Next: integrate the prepared rustling-grass particle helper without changing
-  Repair Box target selection or render ordering.
+- Completed: integrate the rustling-grass particle helper.
+- Next: select the next small visual helper boundary without moving placement,
+  construction, music, field moves or camera rules.
 
 ## Validation Log
 
@@ -2381,6 +2382,47 @@ The next integration pass should:
 3. Keep both existing call sites unchanged or mechanically equivalent.
 4. Preserve the current render ordering: reveal rays first, rustling particles
    second.
+
+Passed:
+
+```sh
+rg -n "rustlingGrassParticleBillboards|getRustlingGrassParticleBillboards" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `32` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1390` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Rustling-Grass Particle Helper Integration
+
+Integrated `getRustlingGrassParticleBillboards(...)` into `gameLoop.js` and
+removed `25` net lines from the loop module.
+
+Study path:
+
+1. `gameLoop.js` imports the pure helper from
+   `rustlingGrassParticleBillboards.js`.
+2. The local `getRustlingGrassParticleBillboards(...)` implementation was
+   removed.
+3. Both existing call sites keep the same argument order and remain in the same
+   Repair Box render block.
+4. Reveal rays are still pushed before rustling particles.
+
+The helper owns only deterministic rustling-particle math. Repair Box target
+selection, texture selection, render collection ownership and render ordering
+remain in `gameLoop.js`.
 
 Passed:
 
