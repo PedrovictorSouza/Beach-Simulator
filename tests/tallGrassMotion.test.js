@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getTallGrassInstanceScale,
   getTallGrassSway,
-  getTallGrassYaw
+  getTallGrassYaw,
+  TALL_GRASS_MIN_FOOTPRINT
 } from "../app/runtime/tallGrassMotion.js";
 
 describe("tall grass motion", () => {
@@ -39,5 +41,34 @@ describe("tall grass motion", () => {
     const rustling = getTallGrassSway(patch, true, 500);
 
     expect(rustling).toBeCloseTo(ambient - 0.048292);
+  });
+
+  it("keeps revival scale when the model has no usable footprint", () => {
+    expect(getTallGrassInstanceScale(
+      null,
+      { size: [1.6, 1.6] },
+      0.75
+    )).toBe(0.75);
+    expect(getTallGrassInstanceScale(
+      { size: [0, 1, 0] },
+      { size: [1.6, 1.6] },
+      0.75
+    )).toBe(0.75);
+  });
+
+  it("scales the instance from target footprint and model footprint", () => {
+    expect(getTallGrassInstanceScale(
+      { size: [2, 1, 1] },
+      { size: [1.5, 1.5] },
+      0.8
+    )).toBeCloseTo(0.6);
+  });
+
+  it("uses the minimum footprint when the patch is smaller", () => {
+    expect(getTallGrassInstanceScale(
+      { size: [2, 1, 1] },
+      { size: [0.5, 0.5] },
+      1
+    )).toBeCloseTo(TALL_GRASS_MIN_FOOTPRINT / 2);
   });
 });

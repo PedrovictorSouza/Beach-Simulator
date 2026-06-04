@@ -36,8 +36,10 @@ import { getRustlingGrassParticleBillboards } from "./rustlingGrassParticleBillb
 import { getSavePointStarBillboards } from "./savePointStarBillboards.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import {
+  getTallGrassInstanceScale,
   getTallGrassSway,
-  getTallGrassYaw
+  getTallGrassYaw,
+  TALL_GRASS_MIN_FOOTPRINT
 } from "./tallGrassMotion.js";
 import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
@@ -480,7 +482,6 @@ const COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS = Object.freeze({
 const COMPANION_FOLLOW_LINE_FIRST_DISTANCE = 1.18;
 const COMPANION_FOLLOW_LINE_SLOT_SPACING = 1.18;
 const COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE = 0.08;
-const TALL_GRASS_MIN_FOOTPRINT = 1.28;
 const WOOD_COLLECT_POP_DURATION = 0.34;
 const WOOD_COLLECT_POP_LIFT = 0.24;
 const WOOD_COLLECT_POP_SCALE = 1.65;
@@ -663,23 +664,6 @@ function debugInteractionFlow(node, payload = {}) {
   }
 
   console.log(`[interaction-flow:${node}]`, payload);
-}
-
-function getTallGrassInstanceScale(tallGrassModel, groundGrassPatch, revivalScale) {
-  const modelFootprint = Math.max(
-    tallGrassModel?.size?.[0] || 0,
-    tallGrassModel?.size?.[2] || 0
-  );
-
-  if (!(modelFootprint > 0)) {
-    return revivalScale;
-  }
-
-  const targetFootprint = Math.max(
-    groundGrassPatch?.size?.[0] || 0,
-    TALL_GRASS_MIN_FOOTPRINT
-  );
-  return (targetFootprint / modelFootprint) * revivalScale;
 }
 
 function clamp01(value) {
