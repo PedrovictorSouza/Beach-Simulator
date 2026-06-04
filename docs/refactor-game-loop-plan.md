@@ -135,8 +135,9 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: integrate the Leppa Tree mission-particle billboard helper.
 - Completed: prepare the isolated Bulbasaur interaction-radius gizmo helper.
 - Completed: integrate the Bulbasaur interaction-radius gizmo helper.
-- Next: select the next small visual helper boundary without moving
-  placement, construction, music, field moves or camera rules.
+- Completed: prepare the isolated repair-box reveal ray helper.
+- Next: integrate the prepared repair-box reveal ray helper without changing
+  reveal timing or render ordering.
 
 ## Validation Log
 
@@ -2254,6 +2255,57 @@ The focused suite passed with `25` tests and the dev server returned
 baseline:
 
 - `1383` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending because the in-app browser backend
+was not available during this pass.
+
+### Repair-Box Reveal Ray Helper Preparation
+
+Added `repairBoxRevealRayBillboards.js` as an isolated, tested pure visual
+helper. It is not imported by `gameLoop.js` yet, so this preparation step does
+not change active rendering behavior.
+
+The helper receives `clamp01` and a config object explicitly. It owns only the
+ray billboard math derived from `target.progress` and `now`; the Repair Box
+opening lifecycle, particle target selection and render ordering remain in
+`gameLoop.js`.
+
+The helper preserves:
+
+1. empty output when the texture or target position is missing;
+2. configured ray count;
+3. progress clamping before charge calculation;
+4. ray cycle, radius, lift, size, alpha and rotation;
+5. texture, position, size and UV rectangle shape.
+
+The next integration pass should:
+
+1. Import the helper into `gameLoop.js`.
+2. Remove the local `getRepairBoxRevealRayBillboards(...)`.
+3. Pass `BULBASAUR_REVEAL_BOX_RAY_COUNT`,
+   `BULBASAUR_REVEAL_BOX_RAY_BASE_SIZE` and the current charge-progress tuning
+   through config.
+4. Keep the existing `repairBoxRevealParticleTarget` render block and push
+   ordering unchanged.
+
+Passed:
+
+```sh
+rg -n "repairBoxRevealRayBillboards|getRepairBoxRevealRayBillboards|BULBASAUR_REVEAL_BOX_RAY" app/runtime tests --glob '!*.bak'
+git diff --check
+npm test -- --run tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm test
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused suite passed with `29` tests and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1387` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending because the in-app browser backend
