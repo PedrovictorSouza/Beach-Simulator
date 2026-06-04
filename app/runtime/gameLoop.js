@@ -19,6 +19,10 @@ import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTar
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import { createLandscapeCutEffectRuntime } from "./landscapeCutEffectRuntime.js";
+import {
+  getLeafDropBillboards,
+  getLeafResourceBillboards
+} from "./leafBillboards.js";
 import { getLeppaTreeMissionParticleBillboards } from "./leppaTreeMissionParticleBillboards.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
@@ -3548,60 +3552,6 @@ export function startGameLoop({
 
   function triggerWaterGunSfxBurst(duration = SQUIRTLE_WATER_GUN_SPRAY_DURATION) {
     waterGunSfxBurstRuntime.trigger(getRuntimeNowSeconds(), duration);
-  }
-
-  function getLeafResourceBillboards(resourceNodes, texture, uvRect, storyState, renderCenter = null) {
-    if (!texture || !Array.isArray(resourceNodes)) {
-      return [];
-    }
-
-    const isResourceNodeActive = typeof rendering.isResourceNodeActive === "function" ?
-      rendering.isResourceNodeActive :
-      () => true;
-
-    return resourceNodes
-      .filter((resourceNode) => (
-        resourceNode?.itemId === LEAVES_ITEM_ID &&
-        isResourceNodeActive(resourceNode, storyState) &&
-        isWorldPositionWithinRenderDistance(
-          resourceNode.position,
-          renderCenter,
-          NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE
-        )
-      ))
-      .map((resourceNode) => ({
-        texture,
-        position: [
-          resourceNode.position[0],
-          resourceNode.position[1] + LEAF_RESOURCE_BILLBOARD_Y_OFFSET,
-          resourceNode.position[2]
-        ],
-        size: LEAF_RESOURCE_BILLBOARD_SIZE,
-        uvRect
-      }));
-  }
-
-  function getLeafDropBillboards(fieldDrops, texture, uvRect, renderCenter = null) {
-    if (!texture || !Array.isArray(fieldDrops)) {
-      return [];
-    }
-
-    return fieldDrops
-      .filter((drop) => (
-        drop?.itemId === LEAVES_ITEM_ID &&
-        !drop.collected &&
-        isWorldPositionWithinRenderDistance(
-          drop.position,
-          renderCenter,
-          NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE
-        )
-      ))
-      .map((drop) => ({
-        texture,
-        position: drop.position,
-        size: drop.size,
-        uvRect: drop.uvRect || uvRect
-      }));
   }
 
   function getSupplyCounterSnapshot(inventory = {}) {
@@ -12773,21 +12723,30 @@ if (canProcessDestroyAction && destroyActionRequested) {
       ...gearPickupParticleRuntime.getBillboards(session.natureRevivalSparkTexture, rendering.fullUvRect)
     );
     nextFrame.render.genericBillboards.push(
-      ...getLeafDropBillboards(
-        session.woodDrops,
-        session.leavesTexture,
-        rendering.fullUvRect,
-        natureRenderCenter
-      )
+      ...getLeafDropBillboards({
+        fieldDrops: session.woodDrops,
+        texture: session.leavesTexture,
+        uvRect: rendering.fullUvRect,
+        renderCenter: natureRenderCenter,
+        itemId: LEAVES_ITEM_ID,
+        isWorldPositionWithinRenderDistance,
+        prepareDistance: NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE
+      })
     );
     nextFrame.render.genericBillboards.push(
-      ...getLeafResourceBillboards(
-        session.resourceNodes,
-        session.leavesTexture,
-        rendering.fullUvRect,
-        controls.storyState,
-        natureRenderCenter
-      )
+      ...getLeafResourceBillboards({
+        resourceNodes: session.resourceNodes,
+        texture: session.leavesTexture,
+        uvRect: rendering.fullUvRect,
+        storyState: controls.storyState,
+        renderCenter: natureRenderCenter,
+        itemId: LEAVES_ITEM_ID,
+        isResourceNodeActive: rendering.isResourceNodeActive,
+        isWorldPositionWithinRenderDistance,
+        prepareDistance: NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE,
+        yOffset: LEAF_RESOURCE_BILLBOARD_Y_OFFSET,
+        size: LEAF_RESOURCE_BILLBOARD_SIZE
+      })
     );
     nextFrame.render.genericBillboards.push(
       ...(session.leppaBerryDrops || [])
