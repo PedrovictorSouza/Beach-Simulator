@@ -148,6 +148,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: prepare the isolated tall grass motion helper.
 - Completed: integrate the tall grass motion helper.
 - Completed: move tall grass instance scale math into the tall grass helper.
+- Completed: extract the interaction info billboard helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -2844,6 +2845,51 @@ The isolated helper test passed with `7` tests, the focused suite passed with
 `npm test` completed with the existing Leafage Native Tree baseline:
 
 - `1407` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Interaction Info Billboard Helper Extraction
+
+Added `interactionInfoBillboards.js` for small world-space UI billboards. This
+removed `75` lines from `gameLoop.js` while preserving the public
+`getWorkbenchInteractionParticleBillboards(...)` export through `gameLoop.js`.
+
+Study path:
+
+1. `interactionInfoBillboards.js` owns `createInteractionInfoBillboard(...)`.
+2. It owns the Workbench interaction particle billboard math and constants.
+3. It exports the existing Workbench info offset and Pokemon Center PC info
+   offset used by `gameLoop.js`.
+4. `gameLoop.js` still decides when to push those billboards into
+   `nextFrame.render.genericBillboards`.
+5. The existing `tests/workbenchRuntime.test.js` import from `gameLoop.js`
+   still works, so the public helper export was preserved.
+
+This extraction does not move placement, construction state, Workbench
+interaction rules or world-space UI visibility rules. It only moves billboard
+shape/math.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "INTERACTION_INFO_ICON_SIZE|WORKBENCH_INFO_ICON_OFFSET|WORKBENCH_INTERACTION_PARTICLE|POKEMON_CENTER_PC_INFO_ICON_OFFSET|createInteractionInfoBillboard|getWorkbenchInteractionParticleBillboards" app/runtime/gameLoop.js app/runtime/interactionInfoBillboards.js tests/workbenchRuntime.test.js --glob '!*.bak'
+npm test -- --run tests/workbenchRuntime.test.js
+npm test -- --run tests/workbenchRuntime.test.js tests/tallGrassMotion.test.js tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The Workbench focused test passed with `8` tests, the broader focused suite
+passed with `57` tests, the production build passed and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1409` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
