@@ -41,6 +41,10 @@ import { createMissionTargetIndicatorBillboard } from "./missionTargetIndicatorB
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
+import {
+  getRepairBoxRevealParticleTarget,
+  getSelectedRepairBoxParticleTarget
+} from "./repairBoxParticleTargets.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { getRepairBoxRevealRayBillboards } from "./repairBoxRevealRayBillboards.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
@@ -4506,50 +4510,6 @@ export function startGameLoop({
       repairModuleInstance.tintStrength = 0;
       repairModuleInstance.alpha = repairModuleInstance.active ? REPAIR_BOX_INACTIVE_ALPHA : 1;
     }
-  }
-
-  function getSelectedRepairBoxParticleTarget() {
-    const repairModuleInstances = [
-      session.actTwoSquirtle?.repairModuleInstance,
-      session.bulbasaurEncounter?.repairModuleInstance,
-      session.charmanderEncounter?.repairModuleInstance,
-      session.timburrEncounter?.repairModuleInstance
-    ];
-    const selectedRepairModule = repairModuleInstances.find((instance) => {
-      return instance?.active && Array.isArray(instance.offset);
-    });
-
-    return selectedRepairModule ?
-      {
-        id: `${selectedRepairModule.id}-rustling-particles`,
-        position: [...selectedRepairModule.offset]
-      } :
-      null;
-  }
-
-  function getRepairBoxRevealParticleTarget() {
-    const encounter = [
-      session.bulbasaurEncounter,
-      session.charmanderEncounter
-    ].find((candidate) => candidate?.revealBoxOpening?.active);
-    const opening = encounter?.revealBoxOpening;
-
-    if (!opening?.active) {
-      return null;
-    }
-
-    const position =
-      encounter?.repairModuleInstance?.offset ||
-      encounter?.repairModuleInstance?.baseOffset ||
-      getEncounterRepairBoxPosition(encounter);
-
-    return Array.isArray(position) ?
-      {
-        id: `${encounter.repairModuleInstance?.id || "bot"}-reveal-rays`,
-        position: [...position],
-        progress: clamp01(Number(opening.elapsed || 0) / Number(opening.duration || 1))
-      } :
-      null;
   }
 
   function isBulbasaurRepairBoxRustlingActive() {
@@ -12016,8 +11976,22 @@ if (canProcessDestroyAction && destroyActionRequested) {
         null;
     const natureRenderCenter = camera.getPose?.()?.target || grassBendPlayerPosition;
     const grassCollisionObjects = getGrassCollisionObjects();
-    const selectedRepairBoxParticleTarget = getSelectedRepairBoxParticleTarget();
-    const repairBoxRevealParticleTarget = getRepairBoxRevealParticleTarget();
+    const selectedRepairBoxParticleTarget = getSelectedRepairBoxParticleTarget({
+      repairModuleInstances: [
+        session.actTwoSquirtle?.repairModuleInstance,
+        session.bulbasaurEncounter?.repairModuleInstance,
+        session.charmanderEncounter?.repairModuleInstance,
+        session.timburrEncounter?.repairModuleInstance
+      ]
+    });
+    const repairBoxRevealParticleTarget = getRepairBoxRevealParticleTarget({
+      encounters: [
+        session.bulbasaurEncounter,
+        session.charmanderEncounter
+      ],
+      getEncounterRepairBoxPosition,
+      clamp01
+    });
     let shouldShowRepairBoxRustlingParticles = false;
 
     for (const groundGrassPatch of session.groundGrassPatches) {
