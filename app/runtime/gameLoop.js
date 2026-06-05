@@ -50,6 +50,11 @@ import {
 } from "./leppaTreeMusicNotes.js";
 import { getLeppaTreeMissionParticleBillboards } from "./leppaTreeMissionParticleBillboards.js";
 import { createMissionTargetIndicatorBillboard } from "./missionTargetIndicatorBillboard.js";
+import {
+  getLogicalFacingYaw as getModelLogicalFacingYaw,
+  getModelYawToward,
+  getYawToward
+} from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { getMissionTargetPositions } from "./missionTargetPositions.js";
 import {
@@ -3276,30 +3281,33 @@ export function startGameLoop({
     });
   }
 
-  function getYawToward(fromPosition, toPosition) {
-    const deltaX = toPosition[0] - fromPosition[0];
-    const deltaZ = toPosition[2] - fromPosition[2];
-    return Math.atan2(deltaX, deltaZ);
-  }
-
   function getSquirtleModelYawToward(fromPosition, toPosition) {
-    return getYawToward(fromPosition, toPosition) + SQUIRTLE_MODEL_FACE_YAW_OFFSET;
+    return getModelYawToward(fromPosition, toPosition, SQUIRTLE_MODEL_FACE_YAW_OFFSET);
   }
 
   function getRobotModelYawToward(fromPosition, toPosition, modelFaceYawOffset) {
-    return getYawToward(fromPosition, toPosition) + modelFaceYawOffset;
+    return getModelYawToward(fromPosition, toPosition, modelFaceYawOffset);
   }
 
   function getSquirtleLogicalFacingYaw() {
-    return (session.actTwoSquirtle?.modelInstance?.yaw || 0) - SQUIRTLE_MODEL_FACE_YAW_OFFSET;
+    return getModelLogicalFacingYaw(
+      session.actTwoSquirtle?.modelInstance?.yaw,
+      SQUIRTLE_MODEL_FACE_YAW_OFFSET
+    );
   }
 
   function getCharmanderLogicalFacingYaw() {
-    return (session.charmanderEncounter?.modelInstance?.yaw || 0) - CHARMANDER_MODEL_FACE_YAW_OFFSET;
+    return getModelLogicalFacingYaw(
+      session.charmanderEncounter?.modelInstance?.yaw,
+      CHARMANDER_MODEL_FACE_YAW_OFFSET
+    );
   }
 
   function getBulbasaurLogicalFacingYaw() {
-    return (session.bulbasaurEncounter?.modelInstance?.yaw || 0) - BULBASAUR_MODEL_FACE_YAW_OFFSET;
+    return getModelLogicalFacingYaw(
+      session.bulbasaurEncounter?.modelInstance?.yaw,
+      BULBASAUR_MODEL_FACE_YAW_OFFSET
+    );
   }
 
   function getGroundCellCenterPosition(groundCell) {
