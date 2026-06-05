@@ -155,6 +155,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the Campfire wood pile billboard helper.
 - Completed: extract the Repair Box particle target helpers.
 - Completed: extract the Repair Box prompt target helper.
+- Completed: extract the mission target position helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3176,6 +3177,54 @@ server returned `HTTP 200`. `npm test` completed with the existing Leafage
 Native Tree baseline:
 
 - `1424` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Mission Target Position Helper Extraction
+
+Added `missionTargetPositions.js` for the pure mission-target position
+composition rules. This moves tracked-task, active-quest and mission-copy target
+composition out of `gameLoop.js`.
+
+Study path:
+
+1. `missionTargetPositions.js` owns `getMissionTargetPositions(...)`.
+2. The helper receives `activeQuest`, `storyState` and
+   `getMissionTargetPositionsById` explicitly.
+3. `gameLoop.js` still owns concrete position lookup because that depends on
+   `session`, actors, companions, dry grass, Workbench, Leppa Tree, Pokemon
+   Center and build-zone state.
+4. `gameLoop.js` still decides when world-space UI is visible and when mission
+   target indicator billboards are pushed.
+5. The helper preserves tracked-task guards, active-quest objective fallback,
+   TALK copy fallback and mission-target dedupe behavior.
+
+This extraction does not change mission target aliases, quest data, story
+flags, target positions, indicator visuals, HUD behavior or frame order. It
+only moves target-position composition rules that do not need direct access to
+`session`.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "getTrackedMissionTargetPositions|getActiveQuestMissionTargetPositions|getActiveQuestObjectiveCandidates|getMissionTargetPositionsFromCopy|resolveMissionCopyValue|getMissionTargetPositions\\(|missionTargetPositions" app/runtime/gameLoop.js app/runtime/missionTargetPositions.js tests/missionTargetPositions.test.js tests/missionTargetResolver.test.js
+npm test -- --run tests/missionTargetPositions.test.js tests/missionTargetResolver.test.js
+npm test -- --run tests/missionTargetPositions.test.js tests/missionTargetResolver.test.js tests/repairBoxPromptTargets.test.js tests/repairBoxParticleTargets.test.js tests/campfireWoodPileBillboards.test.js tests/leppaTreeMusicNotes.test.js tests/missionTargetIndicatorBillboard.test.js tests/trainHouseRuntime.test.js tests/workbenchRuntime.test.js tests/tallGrassMotion.test.js tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/repairBoxRevealFlashRuntime.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The mission-target focused tests passed with `8` tests, the broader focused
+suite passed with `88` tests, the production build passed and the dev server
+returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1428` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
