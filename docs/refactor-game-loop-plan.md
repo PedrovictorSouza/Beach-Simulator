@@ -154,6 +154,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the Leppa Tree music notes helper.
 - Completed: extract the Campfire wood pile billboard helper.
 - Completed: extract the Repair Box particle target helpers.
+- Completed: extract the Repair Box prompt target helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3128,6 +3129,53 @@ server returned `HTTP 200`. `npm test` completed with the existing Leafage
 Native Tree baseline:
 
 - `1421` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Repair Box Prompt Target Helper Extraction
+
+Added `repairBoxPromptTargets.js` for the Repair Box world-prompt target
+selection. This moves prompt-position fallback and nearest-active-box selection
+out of `gameLoop.js`.
+
+Study path:
+
+1. `repairBoxPromptTargets.js` owns `getRepairBoxPromptPosition(...)` and
+   `getNearbyRepairBoxPrompt(...)`.
+2. The prompt-position helper preserves the existing fallback order:
+   encounter repair-box position, module `baseOffset`, then module `offset`.
+3. The nearby prompt helper receives `playerPosition`, explicit repair-box
+   targets, `promptDistance` and `getEncounterRepairBoxPosition`.
+4. `gameLoop.js` still decides the target order for Hydro, Grow, Thermal and
+   Builder.
+5. `gameLoop.js` still decides whether world-space UI is visible and where the
+   prompt sits in the prompt priority chain.
+
+This extraction does not change Repair Box encounter state, prompt priority,
+world-speech behavior, story flags, camera, input or frame order. It only moves
+prompt-target DTO calculation.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "getRepairBoxPromptPosition|getNearbyRepairBoxPrompt|repairBoxPromptTargets" app/runtime/gameLoop.js app/runtime/repairBoxPromptTargets.js tests/repairBoxPromptTargets.test.js
+npm test -- --run tests/repairBoxPromptTargets.test.js
+npm test -- --run tests/repairBoxPromptTargets.test.js tests/repairBoxParticleTargets.test.js tests/campfireWoodPileBillboards.test.js tests/leppaTreeMusicNotes.test.js tests/missionTargetIndicatorBillboard.test.js tests/trainHouseRuntime.test.js tests/workbenchRuntime.test.js tests/tallGrassMotion.test.js tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/repairBoxRevealFlashRuntime.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The Repair Box prompt-target focused test passed with `3` tests, the broader
+focused suite passed with `80` tests, the production build passed and the dev
+server returned `HTTP 200`. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1424` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
