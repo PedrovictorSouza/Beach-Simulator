@@ -156,6 +156,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the Repair Box particle target helpers.
 - Completed: extract the Repair Box prompt target helper.
 - Completed: extract the mission target position helper.
+- Completed: extract the collectible source snapshot helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -1485,8 +1486,10 @@ lifecycle:
    lift, scale pulse, fade curve and snapshot UV preference.
 4. Each factory call owns independent private state.
 
-The pre-collection snapshot, wood-drop comparison, resource collection flow
-and render-snapshot append point remain unchanged in `gameLoop.js`.
+At this preparation point, the pre-collection snapshot, wood-drop comparison,
+resource collection flow and render-snapshot append point still remained
+unchanged in `gameLoop.js`. The snapshot helpers were extracted later in the
+Collectible Source Snapshot Helper pass.
 
 The next integration pass should:
 
@@ -1494,7 +1497,7 @@ The next integration pass should:
    existing duration, lift and scale constants.
 2. Replace the local trigger, update and billboard-builder calls with runtime
    calls at the same points.
-3. Keep `snapshotAvailableWoodDrops(...)` in `gameLoop.js`.
+3. Keep `snapshotAvailableWoodDrops(...)` in `gameLoop.js` for this pass.
 4. Remove `woodCollectPopEffects` from `createGameLoopState()` and its state
    contract test.
 
@@ -1529,8 +1532,9 @@ Study path:
 
 1. `startGameLoop()` creates one private wood-pop runtime with the existing
    duration, lift and scale constants.
-2. `snapshotAvailableWoodDrops(...)` remains local and continues to capture
-   uncollected drop data before the existing destroy action runs.
+2. At integration time, `snapshotAvailableWoodDrops(...)` remained local and
+   continued to capture uncollected drop data before the existing destroy action
+   ran. It was extracted later with the collectible source snapshot helpers.
 3. When collected wood is detected, the loop calls
    `woodCollectPopRuntime.trigger(woodDropSnapshots)` at the same point.
 4. The frame lifecycle calls `woodCollectPopRuntime.update(deltaTime)` where
@@ -3225,6 +3229,52 @@ returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
 - `1428` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Collectible Source Snapshot Helper Extraction
+
+Added `collectibleSourceSnapshots.js` for the small snapshot/position helpers
+used immediately around resource pickup feedback. This moves the pre-collection
+snapshot DTOs and post-collection source-position detection out of
+`gameLoop.js`.
+
+Study path:
+
+1. `snapshotAvailableWoodDrops(...)` captures uncollected wood-drop positions,
+   sizes and UVs before `gameplay.collectWoodDrops(...)` mutates drops.
+2. `snapshotCollectibleSources(...)` captures active resource/drop state before
+   leaf, gear, carbon and Pulse Berry collection mutates sources.
+3. `getNewlyCollectedDropPositions(...)` compares a drop snapshot with the
+   mutated drop state.
+4. `getNewlyCollectedResourcePositions(...)` compares active/cooldown state and
+   expands positions by the captured `yield`.
+5. `gameLoop.js` still owns when collection happens, which gameplay collection
+   API is called, HUD notices, audio, particle triggers and fly-to-slot
+   feedback.
+
+This extraction does not change collection radius, inventory mutation, pickup
+counts, notices, audio, particles, fly feedback, resource yields or frame
+order. It only moves pure snapshot comparison helpers.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "snapshotAvailableWoodDrops|snapshotCollectibleSources|getNewlyCollectedDropPositions|getNewlyCollectedResourcePositions|collectibleSourceSnapshots" app/runtime/gameLoop.js app/runtime/collectibleSourceSnapshots.js tests/collectibleSourceSnapshots.test.js
+npm test -- --run tests/collectibleSourceSnapshots.test.js
+npm test -- --run tests/collectibleSourceSnapshots.test.js tests/gameplayWoodDrops.test.js tests/woodCollectPopRuntime.test.js tests/gearPickupParticleRuntime.test.js tests/islandWorld.test.js
+npm run build
+npm test
+```
+
+The collectible snapshot focused test passed with `4` tests, the collection
+focused suite passed with `84` tests and the production build passed. `npm
+test` completed with the existing Leafage Native Tree baseline:
+
+- `1432` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
