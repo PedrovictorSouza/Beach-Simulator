@@ -160,6 +160,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the supply pickup viewport origin helper.
 - Completed: extract the world cell planner picking helper.
 - Completed: extract the bot reveal motion helper.
+- Completed: extract the player model motion helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3417,6 +3418,53 @@ focused suite passed with `21` tests and the production build passed. `npm
 test` completed with the existing Leafage Native Tree baseline:
 
 - `1449` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Player Model Motion Helper Extraction
+
+Added `playerModelMotion.js` for pure visual motion math used by the player
+model. This moves yaw-from-movement, walk leg offsets, walk-cycle advancement,
+body bob, jump-flip roll, foot roll and arm-back offset formulas out of
+`gameLoop.js`.
+
+Study path:
+
+1. `getPlayerModelYawFromMovement(...)` preserves the movement-delta yaw and
+   face-yaw offset formula.
+2. `getPlayerWalkLegArcOffset(...)`, `getPlayerWalkFootRoll(...)`,
+   `getPlayerWalkBodyLift(...)` and `getPlayerWalkArmBackOffset(...)` preserve
+   the existing visual formulas while receiving tuning values explicitly.
+3. `advancePlayerWalkCycle(...)` preserves speed acceleration/deceleration,
+   phase advancement above the idle threshold and blend calculation.
+4. `advancePlayerJumpFlipRoll(...)` preserves jump-flip elapsed clamping and
+   roll calculation.
+5. `gameLoop.js` still owns `session` mutation, sound trigger, player position,
+   model instance sync, turn interpolation, input-derived movement delta and all
+   tuning constants.
+
+This extraction does not change player movement, input, camera, model scale,
+turn speed, walk timing, leg/arm sync, jump SFX, render order or gameplay
+state. It only moves visual math into a tested helper.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "playerModelMotion|getPlayerModelYawFromMovement|advancePlayerWalkCycle|getPlayerWalkLegArcOffset|getPlayerWalkBodyLift|advancePlayerJumpFlipRoll|getPlayerWalkFootRoll|getPlayerWalkArmBackOffset" app/runtime/gameLoop.js app/runtime/playerModelMotion.js tests/playerModelMotion.test.js
+npm test -- --run tests/playerModelMotion.test.js
+npm test -- --run tests/playerModelMotion.test.js tests/gameLoopFrameRuntime.test.js tests/gameLoopFramePolicies.test.js tests/renderFrameController.test.js tests/characterFactory.test.js tests/playerDustParticles.test.js
+npm run build
+npm test
+```
+
+The player model motion focused test passed with `6` tests, the broader
+frame/render focused suite passed with `28` tests and the production build
+passed. `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1455` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
