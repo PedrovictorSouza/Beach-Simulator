@@ -161,6 +161,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the world cell planner picking helper.
 - Completed: extract the bot reveal motion helper.
 - Completed: extract the player model motion helper.
+- Completed: extract the model facing helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3469,6 +3470,52 @@ passed. `npm test` completed with the existing Leafage Native Tree baseline:
 
 Manual visual gameplay validation remains pending because the in-app browser
 backend was not used during this pass.
+
+### Model Facing Helper Extraction
+
+Added `modelFacing.js` for pure yaw math shared by model-facing callers. This
+moves the generic "face a world position" formula and model face-yaw offset
+calculation out of `gameLoop.js` while preserving the local bot-specific
+wrappers that carry Squirtle/Bulbasaur/Charmander constants.
+
+Study path:
+
+1. `getYawToward(fromPosition, toPosition)` preserves the previous
+   ground-plane `Math.atan2(deltaX, deltaZ)` formula.
+2. `getModelYawToward(...)` applies the visual model face-yaw offset without
+   changing the logical direction.
+3. `getLogicalFacingYaw(...)` converts visual model yaw back to logical facing
+   with the same `(yaw || 0) - offset` fallback behavior.
+4. `gameLoop.js` still owns session lookups, model-specific constants,
+   companion/encounter decisions and all side effects.
+
+This extraction does not change any 3D orientation tuning, offsets, camera,
+input, field moves, placement, render order or interaction behavior. It only
+gives the yaw math an explicit tested boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/modelFacing.test.js
+npm test -- --run tests/modelFacing.test.js tests/botAttentionFacing.test.js tests/playerModelMotion.test.js tests/chopperNpcActor.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The model facing focused test passed with `3` tests, the broader
+model-orientation focused suite passed with `21` tests, the production build
+passed with the existing chunk-size warning, and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
 
 ### Companion Lost Hint Runtime Preparation
 
