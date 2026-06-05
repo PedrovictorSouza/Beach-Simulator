@@ -45,6 +45,7 @@ import {
   getRepairBoxRevealParticleTarget,
   getSelectedRepairBoxParticleTarget
 } from "./repairBoxParticleTargets.js";
+import { getNearbyRepairBoxPrompt } from "./repairBoxPromptTargets.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { getRepairBoxRevealRayBillboards } from "./repairBoxRevealRayBillboards.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
@@ -4563,69 +4564,6 @@ export function startGameLoop({
       playerPosition[0] - worldPosition[0],
       playerPosition[2] - worldPosition[2]
     ) <= distance;
-  }
-
-  function getRepairBoxPromptPosition(encounter) {
-    const basePosition =
-      getEncounterRepairBoxPosition(encounter) ||
-      encounter?.repairModuleInstance?.baseOffset ||
-      encounter?.repairModuleInstance?.offset;
-
-    return Array.isArray(basePosition) ? [...basePosition] : null;
-  }
-
-  function getNearbyRepairBoxPrompt(playerPosition) {
-    if (!Array.isArray(playerPosition)) {
-      return null;
-    }
-
-    const repairBoxTargets = [
-      {
-        name: SANDBOTS_BOT_NAMES.hydro,
-        encounter: session.actTwoSquirtle
-      },
-      {
-        name: SANDBOTS_BOT_NAMES.grow,
-        encounter: session.bulbasaurEncounter
-      },
-      {
-        name: SANDBOTS_BOT_NAMES.thermal,
-        encounter: session.charmanderEncounter
-      },
-      {
-        name: SANDBOTS_BOT_NAMES.builder,
-        encounter: session.timburrEncounter
-      }
-    ];
-    let nearestPrompt = null;
-    let nearestDistance = Infinity;
-
-    for (const repairBoxTarget of repairBoxTargets) {
-      if (!repairBoxTarget?.encounter?.repairModuleInstance?.active) {
-        continue;
-      }
-
-      const worldPosition = getRepairBoxPromptPosition(repairBoxTarget.encounter);
-
-      if (!worldPosition) {
-        continue;
-      }
-
-      const distance = Math.hypot(
-        playerPosition[0] - worldPosition[0],
-        playerPosition[2] - worldPosition[2]
-      );
-
-      if (distance <= REPAIR_BOX_PROMPT_DISTANCE && distance < nearestDistance) {
-        nearestPrompt = {
-          text: repairBoxTarget.name,
-          worldPosition
-        };
-        nearestDistance = distance;
-      }
-    }
-
-    return nearestPrompt;
   }
 
   function syncInteractablePosition(interactableId, position) {
@@ -11473,9 +11411,29 @@ if (canProcessDestroyAction && destroyActionRequested) {
       controls.storyState.flags.charmanderCelebrationRequestAvailable &&
       !controls.storyState.flags.charmanderCelebrationSuggested &&
       !controls.storyState.flags.charmanderCelebrationComplete;
-    const nearbyRepairBoxPrompt = getNearbyRepairBoxPrompt(
-      session.playerCharacter?.getPosition?.()
-    );
+    const nearbyRepairBoxPrompt = getNearbyRepairBoxPrompt({
+      playerPosition: session.playerCharacter?.getPosition?.(),
+      repairBoxTargets: [
+        {
+          name: SANDBOTS_BOT_NAMES.hydro,
+          encounter: session.actTwoSquirtle
+        },
+        {
+          name: SANDBOTS_BOT_NAMES.grow,
+          encounter: session.bulbasaurEncounter
+        },
+        {
+          name: SANDBOTS_BOT_NAMES.thermal,
+          encounter: session.charmanderEncounter
+        },
+        {
+          name: SANDBOTS_BOT_NAMES.builder,
+          encounter: session.timburrEncounter
+        }
+      ],
+      promptDistance: REPAIR_BOX_PROMPT_DISTANCE,
+      getEncounterRepairBoxPosition
+    });
     const shouldShowRepairBoxPrompt =
       canShowWorldSpaceUi &&
       Boolean(nearbyRepairBoxPrompt);
