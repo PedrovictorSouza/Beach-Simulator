@@ -72,6 +72,12 @@ import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createWorkbenchRotationRuntime } from "./workbenchRotationRuntime.js";
 import { createWoodCollectPopRuntime } from "./woodCollectPopRuntime.js";
 import { createWorldCellPlannerClickRuntime } from "./worldCellPlannerClickRuntime.js";
+import {
+  createWorldCellPlannerSelection,
+  getWorldCellPlannerGroundCells,
+  projectWorldCellPlannerGroundCell,
+  resolveWorldCellPlannerPick as resolveWorldCellPlannerPickFromCandidates
+} from "./worldCellPlannerPicking.js";
 
 import {
   BULBASAUR_LEAFAGE_ARRIVE_DISTANCE,
@@ -7697,75 +7703,6 @@ export function startGameLoop({
     return Boolean(rendering?.debugWorldCellPlanner);
   }
 
-  function getWorldCellPlannerGroundCells() {
-    const cells = [];
-    const seenCellIds = new Set();
-    const collections = [
-      session.groundDeadInstances,
-      session.groundPurifiedInstances,
-      session.iceGroundInstances
-    ];
-
-    for (const collection of collections) {
-      if (!Array.isArray(collection)) {
-        continue;
-      }
-
-      for (const groundCell of collection) {
-        if (
-          !groundCell?.id ||
-          seenCellIds.has(groundCell.id) ||
-          !Array.isArray(groundCell.offset)
-        ) {
-          continue;
-        }
-
-        seenCellIds.add(groundCell.id);
-        cells.push(groundCell);
-      }
-    }
-
-    return cells;
-  }
-
-  function projectWorldCellPlannerGroundCell(groundCell) {
-    if (!groundCell?.offset || typeof camera.project !== "function" || !worldCanvas) {
-      return null;
-    }
-
-    const canvasWidth = worldCanvas.width || 0;
-    const canvasHeight = worldCanvas.height || 0;
-
-    if (canvasWidth <= 0 || canvasHeight <= 0) {
-      return null;
-    }
-
-    const surfaceY = Number(groundCell.surfaceY ?? 0);
-    const projected = camera.project(
-      [groundCell.offset[0], surfaceY + 0.08, groundCell.offset[2]],
-      canvasWidth,
-      canvasHeight
-    );
-
-    if (!projected || projected.depth > 1) {
-      return null;
-    }
-
-    const rect = worldCanvas.getBoundingClientRect?.();
-
-    if (!rect || rect.width <= 0 || rect.height <= 0) {
-      return {
-        x: projected.x,
-        y: projected.y
-      };
-    }
-
-    return {
-      x: rect.left + projected.x * (rect.width / canvasWidth),
-      y: rect.top + projected.y * (rect.height / canvasHeight)
-    };
-  }
-
   function getWorldCellPlannerGridCell(groundCell) {
     const idMatch = /^ground-(\d+)-(\d+)$/.exec(String(groundCell?.id || ""));
     if (idMatch) {
@@ -7787,54 +7724,26 @@ export function startGameLoop({
     });
   }
 
-  function createWorldCellPlannerSelection(groundCell) {
-    const surfaceY = Number(groundCell?.surfaceY ?? 0);
-    const offset = groundCell?.offset || [0, 0, 0];
-    const groundKind = groundCell?.groundKind ||
-      (session.iceGroundInstances?.includes(groundCell) ? "cold" : "dead");
-
-    return {
-      cellId: groundCell?.id || "unknown",
-      gridCell: getWorldCellPlannerGridCell(groundCell),
-      worldPosition: [
-        Number(Number(offset[0] || 0).toFixed(3)),
-        Number(surfaceY.toFixed(3)),
-        Number(Number(offset[2] || 0).toFixed(3))
-      ],
-      tileSpan: Number(groundCell?.tileSpan || 0),
-      groundKind
-    };
-  }
-
   function resolveWorldCellPlannerPick({ clientX, clientY } = {}) {
-    if (!Number.isFinite(clientX) || !Number.isFinite(clientY)) {
-      return null;
-    }
-
-    let closestGroundCell = null;
-    let closestDistance = Number.POSITIVE_INFINITY;
-
-    for (const groundCell of getWorldCellPlannerGroundCells()) {
-      const projected = projectWorldCellPlannerGroundCell(groundCell);
-      if (!projected) {
-        continue;
-      }
-
-      const distance = Math.hypot(projected.x - clientX, projected.y - clientY);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestGroundCell = groundCell;
-      }
-    }
-
-    if (!closestGroundCell || closestDistance > WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX) {
-      return null;
-    }
-
-    return {
-      groundCell: closestGroundCell,
-      selection: createWorldCellPlannerSelection(closestGroundCell)
-    };
+    return resolveWorldCellPlannerPickFromCandidates({
+      request: { clientX, clientY },
+      groundCells: getWorldCellPlannerGroundCells({
+        groundDeadInstances: session.groundDeadInstances,
+        groundPurifiedInstances: session.groundPurifiedInstances,
+        iceGroundInstances: session.iceGroundInstances
+      }),
+      projectGroundCell: (groundCell) => projectWorldCellPlannerGroundCell({
+        groundCell,
+        camera,
+        worldCanvas
+      }),
+      createSelection: (groundCell) => createWorldCellPlannerSelection({
+        groundCell,
+        getGridCell: getWorldCellPlannerGridCell,
+        isColdGroundCell: (cell) => session.iceGroundInstances?.includes(cell)
+      }),
+      maxDistancePx: WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX
+    });
   }
 
   function handleWorldCellPlannerPointerDown(event) {
