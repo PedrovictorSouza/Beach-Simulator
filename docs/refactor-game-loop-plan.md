@@ -157,6 +157,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the Repair Box prompt target helper.
 - Completed: extract the mission target position helper.
 - Completed: extract the collectible source snapshot helper.
+- Completed: extract the supply pickup viewport origin helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3275,6 +3276,52 @@ focused suite passed with `84` tests and the production build passed. `npm
 test` completed with the existing Leafage Native Tree baseline:
 
 - `1432` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Supply Pickup Viewport Origin Helper Extraction
+
+Added `supplyPickupViewportOrigin.js` for the viewport-origin calculation used
+by supply pickup fly-to-slot feedback. This moves the projection/fallback DTO
+helpers out of `gameLoop.js` while keeping the pickup queueing and HUD side
+effects in the loop.
+
+Study path:
+
+1. `projectWorldPositionToViewport(...)` preserves the existing camera
+   projection call, `+0.5` vertical offset, depth check and canvas-rect scaling.
+2. `isViewportOriginUsable(...)` preserves the finite-coordinate check and the
+   existing `64px` viewport margin.
+3. `getCanvasCenterViewportOrigin(...)` preserves the canvas center fallback,
+   then the window center fallback.
+4. `resolveSupplyPickupViewportOrigin(...)` preserves the fallback order:
+   source position, player position, canvas/window center.
+5. `gameLoop.js` still owns when pickup fly feedback is queued, the
+   `slice(0, 3)` cap, HUD calls and all collection-side effects.
+
+This extraction does not change camera pose, camera input permissions, pickup
+counts, collection timing, HUD fly behavior, inventory state, audio, particles
+or frame order. It only moves the viewport-origin calculation for existing
+pickup feedback.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "projectWorldPositionToViewport|getCanvasCenterViewportOrigin|isViewportOriginUsable|resolveSupplyPickupViewportOrigin|supplyPickupViewportOrigin" app/runtime/gameLoop.js app/runtime/supplyPickupViewportOrigin.js tests/supplyPickupViewportOrigin.test.js
+npm test -- --run tests/supplyPickupViewportOrigin.test.js
+npm test -- --run tests/supplyPickupViewportOrigin.test.js tests/gameHudController.test.js tests/collectibleSourceSnapshots.test.js tests/gameplayWoodDrops.test.js tests/woodCollectPopRuntime.test.js tests/gearPickupParticleRuntime.test.js
+npm run build
+npm test
+```
+
+The supply pickup origin focused test passed with `5` tests, the HUD/pickup
+focused suite passed with `45` tests and the production build passed. `npm
+test` completed with the existing Leafage Native Tree baseline:
+
+- `1437` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
