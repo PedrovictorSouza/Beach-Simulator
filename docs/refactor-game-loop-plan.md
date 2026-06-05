@@ -158,6 +158,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the mission target position helper.
 - Completed: extract the collectible source snapshot helper.
 - Completed: extract the supply pickup viewport origin helper.
+- Completed: extract the world cell planner picking helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3322,6 +3323,52 @@ focused suite passed with `45` tests and the production build passed. `npm
 test` completed with the existing Leafage Native Tree baseline:
 
 - `1437` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### World Cell Planner Picking Helper Extraction
+
+Added `worldCellPlannerPicking.js` for the debug planner's pure cell-picking
+DTOs. This moves selectable-cell collection, ground-cell projection, selection
+DTO construction and nearest-pick selection out of `gameLoop.js`.
+
+Study path:
+
+1. `getWorldCellPlannerGroundCells(...)` owns dedupe and validity filtering
+   across dead, purified and ice ground collections.
+2. `projectWorldCellPlannerGroundCell(...)` preserves the existing camera
+   projection, `surfaceY + 0.08` offset, depth check and canvas-rect scaling.
+3. `createWorldCellPlannerSelection(...)` preserves selection shape and
+   rounding while receiving grid/cold-cell decisions as callbacks.
+4. `resolveWorldCellPlannerPick(...)` preserves nearest projected cell picking
+   inside the existing max pixel distance.
+5. `gameLoop.js` still owns debug activation, pointer-event filtering, click
+   mailbox consumption, selected-cell session mutation, HUD notices and the
+   concrete grid mapping callback.
+
+This extraction does not change world-cell planner activation, pointer
+handling, selected-cell state, placement/construction rules, camera behavior,
+notices, render highlights or frame order. It only moves debug picking DTO
+calculation.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "getWorldCellPlannerGroundCells|projectWorldCellPlannerGroundCell|createWorldCellPlannerSelection|resolveWorldCellPlannerPick|worldCellPlannerPicking" app/runtime/gameLoop.js app/runtime/worldCellPlannerPicking.js tests/worldCellPlannerPicking.test.js
+npm test -- --run tests/worldCellPlannerPicking.test.js tests/worldCellPlannerClickRuntime.test.js
+npm test -- --run tests/worldCellPlannerPicking.test.js tests/worldCellPlannerClickRuntime.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+```
+
+The world-cell planner picking focused tests passed with `10` tests, the
+broader focused suite passed with `18` tests and the production build passed.
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1443` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
