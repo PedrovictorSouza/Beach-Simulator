@@ -59,6 +59,7 @@ import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.j
 import { getRustlingGrassParticleBillboards } from "./rustlingGrassParticleBillboards.js";
 import { getSavePointStarBillboards } from "./savePointStarBillboards.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
+import { resolveSupplyPickupViewportOrigin } from "./supplyPickupViewportOrigin.js";
 import {
   getTallGrassInstanceScale,
   getTallGrassSway,
@@ -7692,106 +7693,6 @@ export function startGameLoop({
     return billboards;
   }
 
-  function projectWorldPositionToViewport(position) {
-    if (
-      !Array.isArray(position) ||
-      typeof camera.project !== "function" ||
-      !worldCanvas
-    ) {
-      return null;
-    }
-
-    const canvasWidth = worldCanvas.width || 0;
-    const canvasHeight = worldCanvas.height || 0;
-
-    if (canvasWidth <= 0 || canvasHeight <= 0) {
-      return null;
-    }
-
-    camera.getViewProjection?.(canvasWidth, canvasHeight);
-    const projected = camera.project(
-      [position[0], (position[1] || 0) + 0.5, position[2]],
-      canvasWidth,
-      canvasHeight
-    );
-
-    if (!projected || projected.depth > 1) {
-      return null;
-    }
-
-    const rect = worldCanvas.getBoundingClientRect?.();
-
-    if (!rect || rect.width <= 0 || rect.height <= 0) {
-      return { x: projected.x, y: projected.y };
-    }
-
-    return {
-      x: rect.left + projected.x * (rect.width / canvasWidth),
-      y: rect.top + projected.y * (rect.height / canvasHeight)
-    };
-  }
-
-  function getCanvasCenterViewportOrigin() {
-    const rect = worldCanvas?.getBoundingClientRect?.();
-
-    if (rect && rect.width > 0 && rect.height > 0) {
-      return {
-        x: rect.left + rect.width * 0.5,
-        y: rect.top + rect.height * 0.5
-      };
-    }
-
-    const windowRef = worldCanvas?.ownerDocument?.defaultView || globalThis.window;
-
-    return {
-      x: Number(windowRef?.innerWidth || 0) * 0.5,
-      y: Number(windowRef?.innerHeight || 0) * 0.5
-    };
-  }
-
-  function isViewportOriginUsable(origin) {
-    if (
-      !origin ||
-      !Number.isFinite(origin.x) ||
-      !Number.isFinite(origin.y)
-    ) {
-      return false;
-    }
-
-    const windowRef = worldCanvas?.ownerDocument?.defaultView || globalThis.window;
-    const viewportWidth = Number(windowRef?.innerWidth || 0);
-    const viewportHeight = Number(windowRef?.innerHeight || 0);
-
-    if (viewportWidth <= 0 || viewportHeight <= 0) {
-      return true;
-    }
-
-    const margin = 64;
-
-    return (
-      origin.x >= -margin &&
-      origin.y >= -margin &&
-      origin.x <= viewportWidth + margin &&
-      origin.y <= viewportHeight + margin
-    );
-  }
-
-  function resolveSupplyPickupViewportOrigin(sourcePosition) {
-    const sourceOrigin = projectWorldPositionToViewport(sourcePosition);
-
-    if (isViewportOriginUsable(sourceOrigin)) {
-      return sourceOrigin;
-    }
-
-    const playerOrigin = projectWorldPositionToViewport(session.playerCharacter?.getPosition?.());
-
-    if (isViewportOriginUsable(playerOrigin)) {
-      return playerOrigin;
-    }
-
-    return getCanvasCenterViewportOrigin();
-  }
-
   function isWorldCellPlannerActive() {
     return Boolean(rendering?.debugWorldCellPlanner);
   }
@@ -7994,7 +7895,12 @@ export function startGameLoop({
     }
 
     const projectedOrigins = sourcePositions
-      .map((sourcePosition) => resolveSupplyPickupViewportOrigin(sourcePosition))
+      .map((sourcePosition) => resolveSupplyPickupViewportOrigin({
+        sourcePosition,
+        getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
+        camera,
+        worldCanvas
+      }))
       .filter(Boolean)
       .slice(0, 3);
 
