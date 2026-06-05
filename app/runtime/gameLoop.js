@@ -52,6 +52,15 @@ import { getLeppaTreeMissionParticleBillboards } from "./leppaTreeMissionParticl
 import { createMissionTargetIndicatorBillboard } from "./missionTargetIndicatorBillboard.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { getMissionTargetPositions } from "./missionTargetPositions.js";
+import {
+  advancePlayerJumpFlipRoll,
+  advancePlayerWalkCycle,
+  getPlayerModelYawFromMovement as getPlayerModelYawFromMovementWithConfig,
+  getPlayerWalkArmBackOffset as getPlayerWalkArmBackOffsetWithConfig,
+  getPlayerWalkBodyLift as getPlayerWalkBodyLiftWithConfig,
+  getPlayerWalkFootRoll as getPlayerWalkFootRollWithConfig,
+  getPlayerWalkLegArcOffset as getPlayerWalkLegArcOffsetWithConfig
+} from "./playerModelMotion.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
@@ -4475,46 +4484,46 @@ export function startGameLoop({
   }
 
   function getPlayerModelYawFromMovement(deltaX, deltaZ) {
-    return Math.atan2(deltaZ, deltaX) + PLAYER_MODEL_FACE_YAW_OFFSET;
+    return getPlayerModelYawFromMovementWithConfig({
+      deltaX,
+      deltaZ,
+      modelFaceYawOffset: PLAYER_MODEL_FACE_YAW_OFFSET
+    });
   }
 
   function getPlayerWalkLegArcOffset(yaw, phase, blend) {
-    const swing = Math.sin(phase);
-    const forwardKick = Math.max(0, swing);
-    const stride = swing * PLAYER_WALK_FOOT_KICK_STRIDE * blend;
-    const lift = Math.pow(forwardKick, 0.55) * PLAYER_WALK_FOOT_KICK_LIFT * blend;
-
-    return [
-      Math.cos(yaw) * stride,
-      lift,
-      Math.sin(yaw) * stride
-    ];
+    return getPlayerWalkLegArcOffsetWithConfig({
+      yaw,
+      phase,
+      blend,
+      footKickStride: PLAYER_WALK_FOOT_KICK_STRIDE,
+      footKickLift: PLAYER_WALK_FOOT_KICK_LIFT
+    });
   }
 
   function updatePlayerWalkCycle(deltaTime, isWalking) {
-    const targetSpeed = isWalking ? PLAYER_WALK_LEG_CYCLE_SPEED : 0;
-    const acceleration = isWalking ?
-      PLAYER_WALK_LEG_ACCELERATION :
-      PLAYER_WALK_LEG_DECELERATION;
-    const nextSpeed = moveValueToward(
-      Number(session.playerWalkLegSpeed) || 0,
-      targetSpeed,
-      acceleration * deltaTime
-    );
+    const nextCycle = advancePlayerWalkCycle({
+      currentSpeed: session.playerWalkLegSpeed,
+      currentPhase: session.playerWalkLegPhase,
+      deltaTime,
+      isWalking,
+      cycleSpeed: PLAYER_WALK_LEG_CYCLE_SPEED,
+      acceleration: PLAYER_WALK_LEG_ACCELERATION,
+      deceleration: PLAYER_WALK_LEG_DECELERATION,
+      moveValueToward
+    });
 
-    session.playerWalkLegSpeed = nextSpeed;
-
-    if (isWalking || nextSpeed > 0.001) {
-      session.playerWalkLegPhase =
-        (Number(session.playerWalkLegPhase) || 0) + nextSpeed * deltaTime;
-    }
-
-    return Math.min(1, nextSpeed / PLAYER_WALK_LEG_CYCLE_SPEED);
+    session.playerWalkLegSpeed = nextCycle.speed;
+    session.playerWalkLegPhase = nextCycle.phase;
+    return nextCycle.blend;
   }
 
   function getPlayerWalkBodyLift(phase, blend) {
-    const bounce = Math.abs(Math.cos(phase));
-    return Math.pow(bounce, 0.7) * PLAYER_WALK_BODY_BOB * blend;
+    return getPlayerWalkBodyLiftWithConfig({
+      phase,
+      blend,
+      bodyBob: PLAYER_WALK_BODY_BOB
+    });
   }
 
   function startPlayerJumpFlip() {
@@ -4523,30 +4532,32 @@ export function startGameLoop({
   }
 
   function updatePlayerJumpFlipRoll(deltaTime) {
-    const elapsed = Number(session.playerJumpFlipElapsed);
-    if (!Number.isFinite(elapsed) || elapsed >= PLAYER_JUMP_FLIP_DURATION) {
-      session.playerJumpFlipElapsed = PLAYER_JUMP_FLIP_DURATION;
-      return 0;
-    }
+    const nextJumpFlip = advancePlayerJumpFlipRoll({
+      elapsed: Number(session.playerJumpFlipElapsed),
+      deltaTime,
+      duration: PLAYER_JUMP_FLIP_DURATION,
+      rotation: PLAYER_JUMP_FLIP_ROTATION
+    });
 
-    const nextElapsed = Math.min(PLAYER_JUMP_FLIP_DURATION, elapsed + deltaTime);
-    session.playerJumpFlipElapsed = nextElapsed;
-    const progress = nextElapsed / PLAYER_JUMP_FLIP_DURATION;
-    return -PLAYER_JUMP_FLIP_ROTATION * progress;
+    session.playerJumpFlipElapsed = nextJumpFlip.elapsed;
+    return nextJumpFlip.roll;
   }
 
   function getPlayerWalkFootRoll(phase, blend) {
-    return -Math.sin(phase) * PLAYER_WALK_FOOT_PENDULUM_ROLL * blend;
+    return getPlayerWalkFootRollWithConfig({
+      phase,
+      blend,
+      footPendulumRoll: PLAYER_WALK_FOOT_PENDULUM_ROLL
+    });
   }
 
   function getPlayerWalkArmBackOffset(yaw, blend) {
-    const back = PLAYER_WALK_ARM_BACK_OFFSET * blend;
-
-    return [
-      -Math.cos(yaw) * back,
-      PLAYER_WALK_ARM_LIFT * blend,
-      -Math.sin(yaw) * back
-    ];
+    return getPlayerWalkArmBackOffsetWithConfig({
+      yaw,
+      blend,
+      armBackOffset: PLAYER_WALK_ARM_BACK_OFFSET,
+      armLift: PLAYER_WALK_ARM_LIFT
+    });
   }
 
   function syncPlayerLegInstance(instance, basePosition, baseInstance, offset, roll = 0) {
