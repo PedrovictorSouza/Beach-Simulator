@@ -1,5 +1,11 @@
 import { createGameLoopFrameClock } from "./gameLoopFrameClock.js";
 import { createGameLoopFrameRuntime } from "./gameLoopFrameRuntime.js";
+import {
+  isRevealBoxBotVisible,
+  revealBotAtRepairPosition as revealBotAtRepairPositionWithConfig,
+  setRevealBoxBotVisible,
+  updateBotRevealFall as updateBotRevealFallWithConfig
+} from "./botRevealMotion.js";
 import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
 import { getCampfireWoodPileBillboards } from "./campfireWoodPileBillboards.js";
 import { createChopperAttentionCueRuntime } from "./chopperAttentionCueRuntime.js";
@@ -8450,90 +8456,24 @@ export function startGameLoop({
     }
   }
 
-  function getBotRevealLandingPosition(encounter) {
-    if (!encounter || !Array.isArray(encounter.repairPosition)) {
-      return null;
-    }
-
-    return [...encounter.repairPosition];
-  }
-
-  function getBotRevealOriginPosition(encounter) {
-    const boxPosition = getEncounterRepairBoxPosition(encounter);
-    const landingPosition = getBotRevealLandingPosition(encounter);
-    const originBase = Array.isArray(boxPosition) ? boxPosition : landingPosition;
-
-    if (!originBase) {
-      return null;
-    }
-
-    return [
-      originBase[0],
-      originBase[1] + BULBASAUR_REVEAL_BOT_FALL_HEIGHT,
-      originBase[2]
-    ];
-  }
-
   function revealBotAtRepairPosition(encounter, { falling = false } = {}) {
-    const landingPosition = getBotRevealLandingPosition(encounter);
-
-    if (!landingPosition) {
-      return false;
-    }
-
-    const originPosition = falling ? getBotRevealOriginPosition(encounter) : null;
-
-    encounter.visible = true;
-    encounter.jumpTimer = 0;
-    encounter.originPosition = originPosition;
-    encounter.landingPosition = falling && originPosition ? landingPosition : null;
-    encounter.position = originPosition ? [...originPosition] : landingPosition;
-    return true;
-  }
-
-  function isRevealBoxBotVisible(opening) {
-    return Boolean(opening?.botVisible || opening?.bulbasaurVisible);
-  }
-
-  function setRevealBoxBotVisible(opening) {
-    if (!opening) {
-      return;
-    }
-
-    opening.botVisible = true;
-    opening.bulbasaurVisible = true;
+    return revealBotAtRepairPositionWithConfig({
+      encounter,
+      falling,
+      getRepairBoxPosition: getEncounterRepairBoxPosition,
+      fallHeight: BULBASAUR_REVEAL_BOT_FALL_HEIGHT
+    });
   }
 
   function updateBotRevealFall(opening, encounter, progress) {
-    if (!isRevealBoxBotVisible(opening) || !encounter?.originPosition || !encounter?.landingPosition) {
-      return;
-    }
-
-    const fallStart = clamp01(
-      Number(opening.visibleProgress ?? BULBASAUR_REVEAL_VISIBLE_PROGRESS)
-    );
-    const fallEnd = clamp01(
-      Number(opening.fallEndProgress ?? BULBASAUR_REVEAL_BOT_FALL_END_PROGRESS)
-    );
-    const fallProgress = clamp01((progress - fallStart) / Math.max(0.001, fallEnd - fallStart));
-    const easedProgress = fallProgress * fallProgress;
-    const landingBounce = Math.sin(fallProgress * Math.PI) * 0.16;
-
-    encounter.position = [
-      encounter.originPosition[0] +
-        (encounter.landingPosition[0] - encounter.originPosition[0]) * easedProgress,
-      encounter.originPosition[1] +
-        (encounter.landingPosition[1] - encounter.originPosition[1]) * easedProgress +
-        landingBounce,
-      encounter.originPosition[2] +
-        (encounter.landingPosition[2] - encounter.originPosition[2]) * easedProgress
-    ];
-
-    if (fallProgress >= 1) {
-      encounter.position = [...encounter.landingPosition];
-      encounter.originPosition = null;
-      encounter.landingPosition = null;
-    }
+    updateBotRevealFallWithConfig({
+      opening,
+      encounter,
+      progress,
+      clamp01,
+      defaultVisibleProgress: BULBASAUR_REVEAL_VISIBLE_PROGRESS,
+      defaultFallEndProgress: BULBASAUR_REVEAL_BOT_FALL_END_PROGRESS
+    });
   }
 
   function updateBotRevealBoxOpening(deltaTime, encounter, { syncModelInstance } = {}) {
