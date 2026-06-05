@@ -39,6 +39,7 @@ import {
 import { getLeppaTreeMissionParticleBillboards } from "./leppaTreeMissionParticleBillboards.js";
 import { createMissionTargetIndicatorBillboard } from "./missionTargetIndicatorBillboard.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
+import { getMissionTargetPositions } from "./missionTargetPositions.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
@@ -186,10 +187,7 @@ import {
   WORKBENCH_GREEN_ARROW_YAW_SWAY
 } from "./gameplayPresentationTuning.js";
 
-import {
-  addUniqueMissionTargetPositions,
-  normalizeMissionTargetPositions
-} from "./missionTargetPositionUtils.js";
+import { normalizeMissionTargetPositions } from "./missionTargetPositionUtils.js";
 
 export {
   addUniqueMissionTargetPosition,
@@ -2340,146 +2338,6 @@ export function startGameLoop({
     }
 
     return [];
-  }
-
-  function getTrackedMissionTargetPositions(storyState = {}) {
-    const flags = storyState.flags || {};
-    const taskIds = Array.isArray(flags.trackedTaskIds) ? flags.trackedTaskIds : [];
-    const targetPositions = [];
-
-    for (const taskId of taskIds) {
-      if (taskId === "workbench-campfire" && !flags.campfireCrafted) {
-        if (!flags.workbenchDiyRecipesReceived) {
-          addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById("leaf-helper"));
-        }
-        addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById("workbench"));
-      }
-
-      if (taskId === "water-dry-tall-grass" && !flags.bulbasaurDryGrassMissionComplete) {
-        addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById("water-dry-tall-grass"));
-      }
-
-      if (taskId === "revive-leppa-tree" && !flags.leppaTreeRevived) {
-        addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById("revive-leppa-tree"));
-      }
-
-      if (
-        (
-          taskId === "bulbasaur-dry-grass-request" ||
-          taskId === "bulbasaur-leafage-reward" ||
-          taskId === "give-leppa-berry" ||
-          taskId === "bulbasaur-straw-bed" ||
-          taskId === "straw-bed-recipe"
-        ) &&
-        !flags.bulbasaurStrawBedRequestComplete
-      ) {
-        addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById("leaf-helper"));
-      }
-
-      if (taskId === "tangrowth-log-chair" && !flags.logChairReceived) {
-        addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById("chopper"));
-      }
-
-      if (
-        taskId === "leaf-den-furniture" &&
-        Number(flags.leafDenFurniturePlacedCount || 0) >= 3 &&
-        !flags.leafDenFurnitureRequestComplete
-      ) {
-        addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById("builder-bot"));
-      }
-
-      if (taskId === "charmander-celebration" && !flags.dittoFlagReceived) {
-        addUniqueMissionTargetPositions(
-          targetPositions,
-          getMissionTargetPositionsById(flags.charmanderCelebrationSuggested ? "chopper" : "thermal-bot")
-        );
-      }
-
-      if (taskId === "ruined-pokemon-center" || taskId === "new-challenges-in-pc") {
-        addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById(taskId));
-      }
-    }
-
-    return targetPositions;
-  }
-
-  function resolveMissionCopyValue(value, storyState = {}) {
-    if (typeof value === "function") {
-      try {
-        return value(storyState);
-      } catch {
-        return "";
-      }
-    }
-
-    return typeof value === "string" ? value : "";
-  }
-
-  function getMissionTargetPositionsFromCopy(source, storyState = {}) {
-    const targetPositions = [];
-    const copyTargetIds = resolveMissionTargetIdsFromMissionCopy(
-      resolveMissionCopyValue(source?.title, storyState),
-      resolveMissionCopyValue(source?.description, storyState),
-      resolveMissionCopyValue(source?.guidance, storyState),
-      resolveMissionCopyValue(source?.label, storyState)
-    );
-
-    for (const targetId of copyTargetIds) {
-      addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById(targetId));
-    }
-
-    return targetPositions;
-  }
-
-  function getActiveQuestObjectiveCandidates(activeQuest) {
-    const objectives = activeQuest?.objectives || [];
-    const incompleteVisibleObjectives = objectives.filter((objective) => {
-      return !objective.hiddenFromHud && (objective.current || 0) < (objective.required || 1);
-    });
-    if (incompleteVisibleObjectives.length) {
-      return incompleteVisibleObjectives;
-    }
-
-    const visibleObjectives = objectives.filter((objective) => !objective.hiddenFromHud);
-    if (visibleObjectives.length) {
-      return visibleObjectives;
-    }
-
-    return objectives.filter((objective) => (objective.current || 0) < (objective.required || 1));
-  }
-
-  function getActiveQuestMissionTargetPositions(activeQuest, storyState = {}) {
-    if (!activeQuest) {
-      return [];
-    }
-
-    const targetPositions = [];
-    if (activeQuest.id === "gather-first-supplies") {
-      addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById("squirtle"));
-    }
-
-    for (const objective of getActiveQuestObjectiveCandidates(activeQuest)) {
-      const beforeTargetCount = targetPositions.length;
-      addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsById(objective?.targetId));
-
-      if (objective?.type === "TALK" && targetPositions.length === beforeTargetCount) {
-        addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsFromCopy(objective, storyState));
-        addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsFromCopy(activeQuest, storyState));
-      }
-    }
-
-    if (!targetPositions.length) {
-      addUniqueMissionTargetPositions(targetPositions, getMissionTargetPositionsFromCopy(activeQuest, storyState));
-    }
-
-    return targetPositions;
-  }
-
-  function getMissionTargetPositions(activeQuest, storyState = {}) {
-    const targetPositions = [];
-    addUniqueMissionTargetPositions(targetPositions, getTrackedMissionTargetPositions(storyState));
-    addUniqueMissionTargetPositions(targetPositions, getActiveQuestMissionTargetPositions(activeQuest, storyState));
-    return targetPositions;
   }
 
   function getSnappedSolarStationPreviewPosition(preview) {
@@ -12506,7 +12364,11 @@ if (canProcessDestroyAction && destroyActionRequested) {
     }
 
     if (canShowWorldSpaceUi) {
-      const missionTargetPositions = getMissionTargetPositions(activeQuest, controls.storyState);
+      const missionTargetPositions = getMissionTargetPositions({
+        activeQuest,
+        storyState: controls.storyState,
+        getMissionTargetPositionsById
+      });
       for (const missionTargetPosition of missionTargetPositions) {
         const missionTargetIndicatorBillboard = createMissionTargetIndicatorBillboard({
           texture: session.missionTargetIndicatorTexture,
