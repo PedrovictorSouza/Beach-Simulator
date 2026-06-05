@@ -153,6 +153,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the mission target indicator billboard helper.
 - Completed: extract the Leppa Tree music notes helper.
 - Completed: extract the Campfire wood pile billboard helper.
+- Completed: extract the Repair Box particle target helpers.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3080,6 +3081,53 @@ returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
 baseline:
 
 - `1416` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Repair Box Particle Target Helper Extraction
+
+Added `repairBoxParticleTargets.js` for the two small Repair Box particle target
+selectors. This moves the target-object shaping for rustling particles and
+reveal rays out of `gameLoop.js`.
+
+Study path:
+
+1. `repairBoxParticleTargets.js` owns
+   `getSelectedRepairBoxParticleTarget(...)` and
+   `getRepairBoxRevealParticleTarget(...)`.
+2. The selected target helper receives the four repair-module instances
+   explicitly and returns the first active instance with an offset.
+3. The reveal target helper receives active encounter candidates, the existing
+   `getEncounterRepairBoxPosition(...)` callback and `clamp01`.
+4. `gameLoop.js` still decides which encounter/session objects are passed in.
+5. `gameLoop.js` still decides when rustling particles and reveal rays are
+   pushed into render data.
+
+This extraction does not change Repair Box opening, encounter state, Bulbasaur
+or Charmander reveal timing, prompt behavior, audio, camera or frame order. It
+only moves particle-target DTO construction.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "getSelectedRepairBoxParticleTarget|getRepairBoxRevealParticleTarget|repairBoxParticleTargets" app/runtime/gameLoop.js app/runtime/repairBoxParticleTargets.js tests/repairBoxParticleTargets.test.js
+npm test -- --run tests/repairBoxParticleTargets.test.js
+npm test -- --run tests/repairBoxParticleTargets.test.js tests/campfireWoodPileBillboards.test.js tests/leppaTreeMusicNotes.test.js tests/missionTargetIndicatorBillboard.test.js tests/trainHouseRuntime.test.js tests/workbenchRuntime.test.js tests/tallGrassMotion.test.js tests/grassPlayerBend.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/repairBoxRevealFlashRuntime.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/savePointStarBillboards.test.js tests/gameLoopState.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayOpeningShip.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The Repair Box particle-target focused test passed with `5` tests, the broader
+focused suite passed with `77` tests, the production build passed and the dev
+server returned `HTTP 200`. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1421` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
