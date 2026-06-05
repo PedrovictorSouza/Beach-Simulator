@@ -162,6 +162,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the bot reveal motion helper.
 - Completed: extract the player model motion helper.
 - Completed: extract the model facing helper.
+- Completed: extract the interaction debug collider helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3512,6 +3513,54 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Interaction Debug Collider Helper Extraction
+
+Added `interactionDebugColliders.js` for debug-only collider DTO assembly. This
+moves the interaction trigger collider builder out of `gameLoop.js` while
+keeping the local wrapper that wires current `session`, `storyState`,
+`rendering` filters and interaction-distance constants.
+
+Study path:
+
+1. `createDebugAreaCollider(...)` preserves the previous debug collider shape:
+   `id`, ground-plane `position`, `size`, raised `surfaceY` and
+   `blocksPlayer`.
+2. `getActorDebugPosition(...)` preserves the priority order of
+   `character.getPosition()`, actor `position`, then actor `offset`.
+3. `getInteractionDebugColliders(...)` still filters NPCs, interactables and
+   resource nodes through the existing rendering activity callbacks.
+4. Grow Bot, wood drops, field drops and Leppa Berry drops keep the same ids,
+   radii, surface heights and fallback behavior.
+5. `gameLoop.js` still decides when debug colliders are appended to
+   `nextFrame` and still combines them with elevated terrain colliders.
+
+This extraction does not change normal gameplay, collision, field moves,
+placement, render order or debug flag parsing. It only moves debug overlay DTO
+construction into a tested helper.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/interactionDebugColliders.test.js
+npm test -- --run tests/interactionDebugColliders.test.js tests/colliderGizmoOverlay.test.js tests/runtimeFlags.test.js tests/renderFrameController.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The interaction debug collider focused test passed with `3` tests, the broader
+debug/render focused suite passed with `21` tests, the production build passed
+with the existing chunk-size warning, and the dev server returned `HTTP 200`.
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1461` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
