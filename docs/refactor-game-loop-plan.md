@@ -159,6 +159,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the collectible source snapshot helper.
 - Completed: extract the supply pickup viewport origin helper.
 - Completed: extract the world cell planner picking helper.
+- Completed: extract the bot reveal motion helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3369,6 +3370,53 @@ broader focused suite passed with `18` tests and the production build passed.
 `npm test` completed with the existing Leafage Native Tree baseline:
 
 - `1443` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
+
+### Bot Reveal Motion Helper Extraction
+
+Added `botRevealMotion.js` for Repair Box bot reveal positioning and fall
+motion. This moves landing/origin calculation, visibility flag compatibility
+and the falling interpolation out of `gameLoop.js`.
+
+Study path:
+
+1. `getBotRevealLandingPosition(...)` preserves the repair-position landing
+   copy.
+2. `getBotRevealOriginPosition(...)` preserves the Repair Box position fallback
+   before landing position and receives fall height explicitly.
+3. `revealBotAtRepairPosition(...)` preserves encounter mutation shape:
+   `visible`, `jumpTimer`, `originPosition`, `landingPosition` and `position`.
+4. `isRevealBoxBotVisible(...)` and `setRevealBoxBotVisible(...)` preserve both
+   old visibility flag names: `botVisible` and `bulbasaurVisible`.
+5. `updateBotRevealFall(...)` preserves fall start/end progress, quadratic fall
+   easing, landing bounce and cleanup when settled.
+6. `gameLoop.js` still owns reveal-box opening timing, SFX, flash runtime,
+   hide-box behavior, `onComplete`, model sync and encounter lifecycle.
+
+This extraction does not change reveal duration, SFX timing, flash behavior,
+Repair Box active state, bot visibility timing, model sync, camera, input or
+frame order. It only moves motion/position helpers that are configured by the
+existing constants in `gameLoop.js`.
+
+Passed:
+
+```sh
+git diff --check
+rg -n "botRevealMotion|getBotRevealLandingPosition|getBotRevealOriginPosition|revealBotAtRepairPosition|isRevealBoxBotVisible|setRevealBoxBotVisible|updateBotRevealFall" app/runtime/gameLoop.js app/runtime/botRevealMotion.js tests/botRevealMotion.test.js
+npm test -- --run tests/botRevealMotion.test.js
+npm test -- --run tests/botRevealMotion.test.js tests/repairBoxParticleTargets.test.js tests/repairBoxRevealFlashRuntime.test.js tests/repairBoxRevealRayBillboards.test.js tests/repairBoxMotionRuntime.test.js
+npm run build
+npm test
+```
+
+The bot reveal motion focused test passed with `6` tests, the Repair Box/reveal
+focused suite passed with `21` tests and the production build passed. `npm
+test` completed with the existing Leafage Native Tree baseline:
+
+- `1449` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because the in-app browser
