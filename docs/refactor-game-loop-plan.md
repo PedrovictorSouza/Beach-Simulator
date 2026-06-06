@@ -171,6 +171,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the gameplay input frame helper.
 - Completed: extract the gameplay presentation frame helper.
 - Completed: extract the early gameplay control frame helper.
+- Completed: extract the frame scene sync helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3521,6 +3522,50 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Frame Scene Sync Helper Extraction
+
+Added an internal `updateFrameSceneSync(...)` helper inside `startGameLoop()`.
+This moves the first per-frame scene synchronization block out of the body of
+`frame(now)`.
+
+Study path:
+
+1. The helper still runs after pause handling and before gameplay opening
+   context begins.
+2. Canvas resize still happens before `camera.update(deltaTime)`.
+3. Interaction highlights are still cleared immediately after the camera update.
+4. Workbench interactable sync and Pokemon Center workshop visual sync still run
+   before opening/input blocker resolution.
+5. The helper does not return state; it only groups existing side effects that
+   were already sequential and local to the frame.
+
+This extraction does not change camera tuning, highlight behavior, workbench
+state, Pokemon Center workshop visuals, opening locks, placement, field moves,
+render output or frame order. It only gives the scene-sync prelude of the frame
+a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/camera.test.js tests/interactionObjectHighlight.test.js tests/gameLoopFrameRuntime.test.js tests/frameSnapshotController.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused camera/highlight/frame suite passed with `16` tests and the
+production build passed with the existing chunk-size warning. The dev server
+returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
