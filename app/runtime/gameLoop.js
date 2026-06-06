@@ -8809,6 +8809,45 @@ export function startGameLoop({
     }));
   }
 
+  function updateGameplayInputFrame({
+    now,
+    deltaTime,
+    flowState,
+    cinematicActive,
+    movementBlocked,
+    placementPreviewActive,
+    dialogueActive,
+    tutorialActive,
+    skillLearnActive,
+    scriptedInteractionActive,
+    gameplayOpeningMovementLocked
+  }) {
+    gameplayInputRuntime.update({
+      now,
+      deltaTime,
+      gameplayActive: flowState.gameplayActive,
+      cinematicActive,
+      movementBlocked,
+      placementActive: placementPreviewActive,
+      dialogueActive,
+      tutorialActive,
+      skillLearnActive,
+      scriptedInteractionActive
+    });
+    inputModalityPanelController.update(getCurrentInputModalityState());
+    const cameraTransitionActive = camera.isTargetTransitionActive();
+
+    updateCameraDebugFrameOverlay({
+      now,
+      flowState,
+      movementBlocked,
+      gameplayOpeningMovementLocked,
+      cameraTransitionActive
+    });
+
+    return { cameraTransitionActive };
+  }
+
   function updateCameraInputFrame({
     deltaTime,
     flowState,
@@ -8983,27 +9022,18 @@ export function startGameLoop({
       flowState: frameFlowState
     });
 
-    gameplayInputRuntime.update({
+    const { cameraTransitionActive } = updateGameplayInputFrame({
       now,
       deltaTime,
-      gameplayActive: frameFlowState.gameplayActive,
+      flowState: frameFlowState,
       cinematicActive,
       movementBlocked,
-      placementActive: placementPreviewActive,
+      placementPreviewActive,
       dialogueActive,
       tutorialActive,
       skillLearnActive,
-      scriptedInteractionActive
-    });
-    inputModalityPanelController.update(getCurrentInputModalityState());
-    const cameraTransitionActive = camera.isTargetTransitionActive();
-
-    updateCameraDebugFrameOverlay({
-      now,
-      flowState: frameFlowState,
-      movementBlocked,
-      gameplayOpeningMovementLocked,
-      cameraTransitionActive
+      scriptedInteractionActive,
+      gameplayOpeningMovementLocked
     });
 
     processWorldCellPlannerClick();
