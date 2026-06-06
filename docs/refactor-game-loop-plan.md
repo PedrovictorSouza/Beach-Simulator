@@ -166,6 +166,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the camera debug frame-state helper.
 - Completed: extract the Rebirth of Nature ghost-tree helper.
 - Completed: extract the mission target position lookup helper.
+- Completed: extract the player movement frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3516,6 +3517,54 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Player Movement Frame Helper Extraction
+
+Added an internal `updatePlayerMovementFrame(...)` helper inside
+`startGameLoop()`. This moves the player movement update block out of the body
+of `frame(now)` without creating a new runtime or changing frame order.
+
+Study path:
+
+1. `frame(now)` still resolves placement previews and spawn effects before
+   player movement.
+2. `updatePlayerMovementFrame(...)` still calls
+   `resolvePlayerMovementPermission(...)` with the same flow state,
+   player-existence and foundation-camera-focus inputs.
+3. When movement is allowed, the helper preserves the same order:
+   player update, jump flip, moved-distance calculation, run breadcrumb prompt,
+   companion follow direction, player model sync, zoom restore and movement
+   quest update.
+4. When movement is blocked, the helper still only syncs the player model.
+5. Player dust still updates immediately after movement permission is resolved,
+   and the helper returns `playerMovedThisFrame` for the driving-audio gate
+   later in the frame.
+
+This extraction does not change movement tuning, input mapping, camera tuning,
+opening locks, tutorial locks, quest rules, field moves, placement or render
+output. It only gives the movement portion of the frame a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/gameLoopFramePolicies.test.js tests/movementQuestRuntime.test.js tests/runBreadcrumbPromptRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused movement-policy/runtime suite passed with `16` tests and the
+production build passed with the existing chunk-size warning. The dev server
+returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
