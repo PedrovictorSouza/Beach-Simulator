@@ -9009,6 +9009,13 @@ export function startGameLoop({
     return { playerMovedThisFrame };
   }
 
+  function updatePassiveEffectFrames(deltaTime) {
+    updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
+    treeRevivalLeafBurstRuntime.update(deltaTime);
+    woodCollectPopRuntime.update(deltaTime);
+    gearPickupParticleRuntime.update(deltaTime);
+  }
+
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -9246,10 +9253,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
       foundationBuildZoneCameraFocusActive,
       tutorialActive
     });
-    updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
-    treeRevivalLeafBurstRuntime.update(deltaTime);
-    woodCollectPopRuntime.update(deltaTime);
-    gearPickupParticleRuntime.update(deltaTime);
+    updatePassiveEffectFrames(deltaTime);
 
     // Gameplay actions and simulation.
     const activeMoveId = controls.getActiveMoveId?.() || null;
