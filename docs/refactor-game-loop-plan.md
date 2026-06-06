@@ -175,6 +175,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the gameplay camera frame helper.
 - Completed: extract the passive effect frame helper.
 - Completed: extract the render snapshot context helper.
+- Completed: extract the ground-cell highlight frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3525,6 +3526,51 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Ground-Cell Highlight Frame Helper Extraction
+
+Added an internal `updateGroundCellHighlightFrame(nextFrame, state)` helper
+inside `startGameLoop()`. This moves the final write step for
+`nextFrame.groundCellHighlight` out of the body of `frame(now)`.
+
+Study path:
+
+1. The helper does not calculate placement, workbench, Fire, field-tool or
+   feedback targets; those values are still resolved before the call.
+2. Placement preview highlights still keep the same priority order:
+   Solar Station, Greenhouse, Campfire, House Kit.
+3. Workbench rotation, Fire target and generic ground-cell guidance still use
+   the same fallback order after placement highlights.
+4. Marked action cells and ground-action feedback still append after the primary
+   highlight branch.
+5. Field-tool pulse data still writes last, preserving its previous ability,
+   scale, brightness and progress fields.
+
+This extraction does not change placement rules, field-move rules, highlight
+tuning, feedback timing, render output, camera behavior or frame order. It only
+gives the ground-cell highlight snapshot mutation a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/groundCellHighlightController.test.js tests/groundActionFeedbackRuntime.test.js tests/placementPreviewVisual.test.js tests/worldObjectPlacementPreview.test.js tests/frameSnapshotController.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused ground-cell highlight suite passed with `26` tests and the
+production build passed with the existing chunk-size warning. The dev server
+returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
