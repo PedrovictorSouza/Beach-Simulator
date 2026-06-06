@@ -55,6 +55,7 @@ import {
 } from "./leppaTreeMusicNotes.js";
 import { getLeppaTreeMissionParticleBillboards } from "./leppaTreeMissionParticleBillboards.js";
 import { createMissionTargetIndicatorBillboard } from "./missionTargetIndicatorBillboard.js";
+import { getMissionTargetPositionsById as getMissionTargetPositionsByIdWithConfig } from "./missionTargetPositionLookup.js";
 import {
   getLogicalFacingYaw as getModelLogicalFacingYaw,
   getModelYawToward,
@@ -226,8 +227,6 @@ import {
   WORKBENCH_GREEN_ARROW_YAW_SWAY
 } from "./gameplayPresentationTuning.js";
 
-import { normalizeMissionTargetPositions } from "./missionTargetPositionUtils.js";
-
 export {
   addUniqueMissionTargetPosition,
   addUniqueMissionTargetPositions,
@@ -235,15 +234,10 @@ export {
   normalizeMissionTargetPositions
 } from "./missionTargetPositionUtils.js";
 
-import {
-  resolveMissionTargetAliasId,
-  resolveMissionTargetIdsFromMissionCopy
-} from "./missionTargetResolver.js";
-
 export {
   resolveMissionTargetAliasId,
   resolveMissionTargetIdsFromMissionCopy
-};
+} from "./missionTargetResolver.js";
 
 import {
   createFpsPanelController,
@@ -2115,111 +2109,14 @@ export function startGameLoop({
     });
   }
 
-  function getNpcMissionTargetPosition(npcId) {
-    const npcActor = session.npcActors?.find((actor) => actor.id === npcId);
-    return getActorDebugPosition(npcActor);
-  }
-
-  function getCompanionMissionTargetPosition(companionId) {
-    if (companionId === "squirtle" || companionId === "waterGun") {
-      return session.actTwoSquirtle?.position ||
-        session.actTwoSquirtle?.repairModuleInstance?.baseOffset ||
-        session.actTwoSquirtle?.repairModuleInstance?.offset ||
-        null;
-    }
-
-    if (companionId === "bulbasaur" || companionId === "leaf-helper" || companionId === "leafage") {
-      return session.bulbasaurEncounter?.position ||
-        session.bulbasaurEncounter?.repairPosition ||
-        session.bulbasaurEncounter?.repairModuleInstance?.baseOffset ||
-        null;
-    }
-
-    if (companionId === "charmander" || companionId === "fire") {
-      return session.charmanderEncounter?.position ||
-        session.charmanderEncounter?.repairPosition ||
-        session.charmanderEncounter?.repairModuleInstance?.baseOffset ||
-        null;
-    }
-
-    if (companionId === "timburr") {
-      return session.timburrEncounter?.position ||
-        session.timburrEncounter?.repairPosition ||
-        session.timburrEncounter?.repairModuleInstance?.baseOffset ||
-        null;
-    }
-
-    return null;
-  }
-
-  function getDryGrassMissionTargetPositions() {
-    const patches = session.groundGrassPatches || [];
-    const playerPosition = session.playerCharacter?.getPosition?.() || null;
-    const targetPatches = [];
-
-    for (const patch of patches) {
-      if (!Array.isArray(patch?.position) || patch.state === "alive") {
-        continue;
-      }
-
-      const distance = Array.isArray(playerPosition) ?
-        Math.hypot(patch.position[0] - playerPosition[0], patch.position[2] - playerPosition[2]) :
-        0;
-
-      targetPatches.push({ patch, distance });
-    }
-
-    targetPatches.sort((left, right) => left.distance - right.distance);
-    return targetPatches.map(({ patch }) => patch.position);
-  }
-
   function getMissionTargetPositionsById(targetId) {
-    const missionTargetId = resolveMissionTargetAliasId(targetId);
-    if (!missionTargetId) {
-      return [];
-    }
-
-    if (missionTargetId === "tangrowth") {
-      return normalizeMissionTargetPositions(getNpcMissionTargetPosition("tangrowth"));
-    }
-
-    if (missionTargetId === "squirtle") {
-      return normalizeMissionTargetPositions(getCompanionMissionTargetPosition("squirtle"));
-    }
-
-    if (missionTargetId === "leaf-helper") {
-      return normalizeMissionTargetPositions(getCompanionMissionTargetPosition("bulbasaur"));
-    }
-
-    if (missionTargetId === "charmander") {
-      return normalizeMissionTargetPositions(getCompanionMissionTargetPosition("charmander"));
-    }
-
-    if (missionTargetId === "timburr") {
-      return normalizeMissionTargetPositions(getCompanionMissionTargetPosition("timburr"));
-    }
-
-    if (missionTargetId === "workbench" || missionTargetId === "workbench-campfire") {
-      return normalizeMissionTargetPositions(WORKBENCH_POSITION);
-    }
-
-    if (missionTargetId === "revived-grass" || missionTargetId === "water-dry-tall-grass") {
-      return getDryGrassMissionTargetPositions();
-    }
-
-    if (missionTargetId === "leppaTree" || missionTargetId === "revive-leppa-tree") {
-      return normalizeMissionTargetPositions(session.leppaTree?.position);
-    }
-
-    if (missionTargetId === "ruined-pokemon-center" || missionTargetId === "new-challenges-in-pc") {
-      return normalizeMissionTargetPositions(session.pokemonCenterPc?.position || RUINED_POKEMON_CENTER_POSITION);
-    }
-
-    if (missionTargetId === "foundation-wall") {
-      return normalizeMissionTargetPositions(getFreeBlockBuildZoneCenterPosition());
-    }
-
-    return [];
+    return getMissionTargetPositionsByIdWithConfig({
+      targetId,
+      session,
+      workbenchPosition: WORKBENCH_POSITION,
+      ruinedPokemonCenterPosition: RUINED_POKEMON_CENTER_POSITION,
+      getFreeBlockBuildZoneCenterPosition
+    });
   }
 
   function getSnappedSolarStationPreviewPosition(preview) {
