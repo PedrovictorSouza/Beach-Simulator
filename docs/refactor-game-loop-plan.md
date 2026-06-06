@@ -167,6 +167,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the Rebirth of Nature ghost-tree helper.
 - Completed: extract the mission target position lookup helper.
 - Completed: extract the player movement frame helper.
+- Completed: extract the camera input frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3517,6 +3518,55 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Camera Input Frame Helper Extraction
+
+Added an internal `updateCameraInputFrame(...)` helper inside `startGameLoop()`.
+This moves the frame's camera input consumption out of the body of `frame(now)`
+without creating a new runtime or changing when camera input is processed.
+
+Study path:
+
+1. `frame(now)` still updates opening/input blockers, clears blocked actions and
+   advances rustling grass before camera input.
+2. `updateCameraInputFrame(...)` still calls
+   `resolveCameraInputPermissions(...)` with the same player, opening camera
+   lock, foundation focus, builder panel, placement preview, tutorial camera
+   and flow-state inputs.
+3. Zoom-cycle requests are still consumed every frame; they only cycle the zoom
+   preset and play `UI_NAVIGATE` when `canCycleCameraZoom` is true.
+4. Keyboard turn keys and pointer/gamepad look delta still combine into one
+   orbit rotation.
+5. Tutorial camera-look registration still happens only when rotation is
+   allowed and actual look input was applied.
+6. Blocked camera look still clears pending look input through
+   `controls.clearCameraLookInput?.()`.
+
+This extraction does not change camera tuning, zoom behavior, tutorial gates,
+opening locks, placement locks, input mapping, field moves, render output or
+camera ordering. It only gives the camera input portion of the frame a local
+boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/gameLoopFramePolicies.test.js tests/cameraZoomPresetController.test.js tests/gameInputController.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused camera-policy/input suite passed with `60` tests and the production
+build passed with the existing chunk-size warning. The dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
