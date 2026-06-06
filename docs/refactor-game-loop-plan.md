@@ -173,6 +173,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the early gameplay control frame helper.
 - Completed: extract the frame scene sync helper.
 - Completed: extract the gameplay camera frame helper.
+- Completed: extract the passive effect frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3523,6 +3524,46 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Passive Effect Frame Helper Extraction
+
+Added an internal `updatePassiveEffectFrames(deltaTime)` helper inside
+`startGameLoop()`. This moves the passive visual effect update block out of the
+body of `frame(now)` while preserving the exact update order.
+
+Study path:
+
+1. The helper still runs after player movement and dust updates.
+2. Nature revival effects still update first from `session.natureRevivalEffects`.
+3. Tree revival leaf bursts, Wood collect pops and Gear pickup particles still
+   update in the same sequence.
+4. The helper has no return value; it only groups existing passive visual
+   side effects that already ran sequentially.
+
+This extraction does not change effect tuning, gameplay actions, placement,
+field moves, render output, camera behavior or frame order. It only gives the
+passive effect update portion of the frame a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/natureRevivalEffects.test.js tests/treeRevivalLeafBurstRuntime.test.js tests/woodCollectPopRuntime.test.js tests/gearPickupParticleRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused passive-effect suite passed with `16` tests and the production
+build passed with the existing chunk-size warning. The dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
