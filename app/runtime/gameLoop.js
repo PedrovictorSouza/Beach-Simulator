@@ -7,6 +7,7 @@ import {
   updateBotRevealFall as updateBotRevealFallWithConfig
 } from "./botRevealMotion.js";
 import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
+import { createCameraDebugFrameState } from "./cameraDebugFrameState.js";
 import { getCampfireWoodPileBillboards } from "./campfireWoodPileBillboards.js";
 import { createChopperAttentionCueRuntime } from "./chopperAttentionCueRuntime.js";
 import {
@@ -8957,38 +8958,21 @@ export function startGameLoop({
       return;
     }
 
-    cameraDebugRuntime.update({
-      frame: Math.round(now),
-      flow: {
-        gameplay: flowState.gameplayActive,
-        cinematic: flowState.cinematicActive,
-        intro: flowState.introActive,
-        tutorial: flowState.tutorialActive
-      },
-      blockers: {
-        movementBlocked,
-        tutorialMovementLocked: flowState.tutorialMovementLocked,
-        pokedexModalOpen: flowState.pokedexModalOpen,
-        dialogueActive: flowState.dialogueActive,
-        skillLearnActive: flowState.skillLearnActive,
-        scriptedInteractionActive: flowState.scriptedInteractionActive,
-        paused: Boolean(controls.isPaused?.())
-      },
-      camera: {
-        ...gameplayCameraDirector.getState(now),
-        openingCameraActiveForInput: gameplayOpeningMovementLocked,
-        transitionActive: cameraTransitionActive,
-        pose: camera.getPose?.() || null
-      },
-      quest: {
-        system: gameplay.getActiveSystemQuest?.()?.id || null,
-        ui: gameplay.getActiveQuest?.(controls.storyState)?.id || null
-      },
-      player: session.playerCharacter?.getPosition?.() || null,
-      ship: session.gameplayOpeningShip?.visible ?
-        session.gameplayOpeningShip.position :
-        null
-    });
+    cameraDebugRuntime.update(createCameraDebugFrameState({
+      now,
+      flowState,
+      movementBlocked,
+      gameplayOpeningMovementLocked,
+      cameraTransitionActive,
+      paused: Boolean(controls.isPaused?.()),
+      gameplayCameraState: gameplayCameraDirector.getState(now),
+      cameraPose: camera.getPose?.() || null,
+      systemQuestId: gameplay.getActiveSystemQuest?.()?.id || null,
+      uiQuestId: gameplay.getActiveQuest?.(controls.storyState)?.id || null,
+      playerPosition: session.playerCharacter?.getPosition?.() || null,
+      shipVisible: session.gameplayOpeningShip?.visible,
+      shipPosition: session.gameplayOpeningShip?.position
+    }));
   }
 
   function frame(now) {
