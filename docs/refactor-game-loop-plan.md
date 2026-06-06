@@ -165,6 +165,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the interaction debug collider helper.
 - Completed: extract the camera debug frame-state helper.
 - Completed: extract the Rebirth of Nature ghost-tree helper.
+- Completed: extract the mission target position lookup helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3515,6 +3516,56 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Mission Target Position Lookup Helper Extraction
+
+Added `missionTargetPositionLookup.js` for resolving a single mission target id
+into world positions. This moves NPC, companion, dry-grass, static world-target
+and fallback lookup rules out of `gameLoop.js`, while keeping mission target
+aggregation in the existing `missionTargetPositions.js` helper.
+
+Study path:
+
+1. `getMissionTargetPositionsById(...)` still normalizes target aliases through
+   `resolveMissionTargetAliasId(...)`.
+2. NPC targets keep the previous position priority:
+   `character.getPosition()`, actor `position`, then actor `offset`.
+3. Companion targets keep their existing position/repair-position/module
+   fallback order for Hydro, Grow, Thermal and Builder bots.
+4. Dry grass targets still skip alive/invalid patches and sort by distance
+   from the player when a player position exists.
+5. Static and session-backed targets still cover Workbench, Leppa Tree, Ruined
+   Pokemon Center and foundation wall.
+6. `gameLoop.js` still owns the live `session`, Workbench position, Ruined
+   Pokemon Center fallback and foundation-zone callback.
+
+This extraction does not change mission copy parsing, mission target
+aggregation, placement, field moves, quest state or render order. It only moves
+target id lookup into a tested helper.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/missionTargetPositionLookup.test.js
+npm test -- --run tests/missionTargetPositionLookup.test.js tests/missionTargetPositions.test.js tests/missionTargetResolver.test.js tests/missionTargetIndicatorBillboard.test.js tests/renderFrameController.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The mission target lookup focused test passed with `5` tests, the broader
+mission-target focused suite passed with `26` tests, the production build
+passed with the existing chunk-size warning, and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
