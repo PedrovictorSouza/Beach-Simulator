@@ -9044,6 +9044,14 @@ export function startGameLoop({
     };
   }
 
+  function updateFrameSceneSync(deltaTime) {
+    camera.resizeCanvases();
+    camera.update(deltaTime);
+    clearInteractionObjectHighlights(session);
+    syncWorkbenchInteractable();
+    syncPokemonCenterWorkshopVisualState();
+  }
+
   function frame(now) {
     // Timing and flow state.
     const {
@@ -9071,11 +9079,7 @@ export function startGameLoop({
       return;
     }
 
-    camera.resizeCanvases();
-    camera.update(deltaTime);
-    clearInteractionObjectHighlights(session);
-    syncWorkbenchInteractable();
-    syncPokemonCenterWorkshopVisualState();
+    updateFrameSceneSync(deltaTime);
 
     // Opening, input blockers and camera controls.
     let {
