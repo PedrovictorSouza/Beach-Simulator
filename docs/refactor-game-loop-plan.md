@@ -170,6 +170,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the camera input frame helper.
 - Completed: extract the gameplay input frame helper.
 - Completed: extract the gameplay presentation frame helper.
+- Completed: extract the early gameplay control frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3520,6 +3521,52 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Early Gameplay Control Frame Helper Extraction
+
+Added an internal `updateEarlyGameplayControlFrame(...)` helper inside
+`startGameLoop()`. This moves the first control-maintenance block after input
+runtime updates out of the body of `frame(now)`.
+
+Study path:
+
+1. `processWorldCellPlannerClick()` still runs before the intro-room early
+   frame branch.
+2. The intro-room branch still calls `updateIntroRoomFrame(...)` with the same
+   scene, camera, canvas, frame snapshot and `deltaTime` inputs.
+3. When intro-room rendering handles the frame, the helper still commits the
+   frame immediately and returns `committedEarlyFrame: true`; `frame(now)` still
+   owns the `requestAnimationFrame(frame)` scheduling and `return`.
+4. Pending actions and movement input are still cleared only when the blocker
+   policy says so.
+5. Rustling grass still advances after blocked input cleanup and before camera
+   input processing.
+
+This extraction does not change intro timing, frame commit semantics,
+world-cell planner behavior, input clearing, rustling grass timing, placement,
+field moves, render output or camera order. It only gives the early control
+maintenance portion of the frame a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js tests/introRoomScene.test.js tests/worldCellPlannerClickRuntime.test.js tests/worldCellPlannerPicking.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused early-frame/control suite passed with `27` tests and the production
+build passed with the existing chunk-size warning. The dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
