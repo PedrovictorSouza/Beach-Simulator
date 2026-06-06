@@ -8809,6 +8809,54 @@ export function startGameLoop({
     }));
   }
 
+  function updateCameraInputFrame({
+    deltaTime,
+    flowState,
+    gameplayOpeningCameraLocked,
+    foundationBuildZoneCameraFocusActive,
+    placementPreviewActive,
+    tutorialActive
+  }) {
+    const {
+      canRotateCamera,
+      canCycleCameraZoom
+    } = resolveCameraInputPermissions({
+      hasPlayerCharacter: Boolean(session.playerCharacter),
+      gameplayOpeningCameraLocked,
+      foundationBuildZoneCameraFocusActive,
+      builderPanelOpen: controls.isBuilderPanelOpen(),
+      placementPreviewActive,
+      tutorialAllowsCameraLook: actTwoTutorial.allowsCameraLook(),
+      flowState
+    });
+
+    while (controls.consumeCameraZoomCycleRequest?.()) {
+      if (canCycleCameraZoom) {
+        cameraZoomPresetController.cycle();
+        playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE);
+      }
+    }
+
+    const cameraTurnDirection =
+      (controls.cameraTurnKeys.has("ArrowRight") ? 1 : 0) -
+      (controls.cameraTurnKeys.has("ArrowLeft") ? 1 : 0);
+    const cameraLookDelta = controls.consumeCameraLookDelta?.() || { yaw: 0, pitch: 0 };
+    const keyboardCameraYaw = cameraTurnDirection * deltaTime * cameraOrbit.turnSpeed;
+    const hasCameraLookInput =
+      keyboardCameraYaw !== 0 ||
+      Math.abs(cameraLookDelta.yaw) > 0.0001 ||
+      Math.abs(cameraLookDelta.pitch) > 0.0001;
+
+    if (canRotateCamera && hasCameraLookInput) {
+      cameraOrbit.rotate(keyboardCameraYaw + cameraLookDelta.yaw, cameraLookDelta.pitch);
+      if (tutorialActive) {
+        actTwoTutorial.registerCameraLook();
+      }
+    } else if (!canRotateCamera) {
+      controls.clearCameraLookInput?.();
+    }
+  }
+
   function updatePlayerMovementFrame({
     deltaTime,
     now,
@@ -8985,44 +9033,14 @@ export function startGameLoop({
 
     updateRustlingGrassEvent(deltaTime, canAdvanceRustlingGrass);
 
-    const {
-      canRotateCamera,
-      canCycleCameraZoom
-    } = resolveCameraInputPermissions({
-      hasPlayerCharacter: Boolean(session.playerCharacter),
+    updateCameraInputFrame({
+      deltaTime,
+      flowState: frameFlowState,
       gameplayOpeningCameraLocked,
       foundationBuildZoneCameraFocusActive,
-      builderPanelOpen: controls.isBuilderPanelOpen(),
       placementPreviewActive,
-      tutorialAllowsCameraLook: actTwoTutorial.allowsCameraLook(),
-      flowState: frameFlowState
+      tutorialActive
     });
-
-    while (controls.consumeCameraZoomCycleRequest?.()) {
-      if (canCycleCameraZoom) {
-        cameraZoomPresetController.cycle();
-        playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE);
-      }
-    }
-
-    const cameraTurnDirection =
-      (controls.cameraTurnKeys.has("ArrowRight") ? 1 : 0) -
-      (controls.cameraTurnKeys.has("ArrowLeft") ? 1 : 0);
-    const cameraLookDelta = controls.consumeCameraLookDelta?.() || { yaw: 0, pitch: 0 };
-    const keyboardCameraYaw = cameraTurnDirection * deltaTime * cameraOrbit.turnSpeed;
-    const hasCameraLookInput =
-      keyboardCameraYaw !== 0 ||
-      Math.abs(cameraLookDelta.yaw) > 0.0001 ||
-      Math.abs(cameraLookDelta.pitch) > 0.0001;
-
-    if (canRotateCamera && hasCameraLookInput) {
-      cameraOrbit.rotate(keyboardCameraYaw + cameraLookDelta.yaw, cameraLookDelta.pitch);
-      if (tutorialActive) {
-        actTwoTutorial.registerCameraLook();
-      }
-    } else if (!canRotateCamera) {
-      controls.clearCameraLookInput?.();
-    }
 
     // Placement and player movement.
     const placementRotationRequest = controls.consumePlacementRotationRequest?.() || 0;
