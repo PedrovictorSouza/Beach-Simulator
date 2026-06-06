@@ -163,6 +163,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the player model motion helper.
 - Completed: extract the model facing helper.
 - Completed: extract the interaction debug collider helper.
+- Completed: extract the camera debug frame-state helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3513,6 +3514,52 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Camera Debug Frame-State Helper Extraction
+
+Added `cameraDebugFrameState.js` for the pure payload sent to
+`cameraDebugRuntime.update(...)`. This moves debug overlay DTO composition out
+of `gameLoop.js` while keeping `gameLoop.js` responsible for reading live
+runtime state from controls, camera, gameplay and session.
+
+Study path:
+
+1. `createCameraDebugFrameState(...)` preserves the previous payload shape:
+   `frame`, `flow`, `blockers`, `camera`, `quest`, `player` and `ship`.
+2. Frame time is still rounded with `Math.round(now)`.
+3. Camera state still receives the gameplay camera director state first, then
+   opening-input lock, transition activity and current camera pose.
+4. Quest, player and ship values keep the same nullable fallback behavior.
+5. `gameLoop.js` still decides whether camera debug is enabled and still owns
+   all live runtime reads before passing values to the helper.
+
+This extraction does not change gameplay, camera behavior, input blockers,
+render order or debug overlay DOM behavior. It only gives the frame debug
+payload an explicit tested boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/cameraDebugFrameState.test.js
+npm test -- --run tests/cameraDebugFrameState.test.js tests/cameraDebugRuntime.test.js tests/gameLoopFrameRuntime.test.js tests/gameLoopFramePolicies.test.js tests/renderFrameController.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The camera debug frame-state focused test passed with `2` tests, the broader
+camera/debug/frame focused suite passed with `23` tests, the production build
+passed with the existing chunk-size warning, and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1463` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
