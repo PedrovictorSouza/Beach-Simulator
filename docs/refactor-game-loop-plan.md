@@ -174,6 +174,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the frame scene sync helper.
 - Completed: extract the gameplay camera frame helper.
 - Completed: extract the passive effect frame helper.
+- Completed: extract the render snapshot context helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3524,6 +3525,49 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Render Snapshot Context Helper Extraction
+
+Added an internal `prepareRenderSnapshotContext({ cinematicActive })` helper
+inside `startGameLoop()`. This moves the render snapshot prelude out of the body
+of `frame(now)` without moving the render loops themselves.
+
+Study path:
+
+1. The helper still runs at the start of render snapshot preparation.
+2. Tall-grass, garden, native-tree and dead-grass instance buffers are still
+   cleared before the ground grass loop repopulates them.
+3. `grassBendPlayerPosition`, `natureRenderCenter` and `grassCollisionObjects`
+   are still calculated before grass and flower render preparation.
+4. Repair-box particle targets are still resolved before the rustling/reveal
+   billboard branch.
+5. `shouldShowRepairBoxRustlingParticles` still starts as `false` and remains
+   mutable in `frame(now)` for the ground grass loop to update.
+
+This extraction does not change render output, culling distances, repair-box
+particles, grass bending, placement, field moves, camera behavior or frame
+order. It only gives the render snapshot setup values a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/renderCulling.test.js tests/grassPlayerBend.test.js tests/repairBoxParticleTargets.test.js tests/repairBoxRevealRayBillboards.test.js tests/frameSnapshotController.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused render-context suite passed with `26` tests and the production
+build passed with the existing chunk-size warning. The dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
