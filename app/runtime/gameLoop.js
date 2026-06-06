@@ -9052,6 +9052,42 @@ export function startGameLoop({
     syncPokemonCenterWorkshopVisualState();
   }
 
+  function updateGameplayCameraFrame({
+    now,
+    cinematicActive,
+    tutorialCameraFocus,
+    foundationBuildZoneCameraFocusActive,
+    gameplayOpeningCameraFrame,
+    dialogueActive,
+    cameraTransitionActive,
+    scriptedInteractionActive
+  }) {
+    let nextGameplayOpeningCameraFrame = gameplayOpeningCameraFrame;
+
+    if (!cinematicActive) {
+      if (tutorialCameraFocus && session.playerCharacter) {
+        camera.setPose({
+          target: [tutorialCameraFocus[0], 1.25, tutorialCameraFocus[2]],
+          direction: cameraOrbit.getDirection(),
+          zoom: 3.95,
+          distance: 7.35
+        });
+      } else if (foundationBuildZoneCameraFocusActive) {
+        // The focus transition was started at mission activation; hold the pose until it expires.
+      } else if (isGameFlow(gameFlowValues.GAMEPLAY) && !gameplayOpeningCameraFrame?.skipped) {
+        nextGameplayOpeningCameraFrame = gameplayOpeningRuntime.updateCamera({
+          now,
+          gameplayActive: true,
+          canFollow: !dialogueActive && !cameraTransitionActive && !scriptedInteractionActive
+        });
+      } else if (session.playerCharacter && !dialogueActive && !camera.isTargetTransitionActive()) {
+        camera.follow(session.playerCharacter.getPosition());
+      }
+    }
+
+    return { gameplayOpeningCameraFrame: nextGameplayOpeningCameraFrame };
+  }
+
   function frame(now) {
     // Timing and flow state.
     const {
@@ -10155,28 +10191,17 @@ if (canProcessDestroyAction && destroyActionRequested) {
       }
     }
 
-    if (!cinematicActive) {
-      if (tutorialCameraFocus && session.playerCharacter) {
-        camera.setPose({
-          target: [tutorialCameraFocus[0], 1.25, tutorialCameraFocus[2]],
-          direction: cameraOrbit.getDirection(),
-          zoom: 3.95,
-          distance: 7.35
-        });
-      } else if (foundationBuildZoneCameraFocusActive) {
-        // The focus transition was started at mission activation; hold the pose until it expires.
-      } else if (isGameFlow(gameFlowValues.GAMEPLAY) && !gameplayOpeningCameraFrame?.skipped) {
-        
-        gameplayOpeningCameraFrame = gameplayOpeningRuntime.updateCamera({
-          now,
-          gameplayActive: true,
-          canFollow: !dialogueActive && !cameraTransitionActive && !scriptedInteractionActive
-        });
-
-      } else if (session.playerCharacter && !dialogueActive && !camera.isTargetTransitionActive()) {
-        camera.follow(session.playerCharacter.getPosition());
-      }
-    }
+    const gameplayCameraFrame = updateGameplayCameraFrame({
+      now,
+      cinematicActive,
+      tutorialCameraFocus,
+      foundationBuildZoneCameraFocusActive,
+      gameplayOpeningCameraFrame,
+      dialogueActive,
+      cameraTransitionActive,
+      scriptedInteractionActive
+    });
+    gameplayOpeningCameraFrame = gameplayCameraFrame.gameplayOpeningCameraFrame;
 
     const gameplayPresentationFrame = updateGameplayPresentationFrame({
       now,
