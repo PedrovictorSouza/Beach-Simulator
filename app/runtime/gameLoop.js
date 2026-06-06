@@ -8809,6 +8809,82 @@ export function startGameLoop({
     }));
   }
 
+  function updatePlayerMovementFrame({
+    deltaTime,
+    now,
+    flowState,
+    gameplayOpeningMovementLocked,
+    gameplayOpeningCameraLocked,
+    foundationBuildZoneCameraFocusActive,
+    tutorialActive
+  }) {
+    const canUpdatePlayerMovement = resolvePlayerMovementPermission({
+      hasPlayerCharacter: Boolean(session.playerCharacter),
+      foundationBuildZoneCameraFocusActive,
+      flowState
+    });
+    let playerMovedThisFrame = false;
+
+    if (canUpdatePlayerMovement) {
+      const previousPlayerPosition = session.playerCharacter.getPosition();
+      session.playerCharacter.update(deltaTime);
+      if (session.playerCharacter.consumeJumpStarted?.()) {
+        startPlayerJumpFlip();
+      }
+      const nextPlayerPosition = session.playerCharacter.getPosition();
+      const movedDistance = Math.hypot(
+        nextPlayerPosition[0] - previousPlayerPosition[0],
+        nextPlayerPosition[2] - previousPlayerPosition[2]
+      );
+      playerMovedThisFrame = movedDistance > 0.0005;
+      if (
+        playerMovedThisFrame &&
+        !gameplayOpeningMovementLocked &&
+        !tutorialActive &&
+        gameplay.getActiveSystemQuest?.()?.id === "learn-to-move" &&
+        !controls.isRunActive?.()
+      ) {
+        runBreadcrumbPromptRuntime.trigger(now);
+      }
+      companionFollowDirectionRuntime.update(
+        nextPlayerPosition[0] - previousPlayerPosition[0],
+        nextPlayerPosition[2] - previousPlayerPosition[2]
+      );
+      syncPlayerModelInstance(deltaTime, [
+        nextPlayerPosition[0] - previousPlayerPosition[0],
+        nextPlayerPosition[2] - previousPlayerPosition[2]
+      ]);
+
+      if (
+        movedDistance > 0.0005 &&
+        !tutorialActive &&
+        !gameplayOpeningCameraLocked &&
+        !foundationBuildZoneCameraFocusActive
+      ) {
+        restoreActiveZoomPresetOnMovement(nextPlayerPosition);
+      }
+
+      movementQuestRuntime.update({
+        active: () => gameplay.getActiveSystemQuest?.()?.id === "learn-to-move",
+        movedDistance,
+        reportMovement: () => gameplay.recordQuestEvent?.({
+          type: "MOVE",
+          targetId: "player"
+        })
+      });
+    } else {
+      syncPlayerModelInstance(deltaTime);
+    }
+
+    updatePlayerDustParticles(session.playerDust, {
+      deltaTime,
+      playerPosition: session.playerCharacter?.getPosition?.() || null,
+      active: canUpdatePlayerMovement
+    });
+
+    return { playerMovedThisFrame };
+  }
+
   function frame(now) {
     // Timing and flow state.
     const {
@@ -9015,68 +9091,14 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
     let leafDenKitPlacementPreview = updateLeafDenKitPlacementPreview(now * 0.001);
     updateSolarStationSpawnEffect(deltaTime);
     syncSolarStationWorkbenchRotationVisual(now * 0.001);
-    let playerMovedThisFrame = false;
-    const canUpdatePlayerMovement = resolvePlayerMovementPermission({
-      hasPlayerCharacter: Boolean(session.playerCharacter),
-      foundationBuildZoneCameraFocusActive,
-      flowState: frameFlowState
-    });
-
-    if (canUpdatePlayerMovement) {
-      const previousPlayerPosition = session.playerCharacter.getPosition();
-      session.playerCharacter.update(deltaTime);
-      if (session.playerCharacter.consumeJumpStarted?.()) {
-        startPlayerJumpFlip();
-      }
-      const nextPlayerPosition = session.playerCharacter.getPosition();
-      const movedDistance = Math.hypot(
-        nextPlayerPosition[0] - previousPlayerPosition[0],
-        nextPlayerPosition[2] - previousPlayerPosition[2]
-      );
-      playerMovedThisFrame = movedDistance > 0.0005;
-      if (
-        playerMovedThisFrame &&
-        !gameplayOpeningMovementLocked &&
-        !tutorialActive &&
-        gameplay.getActiveSystemQuest?.()?.id === "learn-to-move" &&
-        !controls.isRunActive?.()
-      ) {
-        runBreadcrumbPromptRuntime.trigger(now);
-      }
-      companionFollowDirectionRuntime.update(
-        nextPlayerPosition[0] - previousPlayerPosition[0],
-        nextPlayerPosition[2] - previousPlayerPosition[2]
-      );
-      syncPlayerModelInstance(deltaTime, [
-        nextPlayerPosition[0] - previousPlayerPosition[0],
-        nextPlayerPosition[2] - previousPlayerPosition[2]
-      ]);
-
-      if (
-        movedDistance > 0.0005 &&
-        !tutorialActive &&
-        !gameplayOpeningCameraLocked &&
-        !foundationBuildZoneCameraFocusActive
-      ) {
-        restoreActiveZoomPresetOnMovement(nextPlayerPosition);
-      }
-
-      movementQuestRuntime.update({
-        active: () => gameplay.getActiveSystemQuest?.()?.id === "learn-to-move",
-        movedDistance,
-        reportMovement: () => gameplay.recordQuestEvent?.({
-          type: "MOVE",
-          targetId: "player"
-        })
-      });
-    } else {
-      syncPlayerModelInstance(deltaTime);
-    }
-
-    updatePlayerDustParticles(session.playerDust, {
+    const { playerMovedThisFrame } = updatePlayerMovementFrame({
       deltaTime,
-      playerPosition: session.playerCharacter?.getPosition?.() || null,
-      active: canUpdatePlayerMovement
+      now,
+      flowState: frameFlowState,
+      gameplayOpeningMovementLocked,
+      gameplayOpeningCameraLocked,
+      foundationBuildZoneCameraFocusActive,
+      tutorialActive
     });
     updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
     treeRevivalLeafBurstRuntime.update(deltaTime);
