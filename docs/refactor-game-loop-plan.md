@@ -168,6 +168,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the mission target position lookup helper.
 - Completed: extract the player movement frame helper.
 - Completed: extract the camera input frame helper.
+- Completed: extract the gameplay input frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3518,6 +3519,55 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Gameplay Input Frame Helper Extraction
+
+Added an internal `updateGameplayInputFrame(...)` helper inside
+`startGameLoop()`. This moves the gameplay input runtime update, input modality
+panel update and camera debug frame overlay update out of the body of
+`frame(now)`.
+
+Study path:
+
+1. `frame(now)` still resolves opening state and movement blockers before
+   updating gameplay input.
+2. `updateGameplayInputFrame(...)` still passes the same gameplay, cinematic,
+   movement, placement, dialogue, tutorial, skill-learn and scripted-interaction
+   gates to `gameplayInputRuntime.update(...)`.
+3. The input modality panel still updates immediately after the gameplay input
+   runtime consumes the frame.
+4. `cameraTransitionActive` is still read from `camera.isTargetTransitionActive()`
+   at the same point in the frame.
+5. The camera debug overlay still receives the same flow state, blocker state,
+   opening movement lock and camera transition state.
+6. The helper returns `cameraTransitionActive` because later camera-follow logic
+   still owns that decision in `frame(now)`.
+
+This extraction does not change input mapping, movement blockers, camera debug
+payload shape, camera behavior, placement, field moves, HUD copy, render output
+or frame order. It only gives the input/debug portion of the frame a local
+boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/gameInputController.test.js tests/inputModality.test.js tests/cameraDebugFrameState.test.js tests/cameraDebugRuntime.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused input/debug suite passed with `65` tests and the production build
+passed with the existing chunk-size warning. The dev server returned `HTTP 200`.
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
