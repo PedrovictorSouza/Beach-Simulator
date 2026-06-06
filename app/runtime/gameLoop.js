@@ -9063,6 +9063,99 @@ export function startGameLoop({
     };
   }
 
+  function updateGroundCellHighlightFrame(nextFrame, {
+    solarStationPlacementGroundCell,
+    solarStationPowerRadiusGroundCells,
+    solarStationPlacementGroundCells,
+    greenhousePlacementGroundCell,
+    greenhousePlacementGroundCells,
+    campfirePlacementGroundCell,
+    campfirePlacementGroundCells,
+    leafDenKitPlacementGroundCell,
+    leafDenKitPlacementGroundCells,
+    workbenchRotationGroundCell,
+    activeFireGroundCell,
+    shouldShowGroundCellHighlight,
+    highlightedGroundCell,
+    highlightedGroundCellTargetState,
+    highlightedGroundCellAbilityId,
+    markedActionGroundCells,
+    markedGroundCellPulsePhase,
+    groundActionFeedbackFrame,
+    fieldToolTargetPulseFrame
+  }) {
+    const groundCellHighlight = nextFrame.groundCellHighlight;
+
+    if (solarStationPlacementGroundCell) {
+      groundCellHighlight.visible = true;
+      groundCellHighlight.markedGroundCells.push(
+        ...solarStationPowerRadiusGroundCells,
+        ...solarStationPlacementGroundCells
+      );
+    } else if (greenhousePlacementGroundCell) {
+      groundCellHighlight.visible = true;
+      groundCellHighlight.markedGroundCells.push(
+        ...greenhousePlacementGroundCells
+      );
+    } else if (campfirePlacementGroundCell) {
+      groundCellHighlight.visible = true;
+      groundCellHighlight.markedGroundCells.push(
+        ...campfirePlacementGroundCells
+      );
+    } else if (leafDenKitPlacementGroundCell) {
+      groundCellHighlight.visible = true;
+      groundCellHighlight.markedGroundCells.push(
+        ...solarStationPowerRadiusGroundCells,
+        ...leafDenKitPlacementGroundCells
+      );
+    } else if (workbenchRotationGroundCell) {
+      groundCellHighlight.visible = true;
+      groundCellHighlight.groundCell = workbenchRotationGroundCell;
+    } else if (activeFireGroundCell) {
+      groundCellHighlight.visible = true;
+      groundCellHighlight.groundCell = activeFireGroundCell;
+    } else if (shouldShowGroundCellHighlight) {
+      groundCellHighlight.visible = true;
+      groundCellHighlight.groundCell = {
+        ...highlightedGroundCell,
+        highlightTargetState: highlightedGroundCellTargetState,
+        highlightAbilityId: highlightedGroundCellAbilityId
+      };
+    }
+
+    if (markedActionGroundCells.length) {
+      groundCellHighlight.visible = true;
+      groundCellHighlight.markedGroundCells.push(...markedActionGroundCells);
+      groundCellHighlight.pulsePhase = markedGroundCellPulsePhase;
+    }
+
+    if (groundActionFeedbackFrame) {
+      groundCellHighlight.visible = true;
+      groundCellHighlight.markedGroundCells.push(
+        ...groundActionFeedbackFrame.markedGroundCells
+      );
+      groundCellHighlight.pulsePhase = groundActionFeedbackFrame.pulsePhase;
+      groundCellHighlight.actionPulseGroundCell = {
+        ...groundActionFeedbackFrame.groundCell,
+        highlightAbilityId: groundActionFeedbackFrame.abilityId
+      };
+      groundCellHighlight.actionPulsePhase = groundActionFeedbackFrame.pulsePhase;
+      groundCellHighlight.actionPulseAbilityId = groundActionFeedbackFrame.abilityId;
+    }
+
+    if (fieldToolTargetPulseFrame) {
+      groundCellHighlight.visible = true;
+      groundCellHighlight.actionPulseGroundCell = {
+        ...fieldToolTargetPulseFrame.groundCell,
+        highlightAbilityId: fieldToolTargetPulseFrame.abilityId,
+        highlightPulseScale: fieldToolTargetPulseFrame.scale,
+        highlightPulseBrightness: fieldToolTargetPulseFrame.brightness
+      };
+      groundCellHighlight.actionPulsePhase = fieldToolTargetPulseFrame.progress;
+      groundCellHighlight.actionPulseAbilityId = fieldToolTargetPulseFrame.abilityId;
+    }
+  }
+
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -11329,74 +11422,27 @@ if (canProcessDestroyAction && destroyActionRequested) {
         nearbyDryGrassHintTarget.worldPosition || session.playerCharacter.getPosition();
     }
 
-    if (solarStationPlacementGroundCell) {
-      nextFrame.groundCellHighlight.visible = true;
-      nextFrame.groundCellHighlight.markedGroundCells.push(
-        ...solarStationPowerRadiusGroundCells,
-        ...solarStationPlacementGroundCells
-      );
-    } else if (greenhousePlacementGroundCell) {
-      nextFrame.groundCellHighlight.visible = true;
-      nextFrame.groundCellHighlight.markedGroundCells.push(
-        ...greenhousePlacementGroundCells
-      );
-    } else if (campfirePlacementGroundCell) {
-      nextFrame.groundCellHighlight.visible = true;
-      nextFrame.groundCellHighlight.markedGroundCells.push(
-        ...campfirePlacementGroundCells
-      );
-    } else if (leafDenKitPlacementGroundCell) {
-      nextFrame.groundCellHighlight.visible = true;
-      nextFrame.groundCellHighlight.markedGroundCells.push(
-        ...solarStationPowerRadiusGroundCells,
-        ...leafDenKitPlacementGroundCells
-      );
-    } else if (workbenchRotationGroundCell) {
-      nextFrame.groundCellHighlight.visible = true;
-      nextFrame.groundCellHighlight.groundCell = workbenchRotationGroundCell;
-    } else if (activeFireGroundCell) {
-      nextFrame.groundCellHighlight.visible = true;
-      nextFrame.groundCellHighlight.groundCell = activeFireGroundCell;
-    } else if (shouldShowGroundCellHighlight) {
-      nextFrame.groundCellHighlight.visible = true;
-      nextFrame.groundCellHighlight.groundCell = {
-        ...highlightedGroundCell,
-        highlightTargetState: highlightedGroundCellTargetState,
-        highlightAbilityId: highlightedGroundCellAbilityId
-      };
-    }
-
-    if (markedActionGroundCells.length) {
-      nextFrame.groundCellHighlight.visible = true;
-      nextFrame.groundCellHighlight.markedGroundCells.push(...markedActionGroundCells);
-      nextFrame.groundCellHighlight.pulsePhase = markedGroundCellPulsePhase;
-    }
-
-    if (groundActionFeedbackFrame) {
-      nextFrame.groundCellHighlight.visible = true;
-      nextFrame.groundCellHighlight.markedGroundCells.push(
-        ...groundActionFeedbackFrame.markedGroundCells
-      );
-      nextFrame.groundCellHighlight.pulsePhase = groundActionFeedbackFrame.pulsePhase;
-      nextFrame.groundCellHighlight.actionPulseGroundCell = {
-        ...groundActionFeedbackFrame.groundCell,
-        highlightAbilityId: groundActionFeedbackFrame.abilityId
-      };
-      nextFrame.groundCellHighlight.actionPulsePhase = groundActionFeedbackFrame.pulsePhase;
-      nextFrame.groundCellHighlight.actionPulseAbilityId = groundActionFeedbackFrame.abilityId;
-    }
-
-    if (fieldToolTargetPulseFrame) {
-      nextFrame.groundCellHighlight.visible = true;
-      nextFrame.groundCellHighlight.actionPulseGroundCell = {
-        ...fieldToolTargetPulseFrame.groundCell,
-        highlightAbilityId: fieldToolTargetPulseFrame.abilityId,
-        highlightPulseScale: fieldToolTargetPulseFrame.scale,
-        highlightPulseBrightness: fieldToolTargetPulseFrame.brightness
-      };
-      nextFrame.groundCellHighlight.actionPulsePhase = fieldToolTargetPulseFrame.progress;
-      nextFrame.groundCellHighlight.actionPulseAbilityId = fieldToolTargetPulseFrame.abilityId;
-    }
+    updateGroundCellHighlightFrame(nextFrame, {
+      solarStationPlacementGroundCell,
+      solarStationPowerRadiusGroundCells,
+      solarStationPlacementGroundCells,
+      greenhousePlacementGroundCell,
+      greenhousePlacementGroundCells,
+      campfirePlacementGroundCell,
+      campfirePlacementGroundCells,
+      leafDenKitPlacementGroundCell,
+      leafDenKitPlacementGroundCells,
+      workbenchRotationGroundCell,
+      activeFireGroundCell,
+      shouldShowGroundCellHighlight,
+      highlightedGroundCell,
+      highlightedGroundCellTargetState,
+      highlightedGroundCellAbilityId,
+      markedActionGroundCells,
+      markedGroundCellPulsePhase,
+      groundActionFeedbackFrame,
+      fieldToolTargetPulseFrame
+    });
 
     const questCompletionPop = gameplay.getQuestCompletionPop?.();
     if (
