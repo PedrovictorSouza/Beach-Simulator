@@ -9156,6 +9156,63 @@ export function startGameLoop({
     }
   }
 
+  function updateHudSnapshotFrame(nextFrame, {
+    gameplayOpeningCameraLocked,
+    gameplayOpeningHudHidden,
+    cinematicActive,
+    tutorialActive,
+    pokedexModalOpen,
+    skillLearnActive,
+    promptCopy,
+    inputModalityState
+  }) {
+    if (
+      !gameplayOpeningCameraLocked &&
+      !gameplayOpeningHudHidden &&
+      !cinematicActive &&
+      !tutorialActive &&
+      !pokedexModalOpen &&
+      !skillLearnActive
+    ) {
+      nextFrame.hud.active = true;
+      nextFrame.hud.storyState = controls.storyState;
+      nextFrame.hud.inventory = controls.inventory;
+      nextFrame.hud.playerPosition = session.playerCharacter?.getPosition() || [0, 0, 0];
+      nextFrame.hud.promptCopy = promptCopy;
+      nextFrame.hud.inputModalityState = inputModalityState;
+      nextFrame.hud.statusMessage = promptCopy;
+    }
+  }
+
+  function updateFrameStatusPopups(nextFrame, {
+    nearbyDryGrassHintTarget,
+    gameplayOpeningCameraLocked,
+    cinematicActive,
+    tutorialActive,
+    pokedexModalOpen
+  }) {
+    if (nearbyDryGrassHintTarget && session.playerCharacter) {
+      nextFrame.dryGrassHint.visible = true;
+      nextFrame.dryGrassHint.targetId = nearbyDryGrassHintTarget.targetId;
+      nextFrame.dryGrassHint.worldPosition =
+        nearbyDryGrassHintTarget.worldPosition || session.playerCharacter.getPosition();
+    }
+
+    const questCompletionPop = gameplay.getQuestCompletionPop?.();
+    if (
+      questCompletionPop?.text &&
+      session.playerCharacter &&
+      !gameplayOpeningCameraLocked &&
+      !cinematicActive &&
+      !tutorialActive &&
+      !pokedexModalOpen
+    ) {
+      nextFrame.taskPop.visible = true;
+      nextFrame.taskPop.text = questCompletionPop.text;
+      nextFrame.taskPop.worldPosition = session.playerCharacter.getPosition();
+    }
+  }
+
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -10744,22 +10801,16 @@ if (canProcessDestroyAction && destroyActionRequested) {
       null;
     const groundActionFeedbackFrame = groundActionFeedbackRuntime.getFeedbackFrame({ session, now });
 
-    if (
-      !gameplayOpeningCameraLocked &&
-      !gameplayOpeningHudHidden &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive
-    ) {
-      nextFrame.hud.active = true;
-      nextFrame.hud.storyState = controls.storyState;
-      nextFrame.hud.inventory = controls.inventory;
-      nextFrame.hud.playerPosition = session.playerCharacter?.getPosition() || [0, 0, 0];
-      nextFrame.hud.promptCopy = promptCopy;
-      nextFrame.hud.inputModalityState = inputModalityState;
-      nextFrame.hud.statusMessage = promptCopy;
-    }
+    updateHudSnapshotFrame(nextFrame, {
+      gameplayOpeningCameraLocked,
+      gameplayOpeningHudHidden,
+      cinematicActive,
+      tutorialActive,
+      pokedexModalOpen,
+      skillLearnActive,
+      promptCopy,
+      inputModalityState
+    });
 
     const followedViewProjection = camera.getViewProjection(
       worldCanvas.width,
@@ -11415,13 +11466,6 @@ if (canProcessDestroyAction && destroyActionRequested) {
       });
     }
 
-    if (nearbyDryGrassHintTarget && session.playerCharacter) {
-      nextFrame.dryGrassHint.visible = true;
-      nextFrame.dryGrassHint.targetId = nearbyDryGrassHintTarget.targetId;
-      nextFrame.dryGrassHint.worldPosition =
-        nearbyDryGrassHintTarget.worldPosition || session.playerCharacter.getPosition();
-    }
-
     updateGroundCellHighlightFrame(nextFrame, {
       solarStationPlacementGroundCell,
       solarStationPowerRadiusGroundCells,
@@ -11444,19 +11488,13 @@ if (canProcessDestroyAction && destroyActionRequested) {
       fieldToolTargetPulseFrame
     });
 
-    const questCompletionPop = gameplay.getQuestCompletionPop?.();
-    if (
-      questCompletionPop?.text &&
-      session.playerCharacter &&
-      !gameplayOpeningCameraLocked &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen
-    ) {
-      nextFrame.taskPop.visible = true;
-      nextFrame.taskPop.text = questCompletionPop.text;
-      nextFrame.taskPop.worldPosition = session.playerCharacter.getPosition();
-    }
+    updateFrameStatusPopups(nextFrame, {
+      nearbyDryGrassHintTarget,
+      gameplayOpeningCameraLocked,
+      cinematicActive,
+      tutorialActive,
+      pokedexModalOpen
+    });
 
     // Render snapshot preparation.
     let {
