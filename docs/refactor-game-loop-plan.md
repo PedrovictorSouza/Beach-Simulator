@@ -176,6 +176,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the passive effect frame helper.
 - Completed: extract the render snapshot context helper.
 - Completed: extract the ground-cell highlight frame helper.
+- Completed: extract the lightweight UI snapshot frame helpers.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3526,6 +3527,53 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Lightweight UI Snapshot Frame Helpers Extraction
+
+Added internal `updateHudSnapshotFrame(nextFrame, state)` and
+`updateFrameStatusPopups(nextFrame, state)` helpers inside `startGameLoop()`.
+These move lightweight UI snapshot writes out of the body of `frame(now)`.
+
+Study path:
+
+1. `updateHudSnapshotFrame(...)` keeps the same HUD visibility gates:
+   opening camera lock, opening HUD hidden, cinematic, tutorial, Pokedex and
+   skill-learn states.
+2. HUD state, inventory, player position, prompt copy and input modality still
+   write to the same `nextFrame.hud` fields.
+3. `updateFrameStatusPopups(...)` keeps the dry-grass hint write behind the
+   same `nearbyDryGrassHintTarget && session.playerCharacter` gate.
+4. Quest completion task pop still calls `gameplay.getQuestCompletionPop?.()`
+   at the same frame phase and keeps the same opening/cinematic/tutorial/Pokedex
+   visibility gates.
+5. The helper does not calculate prompt text, notices, quest state or hint
+   targets; those values are still resolved before the snapshot write.
+
+This extraction does not change HUD text, prompt text, dry-grass hint targeting,
+quest completion pop timing, placement, field moves, render output, camera
+behavior or frame order. It only gives lightweight UI snapshot writes a local
+boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/gameHudController.test.js tests/gameplayUiVisibilityController.test.js tests/worldPromptState.test.ts tests/frameSnapshotController.test.js tests/gameLoopFrameRuntime.test.js tests/taskPresentation.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused UI snapshot suite passed with `52` tests and the production build
+passed with the existing chunk-size warning. The dev server returned `HTTP 200`.
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
