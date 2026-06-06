@@ -164,6 +164,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the model facing helper.
 - Completed: extract the interaction debug collider helper.
 - Completed: extract the camera debug frame-state helper.
+- Completed: extract the Rebirth of Nature ghost-tree helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3514,6 +3515,56 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Rebirth Of Nature Ghost-Tree Helper Extraction
+
+Added `rebirthOfNatureGhostTree.js` for the visual ghost tree preview used by
+the Rebirth of Nature mission. This moves the mission-preview constants,
+mission-active check, target-cell lookup, alpha pulse and instance append out
+of `gameLoop.js`.
+
+Study path:
+
+1. `isRebirthOfNatureMissionActive(...)` preserves the previous flag gate:
+   Bulbasaur's dry-grass request must be turned in and
+   `rebirthOfNatureComplete` must be false.
+2. `getRebirthOfNatureGroundCell(...)` still searches dead ground instances
+   before purified ground instances for `ground-110-82`.
+3. `getRebirthOfNatureGhostTreeAlpha(...)` preserves the same sine pulse,
+   speed and max alpha.
+4. `appendRebirthOfNatureGhostTree(...)` appends the same
+   `rebirth-of-nature-tree-preview` instance shape, offset, scale, tint,
+   tint strength, yaw and sway strength.
+5. `gameLoop.js` still calls the helper at the same render-prep point, after
+   grass billboards and before landscape cut effects.
+
+This extraction does not change Leafage behavior, mission completion logic,
+tree growth rules, placement, field moves, camera or render order. It only
+moves a visual preview assembly into a tested helper.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/rebirthOfNatureGhostTree.test.js
+npm test -- --run tests/rebirthOfNatureGhostTree.test.js tests/tallGrassMotion.test.js tests/renderFrameController.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The Rebirth of Nature ghost-tree focused test passed with `5` tests, the
+broader visual/render focused suite passed with `23` tests, the production
+build passed with the existing chunk-size warning, and the dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1468` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
