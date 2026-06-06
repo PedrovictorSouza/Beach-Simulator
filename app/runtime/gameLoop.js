@@ -8848,6 +8848,43 @@ export function startGameLoop({
     return { cameraTransitionActive };
   }
 
+  function updateEarlyGameplayControlFrame({
+    nextFrame,
+    deltaTime,
+    introActive,
+    shouldClearPendingActions,
+    shouldClearMovementInput,
+    canAdvanceRustlingGrass
+  }) {
+    processWorldCellPlannerClick();
+
+    if (
+      introActive &&
+      updateIntroRoomFrame({
+        introRoomScene: session.introRoomScene,
+        camera,
+        worldCanvas,
+        frame: nextFrame,
+        deltaTime
+      })
+    ) {
+      frameRuntime.commitFrame();
+      return { committedEarlyFrame: true };
+    }
+
+    if (shouldClearPendingActions) {
+      controls.clearPendingActions();
+    }
+
+    if (shouldClearMovementInput) {
+      controls.clearMovementInput();
+    }
+
+    updateRustlingGrassEvent(deltaTime, canAdvanceRustlingGrass);
+
+    return { committedEarlyFrame: false };
+  }
+
   function updateCameraInputFrame({
     deltaTime,
     flowState,
@@ -9071,32 +9108,18 @@ export function startGameLoop({
       gameplayOpeningMovementLocked
     });
 
-    processWorldCellPlannerClick();
-
-    if (
-      introActive &&
-      updateIntroRoomFrame({
-        introRoomScene: session.introRoomScene,
-        camera,
-        worldCanvas,
-        frame: nextFrame,
-        deltaTime
-      })
-    ) {
-      frameRuntime.commitFrame();
+    const { committedEarlyFrame } = updateEarlyGameplayControlFrame({
+      nextFrame,
+      deltaTime,
+      introActive,
+      shouldClearPendingActions,
+      shouldClearMovementInput,
+      canAdvanceRustlingGrass
+    });
+    if (committedEarlyFrame) {
       requestAnimationFrame(frame);
       return;
     }
-
-    if (shouldClearPendingActions) {
-      controls.clearPendingActions();
-    }
-
-    if (shouldClearMovementInput) {
-      controls.clearMovementInput();
-    }
-
-    updateRustlingGrassEvent(deltaTime, canAdvanceRustlingGrass);
 
     updateCameraInputFrame({
       deltaTime,
