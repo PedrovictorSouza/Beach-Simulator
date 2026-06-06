@@ -8972,6 +8972,41 @@ export function startGameLoop({
     return { playerMovedThisFrame };
   }
 
+  function updateGameplayPresentationFrame({
+    now,
+    deltaTime,
+    playerMovedThisFrame,
+    gameplayOpeningCameraFrame,
+    frameFlowState,
+    cinematicActive,
+    tutorialActive
+  }) {
+    gameplayOpeningRuntime.updateShipAudio(now);
+
+    audio.updatePlayerDriving({
+      active: playerMovedThisFrame || gameplayOpeningCameraFrame?.phase === "player-exit"
+    });
+    const nowSeconds = now * 0.001;
+    updateTrainHouseMusic(nowSeconds);
+    gameplay.musicRuntime?.update?.(deltaTime, { nowSeconds });
+
+    gameplayOpeningRuntime.updateHudReveal({
+      now,
+      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY)
+    });
+
+    return {
+      gameplayOpeningCameraFrame: gameplayOpeningRuntime.getCameraFrame(),
+      gameplayOpeningHudHidden: gameplayOpeningRuntime.isHudHidden(),
+      currentFlowState: {
+        ...frameFlowState,
+        cinematicActive,
+        tutorialActive,
+        dialogueActive: gameplayDialogue.isActive()
+      }
+    };
+  }
+
   function frame(now) {
     // Timing and flow state.
     const {
@@ -10116,28 +10151,20 @@ if (canProcessDestroyAction && destroyActionRequested) {
       }
     }
 
-    gameplayOpeningRuntime.updateShipAudio(now);
-
-    audio.updatePlayerDriving({
-      active: playerMovedThisFrame || gameplayOpeningCameraFrame?.phase === "player-exit"
-    });
-    const nowSeconds = now * 0.001;
-    updateTrainHouseMusic(nowSeconds);
-    gameplay.musicRuntime?.update?.(deltaTime, { nowSeconds });
-
-    gameplayOpeningRuntime.updateHudReveal({
+    const gameplayPresentationFrame = updateGameplayPresentationFrame({
       now,
-      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY)
-    });
-
-    gameplayOpeningCameraFrame = gameplayOpeningRuntime.getCameraFrame();
-    const gameplayOpeningHudHidden = gameplayOpeningRuntime.isHudHidden();
-    const currentFlowState = {
-      ...frameFlowState,
+      deltaTime,
+      playerMovedThisFrame,
+      gameplayOpeningCameraFrame,
+      frameFlowState,
       cinematicActive,
-      tutorialActive,
-      dialogueActive: gameplayDialogue.isActive()
-    };
+      tutorialActive
+    });
+    gameplayOpeningCameraFrame = gameplayPresentationFrame.gameplayOpeningCameraFrame;
+    const {
+      gameplayOpeningHudHidden,
+      currentFlowState
+    } = gameplayPresentationFrame;
     const canQueryNearbyGameplayTargets = resolveNearbyGameplayQueryPermission({
       hasPlayerCharacter: Boolean(session.playerCharacter),
       gameplayOpeningMovementLocked,
