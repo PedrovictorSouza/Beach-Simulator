@@ -169,6 +169,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the player movement frame helper.
 - Completed: extract the camera input frame helper.
 - Completed: extract the gameplay input frame helper.
+- Completed: extract the gameplay presentation frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3519,6 +3520,55 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Gameplay Presentation Frame Helper Extraction
+
+Added an internal `updateGameplayPresentationFrame(...)` helper inside
+`startGameLoop()`. This moves the frame's opening/audio/music/HUD-reveal
+handoff out of the body of `frame(now)` while keeping the later prompt and
+render preparation in place.
+
+Study path:
+
+1. `frame(now)` still runs gameplay actions, camera follow and collision updates
+   before this helper.
+2. `updateGameplayPresentationFrame(...)` still updates opening ship audio
+   before driving audio.
+3. Driving audio still uses the previous condition:
+   `playerMovedThisFrame || gameplayOpeningCameraFrame?.phase === "player-exit"`.
+4. Train house music and `gameplay.musicRuntime` still receive the same
+   `nowSeconds` value derived from the current frame timestamp.
+5. Opening HUD reveal still runs before reading the latest opening camera frame
+   and HUD-hidden state.
+6. The helper returns `gameplayOpeningCameraFrame`, `gameplayOpeningHudHidden`
+   and `currentFlowState` because the prompt/target/render preparation below
+   still owns those decisions.
+
+This extraction does not change audio tuning, music timing, opening HUD timing,
+camera behavior, prompt logic, placement, field moves, render output or frame
+order. It only gives the presentation handoff portion of the frame a local
+boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/gameplayOpeningShip.test.js tests/audioMixRuntime.test.js tests/musicRuntime.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused opening/audio/music suite passed with `23` tests and the production
+build passed with the existing chunk-size warning. The dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
