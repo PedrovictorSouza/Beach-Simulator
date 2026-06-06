@@ -80,6 +80,7 @@ import {
 import { getNearbyRepairBoxPrompt } from "./repairBoxPromptTargets.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { getRepairBoxRevealRayBillboards } from "./repairBoxRevealRayBillboards.js";
+import { appendRebirthOfNatureGhostTree } from "./rebirthOfNatureGhostTree.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { getRustlingGrassParticleBillboards } from "./rustlingGrassParticleBillboards.js";
 import { getSavePointStarBillboards } from "./savePointStarBillboards.js";
@@ -552,12 +553,6 @@ const SNOWSTORM_FOG_OPACITY_EASE = 6.2;
 const LEAFAGE_USE_PROMPT_TEXT = "Use LT on green ground";
 const LEAFAGE_INVALID_TARGET_PROMPT_TEXT = `Choose ${SANDBOTS_BOT_NAMES.hydro} to hydrate first`;
 const LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS = 1600;
-const REBIRTH_OF_NATURE_CELL_ID = "ground-110-82";
-const REBIRTH_OF_NATURE_GHOST_TREE_ALPHA_MAX = 0.5;
-const REBIRTH_OF_NATURE_GHOST_TREE_PULSE_SPEED = 0.004;
-const REBIRTH_OF_NATURE_GHOST_TREE_SIZE = Object.freeze([1.32, 1.32]);
-const REBIRTH_OF_NATURE_GHOST_TREE_TINT = Object.freeze([1, 0.18, 0.72]);
-const REBIRTH_OF_NATURE_COMPLETE_FLAG = "rebirthOfNatureComplete";
 const FIRE_INVALID_TARGET_PROMPT_TEXT = "Use fire on white ground";
 const FIRE_INVALID_TARGET_PROMPT_DURATION_MS = 1600;
 const GROUND_ACTION_FEEDBACK_DURATION_MS = 1000;
@@ -1793,64 +1788,6 @@ function isOpeningLeppaTreeRequestActive(storyState) {
     storyState?.flags?.squirtleLeppaRequestAvailable &&
     !storyState.flags.leppaTreeRevived
   );
-}
-
-function isRebirthOfNatureMissionActive(storyState) {
-  return Boolean(
-    storyState?.flags?.bulbasaurDryGrassRequestTurnedIn &&
-    !storyState.flags[REBIRTH_OF_NATURE_COMPLETE_FLAG]
-  );
-}
-
-function getRebirthOfNatureGroundCell(session) {
-  return (
-    session?.groundDeadInstances?.find?.((groundCell) => {
-      return groundCell?.id === REBIRTH_OF_NATURE_CELL_ID;
-    }) ||
-    session?.groundPurifiedInstances?.find?.((groundCell) => {
-      return groundCell?.id === REBIRTH_OF_NATURE_CELL_ID;
-    }) ||
-    null
-  );
-}
-
-function getRebirthOfNatureGhostTreeAlpha(now) {
-  const pulse = (Math.sin(now * REBIRTH_OF_NATURE_GHOST_TREE_PULSE_SPEED) + 1) * 0.5;
-  return pulse * REBIRTH_OF_NATURE_GHOST_TREE_ALPHA_MAX;
-}
-
-function appendRebirthOfNatureGhostTree(session, storyState, now) {
-  if (
-    !isRebirthOfNatureMissionActive(storyState) ||
-    !session?.leafageNativeTreeModel ||
-    !Array.isArray(session.leafageNativeTreeInstances)
-  ) {
-    return;
-  }
-
-  const groundCell = getRebirthOfNatureGroundCell(session);
-  if (!groundCell?.offset) {
-    return;
-  }
-
-  session.leafageNativeTreeInstances.push({
-    id: "rebirth-of-nature-tree-preview",
-    offset: [
-      groundCell.offset[0],
-      (groundCell.surfaceY || 0) + 0.02,
-      groundCell.offset[2]
-    ],
-    scale: getTallGrassInstanceScale(
-      session.leafageNativeTreeModel,
-      { size: REBIRTH_OF_NATURE_GHOST_TREE_SIZE },
-      1
-    ) * (session.leafageNativeTreeModelScale || 1),
-    alpha: getRebirthOfNatureGhostTreeAlpha(now),
-    tint: REBIRTH_OF_NATURE_GHOST_TREE_TINT,
-    tintStrength: 0.86,
-    yaw: session.leafageNativeTreeModelFaceYawOffset || 0,
-    swayStrength: 0
-  });
 }
 
 function getShortestAngleDelta(fromAngle, toAngle) {
