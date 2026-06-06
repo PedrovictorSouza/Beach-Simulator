@@ -172,6 +172,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the gameplay presentation frame helper.
 - Completed: extract the early gameplay control frame helper.
 - Completed: extract the frame scene sync helper.
+- Completed: extract the gameplay camera frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3522,6 +3523,54 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Gameplay Camera Frame Helper Extraction
+
+Added an internal `updateGameplayCameraFrame(...)` helper inside
+`startGameLoop()`. This moves the camera-follow decision block out of the body
+of `frame(now)` while keeping the camera priority order and tuning unchanged.
+
+Study path:
+
+1. The helper still skips all camera-follow decisions while cinematic flow is
+   active.
+2. Tutorial camera focus still wins first and applies the same hard-coded pose:
+   target height `1.25`, zoom `3.95` and distance `7.35`.
+3. Foundation build-zone camera focus still holds the existing pose and does not
+   issue a new camera command.
+4. Gameplay opening camera still runs before normal player follow when the
+   opening frame has not been skipped.
+5. Opening camera follow still uses the same gate:
+   `!dialogueActive && !cameraTransitionActive && !scriptedInteractionActive`.
+6. Normal camera follow still requires a player character, no dialogue and no
+   active camera target transition.
+7. The helper returns the updated `gameplayOpeningCameraFrame` because the
+   presentation handoff below still uses that frame state.
+
+This extraction does not change camera tuning, camera priority, opening timing,
+dialogue/scripted-interaction gates, placement, field moves, render output or
+frame order. It only gives the camera decision block a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/camera.test.js tests/gameplayCameraDirector.test.js tests/dialogueCameraController.test.js tests/foundationBuildZoneCameraFocusRuntime.test.js tests/gameplayOpeningShip.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused camera/opening/focus suite passed with `27` tests and the production
+build passed with the existing chunk-size warning. The dev server returned
+`HTTP 200`. `npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
