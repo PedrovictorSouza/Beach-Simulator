@@ -182,10 +182,66 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the world speech snapshot frame helper.
 - Completed: extract the world prompt snapshot frame helper.
 - Completed: extract the HUD prompt copy frame helper.
+- Completed: extract the frame prompt target-state helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Frame Prompt Target-State Helper Extraction
+
+Added an internal `resolveFramePromptTargetState(state)` helper inside
+`startGameLoop()`. This moves the frame-local prompt target setup out of the
+body of `frame(now)`.
+
+Study path:
+
+1. `frame(now)` still refreshes placement previews and resolves nearby gameplay
+   targets before calling the helper.
+2. The helper resolves placement prompt text, pending placement intent,
+   pending placement HUD prompt, selected and nearby workbench rotation targets,
+   workbench rotation prompt text and destroyable-object prompt state.
+3. The helper preserves the old placement-preview gate: pending placement,
+   workbench rotation and destroyable-object prompts do not activate while any
+   placement preview is active.
+4. The destroyable-object debug payload stayed in the same logical boundary and
+   now uses the shared `placementPreviewBlocked` boolean.
+5. Returned values still feed the existing HUD prompt helper, world prompt
+   helper, workbench rotation ground-cell highlight and base render snapshot.
+
+This extraction does not change prompt text, placement rules, workbench rotation
+rules, field-move rules, render output, camera behavior or frame order. It only
+groups the prompt target-state calculation behind a local helper.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/inputPromptResolver.test.js tests/gameHudController.test.js tests/worldPromptState.test.ts tests/frameSnapshotController.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayUiVisibilityController.test.js tests/playerCounterPromptRuntime.test.js tests/placementPreviewVisual.test.js tests/worldObjectPlacementPreview.test.js tests/workbenchRotationRuntime.test.js tests/placementBlockers.test.js
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+Focused tests passed:
+
+- `11` files passed
+- `81` tests passed
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The remaining failures cover Native Tree growth, safe-cell selection and Wood
+drops. They are outside the prompt target-state helper extraction and were not
+modified.
+
+Manual smoke:
+
+- Dev server started on `http://127.0.0.1:5173/`.
+- `curl -sI http://127.0.0.1:5173/` returned `HTTP/1.1 200 OK`.
+- The dev server was stopped and port `5173` was confirmed free.
 
 ### HUD Prompt Copy Frame Helper Extraction
 
