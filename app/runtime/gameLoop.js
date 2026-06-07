@@ -9202,6 +9202,28 @@ export function startGameLoop({
     gearPickupParticleRuntime.update(deltaTime);
   }
 
+  function updateAmbientWorldSimulationFrame({ deltaTime, now }) {
+    hud.updateTransientNotice(deltaTime);
+    gameplay.updatePalmShake(deltaTime, session.palmInstances);
+    gameplay.updateResourceNodes(deltaTime, session.resourceNodes);
+    gameplay.updateResourceNodes(deltaTime, session.woodDrops);
+    landscapeCutEffectRuntime.update(deltaTime);
+    syncModelResourceInstances(session.resourceNodes, controls.storyState, deltaTime);
+    session.updateCloudAtmosphere?.(deltaTime);
+    updateSnowstormParticleField(session.snowstorm, {
+      deltaTime,
+      playerPosition: session.playerCharacter?.getPosition?.() || null
+    });
+    snowstormFogRuntime.update({ session, deltaTime });
+    gameplay.syncLeppaTreeState?.(session.leppaTree, controls.storyState);
+    updateLeppaTreeDance(now);
+    updateLeppaTreeMusicNotes({
+      leppaTree: session.leppaTree,
+      textures: session.leppaTreeMusicalNoteTextures,
+      deltaTime
+    });
+  }
+
   function prepareRenderSnapshotContext({ cinematicActive }) {
     if (Array.isArray(session.tallGrassInstances)) {
       session.tallGrassInstances.length = 0;
@@ -10743,25 +10765,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     processFollowerCallFrame();
 
     // Simulation updates.
-    hud.updateTransientNotice(deltaTime);
-    gameplay.updatePalmShake(deltaTime, session.palmInstances);
-    gameplay.updateResourceNodes(deltaTime, session.resourceNodes);
-    gameplay.updateResourceNodes(deltaTime, session.woodDrops);
-    landscapeCutEffectRuntime.update(deltaTime);
-    syncModelResourceInstances(session.resourceNodes, controls.storyState, deltaTime);
-    session.updateCloudAtmosphere?.(deltaTime);
-    updateSnowstormParticleField(session.snowstorm, {
-      deltaTime,
-      playerPosition: session.playerCharacter?.getPosition?.() || null
-    });
-    snowstormFogRuntime.update({ session, deltaTime });
-    gameplay.syncLeppaTreeState?.(session.leppaTree, controls.storyState);
-    updateLeppaTreeDance(now);
-    updateLeppaTreeMusicNotes({
-      leppaTree: session.leppaTree,
-      textures: session.leppaTreeMusicalNoteTextures,
-      deltaTime
-    });
+    updateAmbientWorldSimulationFrame({ deltaTime, now });
     const chopperBulbasaurRepairBoxInvestigationTarget =
       getBulbasaurRepairBoxInvestigationTarget();
     updateChopperNpcActor(session.chopperNpcActor, {
