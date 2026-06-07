@@ -180,10 +180,63 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the base render snapshot frame helper.
 - Completed: extract the world-space UI context frame helper.
 - Completed: extract the world speech snapshot frame helper.
+- Completed: extract the world prompt snapshot frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### World Prompt Snapshot Frame Helper Extraction
+
+Added an internal `updateWorldPromptSnapshotFrame(nextFrame, state)` helper
+inside `startGameLoop()`. This moves the `setFrameWorldPrompt(...)` priority
+chain out of the body of `frame(now)`.
+
+Study path:
+
+1. The helper receives already-resolved prompt condition booleans; it does not
+   calculate placement, field-move, prompt-target or visibility rules.
+2. Placement, destroyable-object, pending placement, workbench rotation, cost,
+   counter, field-move switch, charging, invalid-target, transient, dry-grass,
+   run breadcrumb, player interaction, repair box and first-use prompt writes
+   keep the same priority order.
+3. Prompt text still uses the same existing helpers and constants.
+4. `setFrameWorldPrompt(...)` remains the only writer used by the chain.
+5. Ground-cell highlights still run after the world prompt snapshot helper.
+
+This extraction does not change prompt text, prompt priority, placement rules,
+field-move rules, render output, camera behavior or frame order. It only gives
+world-prompt snapshot writes a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/worldPromptState.test.ts tests/inputPromptResolver.test.js tests/gameplayUiVisibilityController.test.js tests/frameSnapshotController.test.js tests/gameLoopFrameRuntime.test.js tests/gameHudController.test.js tests/playerCounterPromptRuntime.test.js tests/runBreadcrumbPromptRuntime.test.js tests/fieldMoveInvalidTargetPromptRuntime.test.js tests/placementPreviewVisual.test.js tests/worldObjectPlacementPreview.test.js
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+Focused tests passed:
+
+- `11` files passed
+- `68` tests passed
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The remaining failures cover Native Tree growth, safe-cell selection and Wood
+drops. They are outside the world prompt snapshot helper extraction and were not
+modified.
+
+Manual smoke:
+
+- Dev server started on `http://127.0.0.1:5173/`.
+- `curl -sI http://127.0.0.1:5173/` returned `HTTP/1.1 200 OK`.
+- The dev server was stopped and port `5173` was confirmed free.
 
 ### Loop State Migration
 
