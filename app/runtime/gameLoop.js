@@ -9261,6 +9261,39 @@ export function startGameLoop({
       null;
   }
 
+  function prepareWorldSpaceUiFrameContext({
+    now,
+    gameplayOpeningCameraLocked,
+    flowState,
+    activeQuest,
+    activeTask,
+    activeSystemQuest
+  }) {
+    const tangrowthActor = session.npcActors.find((npcActor) => npcActor.id === "tangrowth");
+    const tangrowthPosition =
+      tangrowthActor?.character?.getPosition?.() ||
+      null;
+    const canShowWorldSpaceUi = resolveWorldSpaceUiVisibility({
+      gameplayOpeningCameraLocked,
+      flowState
+    });
+
+    applyWorkbenchGreenArrowCue(session.workbenchGreenArrowModelInstance, {
+      active: canShowWorldSpaceUi && shouldShowWorkbenchGreenArrowCue({
+        activeQuest,
+        activeTask,
+        activeSystemQuest,
+        storyState: controls.storyState
+      }),
+      now
+    });
+
+    return {
+      canShowWorldSpaceUi,
+      tangrowthPosition
+    };
+  }
+
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -10868,23 +10901,17 @@ if (canProcessDestroyAction && destroyActionRequested) {
       nearbyWorkbenchRotationTarget
     });
 
-    const tangrowthActor = session.npcActors.find((npcActor) => npcActor.id === "tangrowth");
-    const tangrowthPosition =
-      tangrowthActor?.character?.getPosition?.() ||
-      null;
     // World-space UI and render preparation.
-    const canShowWorldSpaceUi = resolveWorldSpaceUiVisibility({
+    const {
+      canShowWorldSpaceUi,
+      tangrowthPosition
+    } = prepareWorldSpaceUiFrameContext({
+      now,
       gameplayOpeningCameraLocked,
-      flowState: currentFlowState
-    });
-    applyWorkbenchGreenArrowCue(session.workbenchGreenArrowModelInstance, {
-      active: canShowWorldSpaceUi && shouldShowWorkbenchGreenArrowCue({
-        activeQuest,
-        activeTask,
-        activeSystemQuest,
-        storyState: controls.storyState
-      }),
-      now
+      flowState: currentFlowState,
+      activeQuest,
+      activeTask,
+      activeSystemQuest
     });
     const shouldShowTangrowthSpeech =
       canShowWorldSpaceUi &&
