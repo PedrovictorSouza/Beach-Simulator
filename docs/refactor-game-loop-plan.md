@@ -181,10 +181,64 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the world-space UI context frame helper.
 - Completed: extract the world speech snapshot frame helper.
 - Completed: extract the world prompt snapshot frame helper.
+- Completed: extract the HUD prompt copy frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### HUD Prompt Copy Frame Helper Extraction
+
+Added an internal `resolveFrameHudPromptCopy(state)` helper inside
+`startGameLoop()`. This moves the HUD `promptCopy` priority chain and its
+`debugInteractionFlow("gameLoop.promptCopy.resolved", ...)` payload out of the
+body of `frame(now)`.
+
+Study path:
+
+1. `frame(now)` still resolves nearby gameplay targets, placement previews,
+   pending placement intent, workbench rotation prompt and destroyable-object
+   prompt before calling the helper.
+2. The helper only chooses the HUD prompt text from already-resolved inputs.
+3. Prompt priority is unchanged: blocked flow returns empty text first, then
+   placement prompts, pending placement, workbench rotation, destroyable object
+   and the existing `gameplay.buildNearbyPrompt(...)` fallback.
+4. The HUD snapshot still receives the same `promptCopy` through
+   `updateHudSnapshotFrame(...)`.
+
+This extraction does not change prompt text, placement rules, field-move rules,
+world prompt priority, render output, camera behavior or frame order. It only
+gives the HUD prompt-copy calculation a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/inputPromptResolver.test.js tests/gameHudController.test.js tests/worldPromptState.test.ts tests/frameSnapshotController.test.js tests/gameLoopFrameRuntime.test.js tests/gameplayUiVisibilityController.test.js tests/playerCounterPromptRuntime.test.js tests/placementPreviewVisual.test.js tests/worldObjectPlacementPreview.test.js
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+Focused tests passed:
+
+- `9` files passed
+- `61` tests passed
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1473` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The remaining failures cover Native Tree growth, safe-cell selection and Wood
+drops. They are outside the HUD prompt-copy helper extraction and were not
+modified.
+
+Manual smoke:
+
+- Dev server started on `http://127.0.0.1:5173/`.
+- `curl -sI http://127.0.0.1:5173/` returned `HTTP/1.1 200 OK`.
+- The dev server was stopped and port `5173` was confirmed free.
 
 ### World Prompt Snapshot Frame Helper Extraction
 
