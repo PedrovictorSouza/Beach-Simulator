@@ -9420,6 +9420,204 @@ export function startGameLoop({
     }
   }
 
+  function updateWorldPromptSnapshotFrame(nextFrame, {
+    inputModalityState,
+    shouldShowSolarStationPlacementPrompt,
+    solarStationPlacementPreview,
+    shouldShowDestroyableObjectPrompt,
+    destroyableObjectPrompt,
+    shouldShowGreenhousePlacementPrompt,
+    greenhousePlacementPreview,
+    shouldShowCampfirePlacementPrompt,
+    campfirePlacementPreview,
+    shouldShowLeafDenKitPlacementPrompt,
+    leafDenKitPlacementPreview,
+    shouldShowPendingPlacementPrompt,
+    pendingPlacementIntent,
+    nearbyHarvestTarget,
+    shouldShowWorkbenchRotationPrompt,
+    workbenchRotationPrompt,
+    shouldShowFreeBlockBuildCostPrompt,
+    freeBlockBuildCostMarker,
+    shouldShowPlayerCounterPrompt,
+    playerCounterPromptText,
+    shouldShowFieldMoveSwitchPrompt,
+    fieldMoveSwitchPrompt,
+    shouldShowSquirtleChargingPrompt,
+    squirtleChargingPosition,
+    shouldShowInvalidLeafageUsePrompt,
+    shouldShowInvalidFireUsePrompt,
+    shouldShowTransientWorldPrompt,
+    transientNoticeRoute,
+    shouldShowDryGrassHydroPrompt,
+    dryGrassHydroPromptText,
+    shouldShowRunBreadcrumbPrompt,
+    runBreadcrumbPromptText,
+    shouldShowPlayerInteractionPrompt,
+    playerInteractionPromptText,
+    shouldShowRepairBoxPrompt,
+    nearbyRepairBoxPrompt,
+    shouldShowLeafageFirstUsePrompt,
+    leafageEquipped,
+    shouldShowWaterGunFirstUsePrompt
+  }) {
+    if (shouldShowSolarStationPlacementPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "placement",
+        target: "solarStation",
+        valid: solarStationPlacementPreview.valid,
+        text: solarStationPlacementPreview.valid ?
+          resolveInputPrompt(UI_PROMPT_ACTION.PLACE, inputModalityState) :
+          getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED),
+        worldPosition: solarStationPlacementPreview.snappedPosition
+      });
+    } else if (shouldShowDestroyableObjectPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "destroyableObject",
+        text: destroyableObjectPrompt.promptCopy,
+        worldPosition:
+          destroyableObjectPrompt.worldPosition ||
+          destroyableObjectPrompt.target?.worldPosition ||
+          destroyableObjectPrompt.target?.position ||
+          session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowGreenhousePlacementPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "placement",
+        target: "greenhouse",
+        valid: greenhousePlacementPreview.valid,
+        text: greenhousePlacementPreview.valid ?
+          resolveInputPrompt(UI_PROMPT_ACTION.PLACE, inputModalityState) :
+          getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED),
+        worldPosition: greenhousePlacementPreview.snappedPosition
+      });
+    } else if (shouldShowCampfirePlacementPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "placement",
+        target: "trainHouse",
+        valid: campfirePlacementPreview.valid,
+        text: campfirePlacementPreview.valid ?
+          resolveInputPrompt(UI_PROMPT_ACTION.PLACE, inputModalityState) :
+          getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED),
+        worldPosition: campfirePlacementPreview.snappedPosition
+      });
+    } else if (shouldShowLeafDenKitPlacementPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "placement",
+        target: "houseKit",
+        valid: leafDenKitPlacementPreview.valid,
+        text: formatHabitatSiteChoicePrompt({
+          siteChoice: leafDenKitPlacementPreview.siteChoice,
+          placePrompt: resolveInputPrompt(UI_PROMPT_ACTION.PLACE, inputModalityState),
+          clearPrompt: getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED),
+          powerPrompt: getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_NEEDS_POWER)
+        }),
+        worldPosition: leafDenKitPlacementPreview.snappedPosition
+      });
+    } else if (shouldShowPendingPlacementPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "placementIntent",
+        target: pendingPlacementIntent?.placeableId || pendingPlacementIntent?.itemId || "placement",
+        valid: pendingPlacementIntent?.blockedReason !== "needs-solar-station",
+        text: getPendingPlacementWorldPromptText(
+          pendingPlacementIntent,
+          nearbyHarvestTarget,
+          inputModalityState
+        ),
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowWorkbenchRotationPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "workbenchRotation",
+        text: workbenchRotationPrompt,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowFreeBlockBuildCostPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: freeBlockBuildCostMarker.affordable ? "buildCost" : "buildCostMissing",
+        text: freeBlockBuildCostMarker.text,
+        worldPosition: freeBlockBuildCostMarker.worldPosition
+      });
+    } else if (shouldShowPlayerCounterPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "counter",
+        text: playerCounterPromptText,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowFieldMoveSwitchPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "fieldMoveSwitch",
+        html: fieldMoveSwitchPrompt.html,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowSquirtleChargingPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "charging",
+        companionId: "squirtle",
+        abilityId: "waterGun",
+        worldPosition: squirtleChargingPosition
+      });
+    } else if (shouldShowInvalidLeafageUsePrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "invalidMoveTarget",
+        abilityId: "leafage",
+        message: LEAFAGE_INVALID_TARGET_PROMPT_TEXT,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowInvalidFireUsePrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "invalidMoveTarget",
+        abilityId: "fire",
+        message: FIRE_INVALID_TARGET_PROMPT_TEXT,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowTransientWorldPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "transientNotice",
+        text: transientNoticeRoute.worldPromptMessage,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowDryGrassHydroPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "text",
+        text: dryGrassHydroPromptText,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowRunBreadcrumbPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "text",
+        text: runBreadcrumbPromptText,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowPlayerInteractionPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "text",
+        text: playerInteractionPromptText,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowRepairBoxPrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "repairBox",
+        text: nearbyRepairBoxPrompt.text,
+        worldPosition: nearbyRepairBoxPrompt.worldPosition
+      });
+    } else if (shouldShowLeafageFirstUsePrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "firstUse",
+        abilityId: "leafage",
+        text: leafageEquipped ? LEAFAGE_USE_PROMPT_TEXT : LEAFAGE_SWITCH_PROMPT_TEXT,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    } else if (shouldShowWaterGunFirstUsePrompt) {
+      setFrameWorldPrompt(nextFrame, {
+        kind: "firstUse",
+        abilityId: "waterGun",
+        text: WATER_GUN_FIRST_USE_PROMPT_TEXT,
+        worldPosition: session.playerCharacter.getPosition()
+      });
+    }
+  }
+
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -11398,161 +11596,47 @@ if (canProcessDestroyAction && destroyActionRequested) {
       shouldShowCharmanderCelebrationSpeech
     });
 
-    if (shouldShowSolarStationPlacementPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "placement",
-        target: "solarStation",
-        valid: solarStationPlacementPreview.valid,
-        text: solarStationPlacementPreview.valid ?
-          resolveInputPrompt(UI_PROMPT_ACTION.PLACE, inputModalityState) :
-          getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED),
-        worldPosition: solarStationPlacementPreview.snappedPosition
-      });
-    } else if (shouldShowDestroyableObjectPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "destroyableObject",
-        text: destroyableObjectPrompt.promptCopy,
-        worldPosition:
-          destroyableObjectPrompt.worldPosition ||
-          destroyableObjectPrompt.target?.worldPosition ||
-          destroyableObjectPrompt.target?.position ||
-          session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowGreenhousePlacementPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "placement",
-        target: "greenhouse",
-        valid: greenhousePlacementPreview.valid,
-        text: greenhousePlacementPreview.valid ?
-          resolveInputPrompt(UI_PROMPT_ACTION.PLACE, inputModalityState) :
-          getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED),
-        worldPosition: greenhousePlacementPreview.snappedPosition
-      });
-    } else if (shouldShowCampfirePlacementPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "placement",
-        target: "trainHouse",
-        valid: campfirePlacementPreview.valid,
-        text: campfirePlacementPreview.valid ?
-          resolveInputPrompt(UI_PROMPT_ACTION.PLACE, inputModalityState) :
-          getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED),
-        worldPosition: campfirePlacementPreview.snappedPosition
-      });
-    } else if (shouldShowLeafDenKitPlacementPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "placement",
-        target: "houseKit",
-        valid: leafDenKitPlacementPreview.valid,
-        text: formatHabitatSiteChoicePrompt({
-          siteChoice: leafDenKitPlacementPreview.siteChoice,
-          placePrompt: resolveInputPrompt(UI_PROMPT_ACTION.PLACE, inputModalityState),
-          clearPrompt: getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_BLOCKED),
-          powerPrompt: getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_NEEDS_POWER)
-        }),
-        worldPosition: leafDenKitPlacementPreview.snappedPosition
-      });
-    } else if (shouldShowPendingPlacementPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "placementIntent",
-        target: pendingPlacementIntent?.placeableId || pendingPlacementIntent?.itemId || "placement",
-        valid: pendingPlacementIntent?.blockedReason !== "needs-solar-station",
-        text: getPendingPlacementWorldPromptText(
-          pendingPlacementIntent,
-          nearbyHarvestTarget,
-          inputModalityState
-        ),
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowWorkbenchRotationPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "workbenchRotation",
-        text: workbenchRotationPrompt,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowFreeBlockBuildCostPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: freeBlockBuildCostMarker.affordable ? "buildCost" : "buildCostMissing",
-        text: freeBlockBuildCostMarker.text,
-        worldPosition: freeBlockBuildCostMarker.worldPosition
-      });
-    } else if (shouldShowPlayerCounterPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "counter",
-        text: playerCounterPromptText,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowFieldMoveSwitchPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "fieldMoveSwitch",
-        html: fieldMoveSwitchPrompt.html,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowSquirtleChargingPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "charging",
-        companionId: "squirtle",
-        abilityId: "waterGun",
-        worldPosition: squirtleChargingPosition
-      });
-    } else if (shouldShowInvalidLeafageUsePrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "invalidMoveTarget",
-        abilityId: "leafage",
-        message: LEAFAGE_INVALID_TARGET_PROMPT_TEXT,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowInvalidFireUsePrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "invalidMoveTarget",
-        abilityId: "fire",
-        message: FIRE_INVALID_TARGET_PROMPT_TEXT,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowTransientWorldPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "transientNotice",
-        text: transientNoticeRoute.worldPromptMessage,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowDryGrassHydroPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "text",
-        text: dryGrassHydroPromptText,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowRunBreadcrumbPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "text",
-        text: runBreadcrumbPromptText,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowPlayerInteractionPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "text",
-        text: playerInteractionPromptText,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowRepairBoxPrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "repairBox",
-        text: nearbyRepairBoxPrompt.text,
-        worldPosition: nearbyRepairBoxPrompt.worldPosition
-      });
-    } else if (shouldShowLeafageFirstUsePrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "firstUse",
-        abilityId: "leafage",
-        text: leafageEquipped ? LEAFAGE_USE_PROMPT_TEXT : LEAFAGE_SWITCH_PROMPT_TEXT,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    } else if (shouldShowWaterGunFirstUsePrompt) {
-      setFrameWorldPrompt(nextFrame, {
-        kind: "firstUse",
-        abilityId: "waterGun",
-        text: WATER_GUN_FIRST_USE_PROMPT_TEXT,
-        worldPosition: session.playerCharacter.getPosition()
-      });
-    }
+    updateWorldPromptSnapshotFrame(nextFrame, {
+      inputModalityState,
+      shouldShowSolarStationPlacementPrompt,
+      solarStationPlacementPreview,
+      shouldShowDestroyableObjectPrompt,
+      destroyableObjectPrompt,
+      shouldShowGreenhousePlacementPrompt,
+      greenhousePlacementPreview,
+      shouldShowCampfirePlacementPrompt,
+      campfirePlacementPreview,
+      shouldShowLeafDenKitPlacementPrompt,
+      leafDenKitPlacementPreview,
+      shouldShowPendingPlacementPrompt,
+      pendingPlacementIntent,
+      nearbyHarvestTarget,
+      shouldShowWorkbenchRotationPrompt,
+      workbenchRotationPrompt,
+      shouldShowFreeBlockBuildCostPrompt,
+      freeBlockBuildCostMarker,
+      shouldShowPlayerCounterPrompt,
+      playerCounterPromptText,
+      shouldShowFieldMoveSwitchPrompt,
+      fieldMoveSwitchPrompt,
+      shouldShowSquirtleChargingPrompt,
+      squirtleChargingPosition,
+      shouldShowInvalidLeafageUsePrompt,
+      shouldShowInvalidFireUsePrompt,
+      shouldShowTransientWorldPrompt,
+      transientNoticeRoute,
+      shouldShowDryGrassHydroPrompt,
+      dryGrassHydroPromptText,
+      shouldShowRunBreadcrumbPrompt,
+      runBreadcrumbPromptText,
+      shouldShowPlayerInteractionPrompt,
+      playerInteractionPromptText,
+      shouldShowRepairBoxPrompt,
+      nearbyRepairBoxPrompt,
+      shouldShowLeafageFirstUsePrompt,
+      leafageEquipped,
+      shouldShowWaterGunFirstUsePrompt
+    });
 
     updateGroundCellHighlightFrame(nextFrame, {
       solarStationPlacementGroundCell,
