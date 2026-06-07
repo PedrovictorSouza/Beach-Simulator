@@ -179,6 +179,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the lightweight UI snapshot frame helpers.
 - Completed: extract the base render snapshot frame helper.
 - Completed: extract the world-space UI context frame helper.
+- Completed: extract the world speech snapshot frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3529,6 +3530,52 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### World Speech Snapshot Frame Helper Extraction
+
+Added an internal `updateWorldSpeechSnapshotFrame(nextFrame, state)` helper
+inside `startGameLoop()`. This moves the `nextFrame.worldSpeech` write chain out
+of the body of `frame(now)`.
+
+Study path:
+
+1. The helper receives already-resolved speech condition booleans; it does not
+   calculate quest, placement, prompt or field-move state.
+2. Tangrowth, repair-box, Bulbasaur and Charmander speech writes keep the same
+   order and text.
+3. The companion-lost hint still only runs if no earlier world speech was made
+   visible.
+4. Chopper's attention cue still only runs after companion-lost hint fallback
+   and still consumes the sound cycle before playing `CHOPPER_VOICE`.
+5. World prompt selection remains in `frame(now)` after the speech snapshot
+   helper, so prompt priority is unchanged.
+
+This extraction does not change narrative text, world-speech priority, companion
+hint timing, Chopper cue sound behavior, placement, field moves, render output,
+camera behavior or frame order. It only gives world-speech snapshot writes a
+local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/worldSpeechController.test.js tests/companionLostHintRuntime.test.js tests/chopperAttentionCueRuntime.test.js tests/soundEventRuntime.test.js tests/frameSnapshotController.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused world-speech snapshot suite passed with `33` tests and the
+production build passed with the existing chunk-size warning. The dev server
+returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
