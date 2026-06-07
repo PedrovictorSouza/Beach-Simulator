@@ -8797,6 +8797,89 @@ export function startGameLoop({
     return promptCopy;
   }
 
+  function resolveFramePromptTargetState({
+    solarStationPlacementPreview,
+    greenhousePlacementPreview,
+    campfirePlacementPreview,
+    leafDenKitPlacementPreview,
+    inputModalityState,
+    nearbyHarvestTarget,
+    gameplayOpeningMovementLocked,
+    flowState
+  }) {
+    const placementPreviewBlocked = Boolean(
+      solarStationPlacementPreview ||
+      greenhousePlacementPreview ||
+      campfirePlacementPreview ||
+      leafDenKitPlacementPreview
+    );
+    const framePlacementPrompts = resolveFramePlacementPrompts({
+      solarStationPlacementPreview,
+      greenhousePlacementPreview,
+      campfirePlacementPreview,
+      leafDenKitPlacementPreview,
+      inputModalityState
+    });
+    const pendingPlacementIntent =
+      !placementPreviewBlocked ?
+        getActivePendingPlacementIntent(session, controls.storyState, controls.inventory) :
+        null;
+    const pendingPlacementPrompt = getPendingPlacementPrompt(
+      pendingPlacementIntent,
+      nearbyHarvestTarget,
+      inputModalityState
+    );
+    const selectedWorkbenchRotationTarget =
+      !placementPreviewBlocked ?
+        getSelectedRotatableWorkbenchPlacement() :
+        null;
+    const nearbyWorkbenchRotationTarget =
+      !selectedWorkbenchRotationTarget &&
+      !placementPreviewBlocked &&
+      session.playerCharacter &&
+      !gameplayOpeningMovementLocked &&
+      !flowState.cinematicActive &&
+      !flowState.tutorialActive &&
+      !flowState.skillLearnActive &&
+      !flowState.scriptedInteractionActive ?
+        getNearestRotatableWorkbenchPlacement() :
+        null;
+    const workbenchRotationPrompt = selectedWorkbenchRotationTarget ?
+      resolveWorkbenchRotationPrompt(inputModalityState) :
+      nearbyWorkbenchRotationTarget ?
+        resolveInputPrompt(UI_PROMPT_ACTION.OPEN_BAG, inputModalityState) :
+        "";
+    const destroyableObjectPrompt =
+      !placementPreviewBlocked &&
+      session.playerCharacter ?
+        gameplay.findNearbyDestroyableObjectPrompt?.({
+          playerPosition: session.playerCharacter.getPosition(),
+          storyState: controls.storyState,
+          groundGrassPatches: session.groundGrassPatches,
+          groundFlowerPatches: session.groundFlowerPatches
+        }) :
+        null;
+
+    debugInteractionFlow("gameLoop.destroyableObjectPrompt", {
+      hasMethod: typeof gameplay.findNearbyDestroyableObjectPrompt,
+      prompt: destroyableObjectPrompt,
+      playerPosition: session.playerCharacter?.getPosition?.(),
+      grassCount: session.groundGrassPatches?.length || 0,
+      flowerCount: session.groundFlowerPatches?.length || 0,
+      blockedByPlacementPreview: placementPreviewBlocked
+    });
+
+    return {
+      framePlacementPrompts,
+      pendingPlacementIntent,
+      pendingPlacementPrompt,
+      selectedWorkbenchRotationTarget,
+      nearbyWorkbenchRotationTarget,
+      workbenchRotationPrompt,
+      destroyableObjectPrompt
+    };
+  }
+
   function readGameLoopFlowState() {
     const tutorialActive = isGameFlow(gameFlowValues.TUTORIAL);
 
@@ -11092,77 +11175,24 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const inputModalityState = getCurrentInputModalityState();
     const transientNoticeRoute = resolveTransientNoticeRoute(hud.getNoticeMessage());
     const playerCounterPromptText = playerCounterPromptRuntime.get(now);
-    const framePlacementPrompts = resolveFramePlacementPrompts({
+    const {
+      framePlacementPrompts,
+      pendingPlacementIntent,
+      pendingPlacementPrompt,
+      selectedWorkbenchRotationTarget,
+      nearbyWorkbenchRotationTarget,
+      workbenchRotationPrompt,
+      destroyableObjectPrompt
+    } = resolveFramePromptTargetState({
       solarStationPlacementPreview,
       greenhousePlacementPreview,
       campfirePlacementPreview,
       leafDenKitPlacementPreview,
-      inputModalityState
-    });
-    const pendingPlacementIntent =
-      !solarStationPlacementPreview && !greenhousePlacementPreview && !campfirePlacementPreview && !leafDenKitPlacementPreview ?
-        getActivePendingPlacementIntent(session, controls.storyState, controls.inventory) :
-        null;
-    const pendingPlacementPrompt = getPendingPlacementPrompt(
-      pendingPlacementIntent,
+      inputModalityState,
       nearbyHarvestTarget,
-      inputModalityState
-    );
-    const selectedWorkbenchRotationTarget =
-      !solarStationPlacementPreview &&
-      !greenhousePlacementPreview &&
-      !campfirePlacementPreview &&
-      !leafDenKitPlacementPreview ?
-        getSelectedRotatableWorkbenchPlacement() :
-        null;
-    const nearbyWorkbenchRotationTarget =
-      !selectedWorkbenchRotationTarget &&
-      !solarStationPlacementPreview &&
-      !greenhousePlacementPreview &&
-      !campfirePlacementPreview &&
-      !leafDenKitPlacementPreview &&
-      session.playerCharacter &&
-      !gameplayOpeningMovementLocked &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !skillLearnActive &&
-      !scriptedInteractionActive ?
-        getNearestRotatableWorkbenchPlacement() :
-        null;
-    const workbenchRotationPrompt = selectedWorkbenchRotationTarget ?
-      resolveWorkbenchRotationPrompt(inputModalityState) :
-      nearbyWorkbenchRotationTarget ?
-        resolveInputPrompt(UI_PROMPT_ACTION.OPEN_BAG, inputModalityState) :
-        "";
-    
-    const destroyableObjectPrompt =
-      !solarStationPlacementPreview &&
-      !greenhousePlacementPreview &&
-      !campfirePlacementPreview &&
-      !leafDenKitPlacementPreview &&
-      session.playerCharacter ?
-        gameplay.findNearbyDestroyableObjectPrompt?.({
-          playerPosition: session.playerCharacter.getPosition(),
-          storyState: controls.storyState,
-          groundGrassPatches: session.groundGrassPatches,
-          groundFlowerPatches: session.groundFlowerPatches
-        }) :
-        null;
-
-
-  debugInteractionFlow("gameLoop.destroyableObjectPrompt", {
-    hasMethod: typeof gameplay.findNearbyDestroyableObjectPrompt,
-    prompt: destroyableObjectPrompt,
-    playerPosition: session.playerCharacter?.getPosition?.(),
-    grassCount: session.groundGrassPatches?.length || 0,
-    flowerCount: session.groundFlowerPatches?.length || 0,
-    blockedByPlacementPreview: Boolean(
-      solarStationPlacementPreview ||
-      greenhousePlacementPreview ||
-      campfirePlacementPreview ||
-      leafDenKitPlacementPreview
-    )
-  });
+      gameplayOpeningMovementLocked,
+      flowState: currentFlowState
+    });
     const promptCopy = resolveFrameHudPromptCopy({
       gameplayOpeningMovementLocked,
       cinematicActive,
