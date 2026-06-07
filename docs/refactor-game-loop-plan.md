@@ -177,6 +177,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the render snapshot context helper.
 - Completed: extract the ground-cell highlight frame helper.
 - Completed: extract the lightweight UI snapshot frame helpers.
+- Completed: extract the base render snapshot frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3527,6 +3528,53 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### Base Render Snapshot Frame Helper Extraction
+
+Added an internal `updateBaseRenderSnapshotFrame(nextFrame, state)` helper
+inside `startGameLoop()`. This moves base render snapshot writes and the adjacent
+model-sync calls out of the body of `frame(now)`.
+
+Study path:
+
+1. The helper still runs after HUD snapshot writes and before world-space UI
+   speech/prompt resolution.
+2. Camera view-projection calculation still uses `worldCanvas.width` and
+   `worldCanvas.height` at the same frame phase.
+3. Repair-box highlight, Greenhouse model, Campfire/Train House model, Leaf Den
+   construction clouds, Leaf Den model and player-house model sync still run in
+   the same sequence.
+4. Interaction object highlight still receives the same nearby interactable and
+   workbench rotation target inputs.
+5. Base render fields still write to the same `nextFrame.render` properties:
+   `viewProjection`, `sceneObjects`, `skyTexture` and `psxDistanceFog`.
+6. PSX distance fog still resolves from the same cinematic/gameplay scene id.
+
+This extraction does not change model sync timing, render output, fog config,
+interaction highlighting, placement, field moves, camera behavior or frame
+order. It only gives the base render snapshot preparation a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/frameSnapshotController.test.js tests/gameLoopFrameRuntime.test.js tests/renderFrameController.test.js tests/interactionObjectHighlight.test.js tests/psxDistanceFogConfig.test.js tests/gameplayOpeningShip.test.js tests/camera.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused base-render snapshot suite passed with `30` tests and the
+production build passed with the existing chunk-size warning. The dev server
+returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
