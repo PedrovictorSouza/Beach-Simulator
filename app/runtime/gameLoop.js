@@ -9294,6 +9294,132 @@ export function startGameLoop({
     };
   }
 
+  function updateWorldSpeechSnapshotFrame(nextFrame, {
+    now,
+    activeQuest,
+    activeMoveId,
+    tangrowthPosition,
+    chopperAttentionCue,
+    shouldShowTangrowthSpeech,
+    shouldShowTangrowthLogChairSpeech,
+    shouldShowTangrowthPokemonCenterSpeech,
+    shouldShowTangrowthHouseSpeech,
+    shouldShowTangrowthCelebrationSpeech,
+    shouldShowChopperBulbasaurRepairBoxSpeech,
+    shouldShowBulbasaurMissionSpeech,
+    shouldShowBulbasaurWorkbenchGuideSpeech,
+    shouldShowBulbasaurRequestReadySpeech,
+    shouldShowBulbasaurStrawBedSpeech,
+    shouldShowBulbasaurStrawBedCompleteSpeech,
+    shouldShowCharmanderFollowSpeech,
+    shouldShowCharmanderCelebrationSpeech
+  }) {
+    if (shouldShowTangrowthSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = gameplay.tangrowthOpeningLine;
+      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
+    }
+
+    if (shouldShowTangrowthLogChairSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = "I saved a field plan for you.";
+      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
+    }
+
+    if (shouldShowTangrowthPokemonCenterSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = `This way. The old ${SANDBOTS_WORLD_TERMS.terminal} is ahead.`;
+      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
+    }
+
+    if (shouldShowTangrowthHouseSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = "Human shelter plans are ready.";
+      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
+    }
+
+    if (shouldShowTangrowthCelebrationSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = `Bring ${SANDBOTS_BOT_NAMES.thermal} here.`;
+      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
+    }
+
+    if (shouldShowChopperBulbasaurRepairBoxSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = CHOPPER_BULBASAUR_REPAIR_BOX_SPEECH;
+      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
+    }
+
+    if (shouldShowBulbasaurMissionSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = "Talk to me, Broky.";
+      nextFrame.worldSpeech.worldPosition = session.bulbasaurEncounter.position;
+    }
+
+    if (shouldShowBulbasaurWorkbenchGuideSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = "Workbench ping found. Follow me.";
+      nextFrame.worldSpeech.worldPosition = session.bulbasaurEncounter.position;
+    }
+
+    if (shouldShowBulbasaurRequestReadySpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = "Dry patch restored. Soil response logged.";
+      nextFrame.worldSpeech.worldPosition = session.bulbasaurEncounter.position;
+    }
+
+    if (shouldShowBulbasaurStrawBedSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = "I can share Solar Station plans.";
+      nextFrame.worldSpeech.worldPosition = session.bulbasaurEncounter.position;
+    }
+
+    if (shouldShowBulbasaurStrawBedCompleteSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = getColonyFeedbackWorldSpeech(COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACED);
+      nextFrame.worldSpeech.worldPosition = session.bulbasaurEncounter.position;
+    }
+
+    if (shouldShowCharmanderFollowSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = controls.storyState.flags.charmanderFollowing ?
+        "Route locked. Lead me to the heat station." :
+        "Signal me when the heat station is ready.";
+      nextFrame.worldSpeech.worldPosition = session.charmanderEncounter.position;
+    }
+
+    if (shouldShowCharmanderCelebrationSpeech) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = "Heat station stable. That counts as a celebration.";
+      nextFrame.worldSpeech.worldPosition = session.charmanderEncounter.position;
+    }
+
+    const companionLostHint =
+      !nextFrame.worldSpeech.visible ?
+        getPeriodicCompanionLostHint({
+          activeQuest,
+          activeMoveId,
+          now
+        }) :
+        null;
+
+    if (companionLostHint) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = companionLostHint.text;
+      nextFrame.worldSpeech.worldPosition = companionLostHint.worldPosition;
+    }
+
+    if (!nextFrame.worldSpeech.visible && chopperAttentionCue) {
+      nextFrame.worldSpeech.visible = true;
+      nextFrame.worldSpeech.text = chopperAttentionCue.text;
+      nextFrame.worldSpeech.worldPosition = chopperAttentionCue.worldPosition;
+
+      if (chopperAttentionCueRuntime.consumeSoundCycle(chopperAttentionCue.cycleId)) {
+        playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE);
+      }
+    }
+  }
+
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -11251,110 +11377,26 @@ if (canProcessDestroyAction && destroyActionRequested) {
       }) :
       null;
 
-    if (shouldShowTangrowthSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = gameplay.tangrowthOpeningLine;
-      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
-    }
-
-    if (shouldShowTangrowthLogChairSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = "I saved a field plan for you.";
-      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
-    }
-
-    if (shouldShowTangrowthPokemonCenterSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = `This way. The old ${SANDBOTS_WORLD_TERMS.terminal} is ahead.`;
-      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
-    }
-
-    if (shouldShowTangrowthHouseSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = "Human shelter plans are ready.";
-      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
-    }
-
-    if (shouldShowTangrowthCelebrationSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = `Bring ${SANDBOTS_BOT_NAMES.thermal} here.`;
-      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
-    }
-
-    if (shouldShowChopperBulbasaurRepairBoxSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = CHOPPER_BULBASAUR_REPAIR_BOX_SPEECH;
-      nextFrame.worldSpeech.worldPosition = tangrowthPosition;
-    }
-
-    if (shouldShowBulbasaurMissionSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = "Talk to me, Broky.";
-      nextFrame.worldSpeech.worldPosition = session.bulbasaurEncounter.position;
-    }
-
-    if (shouldShowBulbasaurWorkbenchGuideSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = "Workbench ping found. Follow me.";
-      nextFrame.worldSpeech.worldPosition = session.bulbasaurEncounter.position;
-    }
-
-    if (shouldShowBulbasaurRequestReadySpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = "Dry patch restored. Soil response logged.";
-      nextFrame.worldSpeech.worldPosition = session.bulbasaurEncounter.position;
-    }
-
-    if (shouldShowBulbasaurStrawBedSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = "I can share Solar Station plans.";
-      nextFrame.worldSpeech.worldPosition = session.bulbasaurEncounter.position;
-    }
-
-    if (shouldShowBulbasaurStrawBedCompleteSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = getColonyFeedbackWorldSpeech(COLONY_FEEDBACK_IDS.SOLAR_STATION_PLACED);
-      nextFrame.worldSpeech.worldPosition = session.bulbasaurEncounter.position;
-    }
-
-    if (shouldShowCharmanderFollowSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = controls.storyState.flags.charmanderFollowing ?
-        "Route locked. Lead me to the heat station." :
-        "Signal me when the heat station is ready.";
-      nextFrame.worldSpeech.worldPosition = session.charmanderEncounter.position;
-    }
-
-    if (shouldShowCharmanderCelebrationSpeech) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = "Heat station stable. That counts as a celebration.";
-      nextFrame.worldSpeech.worldPosition = session.charmanderEncounter.position;
-    }
-
-    const companionLostHint =
-      !nextFrame.worldSpeech.visible ?
-        getPeriodicCompanionLostHint({
-          activeQuest,
-          activeMoveId,
-          now
-        }) :
-        null;
-
-    if (companionLostHint) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = companionLostHint.text;
-      nextFrame.worldSpeech.worldPosition = companionLostHint.worldPosition;
-    }
-
-    if (!nextFrame.worldSpeech.visible && chopperAttentionCue) {
-      nextFrame.worldSpeech.visible = true;
-      nextFrame.worldSpeech.text = chopperAttentionCue.text;
-      nextFrame.worldSpeech.worldPosition = chopperAttentionCue.worldPosition;
-
-      if (chopperAttentionCueRuntime.consumeSoundCycle(chopperAttentionCue.cycleId)) {
-        playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE);
-      }
-    }
+    updateWorldSpeechSnapshotFrame(nextFrame, {
+      now,
+      activeQuest,
+      activeMoveId,
+      tangrowthPosition,
+      chopperAttentionCue,
+      shouldShowTangrowthSpeech,
+      shouldShowTangrowthLogChairSpeech,
+      shouldShowTangrowthPokemonCenterSpeech,
+      shouldShowTangrowthHouseSpeech,
+      shouldShowTangrowthCelebrationSpeech,
+      shouldShowChopperBulbasaurRepairBoxSpeech,
+      shouldShowBulbasaurMissionSpeech,
+      shouldShowBulbasaurWorkbenchGuideSpeech,
+      shouldShowBulbasaurRequestReadySpeech,
+      shouldShowBulbasaurStrawBedSpeech,
+      shouldShowBulbasaurStrawBedCompleteSpeech,
+      shouldShowCharmanderFollowSpeech,
+      shouldShowCharmanderCelebrationSpeech
+    });
 
     if (shouldShowSolarStationPlacementPrompt) {
       setFrameWorldPrompt(nextFrame, {
