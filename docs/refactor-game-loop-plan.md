@@ -178,6 +178,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the ground-cell highlight frame helper.
 - Completed: extract the lightweight UI snapshot frame helpers.
 - Completed: extract the base render snapshot frame helper.
+- Completed: extract the world-space UI context frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
@@ -3528,6 +3529,51 @@ passed with the existing chunk-size warning, and the dev server returned
 baseline:
 
 - `1458` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because only the local HTTP
+smoke was run during this pass.
+
+### World-Space UI Context Frame Helper Extraction
+
+Added an internal `prepareWorldSpaceUiFrameContext(state)` helper inside
+`startGameLoop()`. This moves the initial world-space UI context setup out of
+the body of `frame(now)`.
+
+Study path:
+
+1. The helper resolves Tangrowth's current world position from the same NPC
+   actor lookup.
+2. World-space UI visibility still uses `resolveWorldSpaceUiVisibility(...)`
+   with the same opening camera lock and current flow state inputs.
+3. The Workbench green-arrow cue still updates at the same frame phase, after
+   base render snapshot setup and before speech/prompt conditions.
+4. The cue still depends on the same active quest, task, system quest and story
+   state values.
+5. The helper returns only `canShowWorldSpaceUi` and `tangrowthPosition`; all
+   speech, prompt and companion cue rules remain in `frame(now)`.
+
+This extraction does not change world-speech ordering, prompt text, Workbench
+cue tuning, placement, field moves, render output, camera behavior or frame
+order. It only gives the initial world-space UI context a local boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/workbenchRuntime.test.js tests/gameplayUiVisibilityController.test.js tests/worldSpeechController.test.js tests/gameLoopFrameRuntime.test.js tests/frameSnapshotController.test.js
+npm run build
+npm test
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+The focused world-space UI context suite passed with `30` tests and the
+production build passed with the existing chunk-size warning. The dev server
+returned `HTTP 200`. `npm test` completed with the existing Leafage Native Tree
+baseline:
+
+- `1473` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual visual gameplay validation remains pending because only the local HTTP
