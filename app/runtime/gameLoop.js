@@ -9213,6 +9213,54 @@ export function startGameLoop({
     }
   }
 
+  function updateBaseRenderSnapshotFrame(nextFrame, {
+    now,
+    deltaTime,
+    cinematicActive,
+    nearbyInteractable,
+    nearbyWorkbenchRotationTarget
+  }) {
+    const followedViewProjection = camera.getViewProjection(
+      worldCanvas.width,
+      worldCanvas.height
+    );
+    const nowSeconds = now * 0.001;
+
+    syncActiveRepairBoxHighlight();
+    syncGreenhouseModelInstance(deltaTime);
+    syncCampfireTrainHouseModelInstance(nowSeconds, deltaTime);
+    if (isLeafDenConstructionActive()) {
+      controls.completeLeafDenConstructionIfReady?.({ playDialogue: false });
+    }
+    syncLeafDenConstructionClouds(nowSeconds);
+    syncConstructionCloudBurstEffects(nowSeconds);
+    syncLeafDenModelInstance(deltaTime);
+    syncPlayerHouseModelInstances(
+      deltaTime,
+      camera.getPose?.()?.target || session.playerCharacter?.getPosition?.() || null
+    );
+    applyInteractionObjectHighlight(session, {
+      interactTarget: nearbyInteractable,
+      workbenchRotationTarget: nearbyWorkbenchRotationTarget
+    });
+
+    nextFrame.render.viewProjection = followedViewProjection;
+    nextFrame.render.sceneObjects = getSquirtleAssemblySceneObjects(
+      getGameplayOpeningShipSceneObjects(
+        session.sceneObjects,
+        session.gameplayOpeningShip
+      ),
+      session.actTwoSquirtle
+    );
+    nextFrame.render.skyTexture = session.skyTexture;
+    const psxDistanceFogSettings = resolvePsxDistanceFogSettings({
+      sceneId: cinematicActive ? gameFlowValues.CINEMATIC : gameFlowValues.GAMEPLAY
+    });
+    nextFrame.render.psxDistanceFog = psxDistanceFogSettings.enabled ?
+      psxDistanceFogSettings :
+      null;
+  }
+
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -10812,42 +10860,13 @@ if (canProcessDestroyAction && destroyActionRequested) {
       inputModalityState
     });
 
-    const followedViewProjection = camera.getViewProjection(
-      worldCanvas.width,
-      worldCanvas.height
-    );
-    syncActiveRepairBoxHighlight();
-    syncGreenhouseModelInstance(deltaTime);
-    syncCampfireTrainHouseModelInstance(now * 0.001, deltaTime);
-    if (isLeafDenConstructionActive()) {
-      controls.completeLeafDenConstructionIfReady?.({ playDialogue: false });
-    }
-    syncLeafDenConstructionClouds(now * 0.001);
-    syncConstructionCloudBurstEffects(now * 0.001);
-    syncLeafDenModelInstance(deltaTime);
-    syncPlayerHouseModelInstances(
+    updateBaseRenderSnapshotFrame(nextFrame, {
+      now,
       deltaTime,
-      camera.getPose?.()?.target || session.playerCharacter?.getPosition?.() || null
-    );
-    applyInteractionObjectHighlight(session, {
-      interactTarget: nearbyInteractable,
-      workbenchRotationTarget: nearbyWorkbenchRotationTarget
+      cinematicActive,
+      nearbyInteractable,
+      nearbyWorkbenchRotationTarget
     });
-    nextFrame.render.viewProjection = followedViewProjection;
-    nextFrame.render.sceneObjects = getSquirtleAssemblySceneObjects(
-      getGameplayOpeningShipSceneObjects(
-        session.sceneObjects,
-        session.gameplayOpeningShip
-      ),
-      session.actTwoSquirtle
-    );
-    nextFrame.render.skyTexture = session.skyTexture;
-    const psxDistanceFogSettings = resolvePsxDistanceFogSettings({
-      sceneId: cinematicActive ? gameFlowValues.CINEMATIC : gameFlowValues.GAMEPLAY
-    });
-    nextFrame.render.psxDistanceFog = psxDistanceFogSettings.enabled ?
-      psxDistanceFogSettings :
-      null;
 
     const tangrowthActor = session.npcActors.find((npcActor) => npcActor.id === "tangrowth");
     const tangrowthPosition =
