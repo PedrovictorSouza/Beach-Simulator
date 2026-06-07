@@ -8734,6 +8734,69 @@ export function startGameLoop({
     };
   }
 
+  function resolveFrameHudPromptCopy({
+    gameplayOpeningMovementLocked,
+    cinematicActive,
+    tutorialActive,
+    skillLearnActive,
+    scriptedInteractionActive,
+    placementPrompts,
+    pendingPlacementPrompt,
+    workbenchRotationPrompt,
+    destroyableObjectPrompt,
+    nearbyHarvestTarget,
+    nearbyInteractable,
+    activeQuest,
+    transientNoticeRoute,
+    activeMoveId,
+    pendingWaterGunGroundCells
+  }) {
+    const blockedByMode = {
+      gameplayOpeningMovementLocked,
+      cinematicActive,
+      tutorialActive,
+      skillLearnActive,
+      scriptedInteractionActive
+    };
+    const promptCopy =
+      gameplayOpeningMovementLocked ||
+      cinematicActive ||
+      tutorialActive ||
+      skillLearnActive ||
+      scriptedInteractionActive ?
+      "" :
+      placementPrompts.solarStationPlacementPrompt ||
+      placementPrompts.greenhousePlacementPrompt ||
+      placementPrompts.campfirePlacementPrompt ||
+      placementPrompts.leafDenKitPlacementPrompt ||
+      pendingPlacementPrompt ||
+      workbenchRotationPrompt ||
+      destroyableObjectPrompt?.promptCopy ||
+      gameplay.buildNearbyPrompt({
+        harvestTarget: nearbyHarvestTarget,
+        interactTarget: nearbyInteractable,
+        quest: activeQuest,
+        transientMessage: transientNoticeRoute.hudMessage,
+        getItemLabel: gameplay.getItemLabel,
+        storyState: controls.storyState,
+        activeMoveId,
+        pendingWaterGunCount: pendingWaterGunGroundCells.length
+      });
+
+    debugInteractionFlow("gameLoop.promptCopy.resolved", {
+      promptCopy,
+      destroyableObjectPrompt: destroyableObjectPrompt?.promptCopy || "",
+      sources: {
+        ...placementPrompts,
+        pendingPlacementPrompt,
+        workbenchRotationPrompt
+      },
+      blockedByMode
+    });
+
+    return promptCopy;
+  }
+
   function readGameLoopFlowState() {
     const tutorialActive = isGameFlow(gameFlowValues.TUTORIAL);
 
@@ -11029,12 +11092,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const inputModalityState = getCurrentInputModalityState();
     const transientNoticeRoute = resolveTransientNoticeRoute(hud.getNoticeMessage());
     const playerCounterPromptText = playerCounterPromptRuntime.get(now);
-    const {
-      solarStationPlacementPrompt,
-      greenhousePlacementPrompt,
-      campfirePlacementPrompt,
-      leafDenKitPlacementPrompt
-    } = resolveFramePlacementPrompts({
+    const framePlacementPrompts = resolveFramePlacementPrompts({
       solarStationPlacementPreview,
       greenhousePlacementPreview,
       campfirePlacementPreview,
@@ -11105,50 +11163,23 @@ if (canProcessDestroyAction && destroyActionRequested) {
       leafDenKitPlacementPreview
     )
   });
-    const promptCopy =
-      gameplayOpeningMovementLocked ||
-      cinematicActive ||
-      tutorialActive ||
-      skillLearnActive ||
-      scriptedInteractionActive ?
-      "" :
-      solarStationPlacementPrompt ||
-      greenhousePlacementPrompt ||
-      campfirePlacementPrompt ||
-      leafDenKitPlacementPrompt ||
-      pendingPlacementPrompt ||
-      workbenchRotationPrompt ||
-      destroyableObjectPrompt?.promptCopy ||
-      gameplay.buildNearbyPrompt({
-        harvestTarget: nearbyHarvestTarget,
-        interactTarget: nearbyInteractable,
-        quest: activeQuest,
-        transientMessage: transientNoticeRoute.hudMessage,
-        getItemLabel: gameplay.getItemLabel,
-        storyState: controls.storyState,
-        activeMoveId,
-        pendingWaterGunCount: pendingWaterGunGroundCells.length
-      });
-
-    debugInteractionFlow("gameLoop.promptCopy.resolved", {
-  promptCopy,
-  destroyableObjectPrompt: destroyableObjectPrompt?.promptCopy || "",
-  sources: {
-    solarStationPlacementPrompt,
-    greenhousePlacementPrompt,
-    campfirePlacementPrompt,
-    leafDenKitPlacementPrompt,
-    pendingPlacementPrompt,
-    workbenchRotationPrompt
-  },
-  blockedByMode: {
-    gameplayOpeningMovementLocked,
-    cinematicActive,
-    tutorialActive,
-    skillLearnActive,
-    scriptedInteractionActive
-  }
-});
+    const promptCopy = resolveFrameHudPromptCopy({
+      gameplayOpeningMovementLocked,
+      cinematicActive,
+      tutorialActive,
+      skillLearnActive,
+      scriptedInteractionActive,
+      placementPrompts: framePlacementPrompts,
+      pendingPlacementPrompt,
+      workbenchRotationPrompt,
+      destroyableObjectPrompt,
+      nearbyHarvestTarget,
+      nearbyInteractable,
+      activeQuest,
+      transientNoticeRoute,
+      activeMoveId,
+      pendingWaterGunGroundCells
+    });
 
     const shouldShowGroundCellHighlight =
       resolveGroundGuidanceVisibility({
