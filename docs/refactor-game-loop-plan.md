@@ -183,10 +183,60 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the world prompt snapshot frame helper.
 - Completed: extract the HUD prompt copy frame helper.
 - Completed: extract the frame prompt target-state helper.
+- Completed: extract the follower call frame helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Follower Call Frame Helper Extraction
+
+Added an internal `processFollowerCallFrame()` helper inside `startGameLoop()`.
+This moves the follower-call request handling out of the body of `frame(now)`.
+
+Study path:
+
+1. `frame(now)` still calls the helper in the same location: after explicit
+   interact handling and before simulation updates.
+2. The helper still consumes `controls.consumeFollowerCallRequest?.()` exactly
+   once per frame.
+3. The same bot signal sound, story flags and HUD notices are used.
+4. Leaf Den construction help, Thermal Cabin follow and Charmander celebration
+   follow branches keep the same priority order.
+
+This extraction does not change follower behavior, notice text, sound events,
+input mapping, movement, placement, field moves, render output or frame order.
+It only gives follower-call side effects a local helper boundary.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/companionFollowDirectionRuntime.test.js tests/companionFollowFormation.test.js tests/gameplayInteractions.test.js tests/gameLoopFrameRuntime.test.js tests/soundEventRuntime.test.js
+npm run build
+npm run dev -- --host 127.0.0.1
+curl -sI http://127.0.0.1:5173/
+```
+
+Focused command completed with the existing Leafage Native Tree baseline:
+
+- `133` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+`npm test` completed with the same baseline:
+
+- `1473` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The remaining failures cover Native Tree growth, safe-cell selection and Wood
+drops. They are outside the follower call helper extraction and were not
+modified.
+
+Manual smoke:
+
+- Dev server started on `http://127.0.0.1:5173/`.
+- `curl -sI http://127.0.0.1:5173/` returned `HTTP/1.1 200 OK`.
+- The dev server was stopped and port `5173` was confirmed free.
 
 ### Frame Prompt Target-State Helper Extraction
 
