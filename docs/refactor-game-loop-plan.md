@@ -188,10 +188,71 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the companion follow motion helper.
 - Completed: move companion follow motion into the `companions` boundary.
 - Completed: extract the companion follow formation policy.
+- Completed: extract the companion follow membership policy.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Companion Follow Membership Policy Extraction
+
+Moved the per-companion follow eligibility rules into
+`app/runtime/companions/companionFollowMotion.js`.
+
+Boundary classification: `bot/companion motion`.
+
+Study path:
+
+1. `isCompanionFollowFormationMember(...)` owns the pure membership policy for
+   Hydro, Grow, Thermal and Builder bots.
+2. `gameLoop.js` now builds explicit snapshots from `session`, `storyState`,
+   current actions and local blockers, then delegates the decision to the
+   companion module.
+3. `gameLoop.js` still owns the session-specific sources: Water Gun queue
+   length and Bulbasaur Workbench guide activity.
+4. `frame(now)` was not changed.
+
+This extraction does not change follow flags, encounter visibility checks,
+action blockers, Leaf Den construction blockers, active move priority, input,
+camera, placement, field moves, audio, render output or frame order.
+
+TDD:
+
+- Red: `npm test -- --run tests/companionFollowMotion.test.js` failed because
+  `isCompanionFollowFormationMember(...)` did not exist yet.
+- Green: focused companion motion, formation and direction tests passed after
+  moving the membership rules.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/companionFollowMotion.test.js tests/companionFollowFormation.test.js tests/companionFollowDirectionRuntime.test.js
+npm run build
+curl -sI http://127.0.0.1:5173/
+```
+
+Focused tests passed:
+
+- `3` files
+- `18` tests
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1482` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The remaining failures cover Native Tree growth, safe-cell selection and Wood
+drops. They are outside the companion follow membership extraction and were not
+modified.
+
+Manual smoke:
+
+- A Vite server for this project was already listening on
+  `http://127.0.0.1:5173/`.
+- `curl -sI http://127.0.0.1:5173/` returned `HTTP/1.1 200 OK`.
+- The pre-existing dev server was left running because this step did not start
+  it.
 
 ### Companion Follow Formation Policy Extraction
 
