@@ -44,6 +44,15 @@ import {
   updateSolarStationSpawnEffect
 } from "./construction/playerPlacementSpawnEffect.js";
 import {
+  buildPlacedSolarStationPowerRadiusGroundCells as buildPlacedSolarStationPowerRadiusGroundCellsWithConfig,
+  buildSolarStationPowerRadiusGroundCells as buildSolarStationPowerRadiusGroundCellsWithConfig,
+  buildSolarStationPreviewPowerRadiusGroundCells as buildSolarStationPreviewPowerRadiusGroundCellsWithConfig,
+  getSolarStationPowerPosition as getSolarStationPowerPositionWithSession,
+  getSolarStationPowerRadius as getSolarStationPowerRadiusWithConfig,
+  getSolarStationPreviewPowerRadius as getSolarStationPreviewPowerRadiusWithConfig,
+  isInsideSolarStationPowerRadius as isInsideSolarStationPowerRadiusWithConfig
+} from "./construction/solarStationPowerRadius.js";
+import {
   getNewlyCollectedDropPositions,
   getNewlyCollectedResourcePositions,
   snapshotAvailableWoodDrops,
@@ -1123,156 +1132,45 @@ function buildSolarStationPowerRadiusGroundCells({
   gridStep = 1.425,
   idPrefix = "solar-station-power-radius"
 } = {}) {
-  if (!Array.isArray(center) || !(radius > 0)) {
-    return [];
-  }
-
-  const centerX = Number(center[0]);
-  const centerZ = Number(center[2]);
-  if (!Number.isFinite(centerX) || !Number.isFinite(centerZ)) {
-    return [];
-  }
-
-  const cellSize = Math.max(
-    0.25,
-    Number(gridConfig?.cellSize) ||
-      Number(gridStep) ||
-      1.425
-  );
-  const cells = [];
-
-  const pushCell = (x, z, columnIndex, rowIndex) => {
-    if (cells.length >= SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT) {
-      return;
-    }
-
-    const dx = x - centerX;
-    const dz = z - centerZ;
-    if (dx * dx + dz * dz > radius * radius) {
-      return;
-    }
-
-    cells.push({
-      id: `${idPrefix}-${columnIndex}-${rowIndex}`,
-      offset: [
-        Number(x.toFixed(3)),
-        Array.isArray(center) ? Number(center[1] || 0.02) : 0.02,
-        Number(z.toFixed(3))
-      ],
-      surfaceY: Array.isArray(center) ? Number(center[1] || 0.02) : 0.02,
-      tileSpan: cellSize,
-      highlightTargetState: "powerRadius",
-      highlightPulse: false
-    });
-  };
-
-  if (
-    Number.isFinite(Number(gridConfig?.origin?.x)) &&
-    Number.isFinite(Number(gridConfig?.origin?.z)) &&
-    Number.isInteger(gridConfig?.width) &&
-    Number.isInteger(gridConfig?.height)
-  ) {
-    const originX = Number(gridConfig.origin.x);
-    const originZ = Number(gridConfig.origin.z);
-    const minCellX = clampNumber(
-      Math.floor((centerX - radius - originX) / cellSize),
-      0,
-      gridConfig.width - 1
-    );
-    const maxCellX = clampNumber(
-      Math.floor((centerX + radius - originX) / cellSize),
-      0,
-      gridConfig.width - 1
-    );
-    const minCellZ = clampNumber(
-      Math.floor((centerZ - radius - originZ) / cellSize),
-      0,
-      gridConfig.height - 1
-    );
-    const maxCellZ = clampNumber(
-      Math.floor((centerZ + radius - originZ) / cellSize),
-      0,
-      gridConfig.height - 1
-    );
-
-    for (let row = minCellZ; row <= maxCellZ; row += 1) {
-      for (let column = minCellX; column <= maxCellX; column += 1) {
-        pushCell(
-          originX + column * cellSize + cellSize * 0.5,
-          originZ + row * cellSize + cellSize * 0.5,
-          column,
-          row
-        );
-      }
-    }
-
-    return cells;
-  }
-
-  let rowIndex = 0;
-  for (
-    let z = centerZ - radius;
-    z <= centerZ + radius && cells.length < SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT;
-    z += cellSize
-  ) {
-    let columnIndex = 0;
-    for (
-      let x = centerX - radius;
-      x <= centerX + radius && cells.length < SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT;
-      x += cellSize
-    ) {
-      pushCell(x, z, columnIndex, rowIndex);
-      columnIndex += 1;
-    }
-    rowIndex += 1;
-  }
-
-  return cells;
+  return buildSolarStationPowerRadiusGroundCellsWithConfig({
+    center,
+    radius,
+    gridConfig,
+    gridStep,
+    idPrefix,
+    markedTileLimit: SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT
+  });
 }
 
 function getSolarStationPreviewPowerRadius(session, preview) {
-  const modelScale = Number(
-    session?.strawBedModelInstance?.solarStationFinalScale ||
-    session?.strawBedModelInstance?.scale
-  );
-
-  if (Number.isFinite(modelScale) && modelScale > 0) {
-    return modelScale * LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER;
-  }
-
-  const fallbackSize = getPlacementPreviewFootprintWorldSize(
+  return getSolarStationPreviewPowerRadiusWithConfig({
+    session,
     preview,
-    SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT
-  );
-  return Math.max(fallbackSize[0], fallbackSize[1]) * LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER;
+    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
+    gridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
+    getPlacementPreviewFootprintWorldSize
+  });
 }
 
 function buildSolarStationPreviewPowerRadiusGroundCells(session, preview) {
-  if (!preview?.snappedPosition) {
-    return [];
-  }
-
-  return buildSolarStationPowerRadiusGroundCells({
-    center: preview.snappedPosition,
-    radius: getSolarStationPreviewPowerRadius(session, preview),
-    gridConfig: preview.gridConfig,
-    gridStep: preview.gridStep,
-    idPrefix: "solar-station-preview-power-radius"
+  return buildSolarStationPreviewPowerRadiusGroundCellsWithConfig({
+    session,
+    preview,
+    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
+    gridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
+    markedTileLimit: SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT,
+    getPlacementPreviewFootprintWorldSize
   });
 }
 
 function buildPlacedSolarStationPowerRadiusGroundCells(session, storyState) {
-  const powerPosition = getSolarStationPowerPosition(session, storyState);
-  if (!powerPosition) {
-    return [];
-  }
-
-  return buildSolarStationPowerRadiusGroundCells({
-    center: powerPosition,
-    radius: getSolarStationPowerRadius(session),
-    gridConfig: session?.buildGridConfig,
-    gridStep: session?.buildGridConfig?.cellSize,
-    idPrefix: "solar-station-placed-power-radius"
+  return buildPlacedSolarStationPowerRadiusGroundCellsWithConfig({
+    session,
+    storyState,
+    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
+    previewFootprint: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
+    markedTileLimit: SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT,
+    getPlacementCollisionSize
   });
 }
 
@@ -1436,44 +1334,27 @@ function isSolarStationPlacementBlocked(session, storyState, placementRect) {
 }
 
 function getSolarStationPowerPosition(session, storyState) {
-  if (
-    !storyState?.flags?.strawBedPlacedInBulbasaurHabitat ||
-    !Array.isArray(session?.strawBed?.position)
-  ) {
-    return null;
-  }
-
-  return session.strawBed.position;
+  return getSolarStationPowerPositionWithSession(session, storyState);
 }
 
 function getSolarStationPowerRadius(session) {
-  const modelScale = Number(
-    session?.strawBedModelInstance?.solarStationFinalScale ||
-    session?.strawBedModelInstance?.scale
-  );
-
-  if (Number.isFinite(modelScale) && modelScale > 0) {
-    return modelScale * LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER;
-  }
-
-  const fallbackSize = getPlacementCollisionSize(
-    session?.strawBed,
-    SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT
-  );
-  return Math.max(fallbackSize[0], fallbackSize[1]) * LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER;
+  return getSolarStationPowerRadiusWithConfig({
+    session,
+    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
+    previewFootprint: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
+    getPlacementCollisionSize
+  });
 }
 
 function isInsideSolarStationPowerRadius(session, storyState, position) {
-  const solarStationPosition = getSolarStationPowerPosition(session, storyState);
-  if (!solarStationPosition || !Array.isArray(position)) {
-    return false;
-  }
-
-  const distance = Math.hypot(
-    position[0] - solarStationPosition[0],
-    position[2] - solarStationPosition[2]
-  );
-  return distance <= getSolarStationPowerRadius(session);
+  return isInsideSolarStationPowerRadiusWithConfig({
+    session,
+    storyState,
+    position,
+    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
+    previewFootprint: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
+    getPlacementCollisionSize
+  });
 }
 
 function lerp(start, end, progress) {

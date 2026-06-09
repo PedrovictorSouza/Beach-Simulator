@@ -234,6 +234,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move field-move actor/emitter positions into the
   `fieldMoveRuntime` boundary.
+- Completed: move Solar Station power-radius helpers into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1728,6 +1730,66 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Solar Station Power Radius Boundary
+
+Moved Solar Station support-field radius and marked-ground-cell helpers from
+`app/runtime/gameLoop.js` into
+`app/runtime/construction/solarStationPowerRadius.js`.
+
+Boundary classification: `construction`, with presentation data limited to the
+existing ground-cell highlight shape consumed by the frame snapshot.
+
+Study path:
+
+1. `buildSolarStationPowerRadiusGroundCells(...)` owns the grid scan and
+   `powerRadius` highlight-cell shape.
+2. `getSolarStationPreviewPowerRadius(...)` and
+   `buildSolarStationPreviewPowerRadiusGroundCells(...)` own preview support
+   radius math.
+3. `getSolarStationPowerPosition(...)`, `getSolarStationPowerRadius(...)`,
+   `buildPlacedSolarStationPowerRadiusGroundCells(...)` and
+   `isInsideSolarStationPowerRadius(...)` own placed Solar Station support-zone
+   policy.
+4. `gameLoop.js` still owns constants, placement collision callbacks and call
+   order through small wrappers, so placement lifecycle and render order did not
+   move in this cut.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10813` to `10694`.
+- Removed the Solar Station radius grid scan from `gameLoop.js`.
+- Kept Solar Station placement blockers and placement validation in
+  `gameLoop.js`.
+- Added focused tests for flag-gated power position, model-scale radius,
+  fallback radius, grid highlight cells and inside/outside radius checks.
+
+Validation:
+
+```sh
+npm test -- --run tests/solarStationPowerRadius.test.js
+npm test -- --run tests/solarStationPowerRadius.test.js tests/placementBlockers.test.js tests/worldObjectPlacementValidation.test.js tests/worldObjectPlacementPreview.test.js tests/placementPreviewVisual.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/placement suite passed with `34` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1570` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
