@@ -191,10 +191,80 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the companion follow membership policy.
 - Completed: move companion follow direction runtime into the `companions` boundary.
 - Completed: move companion lost hint runtime into the `companions` boundary.
+- Completed: move camera debug modules into the `camera` boundary.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Camera Debug Boundary Move
+
+Moved camera debug modules from root-level `app/runtime` into
+`app/runtime/camera/`:
+
+- `cameraDebugRuntime.js`
+- `cameraDebugFrameState.js`
+
+Boundary classification: `camera runtime/debug`.
+
+Study path:
+
+1. `createCameraDebugRuntime(...)` still owns the DOM overlay element, global
+   error listener wiring and capped error list.
+2. `createCameraDebugFrameState(...)` still owns the pure debug payload sent to
+   the overlay.
+3. `gameLoop.js` imports both through the `camera` boundary.
+4. Runtime implementations were not changed.
+5. `frame(now)` was not changed.
+
+This cut reduces root-level `app/runtime` sprawl without adding another helper
+file. It does not change camera debug payload shape, listener behavior, overlay
+CSS, camera behavior, input, placement, field moves, audio, render output or
+frame order.
+
+TDD:
+
+- Red: `npm test -- --run tests/cameraDebugRuntime.test.js
+  tests/cameraDebugFrameState.test.js` failed while the modules still lived at
+  the old paths.
+- Green: focused camera debug tests passed after moving the modules into
+  `app/runtime/camera/`.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/cameraDebugRuntime.test.js tests/cameraDebugFrameState.test.js
+npm test -- --run tests/cameraDebugRuntime.test.js tests/cameraDebugFrameState.test.js tests/gameLoopFrameRuntime.test.js tests/gameLoopFramePolicies.test.js tests/renderFrameController.test.js
+npm run build
+curl -sI http://127.0.0.1:5173/
+```
+
+Focused tests passed:
+
+- `2` files / `5` tests for direct camera debug coverage.
+- `5` files / `23` tests for adjacent frame/render coverage.
+
+`npm test` completed with:
+
+- `1482` passed
+- `4` failed
+
+Failure classification:
+
+- `3` known Leafage Native Tree baseline failures in
+  `tests/gameplayInteractions.test.js`.
+- `1` unrelated dirty-worktree failure in `tests/companionFollowMotion.test.js`
+  caused by the pre-existing uncommitted change in
+  `app/runtime/companions/companionFollowMotion.js`.
+
+Manual smoke:
+
+- A Vite server for this project was already listening on
+  `http://127.0.0.1:5173/`.
+- `curl -sI http://127.0.0.1:5173/` returned `HTTP/1.1 200 OK`.
+- The pre-existing dev server was left running because this step did not start
+  it.
 
 ### Companion Lost Hint Boundary Move
 
