@@ -197,10 +197,68 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move camera zoom preset controller into the `camera` boundary.
 - Completed: move player movement tuning into the `movement` boundary and
   preserve the companion follow spacing contract.
+- Completed: move dialogue camera controller into the `camera` boundary.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Dialogue Camera Controller Boundary Move
+
+Moved `createDialogueCameraController()` from root-level `app/runtime` into
+`app/runtime/camera/`.
+
+Boundary classification: `camera runtime/debug`.
+
+Study path:
+
+1. `app/runtime/camera/dialogueCameraController.js` owns dialogue conversation
+   framing, scripted world-point focus and restoring gameplay camera pose after
+   dialogue focus.
+2. `createApplicationRuntime.js` still creates the controller as part of the
+   application composition root.
+3. The controller implementation was moved without timing, tuning or behavior
+   changes. Only the relative import for `actTwoSceneConfig.js` changed because
+   the file moved one folder deeper.
+4. `frame(now)` was not changed.
+
+This cut reduces root-level `app/runtime` sprawl and keeps dialogue camera
+behavior beside the other camera runtime modules. It does not change dialogue
+camera zoom, distance, focus heights, transition duration, input, placement,
+field moves, audio, render output or frame order.
+
+TDD:
+
+- Red: `npm test -- --run tests/dialogueCameraController.test.js` failed while
+  the test imported from `app/runtime/camera/` and the module still lived at the
+  old root-level path.
+- Green: the focused test passed after moving the controller into
+  `app/runtime/camera/` and updating the composition-root import.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/dialogueCameraController.test.js
+npm test -- --run tests/dialogueCameraController.test.js tests/narrativeCameraSystem.test.js tests/camera.test.js tests/gameplayCameraDirector.test.js tests/foundationBuildZoneCameraFocusRuntime.test.js tests/cameraDebugRuntime.test.js tests/cameraDebugFrameState.test.js tests/applicationBootScene.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+npm test
+```
+
+Focused tests passed:
+
+- `1` file / `6` tests for direct dialogue camera coverage.
+- `9` files / `42` tests for adjacent camera/narrative/bootstrap coverage.
+
+`npm test` completed with:
+
+- `1483` passed
+- `3` failed
+
+Failure classification:
+
+- `3` known Leafage Native Tree baseline failures in
+  `tests/gameplayInteractions.test.js`.
 
 ### Player Movement Tuning Boundary Move
 

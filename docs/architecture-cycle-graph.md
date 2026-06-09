@@ -62,7 +62,7 @@ flowchart TD
   n_app_runtime_contextualPromptNotice_js["app/runtime/contextualPromptNotice.js"]
   n_app_runtime_createEngineRuntime_js["app/runtime/createEngineRuntime.js"]
   n_app_runtime_createUiRuntime_js["app/runtime/createUiRuntime.js"]
-  n_app_runtime_dialogueCameraController_js["app/runtime/dialogueCameraController.js"]
+  n_app_runtime_camera_dialogueCameraController_js["app/runtime/camera/dialogueCameraController.js"]
   n_app_runtime_frameSnapshotController_js["app/runtime/frameSnapshotController.js"]
   n_app_runtime_gameAppController_js["app/runtime/gameAppController.js"]
   n_app_runtime_gameLoop_js["app/runtime/gameLoop.js"]
@@ -232,7 +232,7 @@ flowchart TD
   n_app_bootstrap_createApplicationRuntime_js --> n_app_runtime_autosaveRuntime_js
   n_app_bootstrap_createApplicationRuntime_js --> n_app_runtime_createEngineRuntime_js
   n_app_bootstrap_createApplicationRuntime_js --> n_app_runtime_createUiRuntime_js
-  n_app_bootstrap_createApplicationRuntime_js --> n_app_runtime_dialogueCameraController_js
+  n_app_bootstrap_createApplicationRuntime_js --> n_app_runtime_camera_dialogueCameraController_js
   n_app_bootstrap_createApplicationRuntime_js --> n_app_runtime_gameAppController_js
   n_app_bootstrap_createApplicationRuntime_js --> n_app_runtime_gameLoop_js
   n_app_bootstrap_createApplicationRuntime_js --> n_app_runtime_gamepadHarvestPolicy_js
@@ -331,7 +331,7 @@ flowchart TD
   n_app_runtime_createUiRuntime_js --> n_app_ui_worldSpeechController_js
   n_app_runtime_createUiRuntime_js --> n_guidePanel_js
   n_app_runtime_createUiRuntime_js --> n_pokedexOverlay_js
-  n_app_runtime_dialogueCameraController_js --> n_actTwoSceneConfig_js
+  n_app_runtime_camera_dialogueCameraController_js --> n_actTwoSceneConfig_js
   n_app_runtime_gameLoop_js --> n_app_gameplay_colonyFeedbackContracts_js
   n_app_runtime_gameLoop_js --> n_app_gameplay_freeBlockBuildSystem_js
   n_app_runtime_gameLoop_js --> n_app_gameplay_gridBuildingSystem_js
@@ -600,7 +600,7 @@ flowchart TD
 - `app/bootstrap/createApplicationRuntime.js -> app/runtime/autosaveRuntime.js` (static)
 - `app/bootstrap/createApplicationRuntime.js -> app/runtime/createEngineRuntime.js` (static)
 - `app/bootstrap/createApplicationRuntime.js -> app/runtime/createUiRuntime.js` (static)
-- `app/bootstrap/createApplicationRuntime.js -> app/runtime/dialogueCameraController.js` (static)
+- `app/bootstrap/createApplicationRuntime.js -> app/runtime/camera/dialogueCameraController.js` (static)
 - `app/bootstrap/createApplicationRuntime.js -> app/runtime/gameAppController.js` (static)
 - `app/bootstrap/createApplicationRuntime.js -> app/runtime/gameLoop.js` (static)
 - `app/bootstrap/createApplicationRuntime.js -> app/runtime/gamepadHarvestPolicy.js` (static)
@@ -699,7 +699,7 @@ flowchart TD
 - `app/runtime/createUiRuntime.js -> app/ui/worldSpeechController.js` (static)
 - `app/runtime/createUiRuntime.js -> guidePanel.js` (dynamic)
 - `app/runtime/createUiRuntime.js -> pokedexOverlay.js` (dynamic)
-- `app/runtime/dialogueCameraController.js -> actTwoSceneConfig.js` (static)
+- `app/runtime/camera/dialogueCameraController.js -> actTwoSceneConfig.js` (static)
 - `app/runtime/gameLoop.js -> app/gameplay/colonyFeedbackContracts.js` (static)
 - `app/runtime/gameLoop.js -> app/gameplay/freeBlockBuildSystem.js` (static)
 - `app/runtime/gameLoop.js -> app/gameplay/gridBuildingSystem.js` (static)

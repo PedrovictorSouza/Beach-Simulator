@@ -42,7 +42,7 @@ always glued to the player. Use this note before changing camera code.
 
 ## Dialogue Conversation
 
-- Source: `app/runtime/dialogueCameraController.js`.
+- Source: `app/runtime/camera/dialogueCameraController.js`.
 - Intent: frame the player and speaking bot as a relationship, with the midpoint
   as target.
 - Player question: "Who is talking to me, and what do they need?"
@@ -51,7 +51,7 @@ always glued to the player. Use this note before changing camera code.
 
 ## World Point Focus
 
-- Source: `app/runtime/dialogueCameraController.js`.
+- Source: `app/runtime/camera/dialogueCameraController.js`.
 - Intent: point at a machine, box, route, habitat patch, or other actionable
   world object.
 - Player question: "What object should I notice next?"
