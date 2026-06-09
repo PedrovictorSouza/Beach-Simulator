@@ -11,6 +11,10 @@ import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { getCampfireWoodPileBillboards } from "./campfireWoodPileBillboards.js";
 import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
 import {
+  getConstructionCloudBurstBillboards as getConstructionCloudBurstBillboardsWithConfig,
+  getLeafDenConstructionBillboards as getLeafDenConstructionBillboardsWithConfig
+} from "./construction/constructionBillboards.js";
+import {
   applyPlayerPlacementSpawnToBillboard,
   applyPlayerPlacementSpawnToModelInstance,
   updateSolarStationSpawnEffect
@@ -478,10 +482,8 @@ const WORKBENCH_OBJECT_ROTATE_DISTANCE = 3.2;
 const WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN = 1.425;
 const LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER = 3;
 const LEAF_DEN_CONSTRUCTION_CLOUD_COUNT = 18;
-const LEAF_DEN_CONSTRUCTION_STAR_COUNT = 12;
 const CONSTRUCTION_CLOUD_BURST_MAX_EFFECTS = 3;
 const CONSTRUCTION_CLOUD_BURST_CLOUD_COUNT = 14;
-const CONSTRUCTION_CLOUD_BURST_STAR_COUNT = 10;
 const LEAF_DEN_CONSTRUCTION_CLOUD_RADIUS_X = 1.48;
 const LEAF_DEN_CONSTRUCTION_CLOUD_RADIUS_Z = 1.08;
 const LEAF_DEN_CONSTRUCTION_CLOUD_BASE_Y = 0.42;
@@ -489,9 +491,6 @@ const LEAF_DEN_CONSTRUCTION_CLOUD_BOB = 0.3;
 const DRY_GRASS_WORLD_PROMPT_TILE_REACH_FACTOR = 0.82;
 const DRY_GRASS_WORLD_PROMPT_PATCH_REACH_FACTOR = 0.28;
 const DRY_GRASS_HINT_INTERACT_DISTANCE = 2.2;
-const LEAF_DEN_CONSTRUCTION_BAR_WIDTH = 2.5;
-const LEAF_DEN_CONSTRUCTION_BAR_HEIGHT = 0.2;
-const LEAF_DEN_CONSTRUCTION_BAR_Y = 2.55;
 const LEAF_DEN_BUSY_NOTICE = "im busy, boss...";
 const TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE = 0.68;
 const DEAD_TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE = 1.15;
@@ -7476,99 +7475,25 @@ export function startGameLoop({
   }
 
   function getLeafDenConstructionBillboards(uvRect, nowSeconds = getRuntimeNowSeconds()) {
-    if (!isLeafDenConstructionActive() || !Array.isArray(session.leafDen?.position)) {
-      return [];
-    }
-
-    const position = session.leafDen.position;
-    const progress = getLeafDenConstructionProgress();
-    const billboards = [];
-    const barY = position[1] + LEAF_DEN_CONSTRUCTION_BAR_Y;
-    const barBackTexture = session.squirtleWaterStaminaBackTexture;
-    const barFillTexture = session.charmanderCarbonFillTexture || session.squirtleWaterStaminaBackTexture;
-
-    if (barBackTexture) {
-      billboards.push({
-        texture: barBackTexture,
-        position: [position[0], barY, position[2]],
-        size: [LEAF_DEN_CONSTRUCTION_BAR_WIDTH, LEAF_DEN_CONSTRUCTION_BAR_HEIGHT],
-        uvRect
-      });
-    }
-
-    if (barFillTexture && progress > 0) {
-      const fillWidth = Math.max(0.08, LEAF_DEN_CONSTRUCTION_BAR_WIDTH * 0.9 * progress);
-      billboards.push({
-        texture: barFillTexture,
-        position: [
-          position[0] - LEAF_DEN_CONSTRUCTION_BAR_WIDTH * 0.45 + fillWidth * 0.5,
-          barY + 0.01,
-          position[2] - 0.015
-        ],
-        size: [fillWidth, LEAF_DEN_CONSTRUCTION_BAR_HEIGHT * 0.68],
-        uvRect
-      });
-    }
-
-    const starTexture = session.logChairStarTexture || session.natureRevivalSparkTexture;
-    if (!starTexture) {
-      return billboards;
-    }
-
-    for (let index = 0; index < LEAF_DEN_CONSTRUCTION_STAR_COUNT; index += 1) {
-      const angle = index * 2.141 + nowSeconds * (1.8 + (index % 3) * 0.24);
-      const pop = 0.5 + 0.5 * Math.sin(nowSeconds * 7.2 + index);
-      const radius = 0.8 + (index % 4) * 0.2;
-      billboards.push({
-        texture: starTexture,
-        position: [
-          position[0] + Math.cos(angle) * radius,
-          position[1] + 0.72 + pop * 0.95,
-          position[2] + Math.sin(angle * 1.16) * (radius * 0.72)
-        ],
-        size: [0.2 + pop * 0.18, 0.2 + pop * 0.18],
-        uvRect,
-        rotation: angle
-      });
-    }
-
-    return billboards;
+    return getLeafDenConstructionBillboardsWithConfig({
+      active: isLeafDenConstructionActive(),
+      leafDen: session.leafDen,
+      progress: getLeafDenConstructionProgress(),
+      barBackTexture: session.squirtleWaterStaminaBackTexture,
+      barFillTexture: session.charmanderCarbonFillTexture || session.squirtleWaterStaminaBackTexture,
+      starTexture: session.logChairStarTexture || session.natureRevivalSparkTexture,
+      uvRect,
+      nowSeconds
+    });
   }
 
   function getConstructionCloudBurstBillboards(uvRect, nowSeconds = getRuntimeNowSeconds()) {
-    const bursts = getActiveConstructionCloudBursts();
-    const starTexture = session.logChairStarTexture || session.natureRevivalSparkTexture;
-    if (!starTexture || bursts.length <= 0) {
-      return [];
-    }
-
-    const billboards = [];
-    for (const burst of bursts) {
-      const position = burst.position;
-      const effectAlpha = Math.sin(Math.PI * clamp01(burst.progress));
-
-      for (let index = 0; index < CONSTRUCTION_CLOUD_BURST_STAR_COUNT; index += 1) {
-        const angle = index * 2.141 + nowSeconds * (2.6 + (index % 3) * 0.28);
-        const pop = 0.5 + 0.5 * Math.sin(nowSeconds * 8.6 + index);
-        const radius = (0.54 + (index % 4) * 0.17) * (0.7 + effectAlpha * 0.5);
-        billboards.push({
-          texture: starTexture,
-          position: [
-            position[0] + Math.cos(angle) * radius,
-            position[1] + 0.54 + pop * 0.88,
-            position[2] + Math.sin(angle * 1.16) * (radius * 0.72)
-          ],
-          size: [
-            (0.14 + pop * 0.2) * Math.max(0.12, effectAlpha),
-            (0.14 + pop * 0.2) * Math.max(0.12, effectAlpha)
-          ],
-          uvRect,
-          rotation: angle
-        });
-      }
-    }
-
-    return billboards;
+    return getConstructionCloudBurstBillboardsWithConfig({
+      bursts: getActiveConstructionCloudBursts(),
+      starTexture: session.logChairStarTexture || session.natureRevivalSparkTexture,
+      uvRect,
+      nowSeconds
+    });
   }
 
   function syncLeafDenModelInstance(deltaTime = 0) {

@@ -199,8 +199,10 @@ There is no dedicated lint or typecheck script in `package.json`.
   preserve the companion follow spacing contract.
 - Completed: move dialogue camera controller into the `camera` boundary.
 - Completed: move placement camera assist into the `camera` boundary.
-- Next: select the next small visual helper boundary without moving placement,
-  construction, music, field moves or camera rules.
+- Completed: move construction billboard builders into the `construction`
+  boundary.
+- Next: select the next small domain boundary without moving field moves,
+  camera rules, input mapping or render core.
 
 ## Validation Log
 
@@ -1644,6 +1646,59 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Construction Billboard Builder Boundary
+
+Moved construction billboard builders from `app/runtime/gameLoop.js` into the
+`construction` boundary at
+`app/runtime/construction/constructionBillboards.js`.
+
+Study path:
+
+1. `getLeafDenConstructionBillboards(...)` now owns the Leaf Den construction
+   progress-bar and star-billboard construction details.
+2. `getConstructionCloudBurstBillboards(...)` now owns construction cloud-burst
+   star billboard construction.
+3. The moved module owns the local billboard constants for bar size, bar height,
+   bar Y offset and star counts.
+4. `gameLoop.js` still owns session texture lookup, active construction state,
+   construction progress, render order and the frame position where these
+   billboards are appended.
+5. Construction cloud model syncing, construction placement validation,
+   placement contracts and gameplay tuning stayed in their existing modules.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `12061` to `11986`.
+- Removed detailed construction billboard geometry from `gameLoop.js`.
+- Added focused tests for Leaf Den construction billboards, inactive guards,
+  construction cloud burst billboards and missing-texture guards.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionBillboards.test.js tests/playerPlacementSpawnEffect.test.js tests/worldObjectPlacementPreview.test.js tests/placementPreviewVisual.test.js
+git diff --check
+npm run build
+```
+
+The focused suite passed with `15` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1500` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
