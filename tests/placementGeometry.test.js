@@ -9,6 +9,8 @@ import {
   getPlacementRect,
   getRotatedGridFootprint,
   getRotatedPlacementSize,
+  getSnappedPlacementPreviewPosition,
+  hasFinitePlacementBounds,
   normalizePlacementYaw
 } from "../app/runtime/construction/placementGeometry.js";
 
@@ -20,6 +22,21 @@ describe("placement geometry", () => {
       minZ: 6,
       maxZ: 10
     });
+  });
+
+  it("detects finite placement bounds", () => {
+    expect(hasFinitePlacementBounds({
+      minX: 0,
+      maxX: 1,
+      minZ: 2,
+      maxZ: 3
+    })).toBe(true);
+    expect(hasFinitePlacementBounds({
+      minX: 0,
+      maxX: Number.POSITIVE_INFINITY,
+      minZ: 2,
+      maxZ: 3
+    })).toBe(false);
   });
 
   it("checks placement rect overlap with the existing gutter behavior", () => {
@@ -181,5 +198,45 @@ describe("placement geometry", () => {
         tileSpan: 1
       }
     ]);
+  });
+
+  it("snaps placement preview position to grid cells inside finite bounds", () => {
+    expect(getSnappedPlacementPreviewPosition({
+      position: [2.9, 0.02, 4.2],
+      gridConfig: {
+        cellSize: 2,
+        origin: {
+          x: 0,
+          z: 0
+        },
+        width: 4,
+        height: 4
+      },
+      bounds: {
+        minX: 1,
+        maxX: 5,
+        minZ: 1,
+        maxZ: 5
+      }
+    })).toEqual([3, 0.02, 5]);
+  });
+
+  it("snaps placement preview position to bounded grid step when grid config is missing", () => {
+    expect(getSnappedPlacementPreviewPosition({
+      position: [2.6, 0.02, 3.6],
+      gridStep: 1,
+      bounds: {
+        minX: 0,
+        maxX: 3,
+        minZ: 0,
+        maxZ: 3
+      }
+    })).toEqual([3, 0.02, 3]);
+  });
+
+  it("returns the preview position when snap bounds are unavailable", () => {
+    expect(getSnappedPlacementPreviewPosition({
+      position: [2.6, 0.04, 3.6]
+    })).toEqual([2.6, 0.02, 3.6]);
   });
 });

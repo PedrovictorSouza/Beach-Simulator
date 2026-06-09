@@ -71,7 +71,7 @@ export function getRotatedGridFootprint(
   return normalizedFootprint;
 }
 
-function hasFinitePlacementBounds(bounds) {
+export function hasFinitePlacementBounds(bounds) {
   return Boolean(
     bounds &&
     Number.isFinite(bounds.minX) &&
@@ -79,6 +79,10 @@ function hasFinitePlacementBounds(bounds) {
     Number.isFinite(bounds.minZ) &&
     Number.isFinite(bounds.maxZ)
   );
+}
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
 }
 
 export function buildSolarStationFieldMarkedGroundCells(
@@ -178,5 +182,69 @@ export function getPlacementPreviewFootprintWorldSize(preview, footprint) {
   return [
     rotatedFootprint.width * gridStep,
     rotatedFootprint.height * gridStep
+  ];
+}
+
+export function getSnappedPlacementPreviewPosition(preview) {
+  const bounds = preview?.bounds;
+  const position = Array.isArray(preview?.position) ?
+    preview.position :
+    [0, 0.02, 0];
+  const gridConfig = preview?.gridConfig;
+
+  if (
+    Number.isFinite(Number(gridConfig?.cellSize)) &&
+    gridConfig.cellSize > 0 &&
+    Number.isFinite(Number(gridConfig?.origin?.x)) &&
+    Number.isFinite(Number(gridConfig?.origin?.z)) &&
+    Number.isInteger(gridConfig.width) &&
+    Number.isInteger(gridConfig.height)
+  ) {
+    const cellSize = Number(gridConfig.cellSize);
+    const originX = Number(gridConfig.origin.x);
+    const originZ = Number(gridConfig.origin.z);
+    const centerOffset = cellSize * 0.5;
+    const minCellX = hasFinitePlacementBounds(bounds) ?
+      Math.ceil((bounds.minX - originX - centerOffset) / cellSize) :
+      0;
+    const maxCellX = hasFinitePlacementBounds(bounds) ?
+      Math.floor((bounds.maxX - originX - centerOffset) / cellSize) :
+      gridConfig.width - 1;
+    const minCellZ = hasFinitePlacementBounds(bounds) ?
+      Math.ceil((bounds.minZ - originZ - centerOffset) / cellSize) :
+      0;
+    const maxCellZ = hasFinitePlacementBounds(bounds) ?
+      Math.floor((bounds.maxZ - originZ - centerOffset) / cellSize) :
+      gridConfig.height - 1;
+
+    if (minCellX <= maxCellX && minCellZ <= maxCellZ) {
+      const rawCellX = Math.floor((position[0] - originX) / cellSize);
+      const rawCellZ = Math.floor((position[2] - originZ) / cellSize);
+      const cellX = clampNumber(rawCellX, Math.max(0, minCellX), Math.min(gridConfig.width - 1, maxCellX));
+      const cellZ = clampNumber(rawCellZ, Math.max(0, minCellZ), Math.min(gridConfig.height - 1, maxCellZ));
+
+      return [
+        Number((originX + cellX * cellSize + centerOffset).toFixed(4)),
+        0.02,
+        Number((originZ + cellZ * cellSize + centerOffset).toFixed(4))
+      ];
+    }
+  }
+
+  const gridStep = Math.max(0.25, Number(preview?.gridStep) || 1.425);
+
+  if (!hasFinitePlacementBounds(bounds)) {
+    return [position[0], 0.02, position[2]];
+  }
+
+  const snapAxis = (value, min, max) => {
+    const snapped = min + Math.round((value - min) / gridStep) * gridStep;
+    return clampNumber(snapped, min, max);
+  };
+
+  return [
+    snapAxis(position[0], bounds.minX, bounds.maxX),
+    0.02,
+    snapAxis(position[2], bounds.minZ, bounds.maxZ)
   ];
 }
