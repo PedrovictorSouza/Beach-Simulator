@@ -18,9 +18,10 @@ import {
 } from "./collectibleSourceSnapshots.js";
 import { createCompanionFollowDirectionRuntime } from "./companionFollowDirectionRuntime.js";
 import {
+  resolveCompanionFollowFormationIndex,
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
-} from "./companionFollowMotion.js";
+} from "./companions/companionFollowMotion.js";
 import { createCompanionLostHintRuntime } from "./companionLostHintRuntime.js";
 import { createFoundationBuildZoneCameraFocusRuntime } from "./foundationBuildZoneCameraFocusRuntime.js";
 import {
@@ -113,7 +114,7 @@ import {
 export {
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
-} from "./companionFollowMotion.js";
+} from "./companions/companionFollowMotion.js";
 
 import {
   BULBASAUR_LEAFAGE_ARRIVE_DISTANCE,
@@ -525,13 +526,6 @@ const SQUIRTLE_FOLLOW_SPEED = ACT_TWO_PLAYER_SPEED;
 const SQUIRTLE_FOLLOW_DISTANCE = 1.18;
 const BULBASAUR_FOLLOW_SPEED = ACT_TWO_PLAYER_SPEED;
 const BULBASAUR_FOLLOW_DISTANCE = 1.46;
-const COMPANION_FOLLOW_FORMATION_ORDER = Object.freeze(["squirtle", "bulbasaur", "charmander", "timburr"]);
-const COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS = Object.freeze({
-  waterGun: "squirtle",
-  leafage: "bulbasaur",
-  fire: "charmander",
-  buildBlock: "timburr"
-});
 const COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE = 0.08;
 const WOOD_COLLECT_POP_DURATION = 0.34;
 const WOOD_COLLECT_POP_LIFT = 0.24;
@@ -5761,22 +5755,12 @@ export function startGameLoop({
     return false;
   }
 
-  function getCompanionFollowFormationIds(activeMoveId = null) {
-    const activeCompanionId = COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS[activeMoveId] || null;
-    const orderedIds = activeCompanionId ?
-      [
-        activeCompanionId,
-        ...COMPANION_FOLLOW_FORMATION_ORDER.filter((companionId) => companionId !== activeCompanionId)
-      ] :
-      COMPANION_FOLLOW_FORMATION_ORDER;
-
-    return orderedIds.filter(isCompanionInFollowFormation);
-  }
-
   function getCompanionFollowFormationIndex(companionId, activeMoveId = null) {
-    const formationIds = getCompanionFollowFormationIds(activeMoveId);
-    const index = formationIds.indexOf(companionId);
-    return index >= 0 ? index : 0;
+    return resolveCompanionFollowFormationIndex({
+      companionId,
+      activeMoveId,
+      isFollowing: isCompanionInFollowFormation
+    }) ?? 0;
   }
 
   function moveGroundCompanionTowardPlayer(companion, {

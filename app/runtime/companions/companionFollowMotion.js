@@ -1,0 +1,76 @@
+import { ACT_TWO_PLAYER_SPEED } from "../../session/configurePlayerSpawner.js";
+
+const ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE = 1.12;
+const INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE = 2.28;
+const COMPANION_FOLLOW_LINE_FIRST_DISTANCE = 1.18;
+const COMPANION_FOLLOW_LINE_SLOT_SPACING = 1.18;
+const COMPANION_FOLLOW_FORMATION_ORDER = Object.freeze(["squirtle", "bulbasaur", "charmander", "timburr"]);
+const COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS = Object.freeze({
+  waterGun: "squirtle",
+  leafage: "bulbasaur",
+  fire: "charmander",
+  buildBlock: "timburr"
+});
+
+export function resolveCompanionFollowFormationIds({
+  activeMoveId = null,
+  isFollowing = () => false
+} = {}) {
+  const activeCompanionId = COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS[activeMoveId] || null;
+  const orderedIds = activeCompanionId ?
+    [
+      activeCompanionId,
+      ...COMPANION_FOLLOW_FORMATION_ORDER.filter((companionId) => companionId !== activeCompanionId)
+    ] :
+    COMPANION_FOLLOW_FORMATION_ORDER;
+
+  return orderedIds.filter(isFollowing);
+}
+
+export function resolveCompanionFollowFormationIndex({
+  companionId,
+  activeMoveId = null,
+  isFollowing = () => false
+} = {}) {
+  const formationIds = resolveCompanionFollowFormationIds({ activeMoveId, isFollowing });
+  const index = formationIds.indexOf(companionId);
+  return index >= 0 ? index : null;
+}
+
+export function resolveCompanionFollowDistance({
+  companionId,
+  activeMoveId,
+  defaultDistance,
+  formationIndex = null
+} = {}) {
+  if (Number.isFinite(formationIndex)) {
+    return COMPANION_FOLLOW_LINE_FIRST_DISTANCE +
+      Math.max(0, Math.floor(formationIndex)) * COMPANION_FOLLOW_LINE_SLOT_SPACING;
+  }
+
+  if (activeMoveId === "waterGun") {
+    if (companionId === "squirtle") {
+      return ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
+    }
+
+    if (companionId === "bulbasaur") {
+      return INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
+    }
+  }
+
+  if (activeMoveId === "leafage") {
+    if (companionId === "bulbasaur") {
+      return ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
+    }
+
+    if (companionId === "squirtle") {
+      return INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
+    }
+  }
+
+  return defaultDistance;
+}
+
+export function resolveCompanionFollowSpeed() {
+  return ACT_TWO_PLAYER_SPEED;
+}

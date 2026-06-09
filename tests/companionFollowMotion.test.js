@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  resolveCompanionFollowFormationIds,
+  resolveCompanionFollowFormationIndex,
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
-} from "../app/runtime/companionFollowMotion.js";
+} from "../app/runtime/companions/companionFollowMotion.js";
 import { ACT_TWO_PLAYER_SPEED } from "../app/session/configurePlayerSpawner.js";
 
 describe("companion follow motion", () => {
@@ -48,5 +50,33 @@ describe("companion follow motion", () => {
 
   it("uses the act-two player speed for follow speed", () => {
     expect(resolveCompanionFollowSpeed()).toBe(ACT_TWO_PLAYER_SPEED);
+  });
+
+  it("puts the active field-move companion first in the follow formation", () => {
+    const following = new Set(["squirtle", "bulbasaur", "charmander"]);
+
+    expect(resolveCompanionFollowFormationIds({
+      activeMoveId: "leafage",
+      isFollowing: (companionId) => following.has(companionId)
+    })).toEqual(["bulbasaur", "squirtle", "charmander"]);
+  });
+
+  it("filters companions that are not currently following", () => {
+    const following = new Set(["squirtle", "charmander"]);
+
+    expect(resolveCompanionFollowFormationIds({
+      activeMoveId: "leafage",
+      isFollowing: (companionId) => following.has(companionId)
+    })).toEqual(["squirtle", "charmander"]);
+  });
+
+  it("returns null when a companion is outside the follow formation", () => {
+    const following = new Set(["squirtle"]);
+
+    expect(resolveCompanionFollowFormationIndex({
+      companionId: "bulbasaur",
+      activeMoveId: "leafage",
+      isFollowing: (candidateId) => following.has(candidateId)
+    })).toBeNull();
   });
 });
