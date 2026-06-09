@@ -198,10 +198,68 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move player movement tuning into the `movement` boundary and
   preserve the companion follow spacing contract.
 - Completed: move dialogue camera controller into the `camera` boundary.
+- Completed: move placement camera assist into the `camera` boundary.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Placement Camera Assist Boundary Move
+
+Moved `createPlacementCameraAssist()` from root-level `app/runtime` into
+`app/runtime/camera/`.
+
+Boundary classification: `camera runtime/debug`, with placement state consumed
+as input from the existing construction/placement flow.
+
+Study path:
+
+1. `app/runtime/camera/placementCameraAssist.js` owns only camera preset
+   switching while placement preview is active.
+2. `gameLoop.js` still computes `placementPreviewActive` and calls the assist in
+   the same frame position.
+3. Placement rules, blockers, previews and contracts stayed in their current
+   modules.
+4. The assist implementation was moved without logic changes.
+5. `frame(now)` order was not changed.
+
+This cut reduces root-level `app/runtime` sprawl and keeps camera-specific
+placement assistance beside the other camera runtime modules. It does not
+change placement rules, camera zoom values, distance values, projection mode,
+input, field moves, audio, render output or frame order.
+
+TDD:
+
+- Red: `npm test -- --run tests/placementCameraAssist.test.js` failed while
+  the test imported from `app/runtime/camera/` and the module still lived at the
+  old root-level path.
+- Green: the focused test passed after moving the assist into
+  `app/runtime/camera/` and updating the `gameLoop.js` import.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/placementCameraAssist.test.js
+npm test -- --run tests/placementCameraAssist.test.js tests/gameLoopFrameRuntime.test.js tests/gameLoopFramePolicies.test.js tests/camera.test.js tests/cameraZoomPresetController.test.js tests/dialogueCameraController.test.js tests/foundationBuildZoneCameraFocusRuntime.test.js tests/placementBlockers.test.js tests/worldObjectPlacementPreview.test.js
+npm run build
+npm test
+```
+
+Focused tests passed:
+
+- `1` file / `1` test for direct placement camera assist coverage.
+- `9` files / `50` tests for adjacent camera/frame/placement coverage.
+
+`npm test` completed with:
+
+- `1483` passed
+- `3` failed
+
+Failure classification:
+
+- `3` known Leafage Native Tree baseline failures in
+  `tests/gameplayInteractions.test.js`.
 
 ### Dialogue Camera Controller Boundary Move
 

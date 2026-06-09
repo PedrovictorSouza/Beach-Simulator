@@ -73,7 +73,7 @@ flowchart TD
   n_app_runtime_launchMode_js["app/runtime/launchMode.js"]
   n_app_runtime_lazyModuleHandle_js["app/runtime/lazyModuleHandle.js"]
   n_app_runtime_musicRuntime_js["app/runtime/musicRuntime.js"]
-  n_app_runtime_placementCameraAssist_js["app/runtime/placementCameraAssist.js"]
+  n_app_runtime_camera_placementCameraAssist_js["app/runtime/camera/placementCameraAssist.js"]
   n_app_runtime_planetAmbientRuntime_js["app/runtime/planetAmbientRuntime.js"]
   n_app_runtime_pokedexRuntime_js["app/runtime/pokedexRuntime.js"]
   n_app_runtime_renderFrameController_js["app/runtime/renderFrameController.js"]
@@ -345,7 +345,7 @@ flowchart TD
   n_app_runtime_gameLoop_js --> n_app_runtime_frameSnapshotController_js
   n_app_runtime_gameLoop_js --> n_app_runtime_gameplayCameraDirector_js
   n_app_runtime_gameLoop_js --> n_app_runtime_interactionObjectHighlight_js
-  n_app_runtime_gameLoop_js --> n_app_runtime_placementCameraAssist_js
+  n_app_runtime_gameLoop_js --> n_app_runtime_camera_placementCameraAssist_js
   n_app_runtime_gameLoop_js --> n_app_runtime_robotPatrolConfig_js
   n_app_runtime_gameLoop_js --> n_app_runtime_soundEventRuntime_js
   n_app_runtime_gameLoop_js --> n_app_scene_cinematicControlPolicy_js
@@ -713,7 +713,7 @@ flowchart TD
 - `app/runtime/gameLoop.js -> app/runtime/frameSnapshotController.js` (static)
 - `app/runtime/gameLoop.js -> app/runtime/gameplayCameraDirector.js` (static)
 - `app/runtime/gameLoop.js -> app/runtime/interactionObjectHighlight.js` (static)
-- `app/runtime/gameLoop.js -> app/runtime/placementCameraAssist.js` (static)
+- `app/runtime/gameLoop.js -> app/runtime/camera/placementCameraAssist.js` (static)
 - `app/runtime/gameLoop.js -> app/runtime/robotPatrolConfig.js` (static)
 - `app/runtime/gameLoop.js -> app/runtime/soundEventRuntime.js` (static)
 - `app/runtime/gameLoop.js -> app/scene/cinematicControlPolicy.js` (static)
