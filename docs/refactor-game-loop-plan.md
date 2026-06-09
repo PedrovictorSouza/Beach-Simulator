@@ -206,6 +206,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move construction house model instance sync into the
   `construction` boundary.
+- Completed: move construction helper companion motion into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1651,6 +1653,56 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Construction Helper Companion Motion Boundary
+
+Moved the construction-site helper motion formula from `app/runtime/gameLoop.js`
+into the `construction` boundary at
+`app/runtime/construction/constructionHelperMotion.js`.
+
+Study path:
+
+1. `moveConstructionHelperToLeafDen(...)` owns the bobbing position around the
+   Leaf Den anchor, helper visibility, model yaw callback and squash/scale
+   update.
+2. `gameLoop.js` still owns which companion should help, the Charmander/Timburr
+   encounter update order, model face yaw offsets and the active construction
+   check.
+3. The helper receives `leafDenPosition` and `getYawToward` explicitly, so it
+   does not import session, controls or model-facing helpers.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11734` to `11722`.
+- Removed construction-helper motion math from `gameLoop.js`.
+- Added focused tests for helper movement, guard behavior and scale clamping.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionHelperMotion.test.js
+npm test -- --run tests/constructionHelperMotion.test.js tests/constructionHouseModelInstances.test.js tests/leafDenConstructionState.test.js tests/constructionCloudEffects.test.js tests/companionFollowMotion.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/companion suite passed with `25` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1515` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

@@ -30,6 +30,9 @@ import {
   syncPlayerHouseModelInstances as syncPlayerHouseModelInstancesWithSession
 } from "./construction/constructionHouseModelInstances.js";
 import {
+  moveConstructionHelperToLeafDen as moveConstructionHelperToLeafDenWithConfig
+} from "./construction/constructionHelperMotion.js";
+import {
   applyPlayerPlacementSpawnToBillboard,
   applyPlayerPlacementSpawnToModelInstance,
   updateSolarStationSpawnEffect
@@ -7741,29 +7744,14 @@ export function startGameLoop({
     modelFaceYawOffset = 0,
     nowSeconds = getRuntimeNowSeconds()
   } = {}) {
-    if (!encounter || !Array.isArray(session.leafDen?.position)) {
-      return false;
-    }
-
-    const anchor = session.leafDen.position;
-    const squash = Math.sin(nowSeconds * 9 + offset[0] * 3 + offset[2]) * 0.045;
-    encounter.visible = true;
-    encounter.position = [
-      anchor[0] + offset[0] + Math.sin(nowSeconds * 5.5 + offset[2]) * 0.08,
-      0.04,
-      anchor[2] + offset[2] + Math.cos(nowSeconds * 4.8 + offset[0]) * 0.06
-    ];
-
-    if (encounter.modelInstance) {
-      encounter.modelInstance.yaw = getRobotModelYawToward(
-        encounter.position,
-        anchor,
-        modelFaceYawOffset
-      );
-      encounter.modelInstance.scale = Math.max(0.1, Number(encounter.modelInstance.scale || 1) + squash);
-    }
-
-    return true;
+    return moveConstructionHelperToLeafDenWithConfig({
+      encounter,
+      leafDenPosition: session.leafDen?.position,
+      offset,
+      modelFaceYawOffset,
+      nowSeconds,
+      getYawToward: getRobotModelYawToward
+    });
   }
 
   function updateCharmanderEncounter(deltaTime, { activeMoveId = null } = {}) {
