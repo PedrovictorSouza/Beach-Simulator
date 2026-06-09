@@ -1,0 +1,57 @@
+import { getFoundationBuildZoneCellKeys } from "./placementGeometry.js";
+
+export function hasFoundationWallObjective(quest = null) {
+  return (quest?.objectives || []).some((objective) => {
+    return objective?.targetId === "foundation-wall";
+  });
+}
+
+export function shouldShowFoundationBuildZone({
+  activeQuest = null,
+  activeSystemQuest = null
+} = {}) {
+  return activeQuest?.id === "build-first-base" ||
+    activeSystemQuest?.id === "build-first-base" ||
+    hasFoundationWallObjective(activeQuest) ||
+    hasFoundationWallObjective(activeSystemQuest);
+}
+
+export function isFoundationFreeBlockAllowedInZone({
+  instance = null,
+  buildZone = null,
+  buildState = null
+} = {}) {
+  if (!instance?.freeBlockCell || !buildZone) {
+    return false;
+  }
+
+  const zoneCellKeys = getFoundationBuildZoneCellKeys(buildZone);
+  const cell = instance.freeBlockCell;
+  if (!zoneCellKeys.has(`${cell.x}:${cell.y}`)) {
+    return false;
+  }
+
+  return Boolean(buildState?.getBlockAtCell?.(cell));
+}
+
+export function getFoundationBuildZoneProgressCount({
+  progress = null,
+  buildZone = null,
+  floorBlocks = []
+} = {}) {
+  if (Number(progress?.completedCount) > 0) {
+    return progress.completedCount;
+  }
+
+  const zoneCellKeys = getFoundationBuildZoneCellKeys(buildZone);
+  return (floorBlocks || [])
+    .filter((block) => {
+      const cell = block?.cell || block;
+      return zoneCellKeys.has(`${cell?.x}:${cell?.y}`);
+    })
+    .length;
+}
+
+export function canStackFreeBlockPlacement({ progress = null } = {}) {
+  return Boolean(progress?.complete);
+}

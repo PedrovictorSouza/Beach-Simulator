@@ -20,6 +20,12 @@ import {
   syncLeafDenConstructionClouds as syncLeafDenConstructionCloudsWithSession
 } from "./construction/constructionCloudEffects.js";
 import {
+  canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
+  getFoundationBuildZoneProgressCount as getFoundationBuildZoneProgressCountFromState,
+  isFoundationFreeBlockAllowedInZone as isFoundationFreeBlockAllowedInZoneWithState,
+  shouldShowFoundationBuildZone as shouldShowFoundationBuildZoneWithState
+} from "./construction/foundationBuildZone.js";
+import {
   getLeafDenConstructionProgress as getLeafDenConstructionProgressFromState,
   isLeafDenBusyCompanionTarget as isLeafDenBusyCompanionTargetFromState,
   isLeafDenConstructionActive as isLeafDenConstructionActiveFromState
@@ -76,7 +82,6 @@ import {
   createFoundationBuildZoneBlockerRect as createFoundationBuildZoneBlocker,
   doFoundationBuildZoneRectsOverlap as doFoundationRectsOverlap,
   doPlacementRectsOverlap,
-  getFoundationBuildZoneCellKeys,
   getFoundationBuildZoneSignature,
   getFoundationBuildZoneWorldRect as getFoundationBuildZoneWorldRectWithGrid,
   getFreeBlockBuildZoneCenterPosition as getFreeBlockBuildZoneCenterPositionWithConfig,
@@ -3483,17 +3488,11 @@ export function startGameLoop({
   }
 
   function isFoundationFreeBlockAllowedInZone(instance, buildZone) {
-    if (!instance?.freeBlockCell || !buildZone) {
-      return false;
-    }
-
-    const zoneCellKeys = getFoundationBuildZoneCellKeys(buildZone);
-    const cell = instance.freeBlockCell;
-    if (!zoneCellKeys.has(`${cell.x}:${cell.y}`)) {
-      return false;
-    }
-
-    return Boolean(session.freeBlockBuildState?.getBlockAtCell?.(cell));
+    return isFoundationFreeBlockAllowedInZoneWithState({
+      instance,
+      buildZone,
+      buildState: session.freeBlockBuildState
+    });
   }
 
   function getFoundationBuildZoneProgressCount(buildZone = null) {
@@ -3502,17 +3501,11 @@ export function startGameLoop({
       buildZone,
       blockType: FREE_BLOCK_TYPES.WALL
     });
-    if (progress.completedCount > 0) {
-      return progress.completedCount;
-    }
-
-    const zoneCellKeys = getFoundationBuildZoneCellKeys(buildZone);
-    return (session.freeBlockBuildSnapshot?.floorBlocks || [])
-      .filter((block) => {
-        const cell = block?.cell || block;
-        return zoneCellKeys.has(`${cell?.x}:${cell?.y}`);
-      })
-      .length;
+    return getFoundationBuildZoneProgressCountFromState({
+      progress,
+      buildZone,
+      floorBlocks: session.freeBlockBuildSnapshot?.floorBlocks || []
+    });
   }
 
   function getFoundationBuildZoneBlockers(buildZone = null) {
@@ -3770,17 +3763,11 @@ export function startGameLoop({
     return session.freeBlockPlacementController;
   }
 
-  function hasFoundationWallObjective(quest = null) {
-    return (quest?.objectives || []).some((objective) => {
-      return objective?.targetId === "foundation-wall";
-    });
-  }
-
   function shouldShowFoundationBuildZone(activeQuest = null, activeSystemQuest = null) {
-    return activeQuest?.id === "build-first-base" ||
-      activeSystemQuest?.id === "build-first-base" ||
-      hasFoundationWallObjective(activeQuest) ||
-      hasFoundationWallObjective(activeSystemQuest);
+    return shouldShowFoundationBuildZoneWithState({
+      activeQuest,
+      activeSystemQuest
+    });
   }
 
   function buildFoundationBuildZoneGroundCells(activeQuest = null, activeSystemQuest = null) {
@@ -3888,7 +3875,7 @@ export function startGameLoop({
       buildZone: getActiveFreeBlockBuildZone(),
       blockType: FREE_BLOCK_TYPES.WALL
     });
-    return Boolean(progress.complete);
+    return canStackFreeBlockPlacementFromProgress({ progress });
   }
 
   function getFreeBlockCellWorldPosition(cell, gridSystem = createGridSystem(getFreeBlockBuildGridConfig())) {
