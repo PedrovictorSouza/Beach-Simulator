@@ -1651,6 +1651,59 @@ The full suite completed with the existing Leafage Native Tree baseline:
 
 Manual gameplay validation remains pending in this pass.
 
+### Chopper Attention Cue Companion Boundary
+
+Moved Chopper's attention-cue runtime from the loose
+`app/runtime/chopperAttentionCueRuntime.js` module into the `companions`
+boundary at `app/runtime/companions/chopperAttentionCueRuntime.js`.
+
+Study path:
+
+1. `createChopperAttentionCueRuntime(...)` still owns the cue scheduler,
+   active window, repeat timing and sound-cycle consumption.
+2. `resolveChopperAttentionCue(...)` now owns the companion-specific policy for
+   the `wake-guide` cue.
+3. `gameLoop.js` still reads live task/system-quest state and passes
+   `isPlayerNearWorldPosition(...)` as an explicit dependency.
+4. `gameLoop.js` still decides where the returned cue fits in the world-speech
+   priority chain.
+5. `app/runtime/chopperAttentionCueRuntime.js` remains a compatibility re-export
+   for existing imports.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `12165` to `12161`.
+- Removed the local `shouldCueChopper` policy and cue-object construction from
+  `gameLoop.js`.
+- Moved a loose runtime into the game-domain `companions/` boundary.
+
+Passed:
+
+```sh
+npm test -- --run tests/chopperAttentionCueRuntime.test.js
+git diff --check
+npm test -- --run tests/chopperAttentionCueRuntime.test.js tests/companionLostHintRuntime.test.js tests/gameLoopFrameRuntime.test.js tests/worldSpeechController.test.js
+npm run build
+```
+
+The focused suite passed with `31` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1492` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
 ### Player Model Motion Domain Boundary
 
 Moved player visual model motion from `app/runtime/gameLoop.js` into the

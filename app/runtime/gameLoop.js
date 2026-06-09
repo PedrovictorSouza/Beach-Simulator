@@ -9,7 +9,7 @@ import {
 import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { getCampfireWoodPileBillboards } from "./campfireWoodPileBillboards.js";
-import { createChopperAttentionCueRuntime } from "./chopperAttentionCueRuntime.js";
+import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
 import {
   getNewlyCollectedDropPositions,
   getNewlyCollectedResourcePositions,
@@ -6983,20 +6983,16 @@ export function startGameLoop({
     chopperPosition,
     now
   }) {
-    const shouldCueChopper =
-      (activeTask?.id || activeSystemQuest?.id) === "wake-guide" &&
-      Array.isArray(chopperPosition) &&
-      !isPlayerNearWorldPosition(chopperPosition, POKEMON_TALK_INTERACT_DISTANCE + 0.45);
+    const cue = resolveChopperAttentionCue({
+      activeTaskId: activeTask?.id,
+      activeSystemQuestId: activeSystemQuest?.id,
+      chopperPosition,
+      isPlayerNearWorldPosition,
+      interactDistance: POKEMON_TALK_INTERACT_DISTANCE + 0.45,
+      text: CHOPPER_ATTENTION_CUE_TEXT
+    });
 
-    return chopperAttentionCueRuntime.get(
-      shouldCueChopper ?
-        {
-          text: CHOPPER_ATTENTION_CUE_TEXT,
-          worldPosition: chopperPosition
-        } :
-        null,
-      now
-    );
+    return chopperAttentionCueRuntime.get(cue, now);
   }
 
   function getPeriodicCompanionLostHint({

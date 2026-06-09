@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { createChopperAttentionCueRuntime } from "../app/runtime/chopperAttentionCueRuntime.js";
+import {
+  createChopperAttentionCueRuntime,
+  resolveChopperAttentionCue
+} from "../app/runtime/companions/chopperAttentionCueRuntime.js";
 
 function createRuntime() {
   return createChopperAttentionCueRuntime({
@@ -94,5 +97,54 @@ describe("createChopperAttentionCueRuntime", () => {
     expect(runtime.consumeSoundCycle(1)).toBe(false);
     expect(runtime.consumeSoundCycle(2)).toBe(true);
     expect(runtime.consumeSoundCycle(2)).toBe(false);
+  });
+});
+
+describe("resolveChopperAttentionCue", () => {
+  const chopperPosition = [1, 0, 2];
+
+  it("returns a cue when the wake-guide task is active and Chopper is not near the player", () => {
+    expect(resolveChopperAttentionCue({
+      activeTaskId: "wake-guide",
+      chopperPosition,
+      isPlayerNearWorldPosition: () => false,
+      text: "Hey!"
+    })).toEqual({
+      text: "Hey!",
+      worldPosition: chopperPosition
+    });
+  });
+
+  it("uses the active system quest when there is no active task", () => {
+    expect(resolveChopperAttentionCue({
+      activeSystemQuestId: "wake-guide",
+      chopperPosition,
+      isPlayerNearWorldPosition: () => false,
+      text: "Hey!"
+    })).toEqual({
+      text: "Hey!",
+      worldPosition: chopperPosition
+    });
+  });
+
+  it("returns no cue outside wake-guide, without a position, or near the player", () => {
+    expect(resolveChopperAttentionCue({
+      activeTaskId: "other-task",
+      chopperPosition,
+      isPlayerNearWorldPosition: () => false,
+      text: "Hey!"
+    })).toBeNull();
+    expect(resolveChopperAttentionCue({
+      activeTaskId: "wake-guide",
+      chopperPosition: null,
+      isPlayerNearWorldPosition: () => false,
+      text: "Hey!"
+    })).toBeNull();
+    expect(resolveChopperAttentionCue({
+      activeTaskId: "wake-guide",
+      chopperPosition,
+      isPlayerNearWorldPosition: () => true,
+      text: "Hey!"
+    })).toBeNull();
   });
 });
