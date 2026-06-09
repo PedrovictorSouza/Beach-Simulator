@@ -208,6 +208,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move construction helper companion motion into the `construction`
   boundary.
+- Completed: move placement preview prompt copy into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1653,6 +1655,58 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Placement Preview Prompt Boundary
+
+Moved placement-preview prompt copy from `app/runtime/gameLoop.js` into the
+`construction` boundary at
+`app/runtime/construction/placementPreviewPrompts.js`.
+
+Study path:
+
+1. `resolveFramePlacementPrompts(...)` owns the prompt text selection for Solar
+   Station, Greenhouse, Thermal Cabin and House Kit placement previews.
+2. The module uses the existing colony feedback contracts, Sandbots lexicon and
+   input prompt resolver, so input mapping and copy sources remain unchanged.
+3. `gameLoop.js` still owns when placement previews exist, pending placement
+   intent resolution, workbench rotation prompts and the HUD prompt priority
+   order.
+4. Placement validation, footprint geometry, preview positioning and render
+   ground highlights stayed in their existing modules.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11722` to `11654`.
+- Removed placement prompt branching and text assembly from `gameLoop.js`.
+- Added focused tests for valid previews, blocked previews, House Kit power
+  radius copy and gamepad prompt formatting.
+
+Passed:
+
+```sh
+npm test -- --run tests/placementPreviewPrompts.test.js
+npm test -- --run tests/placementPreviewPrompts.test.js tests/inputPromptResolver.test.js tests/placementPreviewVisual.test.js tests/worldObjectPlacementPreview.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused placement suite passed with `31` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1519` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
