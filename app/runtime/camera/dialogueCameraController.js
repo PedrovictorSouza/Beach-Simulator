@@ -1,4 +1,4 @@
-import { ACT_TWO_PLAYER_CAMERA_ZOOM_PRESETS } from "../../actTwoSceneConfig.js";
+import { ACT_TWO_PLAYER_CAMERA_ZOOM_PRESETS } from "../../../actTwoSceneConfig.js";
 
 const DIALOGUE_CAMERA_TRANSITION_DURATION = 0.45;
 const DIALOGUE_CAMERA_MIN_TARGET_HEIGHT = 0.18;

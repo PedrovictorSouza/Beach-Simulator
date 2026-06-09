@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createDialogueCameraController } from "../app/runtime/dialogueCameraController.js";
+import { createDialogueCameraController } from "../app/runtime/camera/dialogueCameraController.js";
 import {
   ACT_TWO_PLAYER_CAMERA_DISTANCE,
   ACT_TWO_PLAYER_CAMERA_ZOOM,

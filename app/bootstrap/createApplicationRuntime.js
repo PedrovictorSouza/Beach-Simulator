@@ -163,7 +163,7 @@ import {
 } from "../player/playerProfile.js";
 import { createEngineRuntime } from "../runtime/createEngineRuntime.js";
 import { createAudioMixRuntime, resolveAudioMix } from "../runtime/audioMixRuntime.js";
-import { createDialogueCameraController } from "../runtime/dialogueCameraController.js";
+import { createDialogueCameraController } from "../runtime/camera/dialogueCameraController.js";
 import { createGameAppController } from "../runtime/gameAppController.js";
 import { shouldGamepadSourceHarvestTarget } from "../runtime/gamepadHarvestPolicy.js";
 import { startGameLoop } from "../runtime/gameLoop.js";
