@@ -85,6 +85,103 @@ function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+export function normalizeFoundationBuildZoneOriginCell(
+  originCell = null,
+  fallbackOriginCell = { x: 0, y: 0 }
+) {
+  const fallbackX = Math.trunc(Number(fallbackOriginCell?.x));
+  const fallbackY = Math.trunc(Number(fallbackOriginCell?.y ?? fallbackOriginCell?.z));
+  const x = Math.trunc(Number(originCell?.x));
+  const y = Math.trunc(Number(originCell?.y ?? originCell?.z));
+
+  return {
+    x: Number.isFinite(x) ? x : Number.isFinite(fallbackX) ? fallbackX : 0,
+    y: Number.isFinite(y) ? y : Number.isFinite(fallbackY) ? fallbackY : 0
+  };
+}
+
+export function isFoundationBuildZoneOriginInsideGrid({
+  originCell,
+  width,
+  height,
+  gridConfig
+} = {}) {
+  if (!originCell || !gridConfig) {
+    return false;
+  }
+
+  return originCell.x >= 0 &&
+    originCell.y >= 0 &&
+    originCell.x + width <= gridConfig.width &&
+    originCell.y + height <= gridConfig.height;
+}
+
+export function getFoundationBuildZoneCellKeys(buildZone = null) {
+  return new Set((buildZone?.cells || []).map((cell) => `${cell.x}:${cell.y}`));
+}
+
+export function getFoundationBuildZoneWorldRect(buildZone = null, gridConfig = null) {
+  if (!buildZone?.originCell || !gridConfig?.origin) {
+    return null;
+  }
+
+  const cellSize = Number(gridConfig.cellSize || 1);
+  const minX = gridConfig.origin.x + buildZone.originCell.x * cellSize;
+  const minZ = gridConfig.origin.z + buildZone.originCell.y * cellSize;
+
+  return {
+    minX,
+    maxX: minX + buildZone.width * cellSize,
+    minZ,
+    maxZ: minZ + buildZone.height * cellSize
+  };
+}
+
+export function createFoundationBuildZoneBlockerRect({
+  id = "blocker",
+  kind = "object",
+  position = null,
+  size = null,
+  radius = null
+} = {}) {
+  if (!Array.isArray(position)) {
+    return null;
+  }
+
+  const x = Number(position[0]);
+  const z = Number(position[2]);
+  if (!Number.isFinite(x) || !Number.isFinite(z)) {
+    return null;
+  }
+
+  const width = Number(radius) > 0 ?
+    Number(radius) * 2 :
+    Math.max(0.1, Number(size?.[0]) || 1);
+  const depth = Number(radius) > 0 ?
+    Number(radius) * 2 :
+    Math.max(0.1, Number(size?.[1] ?? size?.[2]) || width);
+
+  return {
+    id,
+    kind,
+    minX: x - width * 0.5,
+    maxX: x + width * 0.5,
+    minZ: z - depth * 0.5,
+    maxZ: z + depth * 0.5
+  };
+}
+
+export function doFoundationBuildZoneRectsOverlap(left, right, padding = 0.08) {
+  if (!left || !right) {
+    return false;
+  }
+
+  return left.minX < right.maxX + padding &&
+    left.maxX > right.minX - padding &&
+    left.minZ < right.maxZ + padding &&
+    left.maxZ > right.minZ - padding;
+}
+
 export function buildSolarStationFieldMarkedGroundCells(
   placementTarget,
   { markedTileLimit = 1200 } = {}

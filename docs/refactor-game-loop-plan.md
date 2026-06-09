@@ -244,6 +244,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move placement footprint cells into the `construction` boundary.
 - Completed: move snapped placement preview position into the `construction`
   boundary.
+- Completed: move foundation build-zone geometry into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1738,6 +1740,66 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Foundation Build-Zone Geometry Boundary Extension
+
+Extended `app/runtime/construction/placementGeometry.js` with pure foundation
+build-zone geometry previously implemented in `app/runtime/gameLoop.js`.
+
+Boundary classification: `construction`, focused on Build Block foundation
+zone origin validation, cell keys, world rects, blocker rects and padded overlap
+checks.
+
+Study path:
+
+1. `normalizeFoundationBuildZoneOriginCell(...)` owns origin-cell coercion and
+   fallback selection.
+2. `isFoundationBuildZoneOriginInsideGrid(...)` owns the grid-fit check for a
+   rectangular foundation zone.
+3. `getFoundationBuildZoneCellKeys(...)` and
+   `getFoundationBuildZoneWorldRect(...)` own zone geometry derived from cells
+   and grid config.
+4. `createFoundationBuildZoneBlockerRect(...)` and
+   `doFoundationBuildZoneRectsOverlap(...)` own blocker rectangle math.
+5. `gameLoop.js` still owns Build Block runtime flow, session/blocker
+   collection and foundation mission decisions.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10396` to `10338`.
+- Removed local foundation cell-key, world-rect, blocker-rect and overlap
+  implementations from `gameLoop.js`.
+- Kept local wrappers only where `gameLoop.js` supplies tutorial constants or
+  live grid config.
+- Added focused tests for origin normalization, grid bounds, zone world rects,
+  blocker rectangles and padded overlap.
+
+Validation:
+
+```sh
+npm test -- --run tests/placementGeometry.test.js
+npm test -- --run tests/placementGeometry.test.js tests/freeBlockBuildSystem.test.js tests/placementBlockers.test.js tests/placementPreviewVisual.test.js tests/placementConsumptionContract.test.js tests/worldObjectPlacementValidation.test.js
+git diff --check
+npm run build
+```
+
+The focused construction suite passed with `73` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1594` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   buildPlacementPreviewFootprintCells,
   buildSolarStationFieldMarkedGroundCells,
+  createFoundationBuildZoneBlockerRect,
+  doFoundationBuildZoneRectsOverlap,
   doPlacementRectsOverlap,
+  getFoundationBuildZoneCellKeys,
+  getFoundationBuildZoneWorldRect,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
   getPlacementRect,
@@ -11,6 +15,8 @@ import {
   getRotatedPlacementSize,
   getSnappedPlacementPreviewPosition,
   hasFinitePlacementBounds,
+  isFoundationBuildZoneOriginInsideGrid,
+  normalizeFoundationBuildZoneOriginCell,
   normalizePlacementYaw
 } from "../app/runtime/construction/placementGeometry.js";
 
@@ -238,5 +244,107 @@ describe("placement geometry", () => {
     expect(getSnappedPlacementPreviewPosition({
       position: [2.6, 0.04, 3.6]
     })).toEqual([2.6, 0.02, 3.6]);
+  });
+
+  it("normalizes foundation build-zone origin cells with a fallback", () => {
+    const fallbackOriginCell = { x: 10, y: 20 };
+
+    expect(normalizeFoundationBuildZoneOriginCell({
+      x: "3.8",
+      z: "7.2"
+    }, fallbackOriginCell)).toEqual({
+      x: 3,
+      y: 7
+    });
+    expect(normalizeFoundationBuildZoneOriginCell(null, fallbackOriginCell)).toEqual(fallbackOriginCell);
+  });
+
+  it("checks whether a foundation build-zone origin fits inside a grid", () => {
+    const gridConfig = {
+      width: 12,
+      height: 8
+    };
+
+    expect(isFoundationBuildZoneOriginInsideGrid({
+      originCell: { x: 6, y: 4 },
+      width: 6,
+      height: 4,
+      gridConfig
+    })).toBe(true);
+    expect(isFoundationBuildZoneOriginInsideGrid({
+      originCell: { x: 7, y: 4 },
+      width: 6,
+      height: 4,
+      gridConfig
+    })).toBe(false);
+  });
+
+  it("builds foundation build-zone cell keys and world rects", () => {
+    const buildZone = {
+      originCell: { x: 2, y: 3 },
+      width: 4,
+      height: 2,
+      cells: [
+        { x: 2, y: 3 },
+        { x: 3, y: 3 }
+      ]
+    };
+    const gridConfig = {
+      cellSize: 1.5,
+      origin: {
+        x: -10,
+        z: 5
+      }
+    };
+
+    expect([...getFoundationBuildZoneCellKeys(buildZone)]).toEqual(["2:3", "3:3"]);
+    expect(getFoundationBuildZoneWorldRect(buildZone, gridConfig)).toEqual({
+      minX: -7,
+      maxX: -1,
+      minZ: 9.5,
+      maxZ: 12.5
+    });
+    expect(getFoundationBuildZoneWorldRect(null, gridConfig)).toBeNull();
+  });
+
+  it("creates foundation blocker rects and checks padded overlap", () => {
+    expect(createFoundationBuildZoneBlockerRect({
+      id: "player",
+      kind: "player",
+      position: [4, 0.02, 8],
+      radius: 0.5
+    })).toEqual({
+      id: "player",
+      kind: "player",
+      minX: 3.5,
+      maxX: 4.5,
+      minZ: 7.5,
+      maxZ: 8.5
+    });
+    expect(createFoundationBuildZoneBlockerRect({
+      position: [4, 0.02, 8],
+      size: [2, 4]
+    })).toEqual({
+      id: "blocker",
+      kind: "object",
+      minX: 3,
+      maxX: 5,
+      minZ: 6,
+      maxZ: 10
+    });
+    expect(createFoundationBuildZoneBlockerRect({
+      position: null
+    })).toBeNull();
+    expect(doFoundationBuildZoneRectsOverlap({
+      minX: 0,
+      maxX: 2,
+      minZ: 0,
+      maxZ: 2
+    }, {
+      minX: 2.05,
+      maxX: 4,
+      minZ: 0,
+      maxZ: 2
+    }, 0.08)).toBe(true);
   });
 });

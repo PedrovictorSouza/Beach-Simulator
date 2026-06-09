@@ -64,13 +64,19 @@ import {
 import {
   buildPlacementPreviewFootprintCells,
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
+  createFoundationBuildZoneBlockerRect as createFoundationBuildZoneBlocker,
+  doFoundationBuildZoneRectsOverlap as doFoundationRectsOverlap,
   doPlacementRectsOverlap,
+  getFoundationBuildZoneCellKeys,
+  getFoundationBuildZoneWorldRect as getFoundationBuildZoneWorldRectWithGrid,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
   getPlacementRect,
   getRotatedPlacementSize as getRotatedPlacementSizeWithConfig,
   getSnappedPlacementPreviewPosition,
   hasFinitePlacementBounds,
+  isFoundationBuildZoneOriginInsideGrid as isFoundationBuildZoneOriginInsideGridWithConfig,
+  normalizeFoundationBuildZoneOriginCell,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
 import {
@@ -3558,20 +3564,19 @@ export function startGameLoop({
   }
 
   function normalizeBuilderTutorialFoundationOriginCell(originCell = null) {
-    const x = Math.trunc(Number(originCell?.x));
-    const y = Math.trunc(Number(originCell?.y ?? originCell?.z));
-    return {
-      x: Number.isFinite(x) ? x : BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL.x,
-      y: Number.isFinite(y) ? y : BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL.y
-    };
+    return normalizeFoundationBuildZoneOriginCell(
+      originCell,
+      BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL
+    );
   }
 
   function isBuilderTutorialFoundationOriginInsideGrid(originCell) {
-    const gridConfig = getFreeBlockBuildGridConfig();
-    return originCell.x >= 0 &&
-      originCell.y >= 0 &&
-      originCell.x + BUILDER_TUTORIAL_FOUNDATION_WIDTH <= gridConfig.width &&
-      originCell.y + BUILDER_TUTORIAL_FOUNDATION_HEIGHT <= gridConfig.height;
+    return isFoundationBuildZoneOriginInsideGridWithConfig({
+      originCell,
+      width: BUILDER_TUTORIAL_FOUNDATION_WIDTH,
+      height: BUILDER_TUTORIAL_FOUNDATION_HEIGHT,
+      gridConfig: getFreeBlockBuildGridConfig()
+    });
   }
 
   function getSavedBuilderTutorialFoundationOriginCell() {
@@ -3593,71 +3598,8 @@ export function startGameLoop({
     };
   }
 
-  function getFoundationBuildZoneCellKeys(buildZone = null) {
-    return new Set((buildZone?.cells || []).map((cell) => `${cell.x}:${cell.y}`));
-  }
-
   function getFoundationBuildZoneWorldRect(buildZone = null) {
-    if (!buildZone?.originCell) {
-      return null;
-    }
-
-    const gridConfig = getFreeBlockBuildGridConfig();
-    const cellSize = Number(gridConfig.cellSize || 1);
-    const minX = gridConfig.origin.x + buildZone.originCell.x * cellSize;
-    const minZ = gridConfig.origin.z + buildZone.originCell.y * cellSize;
-
-    return {
-      minX,
-      maxX: minX + buildZone.width * cellSize,
-      minZ,
-      maxZ: minZ + buildZone.height * cellSize
-    };
-  }
-
-  function createFoundationBuildZoneBlocker({
-    id = "blocker",
-    kind = "object",
-    position = null,
-    size = null,
-    radius = null
-  } = {}) {
-    if (!Array.isArray(position)) {
-      return null;
-    }
-
-    const x = Number(position[0]);
-    const z = Number(position[2]);
-    if (!Number.isFinite(x) || !Number.isFinite(z)) {
-      return null;
-    }
-
-    const width = Number(radius) > 0 ?
-      Number(radius) * 2 :
-      Math.max(0.1, Number(size?.[0]) || 1);
-    const depth = Number(radius) > 0 ?
-      Number(radius) * 2 :
-      Math.max(0.1, Number(size?.[1] ?? size?.[2]) || width);
-
-    return {
-      id,
-      kind,
-      minX: x - width * 0.5,
-      maxX: x + width * 0.5,
-      minZ: z - depth * 0.5,
-      maxZ: z + depth * 0.5
-    };
-  }
-
-  function doFoundationRectsOverlap(left, right, padding = 0.08) {
-    if (!left || !right) {
-      return false;
-    }
-
-    return left.minX < right.maxX + padding &&
-      left.maxX > right.minX - padding &&
-      left.minZ < right.maxZ + padding &&
-      left.maxZ > right.minZ - padding;
+    return getFoundationBuildZoneWorldRectWithGrid(buildZone, getFreeBlockBuildGridConfig());
   }
 
   function isFoundationFreeBlockAllowedInZone(instance, buildZone) {
