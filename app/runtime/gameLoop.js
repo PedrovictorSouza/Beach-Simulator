@@ -18,6 +18,7 @@ import {
 } from "./collectibleSourceSnapshots.js";
 import { createCompanionFollowDirectionRuntime } from "./companionFollowDirectionRuntime.js";
 import {
+  isCompanionFollowFormationMember,
   resolveCompanionFollowFormationIndex,
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
@@ -5708,51 +5709,26 @@ export function startGameLoop({
 
   function isCompanionInFollowFormation(companionId) {
     const flags = controls.storyState?.flags || {};
-
-    if (companionId === "squirtle") {
-      const squirtle = session.actTwoSquirtle;
-      return Boolean(
-        flags.squirtleFollowing &&
-        squirtle?.recovered &&
-        squirtle.assemblyState === "assembled" &&
-        !session.squirtleWaterGunAction &&
-        getSquirtleWaterGunQueue().length === 0
-      );
-    }
-
-    if (companionId === "bulbasaur") {
-      const encounter = session.bulbasaurEncounter;
-      return Boolean(
-        flags.bulbasaurFollowing &&
-        encounter?.visible &&
-        Array.isArray(encounter.position) &&
-        !session.bulbasaurLeafageAction &&
-        !encounter.revealBoxOpening?.active &&
-        !isBulbasaurWorkbenchGuideActive()
-      );
-    }
-
-    if (companionId === "charmander") {
-      return Boolean(
-        flags.charmanderFollowing &&
-        flags.charmanderRevealed &&
-        session.charmanderEncounter?.visible &&
-        !session.charmanderFireAction &&
-        !flags.leafDenConstructionStarted
-      );
-    }
-
-    if (companionId === "timburr") {
-      return Boolean(
-        flags.timburrFollowing &&
-        flags.timburrRevealed &&
-        session.timburrEncounter?.visible &&
-        !session.timburrBuildBlockAction &&
-        !flags.leafDenConstructionStarted
-      );
-    }
-
-    return false;
+    return isCompanionFollowFormationMember({
+      companionId,
+      flags,
+      companions: {
+        squirtle: session.actTwoSquirtle,
+        bulbasaur: session.bulbasaurEncounter,
+        charmander: session.charmanderEncounter,
+        timburr: session.timburrEncounter
+      },
+      actions: {
+        squirtleWaterGun: session.squirtleWaterGunAction,
+        bulbasaurLeafage: session.bulbasaurLeafageAction,
+        charmanderFire: session.charmanderFireAction,
+        timburrBuildBlock: session.timburrBuildBlockAction
+      },
+      blockers: {
+        squirtleWaterGunQueueActive: getSquirtleWaterGunQueue().length > 0,
+        bulbasaurWorkbenchGuideActive: isBulbasaurWorkbenchGuideActive()
+      }
+    });
   }
 
   function getCompanionFollowFormationIndex(companionId, activeMoveId = null) {

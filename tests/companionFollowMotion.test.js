@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isCompanionFollowFormationMember,
   resolveCompanionFollowFormationIds,
   resolveCompanionFollowFormationIndex,
   resolveCompanionFollowDistance,
@@ -78,5 +79,106 @@ describe("companion follow motion", () => {
       activeMoveId: "leafage",
       isFollowing: (candidateId) => following.has(candidateId)
     })).toBeNull();
+  });
+
+  it("accepts assembled recovered Hydro Bot only when Water Gun is idle", () => {
+    const flags = { squirtleFollowing: true };
+    const companions = {
+      squirtle: { recovered: true, assemblyState: "assembled" }
+    };
+
+    expect(isCompanionFollowFormationMember({
+      companionId: "squirtle",
+      flags,
+      companions,
+      actions: {},
+      blockers: { squirtleWaterGunQueueActive: false }
+    })).toBe(true);
+
+    expect(isCompanionFollowFormationMember({
+      companionId: "squirtle",
+      flags,
+      companions,
+      actions: { squirtleWaterGun: {} },
+      blockers: { squirtleWaterGunQueueActive: false }
+    })).toBe(false);
+
+    expect(isCompanionFollowFormationMember({
+      companionId: "squirtle",
+      flags,
+      companions,
+      actions: {},
+      blockers: { squirtleWaterGunQueueActive: true }
+    })).toBe(false);
+  });
+
+  it("keeps Grow Bot out of formation while reveal or Workbench guide blockers are active", () => {
+    const flags = { bulbasaurFollowing: true };
+    const companions = {
+      bulbasaur: { visible: true, position: [0, 0.04, 0], revealBoxOpening: { active: false } }
+    };
+
+    expect(isCompanionFollowFormationMember({
+      companionId: "bulbasaur",
+      flags,
+      companions,
+      actions: {},
+      blockers: { bulbasaurWorkbenchGuideActive: false }
+    })).toBe(true);
+
+    expect(isCompanionFollowFormationMember({
+      companionId: "bulbasaur",
+      flags,
+      companions: {
+        bulbasaur: { visible: true, position: [0, 0.04, 0], revealBoxOpening: { active: true } }
+      },
+      actions: {},
+      blockers: { bulbasaurWorkbenchGuideActive: false }
+    })).toBe(false);
+
+    expect(isCompanionFollowFormationMember({
+      companionId: "bulbasaur",
+      flags,
+      companions,
+      actions: {},
+      blockers: { bulbasaurWorkbenchGuideActive: true }
+    })).toBe(false);
+  });
+
+  it("keeps revealed Thermal and Builder bots out of formation during actions or Leaf Den construction", () => {
+    const flags = {
+      charmanderFollowing: true,
+      charmanderRevealed: true,
+      timburrFollowing: true,
+      timburrRevealed: true,
+      leafDenConstructionStarted: false
+    };
+    const companions = {
+      charmander: { visible: true },
+      timburr: { visible: true }
+    };
+
+    expect(isCompanionFollowFormationMember({
+      companionId: "charmander",
+      flags,
+      companions
+    })).toBe(true);
+    expect(isCompanionFollowFormationMember({
+      companionId: "timburr",
+      flags,
+      companions
+    })).toBe(true);
+
+    expect(isCompanionFollowFormationMember({
+      companionId: "charmander",
+      flags,
+      companions,
+      actions: { charmanderFire: {} }
+    })).toBe(false);
+    expect(isCompanionFollowFormationMember({
+      companionId: "timburr",
+      flags: { ...flags, leafDenConstructionStarted: true },
+      companions
+    })).toBe(false);
   });
 });

@@ -12,6 +12,59 @@ const COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS = Object.freeze({
   buildBlock: "timburr"
 });
 
+export function isCompanionFollowFormationMember({
+  companionId,
+  flags = {},
+  companions = {},
+  actions = {},
+  blockers = {}
+} = {}) {
+  if (companionId === "squirtle") {
+    const squirtle = companions.squirtle;
+    return Boolean(
+      flags.squirtleFollowing &&
+      squirtle?.recovered &&
+      squirtle.assemblyState === "assembled" &&
+      !actions.squirtleWaterGun &&
+      !blockers.squirtleWaterGunQueueActive
+    );
+  }
+
+  if (companionId === "bulbasaur") {
+    const bulbasaur = companions.bulbasaur;
+    return Boolean(
+      flags.bulbasaurFollowing &&
+      bulbasaur?.visible &&
+      Array.isArray(bulbasaur.position) &&
+      !actions.bulbasaurLeafage &&
+      !bulbasaur.revealBoxOpening?.active &&
+      !blockers.bulbasaurWorkbenchGuideActive
+    );
+  }
+
+  if (companionId === "charmander") {
+    return Boolean(
+      flags.charmanderFollowing &&
+      flags.charmanderRevealed &&
+      companions.charmander?.visible &&
+      !actions.charmanderFire &&
+      !flags.leafDenConstructionStarted
+    );
+  }
+
+  if (companionId === "timburr") {
+    return Boolean(
+      flags.timburrFollowing &&
+      flags.timburrRevealed &&
+      companions.timburr?.visible &&
+      !actions.timburrBuildBlock &&
+      !flags.leafDenConstructionStarted
+    );
+  }
+
+  return false;
+}
+
 export function resolveCompanionFollowFormationIds({
   activeMoveId = null,
   isFollowing = () => false
