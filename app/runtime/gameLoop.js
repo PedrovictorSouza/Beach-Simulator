@@ -60,6 +60,10 @@ import {
   createCompanionLostHintRuntime,
   resolveWaterGunCompanionLostHint
 } from "./companions/companionLostHintRuntime.js";
+import {
+  getCharmanderCarbonBillboards,
+  getSquirtleStaminaBillboards
+} from "./companions/companionStatusBillboards.js";
 import { createFoundationBuildZoneCameraFocusRuntime } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
 import {
   resolveCameraInputPermissions,
@@ -174,10 +178,6 @@ import {
   BULBASAUR_LEAFAGE_SPEED,
   BULBASAUR_LEAFAGE_STAND_DISTANCE,
   BULBASAUR_LEAFAGE_STREAM_WIDTH,
-  CHARMANDER_CARBON_BAR_FILL_DEPTH_OFFSET,
-  CHARMANDER_CARBON_BAR_HEIGHT,
-  CHARMANDER_CARBON_BAR_WIDTH,
-  CHARMANDER_CARBON_BAR_Y_OFFSET,
   CHARMANDER_CARBON_VISUAL_DECREASE_DURATION,
   CHARMANDER_CARBON_VISUAL_INCREASE_DURATION,
   CHARMANDER_FIRE_ARC_HEIGHT,
@@ -220,8 +220,6 @@ import {
   SQUIRTLE_WATER_GUN_STREAM_WIDTH,
   SQUIRTLE_WATER_GUN_USE_COUNT_FLAG,
   SQUIRTLE_WATER_GUN_USES_PER_LEVEL,
-  SQUIRTLE_WATER_STAMINA_BAR_HEIGHT,
-  SQUIRTLE_WATER_STAMINA_BAR_WIDTH,
   SQUIRTLE_WATER_STAMINA_COST,
   SQUIRTLE_WATER_STAMINA_MAX,
   SQUIRTLE_WATER_STAMINA_RECHARGE_DURATION,
@@ -6669,114 +6667,6 @@ export function startGameLoop({
     return companionLostHintRuntime.get(hint, now);
   }
 
-  function getSquirtleStaminaBillboards(fillTexture, uvRect) {
-    const position = getSquirtleWorldPosition();
-    if (!Array.isArray(position) || !fillTexture) {
-      return [];
-    }
-
-    const stamina = getSquirtleWaterStaminaState();
-    const ratio = clamp01(stamina.visualCurrent / stamina.max);
-    const barPosition = [
-      position[0],
-      (position[1] || 0) + 1.25,
-      position[2]
-    ];
-    const billboards = [];
-
-    if (ratio > 0.02) {
-      const fillWidth = SQUIRTLE_WATER_STAMINA_BAR_WIDTH * ratio;
-      const quadRight = camera.getBillboardAxes?.()?.right || [1, 0, 0];
-      const fillCenterOffset = -(SQUIRTLE_WATER_STAMINA_BAR_WIDTH * 0.5) + (fillWidth * 0.5);
-      const fillUvRect = [
-        uvRect[0],
-        uvRect[1],
-        uvRect[0] + ((uvRect[2] - uvRect[0]) * ratio),
-        uvRect[3]
-      ];
-
-      billboards.push({
-        texture: fillTexture,
-        position: [
-          barPosition[0] + (quadRight[0] * fillCenterOffset),
-          barPosition[1] + ((quadRight[1] || 0) * fillCenterOffset),
-          barPosition[2] + (quadRight[2] * fillCenterOffset)
-        ],
-        size: [fillWidth, SQUIRTLE_WATER_STAMINA_BAR_HEIGHT],
-        uvRect: fillUvRect,
-        alpha: 0.95
-      });
-    }
-
-    return billboards;
-  }
-
-  function offsetTowardCamera(position, amount) {
-    const direction = camera.getPose?.()?.direction;
-    if (!Array.isArray(direction)) {
-      return position;
-    }
-
-    return [
-      position[0] + direction[0] * amount,
-      position[1] + direction[1] * amount,
-      position[2] + direction[2] * amount
-    ];
-  }
-
-  function getCharmanderCarbonBillboards({ fillTexture, backTexture, uvRect }) {
-    const position = getCharmanderWorldPosition();
-
-    if (!Array.isArray(position) || !fillTexture) {
-      return [];
-    }
-
-    const energy = getCharmanderCarbonEnergyState();
-    const ratio = clamp01(energy.visualCurrent);
-    const barPosition = [
-      position[0],
-      (position[1] || 0) + CHARMANDER_CARBON_BAR_Y_OFFSET,
-      position[2]
-    ];
-    const billboards = [];
-
-    if (backTexture) {
-      billboards.push({
-        texture: backTexture,
-        position: barPosition,
-        size: [CHARMANDER_CARBON_BAR_WIDTH, CHARMANDER_CARBON_BAR_HEIGHT],
-        uvRect,
-        alpha: 0.88
-      });
-    }
-
-    if (ratio > 0.02) {
-      const fillWidth = CHARMANDER_CARBON_BAR_WIDTH * ratio;
-      const quadRight = camera.getBillboardAxes?.()?.right || [1, 0, 0];
-      const fillCenterOffset = -(CHARMANDER_CARBON_BAR_WIDTH * 0.5) + (fillWidth * 0.5);
-      const fillUvRect = [
-        uvRect[0],
-        uvRect[1],
-        uvRect[0] + ((uvRect[2] - uvRect[0]) * ratio),
-        uvRect[3]
-      ];
-
-      billboards.push({
-        texture: fillTexture,
-        position: offsetTowardCamera([
-          barPosition[0] + (quadRight[0] * fillCenterOffset),
-          barPosition[1] + ((quadRight[1] || 0) * fillCenterOffset),
-          barPosition[2] + (quadRight[2] * fillCenterOffset)
-        ], CHARMANDER_CARBON_BAR_FILL_DEPTH_OFFSET),
-        size: [fillWidth, CHARMANDER_CARBON_BAR_HEIGHT],
-        uvRect: fillUvRect,
-        alpha: 0.96
-      });
-    }
-
-    return billboards;
-  }
-
   function getSquirtleChargingBillboards(texture, uvRect, now) {
     const position = getSquirtleWorldPosition();
     if (!isSquirtleWaterCharging() || !Array.isArray(position) || !texture) {
@@ -11200,10 +11090,13 @@ if (canProcessDestroyAction && destroyActionRequested) {
       );
     if (shouldShowSquirtleStamina) {
       nextFrame.render.genericBillboards.push(
-        ...getSquirtleStaminaBillboards(
-          session.squirtleWaterStaminaFillTexture,
-          rendering.fullUvRect
-        )
+        ...getSquirtleStaminaBillboards({
+          position: getSquirtleWorldPosition(),
+          fillTexture: session.squirtleWaterStaminaFillTexture,
+          uvRect: rendering.fullUvRect,
+          stamina: squirtleWaterStamina,
+          billboardRight: camera.getBillboardAxes?.()?.right
+        })
       );
     }
     const charmanderCarbonEnergy = getCharmanderCarbonEnergyState();
@@ -11218,9 +11111,13 @@ if (canProcessDestroyAction && destroyActionRequested) {
     if (shouldShowCharmanderCarbon) {
       nextFrame.render.genericBillboards.push(
         ...getCharmanderCarbonBillboards({
+          position: getCharmanderWorldPosition(),
           fillTexture: session.charmanderCarbonFillTexture,
           backTexture: session.squirtleWaterStaminaBackTexture,
-          uvRect: rendering.fullUvRect
+          uvRect: rendering.fullUvRect,
+          energy: charmanderCarbonEnergy,
+          billboardRight: camera.getBillboardAxes?.()?.right,
+          cameraDirection: camera.getPose?.()?.direction
         })
       );
     }

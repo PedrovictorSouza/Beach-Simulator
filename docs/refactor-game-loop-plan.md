@@ -220,6 +220,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move status popup frame writes into the `presentation` boundary.
 - Completed: move HUD snapshot frame writes into the `presentation` boundary.
+- Completed: move companion status billboard builders into the `companions`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1714,6 +1716,59 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Companion Status Billboard Boundary
+
+Moved Hydro Bot stamina and Thermal Bot carbon status billboard builders from
+`app/runtime/gameLoop.js` into the `companions` boundary at
+`app/runtime/companions/companionStatusBillboards.js`.
+
+Study path:
+
+1. `getSquirtleStaminaBillboards(...)` owns the fill billboard geometry for
+   Hydro Bot stamina.
+2. `getCharmanderCarbonBillboards(...)` owns the back/fill billboard geometry
+   for Thermal Bot carbon energy.
+3. `gameLoop.js` still owns when these companion status indicators are visible,
+   and passes position, textures, UVs, visual energy state and camera axes
+   explicitly.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11327` to `11224`.
+- Removed the local companion status billboard builders and their private camera
+  offset helper from `gameLoop.js`.
+- Removed status-bar tuning imports from `gameLoop.js`; the companion boundary
+  now imports the existing tuning values directly.
+- Added focused tests for fill geometry, missing texture/position behavior and
+  camera-depth offset behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/companionStatusBillboards.test.js
+npm test -- --run tests/companionStatusBillboards.test.js tests/frameSnapshotController.test.js tests/companionFollowMotion.test.js tests/companionLostHintRuntime.test.js
+git diff --check
+npm run build
+```
+
+The focused companion status suite passed with `27` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1547` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
