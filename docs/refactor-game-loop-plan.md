@@ -216,6 +216,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move dry grass prompt target selection into the `presentation`
   boundary.
+- Completed: move supply counter prompt handling into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1661,6 +1663,56 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Supply Counter Prompt Boundary
+
+Moved supply counter snapshot, label and trigger logic from
+`app/runtime/gameLoop.js` into the `presentation` boundary at
+`app/runtime/presentation/supplyCounterPrompt.js`.
+
+Study path:
+
+1. `createSupplyCounterPromptController(...)` owns inventory count snapshots,
+   fallback item labels and formatted pickup prompt triggering.
+2. The controller receives `getItemLabel` and `triggerPrompt` explicitly, so it
+   does not import gameplay state or the player counter prompt runtime.
+3. `gameLoop.js` still owns when resource collection occurs, inventory
+   mutation, pickup fly effects, audio, notices and quest counters.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11410` to `11376`.
+- Removed supply counter helper functions and the direct
+  `formatResourcePickupPrompt` import from `gameLoop.js`.
+- Added focused tests for snapshotting, label fallback, positive-count
+  triggering and first increased inventory item triggering.
+
+Validation:
+
+```sh
+npm test -- --run tests/supplyCounterPrompt.test.js
+npm test -- --run tests/supplyCounterPrompt.test.js tests/playerCounterPromptRuntime.test.js tests/resourcePurposeCatalog.test.js
+git diff --check
+npm run build
+```
+
+The focused supply prompt suite passed with `13` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1538` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

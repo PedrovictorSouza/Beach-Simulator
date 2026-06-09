@@ -119,6 +119,7 @@ import {
   getPlayerInteractionWorldPromptText,
   getRunBreadcrumbWorldPromptText
 } from "./presentation/worldPromptCopy.js";
+import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
   getRepairBoxRevealParticleTarget,
@@ -414,7 +415,6 @@ import {
   SANDBOTS_ITEM_NAMES,
   SANDBOTS_WORLD_TERMS
 } from "../story/sandbotsLexicon.js";
-import { formatResourcePickupPrompt } from "../story/resourcePurposeCatalog.js";
 import { resolvePsxDistanceFogSettings } from "../rendering/psxDistanceFogConfig.js";
 import { PLACEMENT_CONTRACTS } from "../gameplay/contracts/placementContracts.js";
 import { cancelPlacementPreview, hasActivePlacementPreview } from "../gameplay/contracts/placementRuntime.js";
@@ -1573,6 +1573,12 @@ export function startGameLoop({
   const playerCounterPromptRuntime = createPlayerCounterPromptRuntime({
     durationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
   });
+  const supplyCounterPromptController = createSupplyCounterPromptController({
+    getItemLabel: (itemId) => gameplay.getItemLabel?.(itemId),
+    triggerPrompt: (text, now) => {
+      playerCounterPromptRuntime.trigger(text, now);
+    }
+  });
   const fieldMoveInvalidTargetPromptRuntime = createFieldMoveInvalidTargetPromptRuntime({
     leafageDurationMs: LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS,
     fireDurationMs: FIRE_INVALID_TARGET_PROMPT_DURATION_MS
@@ -2531,46 +2537,6 @@ export function startGameLoop({
 
   function triggerWaterGunSfxBurst(duration = SQUIRTLE_WATER_GUN_SPRAY_DURATION) {
     waterGunSfxBurstRuntime.trigger(getRuntimeNowSeconds(), duration);
-  }
-
-  function getSupplyCounterSnapshot(inventory = {}) {
-    return Object.fromEntries(
-      Object.keys(inventory || {}).map((itemId) => [
-        itemId,
-        Number(inventory?.[itemId] || 0)
-      ])
-    );
-  }
-
-  function getSupplyCounterPromptLabel(itemId) {
-    const label = gameplay.getItemLabel?.(itemId) || itemId;
-    return typeof label === "string" && label.trim() ? label : itemId;
-  }
-
-  function triggerSupplyCounterPrompt(itemId, inventory = {}, now) {
-    const label = getSupplyCounterPromptLabel(itemId);
-    const count = Number(inventory?.[itemId] || 0);
-    if (!label || count <= 0) {
-      return false;
-    }
-
-    playerCounterPromptRuntime.trigger(formatResourcePickupPrompt({
-      itemId,
-      label,
-      count
-    }), now);
-    return true;
-  }
-
-  function triggerChangedSupplyCounterPrompt(previousCounts, inventory = {}, now) {
-    for (const itemId of Object.keys(inventory || {})) {
-      const nextCount = Number(inventory?.[itemId] || 0);
-      if (nextCount > Number(previousCounts?.[itemId] || 0)) {
-        return triggerSupplyCounterPrompt(itemId, inventory, now);
-      }
-    }
-
-    return false;
   }
 
   function restoreActiveZoomPresetOnMovement(playerPosition) {
@@ -5587,7 +5553,7 @@ export function startGameLoop({
 
     if (result) {
       hud.syncInventoryUi(controls.inventory);
-      triggerSupplyCounterPrompt(CARBON_ITEM_ID, controls.inventory, performance.now());
+      supplyCounterPromptController.trigger(CARBON_ITEM_ID, controls.inventory, performance.now());
       groundActionFeedbackRuntime.triggerFeedback(action.groundCell, "fire", performance.now());
     }
 
@@ -6983,7 +6949,7 @@ export function startGameLoop({
     itemId,
     count,
     sourcePositions = [],
-    label = getSupplyCounterPromptLabel(itemId),
+    label = supplyCounterPromptController.getLabel(itemId),
     now = performance.now()
   } = {}) {
     if (count <= 0 || !itemId) {
@@ -6996,7 +6962,7 @@ export function startGameLoop({
     hud.syncInventoryUi(controls.inventory);
     queueSupplyPickupFlyItems(itemId, sourcePositions);
     hud.pushNotice(`+${count} ${label}`);
-    triggerSupplyCounterPrompt(itemId, controls.inventory, now);
+    supplyCounterPromptController.trigger(itemId, controls.inventory, now);
   }
 
   function syncCampfireTrainHouseModelInstance(nowSeconds = getRuntimeNowSeconds(), deltaTime = 0) {
@@ -9046,7 +9012,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
     function performHarvestAction(playerPosition, options = {}) {
       const previousWateredTreeCount = Number(controls.storyState.flags.wateredTreeCount || 0);
       const previousRestoredGrassCount = Number(controls.storyState.flags.restoredGrassCount || 0);
-      const previousSupplyCounts = getSupplyCounterSnapshot(controls.inventory);
+      const previousSupplyCounts = supplyCounterPromptController.snapshot(controls.inventory);
       const result = performGameplayHarvestAction({
         playerPosition,
         palmModel: session.palmModel,
@@ -9101,7 +9067,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
         });
       } else if (result) {
         queueChangedSupplyPickupFlyItems(previousSupplyCounts, controls.inventory);
-        triggerChangedSupplyCounterPrompt(previousSupplyCounts, controls.inventory, now);
+        supplyCounterPromptController.triggerChanged(previousSupplyCounts, controls.inventory, now);
       }
 
       if (result && options.useWaterGun) {
@@ -9778,7 +9744,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
           hud.syncInventoryUi(controls.inventory);
           queueSupplyPickupFlyItems("wood", collectedWoodPositions);
           hud.pushNotice(`+${collectedWoodCount} Wood`);
-          triggerSupplyCounterPrompt("wood", controls.inventory, now);
+          supplyCounterPromptController.trigger("wood", controls.inventory, now);
 
           if (controls.storyState.flags.bulbasaurStrawBedChallengeCompletionNoticePending) {
             controls.storyState.flags.bulbasaurStrawBedChallengeCompletionNoticePending = false;
@@ -9881,7 +9847,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
           hud.syncInventoryUi(controls.inventory);
           queueSupplyPickupFlyItems(LEPPA_BERRY_ITEM_ID, collectedLeppaBerryPositions);
           hud.pushNotice(`+${collectedLeppaBerryCount} ${SANDBOTS_ITEM_NAMES.pulseBerry}`);
-          triggerSupplyCounterPrompt(LEPPA_BERRY_ITEM_ID, controls.inventory, now);
+          supplyCounterPromptController.trigger(LEPPA_BERRY_ITEM_ID, controls.inventory, now);
         }
       }
     }
