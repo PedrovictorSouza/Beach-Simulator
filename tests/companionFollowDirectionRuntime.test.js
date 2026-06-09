@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createCompanionFollowDirectionRuntime } from "../app/runtime/companionFollowDirectionRuntime.js";
+import { createCompanionFollowDirectionRuntime } from "../app/runtime/companions/companionFollowDirectionRuntime.js";
 
 describe("createCompanionFollowDirectionRuntime", () => {
   it("ignores movement at or below the existing threshold", () => {

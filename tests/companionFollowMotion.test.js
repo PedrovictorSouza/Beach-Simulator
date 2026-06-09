@@ -49,6 +49,20 @@ describe("companion follow motion", () => {
     expect(secondSlot).toBe(2.36);
   });
 
+  it("keeps default spacing for Fire and Build Block without a formation slot", () => {
+    expect(resolveCompanionFollowDistance({
+      companionId: "charmander",
+      activeMoveId: "fire",
+      defaultDistance: 1.28
+    })).toBe(1.28);
+
+    expect(resolveCompanionFollowDistance({
+      companionId: "timburr",
+      activeMoveId: "buildBlock",
+      defaultDistance: 1.62
+    })).toBe(1.62);
+  });
+
   it("uses the act-two player speed for follow speed", () => {
     expect(resolveCompanionFollowSpeed()).toBe(ACT_TWO_PLAYER_SPEED);
   });

@@ -12,6 +12,25 @@ const COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS = Object.freeze({
   buildBlock: "timburr"
 });
 
+const distances = {
+  squirtle: {
+    activeMove: ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE,
+    inactiveMove: INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE
+  },
+  bulbasaur: {
+    activeMove: ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE,
+    inactiveMove: INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE
+  },
+  charmander: {
+    activeMove: ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE,
+    inactiveMove: INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE
+  },
+  timburr: {
+    activeMove: ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE,
+    inactiveMove: INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE
+  }
+};
+
 export function isCompanionFollowFormationMember({
   companionId,
   flags = {},
@@ -101,23 +120,16 @@ export function resolveCompanionFollowDistance({
       Math.max(0, Math.floor(formationIndex)) * COMPANION_FOLLOW_LINE_SLOT_SPACING;
   }
 
-  if (activeMoveId === "waterGun") {
-    if (companionId === "squirtle") {
-      return ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
+  const activeCompanionId = COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS[activeMoveId] || null;
+  const companionDistances = distances[companionId] || null;
+
+  if (activeMoveId === "waterGun" || activeMoveId === "leafage") {
+    if (companionId === activeCompanionId) {
+      return companionDistances?.activeMove ?? defaultDistance;
     }
 
-    if (companionId === "bulbasaur") {
-      return INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
-    }
-  }
-
-  if (activeMoveId === "leafage") {
-    if (companionId === "bulbasaur") {
-      return ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
-    }
-
-    if (companionId === "squirtle") {
-      return INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
+    if (companionId === "squirtle" || companionId === "bulbasaur") {
+      return companionDistances?.inactiveMove ?? defaultDistance;
     }
   }
 

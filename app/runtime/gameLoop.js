@@ -16,7 +16,7 @@ import {
   snapshotAvailableWoodDrops,
   snapshotCollectibleSources
 } from "./collectibleSourceSnapshots.js";
-import { createCompanionFollowDirectionRuntime } from "./companionFollowDirectionRuntime.js";
+import { createCompanionFollowDirectionRuntime } from "./companions/companionFollowDirectionRuntime.js";
 import {
   isCompanionFollowFormationMember,
   resolveCompanionFollowFormationIndex,
