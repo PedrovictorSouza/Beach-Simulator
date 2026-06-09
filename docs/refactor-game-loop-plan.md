@@ -240,6 +240,7 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move world-object placement blockers into the `construction`
   boundary.
+- Completed: move placement geometry into the `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1734,6 +1735,59 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Placement Geometry Boundary
+
+Moved pure placement geometry helpers from `app/runtime/gameLoop.js` into
+`app/runtime/construction/placementGeometry.js`.
+
+Boundary classification: `construction`, focused on placement rectangle math,
+overlap checks, collision size fallback and quarter-turn rotation helpers.
+
+Study path:
+
+1. `getPlacementRect(...)` owns centered placement rectangle construction.
+2. `doPlacementRectsOverlap(...)` owns the existing gutter-aware overlap policy.
+3. `getPlacementCollisionSize(...)` owns placement `size` fallback behavior.
+4. `normalizePlacementYaw(...)`, `getRotatedPlacementSize(...)` and
+   `getRotatedGridFootprint(...)` own quarter-turn rotation geometry.
+5. `gameLoop.js` still owns placement lifecycle, preview updates and the
+   `PLACEMENT_ROTATION_STEP` tuning through a thin local wrapper.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10605` to `10553`.
+- Removed generic placement geometry implementation from `gameLoop.js`.
+- Kept preview-cell formatting and blocker lifecycles in `gameLoop.js`.
+- Added focused tests for rect construction, overlap, collision-size fallback,
+  yaw normalization and placement/grid footprint rotation.
+
+Validation:
+
+```sh
+npm test -- --run tests/placementGeometry.test.js
+npm test -- --run tests/placementGeometry.test.js tests/solarStationPlacementBlockers.test.js tests/solarStationPowerRadius.test.js tests/worldObjectPlacementBlockers.test.js tests/placementBlockers.test.js tests/worldObjectPlacementValidation.test.js tests/worldObjectPlacementPreview.test.js tests/placementPreviewVisual.test.js tests/workbenchRotationRuntime.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/placement suite passed with `52` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1583` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
