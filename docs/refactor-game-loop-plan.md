@@ -186,15 +186,83 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the follower call frame helper.
 - Completed: extract the ambient world simulation frame helper.
 - Completed: extract the companion follow motion helper.
+- Completed: move companion follow motion into the `companions` boundary.
+- Completed: extract the companion follow formation policy.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
 
+### Companion Follow Formation Policy Extraction
+
+Moved the companion follow motion module into
+`app/runtime/companions/companionFollowMotion.js` and added the pure follow
+formation ordering policy to that same boundary.
+
+Boundary classification: `bot/companion motion`.
+
+Study path:
+
+1. `app/runtime/companions/` is now the domain folder for companion runtime
+   motion policy.
+2. `resolveCompanionFollowFormationIds(...)` owns the active-move-first ordering
+   and filters through an explicit `isFollowing` predicate.
+3. `resolveCompanionFollowFormationIndex(...)` returns `null` at the pure-module
+   boundary when a companion is not part of the current formation.
+4. `gameLoop.js` keeps the session-specific `isCompanionInFollowFormation(...)`
+   check local because it reads story flags, encounter visibility and action
+   state.
+5. `gameLoop.js` preserves the previous fallback behavior by converting the
+   pure `null` result back to index `0`.
+
+This extraction does not change companion spacing, follow speed, active move
+priority, input, camera, placement, field moves, audio, render output or frame
+order. It also removes the loose `app/runtime/companionFollowMotion.js` file so
+new companion motion work lives under a named module boundary instead of
+directly under `app/runtime/`.
+
+TDD:
+
+- Red: `npm test -- --run tests/companionFollowMotion.test.js` failed while
+  `app/runtime/companions/companionFollowMotion.js` did not exist.
+- Green: focused companion motion, formation and direction tests passed after
+  moving the module and extracting the formation policy.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/companionFollowMotion.test.js tests/companionFollowFormation.test.js tests/companionFollowDirectionRuntime.test.js
+npm run build
+curl -sI http://127.0.0.1:5173/
+```
+
+Focused tests passed:
+
+- `3` files
+- `15` tests
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1479` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The remaining failures cover Native Tree growth, safe-cell selection and Wood
+drops. They are outside the companion follow formation extraction and were not
+modified.
+
+Manual smoke:
+
+- A Vite server for this project was already listening on
+  `http://127.0.0.1:5173/`.
+- `curl -sI http://127.0.0.1:5173/` returned `HTTP/1.1 200 OK`.
+- The pre-existing dev server was left running because this step did not start
+  it.
+
 ### Companion Follow Motion Helper Extraction
 
-Created `app/runtime/companionFollowMotion.js` for the pure companion follow
-spacing and speed helpers.
+Created `app/runtime/companions/companionFollowMotion.js` for the pure
+companion follow spacing and speed helpers.
 
 Boundary classification: `bot/companion motion`.
 
@@ -207,8 +275,8 @@ Study path:
 3. `gameLoop.js` imports the helpers for internal use and re-exports them to
    preserve the existing public API.
 4. Existing formation tests still cover the `gameLoop.js` re-export path.
-5. New module tests import `companionFollowMotion.js` directly and protect the
-   extracted boundary.
+5. New module tests import `companionFollowMotion.js` from the `companions`
+   boundary directly and protect the extracted boundary.
 
 This extraction does not change companion spacing, movement speed, formation
 slots, field moves, input, camera, audio, placement or frame order.
