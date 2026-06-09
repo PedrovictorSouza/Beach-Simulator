@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPlacementCameraAssist } from "../app/runtime/placementCameraAssist.js";
+import { createPlacementCameraAssist } from "../app/runtime/camera/placementCameraAssist.js";
 
 describe("placement camera assist", () => {
   it("applies a wider building view only while placement is active", () => {
