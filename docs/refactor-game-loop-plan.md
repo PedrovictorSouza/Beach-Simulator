@@ -195,29 +195,32 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move foundation build zone camera focus runtime into the `camera`
   boundary.
 - Completed: move camera zoom preset controller into the `camera` boundary.
-- Completed: stabilize the player movement tuning module and companion follow
-  spacing contract.
+- Completed: move player movement tuning into the `movement` boundary and
+  preserve the companion follow spacing contract.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
 
-### Player Movement Tuning Stabilization
+### Player Movement Tuning Boundary Move
 
-Completed an interrupted movement tuning migration that was blocking validation.
+Completed an interrupted movement tuning migration that was blocking validation,
+then moved the tuning constants into a dedicated movement boundary.
 
 Boundary classification: `bot/companion motion` and player movement tuning.
 
 Study path:
 
-1. `app/session/playerMovementTuning.js` owns the Act Two player movement
+1. `app/runtime/movement/playerMovementTuning.js` owns the Act Two player movement
    constants.
 2. `configurePlayerSpawner.js` imports those constants and re-exports them to
-   preserve the existing public API used by tests, `gameLoop.js` and field-move
-   tuning.
-3. `companionFollowMotion.js` imports the speed constant from the tuning module
-   instead of depending on the player spawner module.
-4. Companion follow distance keeps the existing contract: Water Gun and Leafage
+   preserve the existing public API used by tests, `gameLoop.js`, field-move
+   tuning and older imports.
+3. `PLAYER_SPEED` is the preferred name; `ACT_TWO_PLAYER_SPEED` remains as a
+   compatibility alias.
+4. `companionFollowMotion.js` imports the speed constant from the movement
+   boundary instead of depending on the player spawner module.
+5. Companion follow distance keeps the existing contract: Water Gun and Leafage
    can use active/inactive spacing outside a formation slot, while Fire and
    Build Block keep their provided default spacing.
 
@@ -233,8 +236,8 @@ TDD / regression path:
   tests/companionFollowMotion.test.js tests/gameLoopFrameRuntime.test.js`
   failed because Fire/Build Block spacing returned `1.12` instead of the
   caller-provided default.
-- Green: focused companion/frame tests passed after adding the tuning module
-  and restoring the spacing policy.
+- Green: focused companion/frame tests passed after adding the movement tuning
+  module, preserving the compatibility export and restoring the spacing policy.
 
 Passed:
 
@@ -242,6 +245,7 @@ Passed:
 git diff --check
 npm test -- --run tests/companionFollowFormation.test.js tests/companionFollowMotion.test.js tests/gameLoopFrameRuntime.test.js
 npm run build
+npm test
 ```
 
 Focused tests passed:
