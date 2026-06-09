@@ -201,6 +201,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move placement camera assist into the `camera` boundary.
 - Completed: move construction billboard builders into the `construction`
   boundary.
+- Completed: move construction cloud effects into the `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1646,6 +1647,62 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Construction Cloud Effects Boundary
+
+Moved construction cloud visual effects from `app/runtime/gameLoop.js` into the
+`construction` boundary at
+`app/runtime/construction/constructionCloudEffects.js`.
+
+Study path:
+
+1. `ensureLeafDenConstructionCloudInstances(...)` owns creation and
+   cloud-atmosphere registration for the Leaf Den construction clouds.
+2. `getActiveConstructionCloudBursts(...)` owns burst progress calculation,
+   expiry filtering, capping to the existing max count and session pruning.
+3. `ensureConstructionCloudBurstInstances(...)` owns creation and registration
+   of reusable burst cloud model instances.
+4. `syncConstructionCloudBurstEffects(...)` owns burst cloud pose, scale, yaw,
+   pitch and roll updates.
+5. `syncLeafDenConstructionClouds(...)` owns the active/inactive cloud pose
+   updates around the Leaf Den construction site.
+6. `gameLoop.js` still owns when these effects are advanced in the frame,
+   construction active-state checks and render order.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11986` to `11858`.
+- Moved cloud-count, burst-limit, radius, base-height and bob tuning constants
+  out of `gameLoop.js` with their owning construction effect logic.
+- Added focused tests for instance registration, active burst pruning/capping,
+  burst cloud pose sync and Leaf Den cloud active/inactive sync.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionCloudEffects.test.js
+npm test -- --run tests/constructionCloudEffects.test.js tests/constructionBillboards.test.js tests/playerPlacementSpawnEffect.test.js tests/worldObjectPlacementPreview.test.js tests/placementPreviewVisual.test.js
+git diff --check
+npm run build
+```
+
+The focused construction suite passed with `19` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1504` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
