@@ -195,10 +195,68 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move foundation build zone camera focus runtime into the `camera`
   boundary.
 - Completed: move camera zoom preset controller into the `camera` boundary.
+- Completed: stabilize the player movement tuning module and companion follow
+  spacing contract.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Player Movement Tuning Stabilization
+
+Completed an interrupted movement tuning migration that was blocking validation.
+
+Boundary classification: `bot/companion motion` and player movement tuning.
+
+Study path:
+
+1. `app/session/playerMovementTuning.js` owns the Act Two player movement
+   constants.
+2. `configurePlayerSpawner.js` imports those constants and re-exports them to
+   preserve the existing public API used by tests, `gameLoop.js` and field-move
+   tuning.
+3. `companionFollowMotion.js` imports the speed constant from the tuning module
+   instead of depending on the player spawner module.
+4. Companion follow distance keeps the existing contract: Water Gun and Leafage
+   can use active/inactive spacing outside a formation slot, while Fire and
+   Build Block keep their provided default spacing.
+
+This cut does not change movement speed numbers, run multiplier numbers,
+companion distance constants, input mapping, frame order, placement, field
+moves or render output.
+
+TDD / regression path:
+
+- Red: `npm run build` failed because `configurePlayerSpawner.js` imported
+  missing `./playerMovementTuning.js`.
+- Red: `npm test -- --run tests/companionFollowFormation.test.js
+  tests/companionFollowMotion.test.js tests/gameLoopFrameRuntime.test.js`
+  failed because Fire/Build Block spacing returned `1.12` instead of the
+  caller-provided default.
+- Green: focused companion/frame tests passed after adding the tuning module
+  and restoring the spacing policy.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/companionFollowFormation.test.js tests/companionFollowMotion.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+```
+
+Focused tests passed:
+
+- `3` files / `19` tests for companion movement and frame adjacency.
+
+`npm test` completed with:
+
+- `1483` passed
+- `3` failed
+
+Failure classification:
+
+- `3` known Leafage Native Tree baseline failures in
+  `tests/gameplayInteractions.test.js`.
 
 ### Camera Zoom Preset Boundary Move
 
