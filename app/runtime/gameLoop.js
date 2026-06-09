@@ -121,6 +121,7 @@ import {
 } from "./presentation/worldPromptCopy.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
+import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
   getRepairBoxRevealParticleTarget,
@@ -8264,34 +8265,6 @@ export function startGameLoop({
     }
   }
 
-  function updateHudSnapshotFrame(nextFrame, {
-    gameplayOpeningCameraLocked,
-    gameplayOpeningHudHidden,
-    cinematicActive,
-    tutorialActive,
-    pokedexModalOpen,
-    skillLearnActive,
-    promptCopy,
-    inputModalityState
-  }) {
-    if (
-      !gameplayOpeningCameraLocked &&
-      !gameplayOpeningHudHidden &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive
-    ) {
-      nextFrame.hud.active = true;
-      nextFrame.hud.storyState = controls.storyState;
-      nextFrame.hud.inventory = controls.inventory;
-      nextFrame.hud.playerPosition = session.playerCharacter?.getPosition() || [0, 0, 0];
-      nextFrame.hud.promptCopy = promptCopy;
-      nextFrame.hud.inputModalityState = inputModalityState;
-      nextFrame.hud.statusMessage = promptCopy;
-    }
-  }
-
   function updateBaseRenderSnapshotFrame(nextFrame, {
     now,
     deltaTime,
@@ -10155,6 +10128,9 @@ if (canProcessDestroyAction && destroyActionRequested) {
       tutorialActive,
       pokedexModalOpen,
       skillLearnActive,
+      storyState: controls.storyState,
+      inventory: controls.inventory,
+      playerPosition: session.playerCharacter?.getPosition() || [0, 0, 0],
       promptCopy,
       inputModalityState
     });

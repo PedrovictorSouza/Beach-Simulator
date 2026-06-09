@@ -219,6 +219,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move supply counter prompt handling into the `presentation`
   boundary.
 - Completed: move status popup frame writes into the `presentation` boundary.
+- Completed: move HUD snapshot frame writes into the `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1713,6 +1714,53 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### HUD Snapshot Frame Boundary
+
+Moved active HUD snapshot writes from `app/runtime/gameLoop.js` into the
+`presentation` boundary at `app/runtime/presentation/hudSnapshotFrame.js`.
+
+Study path:
+
+1. `updateHudSnapshotFrame(...)` owns writing the active HUD snapshot fields
+   after blockers are resolved.
+2. `gameLoop.js` still owns blocker calculation, story/inventory sources and
+   player-position lookup.
+3. The helper receives plain frame data and does not import controls, session or
+   gameplay.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11351` to `11327`.
+- Removed the local HUD snapshot writer from `gameLoop.js`.
+- Added focused tests for active HUD snapshot writes and blocker behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/hudSnapshotFrame.test.js
+npm test -- --run tests/hudSnapshotFrame.test.js tests/hudPromptCopy.test.js tests/gameHudController.test.js tests/frameSnapshotController.test.js
+git diff --check
+npm run build
+```
+
+The focused HUD snapshot suite passed with `35` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1543` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
