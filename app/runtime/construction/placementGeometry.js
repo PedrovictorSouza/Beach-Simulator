@@ -70,3 +70,113 @@ export function getRotatedGridFootprint(
 
   return normalizedFootprint;
 }
+
+function hasFinitePlacementBounds(bounds) {
+  return Boolean(
+    bounds &&
+    Number.isFinite(bounds.minX) &&
+    Number.isFinite(bounds.maxX) &&
+    Number.isFinite(bounds.minZ) &&
+    Number.isFinite(bounds.maxZ)
+  );
+}
+
+export function buildSolarStationFieldMarkedGroundCells(
+  placementTarget,
+  { markedTileLimit = 1200 } = {}
+) {
+  const bounds = placementTarget?.bounds;
+
+  if (placementTarget?.showField === false || !hasFinitePlacementBounds(bounds)) {
+    return [];
+  }
+
+  const gridStep = Math.max(0.25, Number(placementTarget?.gridStep) || 1.425);
+  const cells = [];
+  let rowIndex = 0;
+
+  for (
+    let z = bounds.minZ;
+    z <= bounds.maxZ + gridStep * 0.25 && cells.length < markedTileLimit;
+    z += gridStep
+  ) {
+    let columnIndex = 0;
+
+    for (
+      let x = bounds.minX;
+      x <= bounds.maxX + gridStep * 0.25 && cells.length < markedTileLimit;
+      x += gridStep
+    ) {
+      cells.push({
+        id: `solar-station-field-${columnIndex}-${rowIndex}`,
+        offset: [
+          Number(x.toFixed(3)),
+          0.02,
+          Number(z.toFixed(3))
+        ],
+        surfaceY: 0.02,
+        tileSpan: gridStep
+      });
+      columnIndex += 1;
+    }
+
+    rowIndex += 1;
+  }
+
+  return cells;
+}
+
+export function buildPlacementPreviewFootprintCells(preview, {
+  idPrefix,
+  footprint,
+  targetState
+} = {}) {
+  if (!preview?.snappedPosition) {
+    return [];
+  }
+
+  const gridStep = Math.max(
+    0.25,
+    Number(preview.gridStep) ||
+      Number(preview.gridConfig?.cellSize) ||
+      1.425
+  );
+  const rotatedFootprint = getRotatedGridFootprint(footprint, preview.yaw);
+  const originX = preview.snappedPosition[0] - ((rotatedFootprint.width - 1) * gridStep * 0.5);
+  const originZ = preview.snappedPosition[2] - ((rotatedFootprint.height - 1) * gridStep * 0.5);
+  const surfaceY = preview.snappedPosition[1] || 0.02;
+  const cells = [];
+
+  for (let row = 0; row < rotatedFootprint.height; row += 1) {
+    for (let column = 0; column < rotatedFootprint.width; column += 1) {
+      cells.push({
+        id: `${idPrefix}-${column}-${row}`,
+        offset: [
+          Number((originX + column * gridStep).toFixed(3)),
+          surfaceY,
+          Number((originZ + row * gridStep).toFixed(3))
+        ],
+        surfaceY,
+        tileSpan: gridStep,
+        highlightTargetState: targetState
+      });
+    }
+  }
+
+  return cells;
+}
+
+export function getPlacementPreviewFootprintWorldSize(preview, footprint) {
+  const gridStep = Math.max(
+    0.25,
+    Number(preview?.gridStep) ||
+      Number(preview?.gridConfig?.cellSize) ||
+      1.425
+  );
+  const rotatedFootprint = getRotatedGridFootprint(footprint, preview?.yaw);
+
+  return [
+    rotatedFootprint.width * gridStep,
+    rotatedFootprint.height * gridStep
+  ];
+}

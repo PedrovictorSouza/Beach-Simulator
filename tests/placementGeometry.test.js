@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildPlacementPreviewFootprintCells,
+  buildSolarStationFieldMarkedGroundCells,
   doPlacementRectsOverlap,
+  getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
   getPlacementRect,
   getRotatedGridFootprint,
@@ -74,5 +77,109 @@ describe("placement geometry", () => {
       width: 4,
       height: 1
     });
+  });
+
+  it("builds placement preview footprint cells from snapped position and rotated footprint", () => {
+    expect(buildPlacementPreviewFootprintCells({
+      snappedPosition: [10, 0.03, 20],
+      gridStep: 2,
+      yaw: Math.PI * 0.5
+    }, {
+      idPrefix: "preview",
+      footprint: {
+        width: 3,
+        height: 2
+      },
+      targetState: "preview"
+    })).toEqual([
+      {
+        id: "preview-0-0",
+        offset: [9, 0.03, 18],
+        surfaceY: 0.03,
+        tileSpan: 2,
+        highlightTargetState: "preview"
+      },
+      {
+        id: "preview-1-0",
+        offset: [11, 0.03, 18],
+        surfaceY: 0.03,
+        tileSpan: 2,
+        highlightTargetState: "preview"
+      },
+      {
+        id: "preview-0-1",
+        offset: [9, 0.03, 20],
+        surfaceY: 0.03,
+        tileSpan: 2,
+        highlightTargetState: "preview"
+      },
+      {
+        id: "preview-1-1",
+        offset: [11, 0.03, 20],
+        surfaceY: 0.03,
+        tileSpan: 2,
+        highlightTargetState: "preview"
+      },
+      {
+        id: "preview-0-2",
+        offset: [9, 0.03, 22],
+        surfaceY: 0.03,
+        tileSpan: 2,
+        highlightTargetState: "preview"
+      },
+      {
+        id: "preview-1-2",
+        offset: [11, 0.03, 22],
+        surfaceY: 0.03,
+        tileSpan: 2,
+        highlightTargetState: "preview"
+      }
+    ]);
+  });
+
+  it("resolves placement preview footprint world size", () => {
+    expect(getPlacementPreviewFootprintWorldSize({
+      gridConfig: {
+        cellSize: 1.5
+      },
+      yaw: Math.PI * 0.5
+    }, {
+      width: 4,
+      height: 2
+    })).toEqual([3, 6]);
+  });
+
+  it("builds Solar Station marked field cells from finite bounds with a tile limit", () => {
+    expect(buildSolarStationFieldMarkedGroundCells({
+      bounds: {
+        minX: 0,
+        maxX: 2,
+        minZ: 0,
+        maxZ: 2
+      },
+      gridStep: 1,
+      showField: true
+    }, {
+      markedTileLimit: 3
+    })).toEqual([
+      {
+        id: "solar-station-field-0-0",
+        offset: [0, 0.02, 0],
+        surfaceY: 0.02,
+        tileSpan: 1
+      },
+      {
+        id: "solar-station-field-1-0",
+        offset: [1, 0.02, 0],
+        surfaceY: 0.02,
+        tileSpan: 1
+      },
+      {
+        id: "solar-station-field-2-0",
+        offset: [2, 0.02, 0],
+        surfaceY: 0.02,
+        tileSpan: 1
+      }
+    ]);
   });
 });

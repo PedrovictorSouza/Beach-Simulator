@@ -241,6 +241,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move world-object placement blockers into the `construction`
   boundary.
 - Completed: move placement geometry into the `construction` boundary.
+- Completed: move placement footprint cells into the `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1735,6 +1736,61 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Placement Footprint Cell Boundary Extension
+
+Extended `app/runtime/construction/placementGeometry.js` with placement
+footprint/cell helpers previously implemented in `app/runtime/gameLoop.js`.
+
+Boundary classification: `construction`, focused on placement-preview footprint
+cells, Solar Station marked-field cells and preview footprint world-size math.
+
+Study path:
+
+1. `buildPlacementPreviewFootprintCells(...)` owns the snapped-position,
+   rotated-footprint and target-state cell shape used by construction previews.
+2. `getPlacementPreviewFootprintWorldSize(...)` owns footprint-to-world-size
+   conversion for preview collision checks.
+3. `buildSolarStationFieldMarkedGroundCells(...)` owns Solar Station field
+   marked-cell generation while `gameLoop.js` still provides the marked-tile
+   limit through a wrapper.
+4. `gameLoop.js` still owns preview lifecycle, render insertion order and
+   feature-specific placement decisions.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10553` to `10454`.
+- Removed preview footprint cell generation from `gameLoop.js`.
+- Removed local finite-bounds helper from `gameLoop.js`.
+- Added focused tests for preview footprint cells, footprint world size and
+  Solar Station marked-field tile limiting.
+
+Validation:
+
+```sh
+npm test -- --run tests/placementGeometry.test.js
+npm test -- --run tests/placementGeometry.test.js tests/solarStationPlacementBlockers.test.js tests/solarStationPowerRadius.test.js tests/worldObjectPlacementBlockers.test.js tests/placementBlockers.test.js tests/worldObjectPlacementValidation.test.js tests/worldObjectPlacementPreview.test.js tests/placementPreviewVisual.test.js tests/workbenchRotationRuntime.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/placement suite passed with `55` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1586` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
