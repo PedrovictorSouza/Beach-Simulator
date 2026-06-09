@@ -224,6 +224,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move Hydro Bot charging billboards into the `companions`
   boundary.
+- Completed: move Water Gun spray billboards into the `fieldMoveRuntime`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1718,6 +1720,56 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Water Gun Billboard Boundary
+
+Created `app/runtime/fieldMoveRuntime/fieldMoveBillboards.js` and moved the
+Water Gun spray/splash billboard geometry out of `app/runtime/gameLoop.js`.
+
+Study path:
+
+1. `getSquirtleWaterGunBillboards(...)` owns only visual billboard geometry for
+   Water Gun stream and splash particles.
+2. `gameLoop.js` still owns the Water Gun action lifecycle, stamina, queueing,
+   impact handling, sound triggering and render insertion order.
+3. The builder receives `getMouthPosition` as an explicit callback, so the mouth
+   position remains lazy and is not read when the action is inactive.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11192` to `11091`.
+- Removed the local Water Gun particle billboard builder from `gameLoop.js`.
+- Removed Water Gun particle tuning imports from `gameLoop.js`; the field-move
+  billboard boundary imports the existing tuning values directly.
+- Added focused tests for stream geometry, splash particle count and inactive
+  behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/fieldMoveBillboards.test.js
+npm test -- --run tests/fieldMoveBillboards.test.js tests/companionStatusBillboards.test.js tests/frameSnapshotController.test.js
+git diff --check
+npm run build
+```
+
+The focused field-move billboard suite passed with `13` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1552` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
