@@ -85,6 +85,44 @@ function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+export function getFoundationBuildZoneSignature(buildZone = null) {
+  if (!buildZone?.originCell) {
+    return "missing";
+  }
+
+  return [
+    buildZone.originCell.x,
+    buildZone.originCell.y,
+    buildZone.width,
+    buildZone.height
+  ].join(":");
+}
+
+export function buildFoundationBuildZoneCandidateOrigins({
+  defaultOriginCell = { x: 0, y: 0 },
+  searchRadius = 0
+} = {}) {
+  const origins = [];
+  const radiusLimit = Math.max(0, Math.trunc(Number(searchRadius) || 0));
+
+  for (let radius = 0; radius <= radiusLimit; radius += 1) {
+    for (let y = -radius; y <= radius; y += 1) {
+      for (let x = -radius; x <= radius; x += 1) {
+        if (Math.max(Math.abs(x), Math.abs(y)) !== radius) {
+          continue;
+        }
+
+        origins.push({
+          x: defaultOriginCell.x + x,
+          y: defaultOriginCell.y + y
+        });
+      }
+    }
+  }
+
+  return origins;
+}
+
 export function normalizeFoundationBuildZoneOriginCell(
   originCell = null,
   fallbackOriginCell = { x: 0, y: 0 }

@@ -62,12 +62,14 @@ import {
   getWorldObjectPlacementBlockers as getWorldObjectPlacementBlockersWithConfig
 } from "./construction/worldObjectPlacementBlockers.js";
 import {
+  buildFoundationBuildZoneCandidateOrigins,
   buildPlacementPreviewFootprintCells,
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
   createFoundationBuildZoneBlockerRect as createFoundationBuildZoneBlocker,
   doFoundationBuildZoneRectsOverlap as doFoundationRectsOverlap,
   doPlacementRectsOverlap,
   getFoundationBuildZoneCellKeys,
+  getFoundationBuildZoneSignature,
   getFoundationBuildZoneWorldRect as getFoundationBuildZoneWorldRectWithGrid,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
@@ -499,36 +501,14 @@ function createBuilderTutorialFoundationBuildZone(originCell = BUILDER_TUTORIAL_
 
 
 function getBuilderTutorialFoundationZoneSignature(buildZone = null) {
-  if (!buildZone?.originCell) {
-    return "missing";
-  }
-
-  return [
-    buildZone.originCell.x,
-    buildZone.originCell.y,
-    buildZone.width,
-    buildZone.height
-  ].join(":");
+  return getFoundationBuildZoneSignature(buildZone);
 }
 
 function buildBuilderTutorialFoundationCandidateOrigins() {
-  const origins = [];
-  for (let radius = 0; radius <= BUILDER_TUTORIAL_FOUNDATION_SEARCH_RADIUS; radius += 1) {
-    for (let y = -radius; y <= radius; y += 1) {
-      for (let x = -radius; x <= radius; x += 1) {
-        if (Math.max(Math.abs(x), Math.abs(y)) !== radius) {
-          continue;
-        }
-
-        origins.push({
-          x: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL.x + x,
-          y: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL.y + y
-        });
-      }
-    }
-  }
-
-  return origins;
+  return buildFoundationBuildZoneCandidateOrigins({
+    defaultOriginCell: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL,
+    searchRadius: BUILDER_TUTORIAL_FOUNDATION_SEARCH_RADIUS
+  });
 }
 
 const LEAF_DEN_BUILT_ROTATION_FOOTPRINT = [

@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildPlacementPreviewFootprintCells,
+  buildFoundationBuildZoneCandidateOrigins,
   buildSolarStationFieldMarkedGroundCells,
   createFoundationBuildZoneBlockerRect,
   doFoundationBuildZoneRectsOverlap,
   doPlacementRectsOverlap,
   getFoundationBuildZoneCellKeys,
+  getFoundationBuildZoneSignature,
   getFoundationBuildZoneWorldRect,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
@@ -346,5 +348,31 @@ describe("placement geometry", () => {
       minZ: 0,
       maxZ: 2
     }, 0.08)).toBe(true);
+  });
+
+  it("builds foundation zone signatures", () => {
+    expect(getFoundationBuildZoneSignature({
+      originCell: { x: 10, y: 20 },
+      width: 6,
+      height: 4
+    })).toBe("10:20:6:4");
+    expect(getFoundationBuildZoneSignature(null)).toBe("missing");
+  });
+
+  it("builds foundation candidate origins by expanding square radius", () => {
+    expect(buildFoundationBuildZoneCandidateOrigins({
+      defaultOriginCell: { x: 10, y: 20 },
+      searchRadius: 1
+    })).toEqual([
+      { x: 10, y: 20 },
+      { x: 9, y: 19 },
+      { x: 10, y: 19 },
+      { x: 11, y: 19 },
+      { x: 9, y: 20 },
+      { x: 11, y: 20 },
+      { x: 9, y: 21 },
+      { x: 10, y: 21 },
+      { x: 11, y: 21 }
+    ]);
   });
 });
