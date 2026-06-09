@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createCameraDebugRuntime } from "../app/runtime/cameraDebugRuntime.js";
+import { createCameraDebugRuntime } from "../app/runtime/camera/cameraDebugRuntime.js";
 
 const previousDocument = globalThis.document;
 

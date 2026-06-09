@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createCameraDebugFrameState } from "../app/runtime/cameraDebugFrameState.js";
+import { createCameraDebugFrameState } from "../app/runtime/camera/cameraDebugFrameState.js";
 
 describe("createCameraDebugFrameState", () => {
   it("builds the camera debug overlay payload without reading runtime globals", () => {

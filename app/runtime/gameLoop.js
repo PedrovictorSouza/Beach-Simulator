@@ -6,8 +6,8 @@ import {
   setRevealBoxBotVisible,
   updateBotRevealFall as updateBotRevealFallWithConfig
 } from "./botRevealMotion.js";
-import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
-import { createCameraDebugFrameState } from "./cameraDebugFrameState.js";
+import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
+import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { getCampfireWoodPileBillboards } from "./campfireWoodPileBillboards.js";
 import { createChopperAttentionCueRuntime } from "./chopperAttentionCueRuntime.js";
 import {
