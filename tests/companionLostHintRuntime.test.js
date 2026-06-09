@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { createCompanionLostHintRuntime } from "../app/runtime/companionLostHintRuntime.js";
+import { createCompanionLostHintRuntime } from "../app/runtime/companions/companionLostHintRuntime.js";
 
 function createRuntime() {
   return createCompanionLostHintRuntime({

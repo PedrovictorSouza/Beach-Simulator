@@ -23,7 +23,7 @@ import {
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
 } from "./companions/companionFollowMotion.js";
-import { createCompanionLostHintRuntime } from "./companionLostHintRuntime.js";
+import { createCompanionLostHintRuntime } from "./companions/companionLostHintRuntime.js";
 import { createFoundationBuildZoneCameraFocusRuntime } from "./foundationBuildZoneCameraFocusRuntime.js";
 import {
   resolveCameraInputPermissions,
