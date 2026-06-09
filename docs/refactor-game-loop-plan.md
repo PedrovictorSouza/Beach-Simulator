@@ -204,6 +204,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move construction cloud effects into the `construction` boundary.
 - Completed: move Leaf Den construction state policy into the `construction`
   boundary.
+- Completed: move construction house model instance sync into the
+  `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1649,6 +1651,65 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Construction House Model Instance Boundary
+
+Moved Leaf Den and player-house model instance sync from
+`app/runtime/gameLoop.js` into the `construction` boundary at
+`app/runtime/construction/constructionHouseModelInstances.js`.
+
+Study path:
+
+1. `syncLeafDenModelInstance(...)` owns the placed Leaf Den model pose,
+   base-scale/base-yaw/ground-y caching, spawn-effect application and rotation
+   tint callback invocation.
+2. `ensurePlayerHouseModelInstances(...)` owns creating and registering model
+   instances for extra player houses based on Leaf Den model defaults.
+3. `syncPlayerHouseModelInstances(...)` owns per-house render-distance gating,
+   selected-rotation override, spawn-effect application and rotation tint
+   callback invocation.
+4. `gameLoop.js` still owns frame timing, render-center calculation,
+   `workbenchRotationRuntime` selection, render-distance policy callback and
+   when the sync runs.
+5. The Leaf Den placement-preview model sync stayed in `gameLoop.js` because it
+   belongs to placement preview positioning and should move with a dedicated
+   placement-preview boundary later.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11856` to `11734`.
+- Removed direct model-instance creation/sync details for placed Leaf Den and
+  player houses from `gameLoop.js`.
+- Added focused tests for Leaf Den model sync, preview-active guard, player
+  house instance creation and selected player-house sync outside render
+  distance.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionHouseModelInstances.test.js
+npm test -- --run tests/constructionHouseModelInstances.test.js tests/leafDenConstructionState.test.js tests/constructionCloudEffects.test.js tests/constructionBillboards.test.js tests/playerPlacementSpawnEffect.test.js
+git diff --check
+npm run build
+```
+
+The focused construction suite passed with `20` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1512` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
