@@ -62,6 +62,7 @@ import {
 } from "./companions/companionLostHintRuntime.js";
 import {
   getCharmanderCarbonBillboards,
+  getSquirtleChargingBillboards,
   getSquirtleStaminaBillboards
 } from "./companions/companionStatusBillboards.js";
 import { createFoundationBuildZoneCameraFocusRuntime } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
@@ -198,9 +199,6 @@ import {
   CHARMANDER_FIRE_SPEED,
   CHARMANDER_FIRE_SPRAY_DURATION,
   CHARMANDER_FIRE_STAND_DISTANCE,
-  SQUIRTLE_CHARGING_PARTICLE_COUNT,
-  SQUIRTLE_CHARGING_PARTICLE_DURATION,
-  SQUIRTLE_CHARGING_PARTICLE_RADIUS,
   SQUIRTLE_WATER_GUN_ARC_HEIGHT,
   SQUIRTLE_WATER_GUN_ARRIVE_DISTANCE,
   SQUIRTLE_WATER_GUN_BASE_LEVEL,
@@ -6667,38 +6665,6 @@ export function startGameLoop({
     return companionLostHintRuntime.get(hint, now);
   }
 
-  function getSquirtleChargingBillboards(texture, uvRect, now) {
-    const position = getSquirtleWorldPosition();
-    if (!isSquirtleWaterCharging() || !Array.isArray(position) || !texture) {
-      return [];
-    }
-
-    const time = now * 0.001;
-    const billboards = [];
-    for (let index = 0; index < SQUIRTLE_CHARGING_PARTICLE_COUNT; index += 1) {
-      const cycle = (time / SQUIRTLE_CHARGING_PARTICLE_DURATION + index / SQUIRTLE_CHARGING_PARTICLE_COUNT) % 1;
-      const inward = easeOutCubic(cycle);
-      const radius = SQUIRTLE_CHARGING_PARTICLE_RADIUS * (1 - inward);
-      const angle = index * 2.39996 + time * 0.72;
-      const size = 0.09 + (index % 3) * 0.022;
-      const alpha = Math.sin(cycle * Math.PI) * 0.88;
-
-      billboards.push({
-        texture,
-        position: [
-          position[0] + Math.cos(angle) * radius,
-          (position[1] || 0) + lerp(1.68 + (index % 4) * 0.08, 0.66, inward),
-          position[2] + Math.sin(angle) * radius
-        ],
-        size: [size, size],
-        uvRect,
-        alpha
-      });
-    }
-
-    return billboards;
-  }
-
   function isWorldCellPlannerActive() {
     return Boolean(rendering?.debugWorldCellPlanner);
   }
@@ -11143,11 +11109,13 @@ if (canProcessDestroyAction && destroyActionRequested) {
       )
     );
     nextFrame.render.genericBillboards.push(
-      ...getSquirtleChargingBillboards(
-        session.squirtleChargingParticleTexture,
-        rendering.fullUvRect,
+      ...getSquirtleChargingBillboards({
+        active: isSquirtleWaterCharging(),
+        position: getSquirtleWorldPosition(),
+        texture: session.squirtleChargingParticleTexture,
+        uvRect: rendering.fullUvRect,
         now
-      )
+      })
     );
     if (!session.bulbasaurEncounter?.modelInstance) {
       nextFrame.render.genericBillboards.push({

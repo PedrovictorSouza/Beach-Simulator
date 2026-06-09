@@ -5,11 +5,15 @@ import {
   CHARMANDER_CARBON_BAR_HEIGHT,
   CHARMANDER_CARBON_BAR_WIDTH,
   CHARMANDER_CARBON_BAR_Y_OFFSET,
+  SQUIRTLE_CHARGING_PARTICLE_COUNT,
+  SQUIRTLE_CHARGING_PARTICLE_DURATION,
+  SQUIRTLE_CHARGING_PARTICLE_RADIUS,
   SQUIRTLE_WATER_STAMINA_BAR_HEIGHT,
   SQUIRTLE_WATER_STAMINA_BAR_WIDTH
 } from "../app/runtime/fieldMoveRuntime/fieldMoveTuning.js";
 import {
   getCharmanderCarbonBillboards,
+  getSquirtleChargingBillboards,
   getSquirtleStaminaBillboards
 } from "../app/runtime/companions/companionStatusBillboards.js";
 
@@ -111,5 +115,41 @@ describe("companion status billboards", () => {
         alpha: 0.88
       }
     ]);
+  });
+
+  it("builds Squirtle charging particles deterministically", () => {
+    const now = 1000;
+    const [first, ...rest] = getSquirtleChargingBillboards({
+      active: true,
+      position: [1, 0.25, 2],
+      texture: "charge",
+      uvRect,
+      now
+    });
+    const time = now * 0.001;
+    const cycle = (time / SQUIRTLE_CHARGING_PARTICLE_DURATION) % 1;
+    const inward = 1 - Math.pow(1 - cycle, 3);
+    const radius = SQUIRTLE_CHARGING_PARTICLE_RADIUS * (1 - inward);
+    const angle = time * 0.72;
+    const y = 0.25 + (1.68 + (0.66 - 1.68) * inward);
+
+    expect(rest).toHaveLength(SQUIRTLE_CHARGING_PARTICLE_COUNT - 1);
+    expect(first.texture).toBe("charge");
+    expect(first.position[0]).toBeCloseTo(1 + Math.cos(angle) * radius);
+    expect(first.position[1]).toBeCloseTo(y);
+    expect(first.position[2]).toBeCloseTo(2 + Math.sin(angle) * radius);
+    expect(first.size).toEqual([0.09, 0.09]);
+    expect(first.uvRect).toBe(uvRect);
+    expect(first.alpha).toBeCloseTo(Math.sin(cycle * Math.PI) * 0.88);
+  });
+
+  it("returns no Squirtle charging particles while inactive", () => {
+    expect(getSquirtleChargingBillboards({
+      active: false,
+      position: [1, 0, 2],
+      texture: "charge",
+      uvRect,
+      now: 1000
+    })).toEqual([]);
   });
 });

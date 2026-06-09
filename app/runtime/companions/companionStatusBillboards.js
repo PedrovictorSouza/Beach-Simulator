@@ -3,6 +3,9 @@ import {
   CHARMANDER_CARBON_BAR_HEIGHT,
   CHARMANDER_CARBON_BAR_WIDTH,
   CHARMANDER_CARBON_BAR_Y_OFFSET,
+  SQUIRTLE_CHARGING_PARTICLE_COUNT,
+  SQUIRTLE_CHARGING_PARTICLE_DURATION,
+  SQUIRTLE_CHARGING_PARTICLE_RADIUS,
   SQUIRTLE_WATER_STAMINA_BAR_HEIGHT,
   SQUIRTLE_WATER_STAMINA_BAR_WIDTH
 } from "../fieldMoveRuntime/fieldMoveTuning.js";
@@ -17,6 +20,15 @@ function clamp01(value) {
 
 function getBillboardRight(right = null) {
   return Array.isArray(right) ? right : [1, 0, 0];
+}
+
+function easeOutCubic(value) {
+  const t = clamp01(value);
+  return 1 - Math.pow(1 - t, 3);
+}
+
+function lerp(start, end, progress) {
+  return start + (end - start) * progress;
 }
 
 function offsetTowardCamera(position, amount, cameraDirection = null) {
@@ -71,6 +83,43 @@ export function getSquirtleStaminaBillboards({
       size: [fillWidth, SQUIRTLE_WATER_STAMINA_BAR_HEIGHT],
       uvRect: fillUvRect,
       alpha: 0.95
+    });
+  }
+
+  return billboards;
+}
+
+export function getSquirtleChargingBillboards({
+  active = false,
+  position = null,
+  texture = null,
+  uvRect = [0, 0, 1, 1],
+  now = 0
+} = {}) {
+  if (!active || !Array.isArray(position) || !texture) {
+    return [];
+  }
+
+  const time = now * 0.001;
+  const billboards = [];
+  for (let index = 0; index < SQUIRTLE_CHARGING_PARTICLE_COUNT; index += 1) {
+    const cycle = (time / SQUIRTLE_CHARGING_PARTICLE_DURATION + index / SQUIRTLE_CHARGING_PARTICLE_COUNT) % 1;
+    const inward = easeOutCubic(cycle);
+    const radius = SQUIRTLE_CHARGING_PARTICLE_RADIUS * (1 - inward);
+    const angle = index * 2.39996 + time * 0.72;
+    const size = 0.09 + (index % 3) * 0.022;
+    const alpha = Math.sin(cycle * Math.PI) * 0.88;
+
+    billboards.push({
+      texture,
+      position: [
+        position[0] + Math.cos(angle) * radius,
+        (position[1] || 0) + lerp(1.68 + (index % 4) * 0.08, 0.66, inward),
+        position[2] + Math.sin(angle) * radius
+      ],
+      size: [size, size],
+      uvRect,
+      alpha
     });
   }
 
