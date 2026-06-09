@@ -71,6 +71,7 @@ progressao e autosave.
 ## Boot
 
 `main.js` apenas cria o runtime e chama `app.start()`.
+Ele nao instala mais botoes ou ferramentas flutuantes fora do shell do jogo.
 
 `createApplicationRuntime` e o hub principal. Ele:
 
