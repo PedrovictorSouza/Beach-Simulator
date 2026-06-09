@@ -68,6 +68,8 @@ import {
 } from "./construction/worldObjectPlacementBlockers.js";
 import {
   buildFoundationBuildZoneCandidateOrigins,
+  buildFoundationBuildZoneGroundCells as buildFoundationBuildZoneGroundCellsWithConfig,
+  buildFoundationCompletionInteriorGroundCells as buildFoundationCompletionInteriorGroundCellsWithConfig,
   buildPlacementPreviewFootprintCells,
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
   createFoundationBuildZoneBlockerRect as createFoundationBuildZoneBlocker,
@@ -3800,23 +3802,12 @@ export function startGameLoop({
     const buildState = session.freeBlockBuildState;
     const zoneUnavailable = isFoundationBuildZoneUnavailable();
 
-    return buildZone.borderCells.map((cell) => {
-      const worldPosition = gridSystem.cellToWorld(cell, {
-        center: true,
-        includeVisualOffset: true
-      });
-      const block = buildState?.getBlockAtCell?.(cell);
-      const completed = block?.blockType === FREE_BLOCK_TYPES.WALL;
-
-      return {
-        id: `foundation-build-zone:${cell.x}:${cell.y}`,
-        offset: [worldPosition.x, worldPosition.y, worldPosition.z],
-        surfaceY: worldPosition.y,
-        size: [gridSystem.cellSize, gridSystem.cellSize],
-        tileSpan: gridSystem.cellSize,
-        highlightTargetState: zoneUnavailable ? "invalid" : completed ? "leafage" : "valid",
-        highlightAbilityId: zoneUnavailable ? "invalid" : completed ? "leafage" : "build"
-      };
+    return buildFoundationBuildZoneGroundCellsWithConfig({
+      buildZone,
+      gridSystem,
+      buildState,
+      zoneUnavailable,
+      wallBlockType: FREE_BLOCK_TYPES.WALL
     });
   }
 
@@ -3827,21 +3818,9 @@ export function startGameLoop({
     }
 
     const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
-    return buildZone.interiorCells.map((cell) => {
-      const worldPosition = gridSystem.cellToWorld(cell, {
-        center: true,
-        includeVisualOffset: true
-      });
-
-      return {
-        id: `foundation-complete-ground:${cell.x}:${cell.y}`,
-        offset: [worldPosition.x, worldPosition.y, worldPosition.z],
-        surfaceY: worldPosition.y,
-        size: [gridSystem.cellSize, gridSystem.cellSize],
-        tileSpan: gridSystem.cellSize,
-        highlightTargetState: "foundationComplete",
-        highlightAbilityId: "foundationComplete"
-      };
+    return buildFoundationCompletionInteriorGroundCellsWithConfig({
+      buildZone,
+      gridSystem
     });
   }
 

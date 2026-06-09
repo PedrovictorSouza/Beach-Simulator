@@ -123,6 +123,63 @@ export function buildFoundationBuildZoneCandidateOrigins({
   return origins;
 }
 
+export function buildFoundationBuildZoneGroundCells({
+  buildZone = null,
+  gridSystem = null,
+  buildState = null,
+  zoneUnavailable = false,
+  wallBlockType = "wall"
+} = {}) {
+  if (!Array.isArray(buildZone?.borderCells) || !gridSystem?.cellToWorld) {
+    return [];
+  }
+
+  return buildZone.borderCells.map((cell) => {
+    const worldPosition = gridSystem.cellToWorld(cell, {
+      center: true,
+      includeVisualOffset: true
+    });
+    const block = buildState?.getBlockAtCell?.(cell);
+    const completed = block?.blockType === wallBlockType;
+
+    return {
+      id: `foundation-build-zone:${cell.x}:${cell.y}`,
+      offset: [worldPosition.x, worldPosition.y, worldPosition.z],
+      surfaceY: worldPosition.y,
+      size: [gridSystem.cellSize, gridSystem.cellSize],
+      tileSpan: gridSystem.cellSize,
+      highlightTargetState: zoneUnavailable ? "invalid" : completed ? "leafage" : "valid",
+      highlightAbilityId: zoneUnavailable ? "invalid" : completed ? "leafage" : "build"
+    };
+  });
+}
+
+export function buildFoundationCompletionInteriorGroundCells({
+  buildZone = null,
+  gridSystem = null
+} = {}) {
+  if (!Array.isArray(buildZone?.interiorCells) || !buildZone.interiorCells.length || !gridSystem?.cellToWorld) {
+    return [];
+  }
+
+  return buildZone.interiorCells.map((cell) => {
+    const worldPosition = gridSystem.cellToWorld(cell, {
+      center: true,
+      includeVisualOffset: true
+    });
+
+    return {
+      id: `foundation-complete-ground:${cell.x}:${cell.y}`,
+      offset: [worldPosition.x, worldPosition.y, worldPosition.z],
+      surfaceY: worldPosition.y,
+      size: [gridSystem.cellSize, gridSystem.cellSize],
+      tileSpan: gridSystem.cellSize,
+      highlightTargetState: "foundationComplete",
+      highlightAbilityId: "foundationComplete"
+    };
+  });
+}
+
 export function normalizeFoundationBuildZoneOriginCell(
   originCell = null,
   fallbackOriginCell = { x: 0, y: 0 }

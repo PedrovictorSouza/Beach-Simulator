@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildPlacementPreviewFootprintCells,
   buildFoundationBuildZoneCandidateOrigins,
+  buildFoundationBuildZoneGroundCells,
+  buildFoundationCompletionInteriorGroundCells,
   buildSolarStationFieldMarkedGroundCells,
   createFoundationBuildZoneBlockerRect,
   doFoundationBuildZoneRectsOverlap,
@@ -374,5 +376,103 @@ describe("placement geometry", () => {
       { x: 10, y: 21 },
       { x: 11, y: 21 }
     ]);
+  });
+
+  it("builds foundation build-zone border ground cells", () => {
+    const gridSystem = {
+      cellSize: 2,
+      cellToWorld(cell) {
+        return {
+          x: cell.x * 2 + 1,
+          y: 0.03,
+          z: cell.y * 2 + 1
+        };
+      }
+    };
+    const buildState = {
+      getBlockAtCell(cell) {
+        return cell.x === 1 ? { blockType: "wall" } : null;
+      }
+    };
+
+    expect(buildFoundationBuildZoneGroundCells({
+      buildZone: {
+        borderCells: [
+          { x: 1, y: 2 },
+          { x: 2, y: 2 }
+        ]
+      },
+      gridSystem,
+      buildState
+    })).toEqual([
+      {
+        id: "foundation-build-zone:1:2",
+        offset: [3, 0.03, 5],
+        surfaceY: 0.03,
+        size: [2, 2],
+        tileSpan: 2,
+        highlightTargetState: "leafage",
+        highlightAbilityId: "leafage"
+      },
+      {
+        id: "foundation-build-zone:2:2",
+        offset: [5, 0.03, 5],
+        surfaceY: 0.03,
+        size: [2, 2],
+        tileSpan: 2,
+        highlightTargetState: "valid",
+        highlightAbilityId: "build"
+      }
+    ]);
+    expect(buildFoundationBuildZoneGroundCells({
+      buildZone: {
+        borderCells: [{ x: 1, y: 2 }]
+      },
+      gridSystem,
+      zoneUnavailable: true
+    })[0]).toEqual(expect.objectContaining({
+      highlightTargetState: "invalid",
+      highlightAbilityId: "invalid"
+    }));
+    expect(buildFoundationBuildZoneGroundCells({
+      buildZone: null,
+      gridSystem
+    })).toEqual([]);
+  });
+
+  it("builds foundation completion interior ground cells", () => {
+    const gridSystem = {
+      cellSize: 2,
+      cellToWorld(cell) {
+        return {
+          x: cell.x * 2 + 1,
+          y: 0.03,
+          z: cell.y * 2 + 1
+        };
+      }
+    };
+
+    expect(buildFoundationCompletionInteriorGroundCells({
+      buildZone: {
+        interiorCells: [
+          { x: 1, y: 2 }
+        ]
+      },
+      gridSystem
+    })).toEqual([
+      {
+        id: "foundation-complete-ground:1:2",
+        offset: [3, 0.03, 5],
+        surfaceY: 0.03,
+        size: [2, 2],
+        tileSpan: 2,
+        highlightTargetState: "foundationComplete",
+        highlightAbilityId: "foundationComplete"
+      }
+    ]);
+    expect(buildFoundationCompletionInteriorGroundCells({
+      buildZone: null,
+      gridSystem
+    })).toEqual([]);
   });
 });

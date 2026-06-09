@@ -252,6 +252,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `fieldMoveRuntime` boundary.
 - Completed: move Build Block placement notices and cost marker formatting
   into the `construction` boundary.
+- Completed: move foundation build-zone ground-cell builders into the
+  `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1746,6 +1748,59 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Foundation Build-Zone Ground Cell Boundary
+
+Moved foundation build-zone ground-cell payload builders from
+`app/runtime/gameLoop.js` into `app/runtime/construction/placementGeometry.js`.
+
+Boundary classification: `construction`, focused on visual ground-cell payloads
+derived from foundation build-zone cells and grid positions.
+
+Study path:
+
+1. `buildFoundationBuildZoneGroundCells(...)` owns border-cell payload creation,
+   including completed wall, valid target and invalid-zone highlight state.
+2. `buildFoundationCompletionInteriorGroundCells(...)` owns completed interior
+   ground-cell payload creation.
+3. `gameLoop.js` still owns quest gating, active build-zone lookup, controller
+   sync, grid creation and zone-unavailable decisions.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10161` to `10140`.
+- Removed foundation border/interior ground-cell map implementations from
+  `gameLoop.js`.
+- Kept no new file; extended the existing `construction` geometry module.
+- Added focused tests for completed/valid/invalid border cells and completion
+  interior cells.
+
+Validation:
+
+```sh
+npm test -- --run tests/placementGeometry.test.js
+npm test -- --run tests/placementGeometry.test.js tests/freeBlockBuildSystem.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused construction geometry/build suite passed with `66` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1600` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
