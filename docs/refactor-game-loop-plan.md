@@ -192,10 +192,74 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move companion follow direction runtime into the `companions` boundary.
 - Completed: move companion lost hint runtime into the `companions` boundary.
 - Completed: move camera debug modules into the `camera` boundary.
+- Completed: move foundation build zone camera focus runtime into the `camera`
+  boundary.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Foundation Build Zone Camera Focus Boundary Move
+
+Moved `createFoundationBuildZoneCameraFocusRuntime()` from root-level
+`app/runtime` into `app/runtime/camera/`.
+
+Boundary classification: `camera runtime/debug`.
+
+Study path:
+
+1. `createFoundationBuildZoneCameraFocusRuntime(...)` still owns the small
+   state machine for one-time foundation build-zone camera focus.
+2. `gameLoop.js` still decides when to call the runtime and passes the same
+   callbacks and flags as before.
+3. The runtime implementation was moved without logic changes.
+4. `frame(now)` was not changed.
+
+This cut reduces root-level `app/runtime` sprawl and keeps camera-specific
+focus behavior beside the other camera runtime modules. It does not change
+camera timing, focus duration, mission gates, input, placement, field moves,
+audio, render output or frame order.
+
+TDD:
+
+- Red: `npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js`
+  failed while the test imported from `app/runtime/camera/` and the module
+  still lived at the old root-level path.
+- Green: the focused test passed after moving the runtime into
+  `app/runtime/camera/` and updating the `gameLoop.js` import.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js
+npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js tests/cameraDebugRuntime.test.js tests/cameraDebugFrameState.test.js tests/gameLoopFrameRuntime.test.js tests/gameLoopFramePolicies.test.js tests/gameplayOpeningShip.test.js
+npm run build
+```
+
+Focused tests passed:
+
+- `1` file / `6` tests for direct foundation camera focus coverage.
+- `6` files / `26` tests for adjacent camera/frame/opening coverage.
+
+`npm test` completed with:
+
+- `1482` passed
+- `4` failed
+
+Failure classification:
+
+- `3` known Leafage Native Tree baseline failures in
+  `tests/gameplayInteractions.test.js`.
+- `1` unrelated dirty-worktree failure in `tests/companionFollowMotion.test.js`
+  caused by the pre-existing uncommitted change in
+  `app/runtime/companions/companionFollowMotion.js`.
+
+Dirty files intentionally left outside this cut:
+
+- `app/runtime/companions/companionFollowMotion.js`
+- `app/session/configurePlayerSpawner.js`
+- `app/runtime/movement/playerMovementTuning.js`
 
 ### Camera Debug Boundary Move
 
