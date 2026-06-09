@@ -214,6 +214,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move world prompt copy into the `presentation` boundary.
 - Completed: move pending placement intent handling into the `construction`
   boundary.
+- Completed: move dry grass prompt target selection into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1659,6 +1661,58 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Dry Grass Prompt Target Boundary
+
+Moved dry-grass prompt and hint target selection from
+`app/runtime/gameLoop.js` into the `presentation` boundary at
+`app/runtime/presentation/dryGrassPromptTargets.js`.
+
+Study path:
+
+1. `findNearbyDryGrassWorldPromptTarget(...)` owns selecting the nearest
+   reachable dead grass patch backed by an active purifiable ground cell.
+2. `findNearbyDryGrassHintTarget(...)` owns selecting dry grass hint anchors
+   and optional Leppa Tree perimeter hint anchors.
+3. `gameLoop.js` still owns whether Water Gun is equipped, whether the dry
+   grass mission/request is active and whether world-space UI is visible.
+4. Leppa Tree perimeter lookup remains outside the presentation module and is
+   passed in explicitly, so this boundary does not import world topology.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11547` to `11410`.
+- Removed dry-grass prompt reach constants and target-selection loops from
+  `gameLoop.js`.
+- Added focused tests for valid/invalid dry grass targets, fallback hint ids
+  and Leppa Tree perimeter dependency wiring.
+
+Validation:
+
+```sh
+npm test -- --run tests/dryGrassPromptTargets.test.js
+npm test -- --run tests/dryGrassPromptTargets.test.js tests/worldPromptCopy.test.js tests/hudPromptCopy.test.js tests/frameSnapshotController.test.js tests/worldSpeechController.test.js
+git diff --check
+npm run build
+```
+
+The focused presentation suite passed with `24` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1534` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
