@@ -24,7 +24,7 @@ import {
   resolveCompanionFollowSpeed
 } from "./companions/companionFollowMotion.js";
 import { createCompanionLostHintRuntime } from "./companions/companionLostHintRuntime.js";
-import { createFoundationBuildZoneCameraFocusRuntime } from "./foundationBuildZoneCameraFocusRuntime.js";
+import { createFoundationBuildZoneCameraFocusRuntime } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
 import {
   resolveCameraInputPermissions,
   resolveGameplayActionPermission,

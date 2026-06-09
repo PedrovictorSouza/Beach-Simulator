@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createFoundationBuildZoneCameraFocusRuntime } from "../app/runtime/foundationBuildZoneCameraFocusRuntime.js";
+import { createFoundationBuildZoneCameraFocusRuntime } from "../app/runtime/camera/foundationBuildZoneCameraFocusRuntime.js";
 
 const FOCUS_FLAG = "builderTutorialFoundationCameraFocusZoneSignature";
 
