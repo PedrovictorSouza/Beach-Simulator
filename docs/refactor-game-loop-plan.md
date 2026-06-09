@@ -211,6 +211,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move placement preview prompt copy into the `construction`
   boundary.
 - Completed: move HUD prompt copy priority into the `presentation` boundary.
+- Completed: move world prompt copy into the `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1656,6 +1657,58 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### World Prompt Copy Boundary
+
+Moved pure world-prompt copy helpers from `app/runtime/gameLoop.js` into the
+`presentation` boundary at `app/runtime/presentation/worldPromptCopy.js`.
+
+Study path:
+
+1. `getPendingPlacementPrompt(...)` owns pending-placement HUD copy for House
+   Kit, Straw Bed and generic pending objects.
+2. `getPendingPlacementWorldPromptText(...)` owns the shorter world-space
+   pending-placement prompt copy.
+3. `getPlayerInteractionWorldPromptText(...)`,
+   `getRunBreadcrumbWorldPromptText(...)` and
+   `getFieldToolWorldPromptText(...)` own prompt text derived from input
+   modality labels.
+4. `gameLoop.js` still owns deciding when each prompt is visible and where it
+   is written into the frame snapshot.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11634` to `11577`.
+- Removed prompt-copy rules and placement-ready prompt formatting from
+  `gameLoop.js`.
+- Removed direct `getColonyFeedbackPlacementLabel` and
+  `resolvePlacementReadyPrompt` imports from `gameLoop.js`.
+
+Validation:
+
+```sh
+npm test -- --run tests/worldPromptCopy.test.js
+npm test -- --run tests/worldPromptCopy.test.js tests/hudPromptCopy.test.js tests/placementPreviewPrompts.test.js tests/inputPromptResolver.test.js tests/gameHudController.test.js tests/frameSnapshotController.test.js
+npm run build
+```
+
+The focused world/prompt suite passed with `45` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1526` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

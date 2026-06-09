@@ -103,6 +103,13 @@ import { getMissionTargetPositions } from "./missionTargetPositions.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { resolveHudPromptCopy } from "./presentation/hudPromptCopy.js";
+import {
+  getFieldToolWorldPromptText,
+  getPendingPlacementPrompt,
+  getPendingPlacementWorldPromptText,
+  getPlayerInteractionWorldPromptText,
+  getRunBreadcrumbWorldPromptText
+} from "./presentation/worldPromptCopy.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
   getRepairBoxRevealParticleTarget,
@@ -380,13 +387,11 @@ import {
 import {
   COLONY_FEEDBACK_IDS,
   getColonyFeedbackNotice,
-  getColonyFeedbackPlacementLabel,
   getColonyFeedbackPrompt,
   getColonyFeedbackWorldSpeech
 } from "../gameplay/colonyFeedbackContracts.js";
 import {
   resolveInputPrompt,
-  resolvePlacementReadyPrompt,
   resolveWorkbenchRotationPrompt,
   UI_PROMPT_ACTION
 } from "../ui/inputPromptResolver.js";
@@ -1019,68 +1024,6 @@ export function cancelPendingWorkbenchPlacementIntent(session) {
   const intent = session.pendingPlacementIntent;
   session.pendingPlacementIntent = null;
   return intent;
-}
-
-function getPendingPlacementPrompt(intent, harvestTarget = null, inputModalityState = null) {
-  if (!intent) {
-    return "";
-  }
-
-  if (intent.itemId === "leafDenKit") {
-    return intent.blockedReason === "needs-solar-station" ?
-      getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.HOUSE_KIT_READY_NEEDS_SOLAR_STATION) :
-      resolvePlacementReadyPrompt(
-        getColonyFeedbackPlacementLabel(COLONY_FEEDBACK_IDS.HOUSE_KIT_READY_TO_PLACE),
-        inputModalityState
-      );
-  }
-
-  if (intent.itemId === "strawBed") {
-    return harvestTarget?.strawBedPlacement?.canPlace ?
-      resolvePlacementReadyPrompt(
-        getColonyFeedbackPlacementLabel(COLONY_FEEDBACK_IDS.SOLAR_STATION_READY_TO_PLACE),
-        inputModalityState
-      ) :
-      getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.SOLAR_STATION_READY_MOVE_TO_OPEN_TERRAIN);
-  }
-
-  return resolvePlacementReadyPrompt(`${intent.label || "Object"} ready`, inputModalityState);
-}
-
-function getPendingPlacementWorldPromptText(intent, harvestTarget = null, inputModalityState = null) {
-  if (!intent) {
-    return "";
-  }
-
-  if (intent.itemId === "leafDenKit" && intent.blockedReason === "needs-solar-station") {
-    return getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_NEEDS_SOLAR_STATION);
-  }
-
-  if (intent.itemId === "strawBed" && !harvestTarget?.strawBedPlacement?.canPlace) {
-    return getColonyFeedbackPrompt(COLONY_FEEDBACK_IDS.WORLD_PROMPT_MOVE_TO_OPEN_TERRAIN);
-  }
-
-  return resolveInputPrompt(UI_PROMPT_ACTION.PLACE, inputModalityState);
-}
-
-function getPlayerInteractionWorldPromptText(inputModalityState = null) {
-  const prompt = resolveInputPrompt(UI_PROMPT_ACTION.INTERACT, inputModalityState);
-  const inputLabel = prompt.replace(/\s+Interact$/u, "").trim();
-
-  return inputLabel ? `press ${inputLabel}` : "press input";
-}
-
-function getRunBreadcrumbWorldPromptText(inputModalityState = null) {
-  const prompt = resolveInputPrompt(UI_PROMPT_ACTION.RUN, inputModalityState);
-  const inputLabel = prompt.replace(/\s+Run$/u, "").trim();
-
-  return inputLabel ? `press ${inputLabel} to run!` : "press input to run!";
-}
-
-function getFieldToolWorldPromptText(inputModalityState = null) {
-  const inputLabel = resolveInputPrompt(UI_PROMPT_ACTION.FIELD_TOOL, inputModalityState).trim();
-
-  return inputLabel && inputLabel !== "Unassigned" ? `Press ${inputLabel}` : "Press input";
 }
 
 function isDryGrassHydroMissionActive(activeQuest, storyState = {}, playerSkills = {}) {
