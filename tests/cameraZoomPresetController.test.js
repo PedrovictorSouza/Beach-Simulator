@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCameraZoomPresetController } from "../app/runtime/cameraZoomPresetController.js";
+import { createCameraZoomPresetController } from "../app/runtime/camera/cameraZoomPresetController.js";
 
 describe("createCameraZoomPresetController", () => {
   it("can reapply the active zoom preset without advancing it", () => {

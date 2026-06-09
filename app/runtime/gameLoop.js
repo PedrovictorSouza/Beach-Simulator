@@ -271,7 +271,7 @@ import {
   createFrameSnapshotController,
   setFrameWorldPrompt
 } from "./frameSnapshotController.js";
-import { createCameraZoomPresetController } from "./cameraZoomPresetController.js";
+import { createCameraZoomPresetController } from "./camera/cameraZoomPresetController.js";
 import { createPlacementCameraAssist } from "./placementCameraAssist.js";
 import { updatePlayerDustParticles } from "../session/playerDustParticles.js";
 import {
