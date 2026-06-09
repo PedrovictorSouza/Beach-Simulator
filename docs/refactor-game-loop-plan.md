@@ -210,6 +210,7 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move placement preview prompt copy into the `construction`
   boundary.
+- Completed: move HUD prompt copy priority into the `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1655,6 +1656,60 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### HUD Prompt Copy Boundary
+
+Moved HUD prompt-copy priority from `app/runtime/gameLoop.js` into the
+`presentation` boundary at `app/runtime/presentation/hudPromptCopy.js`.
+
+Study path:
+
+1. `resolveHudPromptCopy(...)` owns the priority order for HUD text:
+   placement prompts, pending placement, workbench rotation, destroy prompt and
+   nearby gameplay prompt fallback.
+2. The helper owns mode blocking for opening/cinematic/tutorial/skill/scripted
+   states.
+3. The helper receives `buildNearbyPrompt`, `getItemLabel`, `storyState` and
+   `debug` explicitly, so it does not import gameplay, controls or global
+   state.
+4. `gameLoop.js` still owns resolving the actual frame targets, placement
+   prompts, workbench prompts, nearby objects and when HUD snapshot data is
+   written.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11654` to `11634`.
+- Removed HUD prompt priority and nearby-prompt fallback payload assembly from
+  `gameLoop.js`.
+- Added focused tests for blocking modes, prompt priority, nearby prompt
+  context and debug payload shape.
+
+Passed:
+
+```sh
+npm test -- --run tests/hudPromptCopy.test.js
+npm test -- --run tests/hudPromptCopy.test.js tests/placementPreviewPrompts.test.js tests/inputPromptResolver.test.js tests/gameHudController.test.js tests/frameSnapshotController.test.js
+git diff --check
+npm run build
+```
+
+The focused HUD/prompt suite passed with `42` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1523` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

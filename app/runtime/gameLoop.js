@@ -102,6 +102,7 @@ import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { getMissionTargetPositions } from "./missionTargetPositions.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
+import { resolveHudPromptCopy } from "./presentation/hudPromptCopy.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
   getRepairBoxRevealParticleTarget,
@@ -7929,50 +7930,29 @@ export function startGameLoop({
     activeMoveId,
     pendingWaterGunGroundCells
   }) {
-    const blockedByMode = {
-      gameplayOpeningMovementLocked,
-      cinematicActive,
-      tutorialActive,
-      skillLearnActive,
-      scriptedInteractionActive
-    };
-    const promptCopy =
-      gameplayOpeningMovementLocked ||
-      cinematicActive ||
-      tutorialActive ||
-      skillLearnActive ||
-      scriptedInteractionActive ?
-      "" :
-      placementPrompts.solarStationPlacementPrompt ||
-      placementPrompts.greenhousePlacementPrompt ||
-      placementPrompts.campfirePlacementPrompt ||
-      placementPrompts.leafDenKitPlacementPrompt ||
-      pendingPlacementPrompt ||
-      workbenchRotationPrompt ||
-      destroyableObjectPrompt?.promptCopy ||
-      gameplay.buildNearbyPrompt({
-        harvestTarget: nearbyHarvestTarget,
-        interactTarget: nearbyInteractable,
-        quest: activeQuest,
-        transientMessage: transientNoticeRoute.hudMessage,
-        getItemLabel: gameplay.getItemLabel,
-        storyState: controls.storyState,
-        activeMoveId,
-        pendingWaterGunCount: pendingWaterGunGroundCells.length
-      });
-
-    debugInteractionFlow("gameLoop.promptCopy.resolved", {
-      promptCopy,
-      destroyableObjectPrompt: destroyableObjectPrompt?.promptCopy || "",
-      sources: {
-        ...placementPrompts,
-        pendingPlacementPrompt,
-        workbenchRotationPrompt
+    return resolveHudPromptCopy({
+      blockedByMode: {
+        gameplayOpeningMovementLocked,
+        cinematicActive,
+        tutorialActive,
+        skillLearnActive,
+        scriptedInteractionActive
       },
-      blockedByMode
+      placementPrompts,
+      pendingPlacementPrompt,
+      workbenchRotationPrompt,
+      destroyableObjectPrompt,
+      nearbyHarvestTarget,
+      nearbyInteractable,
+      activeQuest,
+      transientNoticeRoute,
+      activeMoveId,
+      pendingWaterGunGroundCells,
+      storyState: controls.storyState,
+      getItemLabel: gameplay.getItemLabel,
+      buildNearbyPrompt: gameplay.buildNearbyPrompt,
+      debug: debugInteractionFlow
     });
-
-    return promptCopy;
   }
 
   function resolveFramePromptTargetState({
