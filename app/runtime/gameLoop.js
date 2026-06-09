@@ -17,6 +17,10 @@ import {
   snapshotCollectibleSources
 } from "./collectibleSourceSnapshots.js";
 import { createCompanionFollowDirectionRuntime } from "./companionFollowDirectionRuntime.js";
+import {
+  resolveCompanionFollowDistance,
+  resolveCompanionFollowSpeed
+} from "./companionFollowMotion.js";
 import { createCompanionLostHintRuntime } from "./companionLostHintRuntime.js";
 import { createFoundationBuildZoneCameraFocusRuntime } from "./foundationBuildZoneCameraFocusRuntime.js";
 import {
@@ -105,6 +109,11 @@ import {
   projectWorldCellPlannerGroundCell,
   resolveWorldCellPlannerPick as resolveWorldCellPlannerPickFromCandidates
 } from "./worldCellPlannerPicking.js";
+
+export {
+  resolveCompanionFollowDistance,
+  resolveCompanionFollowSpeed
+} from "./companionFollowMotion.js";
 
 import {
   BULBASAUR_LEAFAGE_ARRIVE_DISTANCE,
@@ -516,8 +525,6 @@ const SQUIRTLE_FOLLOW_SPEED = ACT_TWO_PLAYER_SPEED;
 const SQUIRTLE_FOLLOW_DISTANCE = 1.18;
 const BULBASAUR_FOLLOW_SPEED = ACT_TWO_PLAYER_SPEED;
 const BULBASAUR_FOLLOW_DISTANCE = 1.46;
-const ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE = 1.12;
-const INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE = 2.28;
 const COMPANION_FOLLOW_FORMATION_ORDER = Object.freeze(["squirtle", "bulbasaur", "charmander", "timburr"]);
 const COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS = Object.freeze({
   waterGun: "squirtle",
@@ -525,8 +532,6 @@ const COMPANION_FOLLOW_ACTIVE_MOVE_COMPANIONS = Object.freeze({
   fire: "charmander",
   buildBlock: "timburr"
 });
-const COMPANION_FOLLOW_LINE_FIRST_DISTANCE = 1.18;
-const COMPANION_FOLLOW_LINE_SLOT_SPACING = 1.18;
 const COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE = 0.08;
 const WOOD_COLLECT_POP_DURATION = 0.34;
 const WOOD_COLLECT_POP_LIFT = 0.24;
@@ -723,44 +728,6 @@ function isWorldPositionWithinRenderDistance(position, referencePosition, distan
 function easeOutCubic(value) {
   const progress = clamp01(value);
   return 1 - Math.pow(1 - progress, 3);
-}
-
-export function resolveCompanionFollowDistance({
-  companionId,
-  activeMoveId,
-  defaultDistance,
-  formationIndex = null
-} = {}) {
-  if (Number.isFinite(formationIndex)) {
-    return COMPANION_FOLLOW_LINE_FIRST_DISTANCE +
-      Math.max(0, Math.floor(formationIndex)) * COMPANION_FOLLOW_LINE_SLOT_SPACING;
-  }
-
-  if (activeMoveId === "waterGun") {
-    if (companionId === "squirtle") {
-      return ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
-    }
-
-    if (companionId === "bulbasaur") {
-      return INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
-    }
-  }
-
-  if (activeMoveId === "leafage") {
-    if (companionId === "bulbasaur") {
-      return ACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
-    }
-
-    if (companionId === "squirtle") {
-      return INACTIVE_MOVE_COMPANION_FOLLOW_DISTANCE;
-    }
-  }
-
-  return defaultDistance;
-}
-
-export function resolveCompanionFollowSpeed() {
-  return ACT_TWO_PLAYER_SPEED;
 }
 
 function normalizeBuildBlockApproachDirection(targetPosition, sourcePosition) {
