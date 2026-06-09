@@ -236,6 +236,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `fieldMoveRuntime` boundary.
 - Completed: move Solar Station power-radius helpers into the `construction`
   boundary.
+- Completed: move Solar Station placement blockers into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1730,6 +1732,63 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Solar Station Placement Blocker Boundary
+
+Moved Solar Station placement blocker assembly and collision checks from
+`app/runtime/gameLoop.js` into
+`app/runtime/construction/solarStationPlacementBlockers.js`.
+
+Boundary classification: `construction`, focused on placement blockers and
+collision policy for Solar Station preview validation.
+
+Study path:
+
+1. `getSolarStationPlacementBlockers(...)` owns the assembly of player
+   construction blockers, world object blockers and optional story-gated
+   blockers such as log chair, Ditto flag, challenge boulder and Leaf Den
+   furniture.
+2. `isSolarStationPlacementBlocked(...)` owns the object/terrain collider
+   overlap decision for a proposed Solar Station placement rect.
+3. `gameLoop.js` still owns footprints, placement geometry callbacks and the
+   existing preview lifecycle. The preview update order did not move.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10694` to `10639`.
+- Removed Solar Station blocker assembly and terrain-collider overlap helper
+  details from `gameLoop.js`.
+- Kept placement geometry primitives and broader placement validation in
+  `gameLoop.js`.
+- Added focused tests for callback forwarding, story-gated blockers, object
+  collision and elevated terrain collision.
+
+Validation:
+
+```sh
+npm test -- --run tests/solarStationPlacementBlockers.test.js
+npm test -- --run tests/solarStationPlacementBlockers.test.js tests/solarStationPowerRadius.test.js tests/placementBlockers.test.js tests/worldObjectPlacementValidation.test.js tests/worldObjectPlacementPreview.test.js tests/placementPreviewVisual.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/placement suite passed with `38` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1574` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

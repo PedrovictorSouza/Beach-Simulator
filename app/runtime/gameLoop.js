@@ -53,6 +53,10 @@ import {
   isInsideSolarStationPowerRadius as isInsideSolarStationPowerRadiusWithConfig
 } from "./construction/solarStationPowerRadius.js";
 import {
+  getSolarStationPlacementBlockers as getSolarStationPlacementBlockersWithConfig,
+  isSolarStationPlacementBlocked as isSolarStationPlacementBlockedWithConfig
+} from "./construction/solarStationPlacementBlockers.js";
+import {
   getNewlyCollectedDropPositions,
   getNewlyCollectedResourcePositions,
   snapshotAvailableWoodDrops,
@@ -1247,10 +1251,7 @@ function getWorldObjectPlacementBlockers(session) {
 }
 
 function getSolarStationPlacementBlockers(session, storyState) {
-  const blockers = [];
-  const flags = storyState?.flags || {};
-
-  blockers.push(...createPlayerConstructionPlacementBlockers({
+  return getSolarStationPlacementBlockersWithConfig({
     session,
     storyState,
     footprints: {
@@ -1259,78 +1260,22 @@ function getSolarStationPlacementBlockers(session, storyState) {
       trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
       houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
       houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT
-    }
-  }));
-  blockers.push(...getWorldObjectPlacementBlockers(session));
-
-  if (session.logChair?.position && flags.logChairPlaced) {
-    blockers.push({
-      position: session.logChair.position,
-      size: getPlacementCollisionSize(session.logChair)
-    });
-  }
-
-  if (session.dittoFlag?.position && flags.dittoFlagPlacedOnHouse) {
-    blockers.push({
-      position: session.dittoFlag.position,
-      size: getPlacementCollisionSize(session.dittoFlag)
-    });
-  }
-
-  if (session.challengeBoulder?.position && flags.boulderChallengeAvailable) {
-    blockers.push({
-      position: session.challengeBoulder.position,
-      size: getPlacementCollisionSize(session.challengeBoulder, [1.82, 1.42])
-    });
-  }
-
-  if (flags.leafDenInteriorEntered) {
-    for (const furniture of session.leafDenFurniture || []) {
-      if (!Array.isArray(furniture?.position)) {
-        continue;
-      }
-
-      blockers.push({
-        position: furniture.position,
-        size: getPlacementCollisionSize(furniture)
-      });
-    }
-  }
-
-  return blockers;
-}
-
-function getTerrainColliderPlacementRect(collider) {
-  if (!collider?.blocksPlayer || !Array.isArray(collider.position)) {
-    return null;
-  }
-
-  const padding = Number(collider.padding || 0);
-  const width = Math.max(0.01, Number(collider.size?.[0]) || 1) + padding * 2;
-  const depth = Math.max(0.01, Number(collider.size?.[2]) || 1) + padding * 2;
-  return getPlacementRect(collider.position, [width, depth]);
-}
-
-function doesPlacementOverlapTerrainCollider(placementRect, collider) {
-  const colliderRect = getTerrainColliderPlacementRect(collider);
-  return colliderRect ? doPlacementRectsOverlap(placementRect, colliderRect, 0) : false;
+    },
+    createPlayerConstructionPlacementBlockers,
+    getWorldObjectPlacementBlockers,
+    getPlacementCollisionSize
+  });
 }
 
 function isSolarStationPlacementBlocked(session, storyState, placementRect) {
-  const hasObjectCollision = getSolarStationPlacementBlockers(session, storyState)
-    .some((blocker) => {
-      return doPlacementRectsOverlap(
-        placementRect,
-        getPlacementRect(blocker.position, blocker.size)
-      );
-    });
-
-  if (hasObjectCollision) {
-    return true;
-  }
-
-  return (session.elevatedTerrainColliders || [])
-    .some((collider) => doesPlacementOverlapTerrainCollider(placementRect, collider));
+  return isSolarStationPlacementBlockedWithConfig({
+    session,
+    storyState,
+    placementRect,
+    getSolarStationPlacementBlockers,
+    getPlacementRect,
+    doPlacementRectsOverlap
+  });
 }
 
 function getSolarStationPowerPosition(session, storyState) {
