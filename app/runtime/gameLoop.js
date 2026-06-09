@@ -20,6 +20,11 @@ import {
   syncLeafDenConstructionClouds as syncLeafDenConstructionCloudsWithSession
 } from "./construction/constructionCloudEffects.js";
 import {
+  getLeafDenConstructionProgress as getLeafDenConstructionProgressFromState,
+  isLeafDenBusyCompanionTarget as isLeafDenBusyCompanionTargetFromState,
+  isLeafDenConstructionActive as isLeafDenConstructionActiveFromState
+} from "./construction/leafDenConstructionState.js";
+import {
   applyPlayerPlacementSpawnToBillboard,
   applyPlayerPlacementSpawnToModelInstance,
   updateSolarStationSpawnEffect
@@ -7298,31 +7303,24 @@ export function startGameLoop({
   }
 
   function isLeafDenConstructionActive() {
-    return Boolean(
-      controls.storyState?.flags?.leafDenConstructionStarted &&
-      !controls.storyState?.flags?.leafDenBuilt &&
-      session.leafDen?.position
-    );
+    return isLeafDenConstructionActiveFromState({
+      storyState: controls.storyState,
+      leafDen: session.leafDen
+    });
   }
 
   function isLeafDenBusyCompanionTarget(target) {
-    return Boolean(
-      isLeafDenConstructionActive() &&
-      target?.kind === "pokemonCompanion" &&
-      (target.id === "charmander" || target.id === "timburr")
-    );
+    return isLeafDenBusyCompanionTargetFromState({
+      active: isLeafDenConstructionActive(),
+      target
+    });
   }
 
   function getLeafDenConstructionProgress(nowMs = getLeafDenConstructionNowMs()) {
-    const flags = controls.storyState?.flags || {};
-    const startedAt = Number(flags.leafDenConstructionStartedAt || 0);
-    const completesAt = Number(flags.leafDenConstructionCompletesAt || 0);
-
-    if (!startedAt || !completesAt || completesAt <= startedAt) {
-      return 0;
-    }
-
-    return clamp01((nowMs - startedAt) / (completesAt - startedAt));
+    return getLeafDenConstructionProgressFromState({
+      storyState: controls.storyState,
+      nowMs
+    });
   }
 
   function getActiveConstructionCloudBursts(nowMs = getLeafDenConstructionNowMs()) {

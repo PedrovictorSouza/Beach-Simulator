@@ -202,6 +202,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move construction billboard builders into the `construction`
   boundary.
 - Completed: move construction cloud effects into the `construction` boundary.
+- Completed: move Leaf Den construction state policy into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1647,6 +1649,59 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Leaf Den Construction State Boundary
+
+Moved Leaf Den construction state policy from `app/runtime/gameLoop.js` into the
+`construction` boundary at
+`app/runtime/construction/leafDenConstructionState.js`.
+
+Study path:
+
+1. `isLeafDenConstructionActive(...)` owns the rule for active construction:
+   construction started, house not built and Leaf Den position exists.
+2. `getLeafDenConstructionProgress(...)` owns timestamp parsing and clamped
+   progress calculation from story flags.
+3. `isLeafDenBusyCompanionTarget(...)` owns the rule that only Charmander and
+   Timburr are busy while construction is active.
+4. `gameLoop.js` still owns `controls.storyState`, `session.leafDen`, time
+   lookup and where the rule is queried during interaction and companion
+   updates.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11858` to `11856`.
+- Removed direct knowledge of Leaf Den construction timestamp flags and helper
+  companion ids from `gameLoop.js`.
+- Added focused tests for active-state guards, progress clamping, invalid
+  timestamps and busy companion target policy.
+
+Passed:
+
+```sh
+npm test -- --run tests/leafDenConstructionState.test.js
+npm test -- --run tests/leafDenConstructionState.test.js tests/constructionCloudEffects.test.js tests/constructionBillboards.test.js tests/playerPlacementSpawnEffect.test.js
+git diff --check
+npm run build
+```
+
+The focused construction suite passed with `16` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1508` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
