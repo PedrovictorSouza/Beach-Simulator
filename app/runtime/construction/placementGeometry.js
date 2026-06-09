@@ -180,6 +180,66 @@ export function buildFoundationCompletionInteriorGroundCells({
   });
 }
 
+export function getFreeBlockBuildZoneCenterPosition({
+  buildZone = null,
+  gridConfig = null
+} = {}) {
+  if (!buildZone?.originCell || !gridConfig?.origin) {
+    return null;
+  }
+
+  const cellSize = Number(gridConfig.cellSize || 1);
+  return [
+    Number((gridConfig.origin.x + (buildZone.originCell.x + buildZone.width * 0.5) * cellSize).toFixed(3)),
+    Number((gridConfig.origin.y + gridConfig.visualOffsetY).toFixed(3)),
+    Number((gridConfig.origin.z + (buildZone.originCell.y + buildZone.height * 0.5) * cellSize).toFixed(3))
+  ];
+}
+
+export function getFreeBlockCellWorldPosition({
+  cell = null,
+  gridSystem = null
+} = {}) {
+  if (!cell || !gridSystem?.cellToWorld) {
+    return null;
+  }
+
+  const worldPosition = gridSystem.cellToWorld(cell, {
+    center: true,
+    includeVisualOffset: true
+  });
+  const layer = Math.max(0, Math.trunc(Number(cell?.layer || 0)));
+  const cellSize = Number(gridSystem.cellSize || 1);
+  return [
+    worldPosition.x,
+    worldPosition.y + layer * cellSize,
+    worldPosition.z
+  ];
+}
+
+export function buildFreeBlockFeedbackGroundCell({
+  result = null,
+  gridSystem = null
+} = {}) {
+  const targetCell = result?.targetCell;
+  if (!targetCell || !gridSystem?.cellToWorld) {
+    return null;
+  }
+
+  const worldPosition = gridSystem.cellToWorld(targetCell, {
+    center: true,
+    includeVisualOffset: true
+  });
+  return {
+    id: `free-block-feedback:${targetCell.x}:${targetCell.y}`,
+    offset: [worldPosition.x, worldPosition.y, worldPosition.z],
+    size: [gridSystem.cellSize, gridSystem.cellSize],
+    tileSpan: gridSystem.cellSize,
+    highlightTargetState: result.placed ? "valid" : "invalid",
+    highlightAbilityId: result.placed ? "build" : "invalid"
+  };
+}
+
 export function normalizeFoundationBuildZoneOriginCell(
   originCell = null,
   fallbackOriginCell = { x: 0, y: 0 }

@@ -5,6 +5,7 @@ import {
   buildFoundationBuildZoneCandidateOrigins,
   buildFoundationBuildZoneGroundCells,
   buildFoundationCompletionInteriorGroundCells,
+  buildFreeBlockFeedbackGroundCell,
   buildSolarStationFieldMarkedGroundCells,
   createFoundationBuildZoneBlockerRect,
   doFoundationBuildZoneRectsOverlap,
@@ -12,6 +13,8 @@ import {
   getFoundationBuildZoneCellKeys,
   getFoundationBuildZoneSignature,
   getFoundationBuildZoneWorldRect,
+  getFreeBlockBuildZoneCenterPosition,
+  getFreeBlockCellWorldPosition,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
   getPlacementRect,
@@ -474,5 +477,92 @@ describe("placement geometry", () => {
       buildZone: null,
       gridSystem
     })).toEqual([]);
+  });
+
+  it("resolves free block build-zone center position", () => {
+    expect(getFreeBlockBuildZoneCenterPosition({
+      buildZone: {
+        originCell: { x: 2, y: 3 },
+        width: 4,
+        height: 2
+      },
+      gridConfig: {
+        cellSize: 1.5,
+        origin: {
+          x: -10,
+          y: 0,
+          z: 5
+        },
+        visualOffsetY: 0.03
+      }
+    })).toEqual([-4, 0.03, 11]);
+    expect(getFreeBlockBuildZoneCenterPosition({
+      buildZone: null,
+      gridConfig: {
+        cellSize: 1,
+        origin: { x: 0, y: 0, z: 0 },
+        visualOffsetY: 0.03
+      }
+    })).toBeNull();
+  });
+
+  it("resolves layered free block cell world positions", () => {
+    const gridSystem = {
+      cellSize: 2,
+      cellToWorld(cell) {
+        return {
+          x: cell.x * 2 + 1,
+          y: 0.03,
+          z: cell.y * 2 + 1
+        };
+      }
+    };
+
+    expect(getFreeBlockCellWorldPosition({
+      cell: { x: 2, y: 3, layer: 2 },
+      gridSystem
+    })).toEqual([5, 4.03, 7]);
+  });
+
+  it("builds free block feedback ground cells", () => {
+    const gridSystem = {
+      cellSize: 2,
+      cellToWorld(cell) {
+        return {
+          x: cell.x * 2 + 1,
+          y: 0.03,
+          z: cell.y * 2 + 1
+        };
+      }
+    };
+
+    expect(buildFreeBlockFeedbackGroundCell({
+      result: {
+        placed: true,
+        targetCell: { x: 2, y: 3 }
+      },
+      gridSystem
+    })).toEqual({
+      id: "free-block-feedback:2:3",
+      offset: [5, 0.03, 7],
+      size: [2, 2],
+      tileSpan: 2,
+      highlightTargetState: "valid",
+      highlightAbilityId: "build"
+    });
+    expect(buildFreeBlockFeedbackGroundCell({
+      result: {
+        placed: false,
+        targetCell: { x: 2, y: 3 }
+      },
+      gridSystem
+    })).toEqual(expect.objectContaining({
+      highlightTargetState: "invalid",
+      highlightAbilityId: "invalid"
+    }));
+    expect(buildFreeBlockFeedbackGroundCell({
+      result: null,
+      gridSystem
+    })).toBeNull();
   });
 });

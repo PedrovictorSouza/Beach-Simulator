@@ -70,6 +70,7 @@ import {
   buildFoundationBuildZoneCandidateOrigins,
   buildFoundationBuildZoneGroundCells as buildFoundationBuildZoneGroundCellsWithConfig,
   buildFoundationCompletionInteriorGroundCells as buildFoundationCompletionInteriorGroundCellsWithConfig,
+  buildFreeBlockFeedbackGroundCell as buildFreeBlockFeedbackGroundCellWithConfig,
   buildPlacementPreviewFootprintCells,
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
   createFoundationBuildZoneBlockerRect as createFoundationBuildZoneBlocker,
@@ -78,6 +79,8 @@ import {
   getFoundationBuildZoneCellKeys,
   getFoundationBuildZoneSignature,
   getFoundationBuildZoneWorldRect as getFoundationBuildZoneWorldRectWithGrid,
+  getFreeBlockBuildZoneCenterPosition as getFreeBlockBuildZoneCenterPositionWithConfig,
+  getFreeBlockCellWorldPosition as getFreeBlockCellWorldPositionWithGrid,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
   getPlacementRect,
@@ -3718,17 +3721,10 @@ export function startGameLoop({
   }
 
   function getFreeBlockBuildZoneCenterPosition(buildZone = getActiveFreeBlockBuildZone()) {
-    if (!buildZone?.originCell) {
-      return null;
-    }
-
-    const gridConfig = getFreeBlockBuildGridConfig();
-    const cellSize = Number(gridConfig.cellSize || 1);
-    return [
-      Number((gridConfig.origin.x + (buildZone.originCell.x + buildZone.width * 0.5) * cellSize).toFixed(3)),
-      Number((gridConfig.origin.y + gridConfig.visualOffsetY).toFixed(3)),
-      Number((gridConfig.origin.z + (buildZone.originCell.y + buildZone.height * 0.5) * cellSize).toFixed(3))
-    ];
+    return getFreeBlockBuildZoneCenterPositionWithConfig({
+      buildZone,
+      gridConfig: getFreeBlockBuildGridConfig()
+    });
   }
 
   function getFreeBlockBuildCostMarker(previewTarget = null) {
@@ -3896,39 +3892,17 @@ export function startGameLoop({
   }
 
   function getFreeBlockCellWorldPosition(cell, gridSystem = createGridSystem(getFreeBlockBuildGridConfig())) {
-    const worldPosition = gridSystem.cellToWorld(cell, {
-      center: true,
-      includeVisualOffset: true
+    return getFreeBlockCellWorldPositionWithGrid({
+      cell,
+      gridSystem
     });
-    const layer = Math.max(0, Math.trunc(Number(cell?.layer || 0)));
-    const cellSize = Number(gridSystem.cellSize || 1);
-    return [
-      worldPosition.x,
-      worldPosition.y + layer * cellSize,
-      worldPosition.z
-    ];
   }
 
   function buildFreeBlockFeedbackGroundCell(result) {
-    const gridConfig = getFreeBlockBuildGridConfig();
-    const gridSystem = createGridSystem(gridConfig);
-    const targetCell = result?.targetCell;
-    if (!targetCell) {
-      return null;
-    }
-
-    const worldPosition = gridSystem.cellToWorld(targetCell, {
-      center: true,
-      includeVisualOffset: true
+    return buildFreeBlockFeedbackGroundCellWithConfig({
+      result,
+      gridSystem: createGridSystem(getFreeBlockBuildGridConfig())
     });
-    return {
-      id: `free-block-feedback:${targetCell.x}:${targetCell.y}`,
-      offset: [worldPosition.x, worldPosition.y, worldPosition.z],
-      size: [gridSystem.cellSize, gridSystem.cellSize],
-      tileSpan: gridSystem.cellSize,
-      highlightTargetState: result.placed ? "valid" : "invalid",
-      highlightAbilityId: result.placed ? "build" : "invalid"
-    };
   }
 
   function syncFreeBlockBuildSnapshot() {
