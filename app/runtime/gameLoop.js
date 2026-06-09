@@ -78,6 +78,11 @@ import {
 import { getBulbasaurInteractionRadiusGizmoBillboards } from "./bulbasaurInteractionRadiusGizmoBillboards.js";
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
 import {
+  resolveBulbasaurLeafageApproachPosition,
+  resolveCharmanderFireApproachPosition,
+  resolveSquirtleWaterGunApproachPosition
+} from "./fieldMoveRuntime/fieldMoveApproachPositions.js";
+import {
   getBulbasaurLeafageBillboards,
   getCharmanderFireBillboards,
   getSquirtleWaterGunBillboards
@@ -175,14 +180,12 @@ import {
   BULBASAUR_LEAFAGE_CAST_DURATION,
   BULBASAUR_LEAFAGE_IMPACT_TIME,
   BULBASAUR_LEAFAGE_SPEED,
-  BULBASAUR_LEAFAGE_STAND_DISTANCE,
   CHARMANDER_CARBON_VISUAL_DECREASE_DURATION,
   CHARMANDER_CARBON_VISUAL_INCREASE_DURATION,
   CHARMANDER_FIRE_ARRIVE_DISTANCE,
   CHARMANDER_FIRE_IMPACT_TIME,
   CHARMANDER_FIRE_SPEED,
   CHARMANDER_FIRE_SPRAY_DURATION,
-  CHARMANDER_FIRE_STAND_DISTANCE,
   SQUIRTLE_WATER_GUN_ARRIVE_DISTANCE,
   SQUIRTLE_WATER_GUN_BASE_LEVEL,
   SQUIRTLE_WATER_GUN_EVOLUTION_MAX_USES,
@@ -192,7 +195,6 @@ import {
   SQUIRTLE_WATER_GUN_MIN_SPRAY_DURATION,
   SQUIRTLE_WATER_GUN_SPEED,
   SQUIRTLE_WATER_GUN_SPRAY_DURATION,
-  SQUIRTLE_WATER_GUN_STAND_DISTANCE,
   SQUIRTLE_WATER_GUN_USE_COUNT_FLAG,
   SQUIRTLE_WATER_GUN_USES_PER_LEVEL,
   SQUIRTLE_WATER_STAMINA_COST,
@@ -5348,61 +5350,23 @@ export function startGameLoop({
   }
 
   function getSquirtleWaterGunApproachPosition(targetPosition, playerPosition = null) {
-    const squirtlePosition =
-      session.actTwoSquirtle?.position ||
-      session.actTwoSquirtle?.modelInstance?.offset ||
-      playerPosition ||
-      [0, 0.04, 0];
-    let deltaX = squirtlePosition[0] - targetPosition[0];
-    let deltaZ = squirtlePosition[2] - targetPosition[2];
-    let distance = Math.hypot(deltaX, deltaZ);
-
-    if (distance < 0.001 && playerPosition) {
-      deltaX = playerPosition[0] - targetPosition[0];
-      deltaZ = playerPosition[2] - targetPosition[2];
-      distance = Math.hypot(deltaX, deltaZ);
-    }
-
-    if (distance < 0.001) {
-      deltaX = 0;
-      deltaZ = 1;
-      distance = 1;
-    }
-
-    return [
-      targetPosition[0] + (deltaX / distance) * SQUIRTLE_WATER_GUN_STAND_DISTANCE,
-      0.04,
-      targetPosition[2] + (deltaZ / distance) * SQUIRTLE_WATER_GUN_STAND_DISTANCE
-    ];
+    return resolveSquirtleWaterGunApproachPosition({
+      targetPosition,
+      squirtlePosition:
+        session.actTwoSquirtle?.position ||
+        session.actTwoSquirtle?.modelInstance?.offset,
+      playerPosition
+    });
   }
 
   function getBulbasaurLeafageApproachPosition(targetPosition, playerPosition = null) {
-    const bulbasaurPosition =
-      session.bulbasaurEncounter?.position ||
-      session.bulbasaurEncounter?.modelInstance?.offset ||
-      playerPosition ||
-      [0, 0.04, 0];
-    let deltaX = bulbasaurPosition[0] - targetPosition[0];
-    let deltaZ = bulbasaurPosition[2] - targetPosition[2];
-    let distance = Math.hypot(deltaX, deltaZ);
-
-    if (distance < 0.001 && playerPosition) {
-      deltaX = playerPosition[0] - targetPosition[0];
-      deltaZ = playerPosition[2] - targetPosition[2];
-      distance = Math.hypot(deltaX, deltaZ);
-    }
-
-    if (distance < 0.001) {
-      deltaX = 0;
-      deltaZ = 1;
-      distance = 1;
-    }
-
-    return [
-      targetPosition[0] + (deltaX / distance) * BULBASAUR_LEAFAGE_STAND_DISTANCE,
-      0.04,
-      targetPosition[2] + (deltaZ / distance) * BULBASAUR_LEAFAGE_STAND_DISTANCE
-    ];
+    return resolveBulbasaurLeafageApproachPosition({
+      targetPosition,
+      bulbasaurPosition:
+        session.bulbasaurEncounter?.position ||
+        session.bulbasaurEncounter?.modelInstance?.offset,
+      playerPosition
+    });
   }
 
   function getTimburrBuildBlockApproachPosition(targetPosition, playerPosition = null) {
@@ -5415,32 +5379,13 @@ export function startGameLoop({
   }
 
   function getCharmanderFireApproachPosition(targetPosition, playerPosition = null) {
-    const charmanderPosition =
-      session.charmanderEncounter?.position ||
-      session.charmanderEncounter?.modelInstance?.offset ||
-      playerPosition ||
-      [0, 0.04, 0];
-    let deltaX = charmanderPosition[0] - targetPosition[0];
-    let deltaZ = charmanderPosition[2] - targetPosition[2];
-    let distance = Math.hypot(deltaX, deltaZ);
-
-    if (distance < 0.001 && playerPosition) {
-      deltaX = playerPosition[0] - targetPosition[0];
-      deltaZ = playerPosition[2] - targetPosition[2];
-      distance = Math.hypot(deltaX, deltaZ);
-    }
-
-    if (distance < 0.001) {
-      deltaX = 0;
-      deltaZ = 1;
-      distance = 1;
-    }
-
-    return [
-      targetPosition[0] + (deltaX / distance) * CHARMANDER_FIRE_STAND_DISTANCE,
-      0.04,
-      targetPosition[2] + (deltaZ / distance) * CHARMANDER_FIRE_STAND_DISTANCE
-    ];
+    return resolveCharmanderFireApproachPosition({
+      targetPosition,
+      charmanderPosition:
+        session.charmanderEncounter?.position ||
+        session.charmanderEncounter?.modelInstance?.offset,
+      playerPosition
+    });
   }
 
   function startCharmanderFireAction({ groundCell, playerPosition }) {

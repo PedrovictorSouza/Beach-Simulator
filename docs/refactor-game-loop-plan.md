@@ -230,6 +230,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move Bulbasaur Leafage billboards into the `fieldMoveRuntime`
   boundary.
+- Completed: move field-move approach positions into the `fieldMoveRuntime`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1724,6 +1726,59 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Field Move Approach Position Boundary
+
+Moved repeated Water Gun, Leafage and Fire companion stand-position
+calculations from `app/runtime/gameLoop.js` into
+`app/runtime/fieldMoveRuntime/fieldMoveApproachPositions.js`.
+
+Study path:
+
+1. `resolveSquirtleWaterGunApproachPosition(...)`,
+   `resolveBulbasaurLeafageApproachPosition(...)` and
+   `resolveCharmanderFireApproachPosition(...)` own pure stand-position math.
+2. `gameLoop.js` still owns session lookups, active action lifecycle and wrapper
+   call sites.
+3. Build Block/Timburr approach remains in `gameLoop.js` because it uses
+   construction blockers and the existing public
+   `resolveTimburrBuildBlockApproachPosition(...)` export.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10874` to `10819`.
+- Removed duplicated stand-distance vector math for Water Gun, Leafage and Fire.
+- Removed Water Gun/Leafage/Fire stand-distance tuning imports from
+  `gameLoop.js`.
+- Added focused tests for direct companion positioning, player fallback and
+  default forward fallback.
+
+Validation:
+
+```sh
+npm test -- --run tests/fieldMoveApproachPositions.test.js
+npm test -- --run tests/fieldMoveApproachPositions.test.js tests/fieldMoveBillboards.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused approach-position suite passed with `27` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1561` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
