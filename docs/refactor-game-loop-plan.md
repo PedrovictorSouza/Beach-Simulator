@@ -587,8 +587,9 @@ Study path:
    boundary beside follow motion and follow direction.
 2. `gameLoop.js` imports the scheduler through `app/runtime/companions/`.
 3. The scheduler implementation was not changed.
-4. `resolveWaterGunCompanionLostHint(...)` remains local to `gameLoop.js`
-   because it still reads quest and active-move state.
+4. Historical note: at this step, `resolveWaterGunCompanionLostHint(...)`
+   still lived in `gameLoop.js`; the later Companion Lost Hint Resolver
+   Extraction moved the pure decision into the `companions` boundary.
 5. `frame(now)` was not changed.
 
 This cut reduces root-level `app/runtime` sprawl without adding another file.
@@ -1597,6 +1598,58 @@ baseline:
 
 Manual gameplay validation remains pending because the in-app browser backend
 was not available during this pass.
+
+### Companion Lost Hint Resolver Extraction
+
+Moved the Water Gun companion-lost hint decision out of
+`app/runtime/gameLoop.js` and into the existing `companions` boundary at
+`app/runtime/companions/companionLostHintRuntime.js`.
+
+Study path:
+
+1. `resolveWaterGunCompanionLostHint(...)` is now a pure companion-domain helper.
+2. `gameLoop.js` still reads live state from `controls`, `session` and
+   `getSquirtleWorldPosition()`.
+3. `gameLoop.js` now passes those values into the helper and delegates scheduling
+   to `companionLostHintRuntime.get(hint, now)` as before.
+4. Hint texts, quest ids, mission thresholds, active-move checks and world-speech
+   snapshot ordering are unchanged.
+5. No new file was created; the existing `companions/` runtime became the owner
+   of the companion-specific rule.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `12192` to `12165`.
+- Removed the local Water Gun/Bulbasaur companion lost-hint decision block from
+  `gameLoop.js`.
+- Added focused tests for the pure companion hint policy.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionLostHintRuntime.test.js
+git diff --check
+npm test -- --run tests/companionLostHintRuntime.test.js tests/gameLoopFrameRuntime.test.js tests/worldSpeechController.test.js tests/frameSnapshotController.test.js
+npm run build
+```
+
+The focused suite passed with `27` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Player Model Motion Domain Boundary
 
@@ -5416,10 +5469,11 @@ The Water Gun quest checks, Squirtle and Bulbasaur position lookup, speech
 priority and world-speech snapshot writes remain in `gameLoop.js`. This keeps
 the preparation independent from narrative and rendering behavior.
 
-The next integration pass should:
+The next integration pass completed later:
 
 1. Create `createCompanionLostHintRuntime(...)` inside `startGameLoop()`.
-2. Keep `resolveWaterGunCompanionLostHint(...)` local.
+2. Move the pure `resolveWaterGunCompanionLostHint(...)` decision into the
+   `companions` boundary.
 3. Replace `getPeriodicCompanionLostHint(...)` scheduling internals with
    `companionLostHintRuntime.get(hint, now)`.
 4. Remove `companionLostHintKey`, `companionLostHintNextAt`,
@@ -5720,8 +5774,9 @@ removed the four migrated companion-hint scheduler fields from
 
 Study path:
 
-1. `resolveWaterGunCompanionLostHint(...)` remains local and still owns the
-   Water Gun quest checks and current companion-position lookup.
+1. Historical note: at this step, `resolveWaterGunCompanionLostHint(...)`
+   remained local; the later Companion Lost Hint Resolver Extraction moved the
+   pure Water Gun hint decision into `companionLostHintRuntime.js`.
 2. `getPeriodicCompanionLostHint(...)` resolves the current hint and delegates
    scheduling to `companionLostHintRuntime.get(hint, now)`.
 3. The runtime owns the initial delay, repetition window, active lifetime and

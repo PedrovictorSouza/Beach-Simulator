@@ -23,7 +23,10 @@ import {
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
 } from "./companions/companionFollowMotion.js";
-import { createCompanionLostHintRuntime } from "./companions/companionLostHintRuntime.js";
+import {
+  createCompanionLostHintRuntime,
+  resolveWaterGunCompanionLostHint
+} from "./companions/companionLostHintRuntime.js";
 import { createFoundationBuildZoneCameraFocusRuntime } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
 import {
   resolveCameraInputPermissions,
@@ -6996,52 +6999,22 @@ export function startGameLoop({
     );
   }
 
-  function resolveWaterGunCompanionLostHint(activeQuest, activeMoveId) {
-    const flags = controls.storyState?.flags || {};
-    const restoredGrassCount = Number(flags.restoredGrassCount || 0);
-    const activeDryGrassQuest = activeQuest?.id === "water-dry-grass";
-    const activeBulbasaurDryGrassRequest =
-      flags.bulbasaurDryGrassMissionAccepted &&
-      !flags.bulbasaurDryGrassMissionComplete &&
-      restoredGrassCount < BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT;
-    const needsWaterGun =
-      controls.playerSkills?.waterGun &&
-      (
-        activeDryGrassQuest ||
-        activeBulbasaurDryGrassRequest
-      );
-
-    if (!needsWaterGun) {
-      return null;
-    }
-
-    if (activeMoveId === "leafage" && Array.isArray(session.bulbasaurEncounter?.position)) {
-      return {
-        key: "bulbasaur-switch-to-squirtle",
-        text: BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT,
-        worldPosition: session.bulbasaurEncounter.position
-      };
-    }
-
-    const squirtlePosition = getSquirtleWorldPosition();
-
-    if (!Array.isArray(squirtlePosition)) {
-      return null;
-    }
-
-    return {
-      key: "squirtle-use-water-gun",
-      text: SQUIRTLE_WATER_GUN_HINT_TEXT,
-      worldPosition: squirtlePosition
-    };
-  }
-
   function getPeriodicCompanionLostHint({
     activeQuest,
     activeMoveId,
     now
   }) {
-    const hint = resolveWaterGunCompanionLostHint(activeQuest, activeMoveId);
+    const hint = resolveWaterGunCompanionLostHint({
+      activeQuestId: activeQuest?.id,
+      activeMoveId,
+      flags: controls.storyState?.flags || {},
+      playerHasWaterGun: controls.playerSkills?.waterGun,
+      bulbasaurPosition: session.bulbasaurEncounter?.position,
+      squirtlePosition: getSquirtleWorldPosition(),
+      restoreTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
+      squirtleHintText: SQUIRTLE_WATER_GUN_HINT_TEXT,
+      bulbasaurHintText: BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT
+    });
 
     return companionLostHintRuntime.get(hint, now);
   }

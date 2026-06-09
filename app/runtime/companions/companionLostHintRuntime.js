@@ -1,3 +1,50 @@
+export function resolveWaterGunCompanionLostHint({
+  activeQuestId,
+  activeMoveId = null,
+  flags = {},
+  playerHasWaterGun = false,
+  bulbasaurPosition = null,
+  squirtlePosition = null,
+  restoreTargetCount,
+  squirtleHintText,
+  bulbasaurHintText
+} = {}) {
+  const restoredGrassCount = Number(flags.restoredGrassCount || 0);
+  const activeDryGrassQuest = activeQuestId === "water-dry-grass";
+  const activeBulbasaurDryGrassRequest =
+    flags.bulbasaurDryGrassMissionAccepted &&
+    !flags.bulbasaurDryGrassMissionComplete &&
+    restoredGrassCount < restoreTargetCount;
+  const needsWaterGun =
+    playerHasWaterGun &&
+    (
+      activeDryGrassQuest ||
+      activeBulbasaurDryGrassRequest
+    );
+
+  if (!needsWaterGun) {
+    return null;
+  }
+
+  if (activeMoveId === "leafage" && Array.isArray(bulbasaurPosition)) {
+    return {
+      key: "bulbasaur-switch-to-squirtle",
+      text: bulbasaurHintText,
+      worldPosition: bulbasaurPosition
+    };
+  }
+
+  if (!Array.isArray(squirtlePosition)) {
+    return null;
+  }
+
+  return {
+    key: "squirtle-use-water-gun",
+    text: squirtleHintText,
+    worldPosition: squirtlePosition
+  };
+}
+
 export function createCompanionLostHintRuntime({
   initialDelayMs,
   repeatMs,
