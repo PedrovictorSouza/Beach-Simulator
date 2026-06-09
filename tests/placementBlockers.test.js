@@ -9,10 +9,12 @@ import {
 import {
   formatBuildBlockDebugLines,
   resolveBuildBlockPreviewValidity,
-  resolveConstructionDisplacementPosition,
-  resolveTimburrBuildBlockApproachPosition,
   shouldTimburrBuildBlockCastFromBlockedApproach
 } from "../app/runtime/gameLoop.js";
+import {
+  resolveConstructionDisplacementPosition,
+  resolveTimburrBuildBlockApproachPosition
+} from "../app/runtime/fieldMoveRuntime/buildBlockRuntime.js";
 
 describe("placement blockers", () => {
   it("keeps player constructions in the placement blocker list", () => {

@@ -248,6 +248,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move foundation build-zone candidate origins into the
   `construction` boundary.
+- Completed: move Build Block approach/displacement positions into the
+  `fieldMoveRuntime` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1742,6 +1744,63 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Build Block Approach Runtime Boundary
+
+Moved Build Block approach and construction displacement position resolution
+from `app/runtime/gameLoop.js` into
+`app/runtime/fieldMoveRuntime/buildBlockRuntime.js`.
+
+Boundary classification: `fieldMoveRuntime`, focused on Builder Bot Build Block
+approach positions and player displacement away from newly placed blocks.
+
+Study path:
+
+1. `resolveTimburrBuildBlockApproachPosition(...)` owns candidate approach
+   ordering and blocked-candidate fallback for Builder Bot.
+2. `resolveConstructionDisplacementPosition(...)` owns candidate positions used
+   to move the player out of a newly placed construction target.
+3. `gameLoop.js` imports these functions for existing runtime flow and
+   re-exports them to preserve the public API currently used by tests.
+4. Build Block action state, impact timing, placement result handling and HUD
+   notices remain in `gameLoop.js`.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10318` to `10208`.
+- Removed Build Block direction normalization and candidate-position generation
+  from `gameLoop.js`.
+- Kept `TIMBURR_BUILD_BLOCK_STAND_DISTANCE` inside the field-move runtime
+  boundary through `fieldMoveTuning.js`.
+- Reused existing placement blocker tests by moving the pure position imports to
+  `buildBlockRuntime.js`.
+
+Validation:
+
+```sh
+npm test -- --run tests/placementBlockers.test.js
+npm test -- --run tests/placementBlockers.test.js tests/fieldMoveApproachPositions.test.js tests/fieldMoveActorPositions.test.js tests/fieldMoveBillboards.test.js tests/freeBlockBuildSystem.test.js
+git diff --check
+npm run build
+```
+
+The focused placement/field-move suite passed with `62` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1596` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
