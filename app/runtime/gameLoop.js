@@ -120,6 +120,7 @@ import {
   getRunBreadcrumbWorldPromptText
 } from "./presentation/worldPromptCopy.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
+import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
   getRepairBoxRevealParticleTarget,
@@ -8291,35 +8292,6 @@ export function startGameLoop({
     }
   }
 
-  function updateFrameStatusPopups(nextFrame, {
-    nearbyDryGrassHintTarget,
-    gameplayOpeningCameraLocked,
-    cinematicActive,
-    tutorialActive,
-    pokedexModalOpen
-  }) {
-    if (nearbyDryGrassHintTarget && session.playerCharacter) {
-      nextFrame.dryGrassHint.visible = true;
-      nextFrame.dryGrassHint.targetId = nearbyDryGrassHintTarget.targetId;
-      nextFrame.dryGrassHint.worldPosition =
-        nearbyDryGrassHintTarget.worldPosition || session.playerCharacter.getPosition();
-    }
-
-    const questCompletionPop = gameplay.getQuestCompletionPop?.();
-    if (
-      questCompletionPop?.text &&
-      session.playerCharacter &&
-      !gameplayOpeningCameraLocked &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen
-    ) {
-      nextFrame.taskPop.visible = true;
-      nextFrame.taskPop.text = questCompletionPop.text;
-      nextFrame.taskPop.worldPosition = session.playerCharacter.getPosition();
-    }
-  }
-
   function updateBaseRenderSnapshotFrame(nextFrame, {
     now,
     deltaTime,
@@ -10631,8 +10603,11 @@ if (canProcessDestroyAction && destroyActionRequested) {
       fieldToolTargetPulseFrame
     });
 
-    updateFrameStatusPopups(nextFrame, {
+    updateStatusPopupsFrame(nextFrame, {
       nearbyDryGrassHintTarget,
+      questCompletionPop: gameplay.getQuestCompletionPop?.(),
+      hasPlayerCharacter: Boolean(session.playerCharacter),
+      getPlayerPosition: () => session.playerCharacter.getPosition(),
       gameplayOpeningCameraLocked,
       cinematicActive,
       tutorialActive,

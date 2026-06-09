@@ -218,6 +218,7 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move supply counter prompt handling into the `presentation`
   boundary.
+- Completed: move status popup frame writes into the `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1663,6 +1664,55 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Status Popup Frame Boundary
+
+Moved dry-grass hint and quest completion task-pop snapshot writes from
+`app/runtime/gameLoop.js` into the `presentation` boundary at
+`app/runtime/presentation/statusPopupsFrame.js`.
+
+Study path:
+
+1. `updateStatusPopupsFrame(...)` owns writing `nextFrame.dryGrassHint` from a
+   resolved nearby dry-grass target.
+2. The helper owns the existing task-pop blocker checks for opening camera,
+   cinematic, tutorial and Pokedex modal states.
+3. `gameLoop.js` still owns reading gameplay state, resolving the dry-grass
+   hint target and providing player position through an explicit callback.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11376` to `11351`.
+- Removed the local `updateFrameStatusPopups(...)` helper from `gameLoop.js`.
+- Added focused tests for dry-grass hint world-position behavior and task-pop
+  blocker behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/statusPopupsFrame.test.js
+npm test -- --run tests/statusPopupsFrame.test.js tests/frameSnapshotController.test.js tests/worldSpeechController.test.js
+git diff --check
+npm run build
+```
+
+The focused status popup suite passed with `16` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1541` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
