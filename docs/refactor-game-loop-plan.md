@@ -194,10 +194,75 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move camera debug modules into the `camera` boundary.
 - Completed: move foundation build zone camera focus runtime into the `camera`
   boundary.
+- Completed: move camera zoom preset controller into the `camera` boundary.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Camera Zoom Preset Boundary Move
+
+Moved `createCameraZoomPresetController()` from root-level `app/runtime` into
+`app/runtime/camera/`.
+
+Boundary classification: `camera runtime/debug`.
+
+Study path:
+
+1. `createCameraZoomPresetController(...)` still owns only preset index state
+   and applying the selected zoom/distance to the camera.
+2. `gameLoop.js` still creates the controller and calls it from the same places.
+3. The controller implementation was moved without logic changes.
+4. `frame(now)` was not changed.
+
+This cut reduces root-level `app/runtime` sprawl and keeps camera zoom policy
+beside the other camera runtime modules. It does not change zoom values,
+distance values, camera order, input, placement, field moves, audio, render
+output or frame order.
+
+TDD:
+
+- Red: `npm test -- --run tests/cameraZoomPresetController.test.js` failed
+  while the test imported from `app/runtime/camera/` and the module still lived
+  at the old root-level path.
+- Green: the focused test passed after moving the controller into
+  `app/runtime/camera/` and updating the `gameLoop.js` import.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/cameraZoomPresetController.test.js
+npm test -- --run tests/cameraZoomPresetController.test.js tests/camera.test.js tests/gameplayCameraDirector.test.js tests/dialogueCameraController.test.js tests/foundationBuildZoneCameraFocusRuntime.test.js tests/cameraDebugRuntime.test.js tests/cameraDebugFrameState.test.js tests/gameLoopFrameRuntime.test.js tests/gameLoopFramePolicies.test.js
+```
+
+Focused tests passed:
+
+- `1` file / `1` test for direct camera zoom preset coverage.
+- `9` files / `37` tests for adjacent camera/frame coverage.
+
+Blocked validation:
+
+- `npm run build` failed before this cut's moved module became relevant because
+  the dirty external change in `app/session/configurePlayerSpawner.js` imports
+  missing `./playerMovementTuning.js`.
+- `npm test` completed with import-resolution failures from the same dirty
+  external change plus the known Leafage Native Tree baseline failures.
+
+Failure classification:
+
+- Dirty external import problem:
+  `app/session/configurePlayerSpawner.js` imports
+  `./playerMovementTuning.js`, while the untracked file currently exists at
+  `app/runtime/movement/playerMovementTuning.js`.
+- `3` known Leafage Native Tree baseline failures in
+  `tests/gameplayInteractions.test.js`.
+
+Dirty files intentionally left outside this cut:
+
+- `app/runtime/companions/companionFollowMotion.js`
+- `app/session/configurePlayerSpawner.js`
+- `app/runtime/movement/playerMovementTuning.js`
 
 ### Foundation Build Zone Camera Focus Boundary Move
 

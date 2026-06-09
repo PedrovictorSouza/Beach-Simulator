@@ -58,7 +58,7 @@ flowchart TD
   n_app_runtime_bagUiRuntime_js["app/runtime/bagUiRuntime.js"]
   n_app_runtime_botAttentionFacing_js["app/runtime/botAttentionFacing.js"]
   n_app_runtime_cameraOrbitController_js["app/runtime/cameraOrbitController.js"]
-  n_app_runtime_cameraZoomPresetController_js["app/runtime/cameraZoomPresetController.js"]
+  n_app_runtime_camera_cameraZoomPresetController_js["app/runtime/camera/cameraZoomPresetController.js"]
   n_app_runtime_contextualPromptNotice_js["app/runtime/contextualPromptNotice.js"]
   n_app_runtime_createEngineRuntime_js["app/runtime/createEngineRuntime.js"]
   n_app_runtime_createUiRuntime_js["app/runtime/createUiRuntime.js"]
@@ -340,7 +340,7 @@ flowchart TD
   n_app_runtime_gameLoop_js --> n_app_gameplay_placementPreviewVisual_js
   n_app_runtime_gameLoop_js --> n_app_rendering_psxDistanceFogConfig_js
   n_app_runtime_gameLoop_js --> n_app_runtime_botAttentionFacing_js
-  n_app_runtime_gameLoop_js --> n_app_runtime_cameraZoomPresetController_js
+  n_app_runtime_gameLoop_js --> n_app_runtime_camera_cameraZoomPresetController_js
   n_app_runtime_gameLoop_js --> n_app_runtime_contextualPromptNotice_js
   n_app_runtime_gameLoop_js --> n_app_runtime_frameSnapshotController_js
   n_app_runtime_gameLoop_js --> n_app_runtime_gameplayCameraDirector_js
@@ -708,7 +708,7 @@ flowchart TD
 - `app/runtime/gameLoop.js -> app/gameplay/placementPreviewVisual.js` (static)
 - `app/runtime/gameLoop.js -> app/rendering/psxDistanceFogConfig.js` (static)
 - `app/runtime/gameLoop.js -> app/runtime/botAttentionFacing.js` (static)
-- `app/runtime/gameLoop.js -> app/runtime/cameraZoomPresetController.js` (static)
+- `app/runtime/gameLoop.js -> app/runtime/camera/cameraZoomPresetController.js` (static)
 - `app/runtime/gameLoop.js -> app/runtime/contextualPromptNotice.js` (static)
 - `app/runtime/gameLoop.js -> app/runtime/frameSnapshotController.js` (static)
 - `app/runtime/gameLoop.js -> app/runtime/gameplayCameraDirector.js` (static)
