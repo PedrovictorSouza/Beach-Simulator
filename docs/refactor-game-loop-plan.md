@@ -1598,6 +1598,66 @@ baseline:
 Manual gameplay validation remains pending because the in-app browser backend
 was not available during this pass.
 
+### Player Model Motion Domain Boundary
+
+Moved player visual model motion from `app/runtime/gameLoop.js` into the
+`player` domain at `app/player/playerModelMotion.js`.
+
+Study path:
+
+1. `startGameLoop()` still owns composition and creates
+   `createPlayerModelRuntime(...)` with explicit dependencies:
+   `moveValueToward`, `rotateAngleToward` and the existing jump sound trigger.
+2. `gameLoop.js` now calls only:
+   - `playerModelRuntime.startJumpFlip(session)` when the player jump starts.
+   - `playerModelRuntime.sync(session, deltaTime, movementDelta)` when the
+     player model needs visual sync.
+3. The `player` module now owns the player model tuning, walk-cycle advance,
+   body bob, jump-flip roll, model yaw, leg sync and arm sync.
+4. `app/runtime/playerModelMotion.js` remains as a compatibility re-export so
+   existing external imports keep working while new code imports from
+   `app/player/playerModelMotion.js`.
+5. `frame(now)` order is unchanged; only the implementation behind the existing
+   sync call moved.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `12403` to `12192`.
+- Removed the local player visual sync helper block and player model constants
+  from `gameLoop.js`.
+- Created a game-domain boundary instead of another loose runtime helper.
+
+Tests:
+
+- `tests/playerModelMotion.test.js` now imports from the `player` domain.
+- Added coverage for `createPlayerModelRuntime(...)` syncing body, limbs, walk
+  cycle and jump roll from session state.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerModelMotion.test.js
+git diff --check
+npm test -- --run tests/playerModelMotion.test.js tests/modelFacing.test.js tests/characterFactory.test.js tests/playerDustParticles.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
 ### Chopper Attention Cue Runtime Preparation
 
 Added `chopperAttentionCueRuntime.js` as an isolated, tested scheduler core. It

@@ -3,12 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import {
   advancePlayerJumpFlipRoll,
   advancePlayerWalkCycle,
+  createPlayerModelRuntime,
   getPlayerModelYawFromMovement,
   getPlayerWalkArmBackOffset,
   getPlayerWalkBodyLift,
   getPlayerWalkFootRoll,
   getPlayerWalkLegArcOffset
-} from "../app/runtime/playerModelMotion.js";
+} from "../app/player/playerModelMotion.js";
 
 describe("player model motion", () => {
   it("resolves model yaw from movement delta and face offset", () => {
@@ -147,5 +148,47 @@ describe("player model motion", () => {
       elapsed: 0.5,
       roll: 0
     });
+  });
+
+  it("syncs player body, limbs, walk cycle and jump roll from session state", () => {
+    const rotateAngleToward = vi.fn((fromAngle, toAngle) => toAngle);
+    const runtime = createPlayerModelRuntime({ rotateAngleToward });
+    const playerModelInstance = { yaw: 0 };
+    const leftLeg = {};
+    const rightLeg = {};
+    const leftArm = {};
+    const rightArm = {};
+    const session = {
+      playerCharacter: {
+        getPosition: () => [1, 0.25, 2]
+      },
+      playerModelInstance,
+      playerLegModelInstances: {
+        left: leftLeg,
+        right: rightLeg
+      },
+      playerArmModelInstances: {
+        left: leftArm,
+        right: rightArm
+      },
+      playerWalkLegSpeed: 0,
+      playerWalkLegPhase: 0,
+      playerJumpFlipElapsed: 0
+    };
+
+    runtime.sync(session, 0.1, [1, 0]);
+
+    expect(playerModelInstance.active).toBe(true);
+    expect(playerModelInstance.scale).toBe(0.75);
+    expect(playerModelInstance.offset[0]).toBe(1);
+    expect(playerModelInstance.offset[2]).toBe(2);
+    expect(playerModelInstance.roll).toBeCloseTo(-(Math.PI * 2) * (0.1 / 0.58));
+    expect(session.playerWalkLegSpeed).toBeCloseTo(8.8);
+    expect(session.playerWalkLegPhase).toBeCloseTo(0.88);
+    expect(rotateAngleToward).toHaveBeenCalledWith(0, 0, 1.4000000000000001);
+    expect(leftLeg.active).toBe(true);
+    expect(rightLeg.active).toBe(true);
+    expect(leftArm.active).toBe(true);
+    expect(rightArm.active).toBe(true);
   });
 });

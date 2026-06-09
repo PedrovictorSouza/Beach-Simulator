@@ -69,15 +69,7 @@ import {
 } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { getMissionTargetPositions } from "./missionTargetPositions.js";
-import {
-  advancePlayerJumpFlipRoll,
-  advancePlayerWalkCycle,
-  getPlayerModelYawFromMovement as getPlayerModelYawFromMovementWithConfig,
-  getPlayerWalkArmBackOffset as getPlayerWalkArmBackOffsetWithConfig,
-  getPlayerWalkBodyLift as getPlayerWalkBodyLiftWithConfig,
-  getPlayerWalkFootRoll as getPlayerWalkFootRollWithConfig,
-  getPlayerWalkLegArcOffset as getPlayerWalkLegArcOffsetWithConfig
-} from "./playerModelMotion.js";
+import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
@@ -622,21 +614,6 @@ const REPAIR_BOX_INACTIVE_ALPHA = 0.5;
 const ROBOT_IDLE_PATROL_SPEED = 0.82;
 const ROBOT_IDLE_PATROL_PAUSE_DURATION = 0.75;
 const ROBOT_IDLE_PATROL_ARRIVE_DISTANCE = 0.08;
-const PLAYER_MODEL_SCALE = 0.75;
-const PLAYER_MODEL_FACE_YAW_OFFSET = 0;
-const PLAYER_MODEL_TURN_SPEED = 14;
-const PLAYER_WALK_LEG_CYCLE_SPEED = 25;
-const PLAYER_WALK_LEG_ACCELERATION = 88;
-const PLAYER_WALK_LEG_DECELERATION = 38;
-const PLAYER_WALK_FOOT_KICK_STRIDE = 0.28;
-const PLAYER_WALK_FOOT_KICK_LIFT = 0.2;
-const PLAYER_WALK_FOOT_PENDULUM_ROLL = 0.42;
-const PLAYER_WALK_ARM_BACK_OFFSET = 0.17;
-const PLAYER_WALK_ARM_LIFT = 0.045;
-const PLAYER_WALK_ARM_BACK_PITCH = -0.16;
-const PLAYER_WALK_BODY_BOB = 0.075;
-const PLAYER_JUMP_FLIP_DURATION = 0.58;
-const PLAYER_JUMP_FLIP_ROTATION = Math.PI * 2;
 const GRASS_OBJECT_COLLISION_ALPHA = 0.5;
 const GRASS_OBJECT_COLLISION_BASE_RADIUS = 0.58;
 const NATURE_PATCH_GRASS_MODEL_LOD_DISTANCE = 28;
@@ -1952,6 +1929,11 @@ export function startGameLoop({
   const playSoundEvent = (eventId, options) => {
     gameplay?.playSoundEvent?.(eventId, options);
   };
+  const playerModelRuntime = createPlayerModelRuntime({
+    moveValueToward,
+    rotateAngleToward,
+    playJumpSound: () => playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_JUMP)
+  });
 
   const audio = createGameplayAudioRuntime({
     getSfxVolumeScale,
@@ -4199,199 +4181,6 @@ export function startGameLoop({
     }
   }
 
-  function getPlayerModelYawFromMovement(deltaX, deltaZ) {
-    return getPlayerModelYawFromMovementWithConfig({
-      deltaX,
-      deltaZ,
-      modelFaceYawOffset: PLAYER_MODEL_FACE_YAW_OFFSET
-    });
-  }
-
-  function getPlayerWalkLegArcOffset(yaw, phase, blend) {
-    return getPlayerWalkLegArcOffsetWithConfig({
-      yaw,
-      phase,
-      blend,
-      footKickStride: PLAYER_WALK_FOOT_KICK_STRIDE,
-      footKickLift: PLAYER_WALK_FOOT_KICK_LIFT
-    });
-  }
-
-  function updatePlayerWalkCycle(deltaTime, isWalking) {
-    const nextCycle = advancePlayerWalkCycle({
-      currentSpeed: session.playerWalkLegSpeed,
-      currentPhase: session.playerWalkLegPhase,
-      deltaTime,
-      isWalking,
-      cycleSpeed: PLAYER_WALK_LEG_CYCLE_SPEED,
-      acceleration: PLAYER_WALK_LEG_ACCELERATION,
-      deceleration: PLAYER_WALK_LEG_DECELERATION,
-      moveValueToward
-    });
-
-    session.playerWalkLegSpeed = nextCycle.speed;
-    session.playerWalkLegPhase = nextCycle.phase;
-    return nextCycle.blend;
-  }
-
-  function getPlayerWalkBodyLift(phase, blend) {
-    return getPlayerWalkBodyLiftWithConfig({
-      phase,
-      blend,
-      bodyBob: PLAYER_WALK_BODY_BOB
-    });
-  }
-
-  function startPlayerJumpFlip() {
-    session.playerJumpFlipElapsed = 0;
-    playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_JUMP);
-  }
-
-  function updatePlayerJumpFlipRoll(deltaTime) {
-    const nextJumpFlip = advancePlayerJumpFlipRoll({
-      elapsed: Number(session.playerJumpFlipElapsed),
-      deltaTime,
-      duration: PLAYER_JUMP_FLIP_DURATION,
-      rotation: PLAYER_JUMP_FLIP_ROTATION
-    });
-
-    session.playerJumpFlipElapsed = nextJumpFlip.elapsed;
-    return nextJumpFlip.roll;
-  }
-
-  function getPlayerWalkFootRoll(phase, blend) {
-    return getPlayerWalkFootRollWithConfig({
-      phase,
-      blend,
-      footPendulumRoll: PLAYER_WALK_FOOT_PENDULUM_ROLL
-    });
-  }
-
-  function getPlayerWalkArmBackOffset(yaw, blend) {
-    return getPlayerWalkArmBackOffsetWithConfig({
-      yaw,
-      blend,
-      armBackOffset: PLAYER_WALK_ARM_BACK_OFFSET,
-      armLift: PLAYER_WALK_ARM_LIFT
-    });
-  }
-
-  function syncPlayerLegInstance(instance, basePosition, baseInstance, offset, roll = 0) {
-    if (!instance) {
-      return;
-    }
-
-    instance.offset = [
-      basePosition[0] + offset[0],
-      basePosition[1] + offset[1],
-      basePosition[2] + offset[2]
-    ];
-    instance.scale = baseInstance.scale;
-    instance.yaw = baseInstance.yaw || 0;
-    instance.pitch = baseInstance.pitch || 0;
-    instance.roll = (baseInstance.roll || 0) + roll;
-    instance.active = baseInstance.active;
-  }
-
-  function syncPlayerLegModelInstances(basePosition, walkBlend) {
-    const legInstances = session.playerLegModelInstances;
-
-    if (!legInstances?.left || !legInstances?.right) {
-      return;
-    }
-
-    const visualYaw = (session.playerModelInstance.yaw || 0) - PLAYER_MODEL_FACE_YAW_OFFSET;
-    const phase = Number(session.playerWalkLegPhase) || 0;
-
-    syncPlayerLegInstance(
-      legInstances.left,
-      basePosition,
-      session.playerModelInstance,
-      getPlayerWalkLegArcOffset(visualYaw, phase, walkBlend),
-      getPlayerWalkFootRoll(phase, walkBlend)
-    );
-    syncPlayerLegInstance(
-      legInstances.right,
-      basePosition,
-      session.playerModelInstance,
-      getPlayerWalkLegArcOffset(visualYaw, phase + Math.PI, walkBlend),
-      getPlayerWalkFootRoll(phase + Math.PI, walkBlend)
-    );
-  }
-
-  function syncPlayerArmInstance(instance, baseInstance, offset, pitch = 0) {
-    if (!instance) {
-      return;
-    }
-
-    const basePosition = baseInstance.offset || [0, 0, 0];
-    instance.offset = [
-      basePosition[0] + offset[0],
-      basePosition[1] + offset[1],
-      basePosition[2] + offset[2]
-    ];
-    instance.scale = baseInstance.scale;
-    instance.yaw = baseInstance.yaw || 0;
-    instance.pitch = (baseInstance.pitch || 0) + pitch;
-    instance.roll = baseInstance.roll || 0;
-    instance.active = baseInstance.active;
-  }
-
-  function syncPlayerArmModelInstances(walkBlend) {
-    const armInstances = session.playerArmModelInstances;
-
-    if (!armInstances?.left || !armInstances?.right) {
-      return;
-    }
-
-    const visualYaw = (session.playerModelInstance.yaw || 0) - PLAYER_MODEL_FACE_YAW_OFFSET;
-    const offset = getPlayerWalkArmBackOffset(visualYaw, walkBlend);
-    const pitch = PLAYER_WALK_ARM_BACK_PITCH * walkBlend;
-
-    syncPlayerArmInstance(armInstances.left, session.playerModelInstance, offset, pitch);
-    syncPlayerArmInstance(armInstances.right, session.playerModelInstance, offset, pitch);
-  }
-
-  function syncPlayerModelInstance(deltaTime, movementDelta = null) {
-    if (!session.playerModelInstance || !session.playerCharacter) {
-      return;
-    }
-
-    const playerPosition = session.playerCharacter.getPosition();
-    const movementDistance = movementDelta ?
-      Math.hypot(movementDelta[0], movementDelta[1]) :
-      0;
-    const isWalking = movementDistance > 0.0005;
-    const walkBlend = updatePlayerWalkCycle(deltaTime, isWalking);
-    const bodyLift = getPlayerWalkBodyLift(
-      Number(session.playerWalkLegPhase) || 0,
-      walkBlend
-    );
-
-    session.playerModelInstance.offset = [
-      playerPosition[0],
-      playerPosition[1] + bodyLift,
-      playerPosition[2]
-    ];
-    session.playerModelInstance.scale = PLAYER_MODEL_SCALE;
-    session.playerModelInstance.pitch = 0;
-    session.playerModelInstance.roll = updatePlayerJumpFlipRoll(deltaTime);
-
-    if (isWalking) {
-      const [deltaX, deltaZ] = movementDelta;
-      const targetYaw = getPlayerModelYawFromMovement(deltaX, deltaZ);
-      session.playerModelInstance.yaw = rotateAngleToward(
-        session.playerModelInstance.yaw || 0,
-        targetYaw,
-        PLAYER_MODEL_TURN_SPEED * deltaTime
-      );
-    }
-
-    session.playerModelInstance.active = true;
-    syncPlayerLegModelInstances(playerPosition, walkBlend);
-    syncPlayerArmModelInstances(walkBlend);
-  }
-
   function createPrimitiveModel(model, primitive) {
     return {
       ...model,
@@ -5220,7 +5009,7 @@ export function startGameLoop({
     }
 
     session.playerCharacter.setPosition(nextPlayerPosition);
-    syncPlayerModelInstance(0);
+    playerModelRuntime.sync(session, 0);
     return nextPlayerPosition;
   }
 
@@ -9066,7 +8855,7 @@ export function startGameLoop({
       const previousPlayerPosition = session.playerCharacter.getPosition();
       session.playerCharacter.update(deltaTime);
       if (session.playerCharacter.consumeJumpStarted?.()) {
-        startPlayerJumpFlip();
+        playerModelRuntime.startJumpFlip(session);
       }
       const nextPlayerPosition = session.playerCharacter.getPosition();
       const movedDistance = Math.hypot(
@@ -9087,7 +8876,7 @@ export function startGameLoop({
         nextPlayerPosition[0] - previousPlayerPosition[0],
         nextPlayerPosition[2] - previousPlayerPosition[2]
       );
-      syncPlayerModelInstance(deltaTime, [
+      playerModelRuntime.sync(session, deltaTime, [
         nextPlayerPosition[0] - previousPlayerPosition[0],
         nextPlayerPosition[2] - previousPlayerPosition[2]
       ]);
@@ -9110,7 +8899,7 @@ export function startGameLoop({
         })
       });
     } else {
-      syncPlayerModelInstance(deltaTime);
+      playerModelRuntime.sync(session, deltaTime);
     }
 
     updatePlayerDustParticles(session.playerDust, {
