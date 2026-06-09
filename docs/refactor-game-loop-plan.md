@@ -1651,6 +1651,61 @@ The full suite completed with the existing Leafage Native Tree baseline:
 
 Manual gameplay validation remains pending in this pass.
 
+### Construction Placement Spawn Effect Boundary
+
+Moved player placement spawn visuals from `app/runtime/gameLoop.js` into the
+`construction` boundary at
+`app/runtime/construction/playerPlacementSpawnEffect.js`.
+
+Study path:
+
+1. `updateSolarStationSpawnEffect(...)` now receives the model instance
+   explicitly and owns the same scale, alpha, y-offset and tint easing.
+2. `advancePlayerPlacementSpawnEffect(...)` owns spawn-effect elapsed/progress
+   advancement and clears `placement.spawnEffect` at completion.
+3. `applyPlayerPlacementSpawnToBillboard(...)` and
+   `applyPlayerPlacementSpawnToModelInstance(...)` own visual application for
+   billboards and model instances.
+4. `gameLoop.js` still decides when construction models/billboards are prepared
+   and keeps render order unchanged.
+5. No gameplay placement rule, placement contract, placement validation or
+   tuning value changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `12161` to `12061`.
+- Removed the local placement spawn-effect implementation block from
+  `gameLoop.js`.
+- Added focused tests for spawn pose advancement, billboard application, model
+  application and solar-station spawn completion.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerPlacementSpawnEffect.test.js
+git diff --check
+npm test -- --run tests/playerPlacementSpawnEffect.test.js tests/worldObjectPlacementPreview.test.js tests/worldObjectPlacementFeedback.test.js tests/placementPreviewVisual.test.js
+npm run build
+```
+
+The focused suite passed with `17` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1496` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
 ### Chopper Attention Cue Companion Boundary
 
 Moved Chopper's attention-cue runtime from the loose
