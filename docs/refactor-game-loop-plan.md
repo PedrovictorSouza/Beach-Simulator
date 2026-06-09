@@ -190,10 +190,73 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the companion follow formation policy.
 - Completed: extract the companion follow membership policy.
 - Completed: move companion follow direction runtime into the `companions` boundary.
+- Completed: move companion lost hint runtime into the `companions` boundary.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Companion Lost Hint Boundary Move
+
+Moved `createCompanionLostHintRuntime()` from
+`app/runtime/companionLostHintRuntime.js` to
+`app/runtime/companions/companionLostHintRuntime.js`.
+
+Boundary classification: `bot/companion motion`.
+
+Study path:
+
+1. The lost-companion hint scheduler now lives in the companion runtime
+   boundary beside follow motion and follow direction.
+2. `gameLoop.js` imports the scheduler through `app/runtime/companions/`.
+3. The scheduler implementation was not changed.
+4. `resolveWaterGunCompanionLostHint(...)` remains local to `gameLoop.js`
+   because it still reads quest and active-move state.
+5. `frame(now)` was not changed.
+
+This cut reduces root-level `app/runtime` sprawl without adding another file.
+It does not change hint timing, repeat timing, hint text, world position update
+behavior, input, camera, placement, field moves, audio, render output or frame
+order.
+
+TDD:
+
+- Red: `npm test -- --run tests/companionLostHintRuntime.test.js` failed while
+  the runtime still lived at the old path.
+- Green: focused companion lost-hint, follow-direction, follow-motion and
+  follow-formation tests passed after moving the runtime into
+  `app/runtime/companions/`.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/companionLostHintRuntime.test.js tests/companionFollowDirectionRuntime.test.js tests/companionFollowMotion.test.js tests/companionFollowFormation.test.js
+npm run build
+curl -sI http://127.0.0.1:5173/
+```
+
+Focused tests passed:
+
+- `4` files
+- `23` tests
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1483` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The remaining failures cover Native Tree growth, safe-cell selection and Wood
+drops. They are outside the companion lost-hint boundary move and were not
+modified.
+
+Manual smoke:
+
+- A Vite server for this project was already listening on
+  `http://127.0.0.1:5173/`.
+- `curl -sI http://127.0.0.1:5173/` returned `HTTP/1.1 200 OK`.
+- The pre-existing dev server was left running because this step did not start
+  it.
 
 ### Companion Follow Direction Boundary Move
 
