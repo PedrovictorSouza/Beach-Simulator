@@ -83,6 +83,13 @@ import {
   resolveSquirtleWaterGunApproachPosition
 } from "./fieldMoveRuntime/fieldMoveApproachPositions.js";
 import {
+  getBulbasaurGrowEmitterPosition as resolveBulbasaurGrowEmitterPosition,
+  getCharmanderMouthPosition as resolveCharmanderMouthPosition,
+  getCharmanderWorldPosition as resolveCharmanderWorldPosition,
+  getSquirtleMouthPosition as resolveSquirtleMouthPosition,
+  getSquirtleWorldPosition as resolveSquirtleWorldPosition
+} from "./fieldMoveRuntime/fieldMoveActorPositions.js";
+import {
   getBulbasaurLeafageBillboards,
   getCharmanderFireBillboards,
   getSquirtleWaterGunBillboards
@@ -6206,49 +6213,36 @@ export function startGameLoop({
   }
 
   function getSquirtleMouthPosition() {
-    const squirtle = session.actTwoSquirtle;
-    const position = squirtle?.position || squirtle?.modelInstance?.offset || [0, 0, 0];
-    const yaw = getSquirtleLogicalFacingYaw();
-
-    return [
-      position[0] + Math.sin(yaw) * 0.34,
-      (position[1] || 0) + 0.66,
-      position[2] + Math.cos(yaw) * 0.34
-    ];
+    return resolveSquirtleMouthPosition({
+      squirtle: session.actTwoSquirtle,
+      yaw: getSquirtleLogicalFacingYaw()
+    });
   }
 
   function getCharmanderMouthPosition() {
-    const charmander = session.charmanderEncounter;
-    const position = charmander?.position || charmander?.modelInstance?.offset || [0, 0, 0];
-    const yaw = getCharmanderLogicalFacingYaw();
-
-    return [
-      position[0] + Math.sin(yaw) * 0.28,
-      (position[1] || 0) + 0.58,
-      position[2] + Math.cos(yaw) * 0.28
-    ];
+    return resolveCharmanderMouthPosition({
+      charmander: session.charmanderEncounter,
+      yaw: getCharmanderLogicalFacingYaw()
+    });
   }
 
   function getBulbasaurGrowEmitterPosition() {
-    const bulbasaur = session.bulbasaurEncounter;
-    const position = bulbasaur?.position || bulbasaur?.modelInstance?.offset || [0, 0, 0];
-    const yaw = getBulbasaurLogicalFacingYaw();
-
-    return [
-      position[0] + Math.sin(yaw) * 0.3,
-      (position[1] || 0) + 0.72,
-      position[2] + Math.cos(yaw) * 0.3
-    ];
+    return resolveBulbasaurGrowEmitterPosition({
+      bulbasaur: session.bulbasaurEncounter,
+      yaw: getBulbasaurLogicalFacingYaw()
+    });
   }
 
   function getSquirtleWorldPosition() {
-    const squirtle = session.actTwoSquirtle;
-    return squirtle?.position || squirtle?.modelInstance?.offset || null;
+    return resolveSquirtleWorldPosition({
+      squirtle: session.actTwoSquirtle
+    });
   }
 
   function getCharmanderWorldPosition() {
-    const charmander = session.charmanderEncounter;
-    return charmander?.position || charmander?.modelInstance?.offset || null;
+    return resolveCharmanderWorldPosition({
+      charmander: session.charmanderEncounter
+    });
   }
 
   function getPeriodicChopperAttentionCue({

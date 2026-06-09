@@ -232,6 +232,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move field-move approach positions into the `fieldMoveRuntime`
   boundary.
+- Completed: move field-move actor/emitter positions into the
+  `fieldMoveRuntime` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1726,6 +1728,59 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Field Move Actor Position Boundary
+
+Moved Water Gun, Fire and Leafage actor mouth/emitter/world-position offset
+math from `app/runtime/gameLoop.js` into
+`app/runtime/fieldMoveRuntime/fieldMoveActorPositions.js`.
+
+Study path:
+
+1. `getSquirtleMouthPosition(...)`, `getCharmanderMouthPosition(...)` and
+   `getBulbasaurGrowEmitterPosition(...)` own the pure forward/height offset
+   math for field-move emitters.
+2. `getSquirtleWorldPosition(...)` and `getCharmanderWorldPosition(...)` own
+   the actor-position/model-offset fallback policy used by status and charging
+   billboards.
+3. `gameLoop.js` still owns `session` lookup, logical facing yaw lookup and the
+   action lifecycle; its local functions are now wrappers that pass explicit
+   actor/yaw inputs into the domain helper.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10819` to `10813`.
+- Removed hardcoded mouth/emitter vector math from `gameLoop.js`.
+- Kept Water Gun, Fire and Leafage render insertion order unchanged.
+- Added focused tests for direct actor position, model-offset fallback, origin
+  fallback and missing-world-position fallback.
+
+Validation:
+
+```sh
+npm test -- --run tests/fieldMoveActorPositions.test.js
+npm test -- --run tests/fieldMoveActorPositions.test.js tests/fieldMoveBillboards.test.js tests/fieldMoveApproachPositions.test.js
+git diff --check
+npm run build
+```
+
+The focused field-move actor-position suite passed with `16` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1565` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
