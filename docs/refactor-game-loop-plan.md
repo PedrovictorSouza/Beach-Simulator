@@ -212,6 +212,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move HUD prompt copy priority into the `presentation` boundary.
 - Completed: move world prompt copy into the `presentation` boundary.
+- Completed: move pending placement intent handling into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1657,6 +1659,57 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1489` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Pending Placement Intent Boundary
+
+Moved pending placement-intent policy from `app/runtime/gameLoop.js` into the
+`construction` boundary at
+`app/runtime/construction/pendingPlacementIntent.js`.
+
+Study path:
+
+1. `getActivePendingPlacementIntent(...)` owns the checks for owned pending
+   placement items, already placed Straw Bed state and the existing House Kit
+   unblock rule after its dependency is satisfied.
+2. `hasPendingWorkbenchPlacementIntent(...)` and
+   `cancelPendingWorkbenchPlacementIntent(...)` own Workbench pending-placement
+   detection and cancellation.
+3. `gameLoop.js` still wires those functions into placement runtime contracts
+   and preserves the previous public exports via re-export.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `11577` to `11547`.
+- Removed pending-placement intent rules from `gameLoop.js`.
+- Added direct construction-domain tests while keeping the older
+  `gameLoop.js` public export path covered.
+
+Validation:
+
+```sh
+npm test -- --run tests/pendingPlacementIntent.test.js
+npm test -- --run tests/pendingPlacementIntent.test.js tests/workbenchRuntime.test.js tests/placementConsumptionContract.test.js
+git diff --check
+npm run build
+```
+
+The focused construction suite passed with `14` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1530` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

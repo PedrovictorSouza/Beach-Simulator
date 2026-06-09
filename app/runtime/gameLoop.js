@@ -32,6 +32,11 @@ import {
 import {
   moveConstructionHelperToLeafDen as moveConstructionHelperToLeafDenWithConfig
 } from "./construction/constructionHelperMotion.js";
+import {
+  cancelPendingWorkbenchPlacementIntent,
+  getActivePendingPlacementIntent,
+  hasPendingWorkbenchPlacementIntent
+} from "./construction/pendingPlacementIntent.js";
 import { resolveFramePlacementPrompts } from "./construction/placementPreviewPrompts.js";
 import {
   applyPlayerPlacementSpawnToBillboard,
@@ -239,6 +244,11 @@ export {
   applyWorkbenchGreenArrowCue,
   shouldShowWorkbenchGreenArrowCue
 } from "./workbenchCueRuntime.js";
+
+export {
+  cancelPendingWorkbenchPlacementIntent,
+  hasPendingWorkbenchPlacementIntent
+} from "./construction/pendingPlacementIntent.js";
 
 import {
   FIELD_MOVE_INVALID_GROUND_CELL_RADIUS_FACTOR,
@@ -984,46 +994,6 @@ function hasFinitePlacementBounds(bounds) {
     Number.isFinite(bounds.minZ) &&
     Number.isFinite(bounds.maxZ)
   );
-}
-
-function getActivePendingPlacementIntent(session, storyState = {}, inventory = {}) {
-  const intent = session?.pendingPlacementIntent || null;
-  if (!intent?.itemId || Number(inventory?.[intent.itemId] || 0) <= 0) {
-    return null;
-  }
-
-  if (intent.itemId === "strawBed" && storyState?.flags?.strawBedPlacedInBulbasaurHabitat) {
-    return null;
-  }
-
-  if (
-    intent.itemId === "leafDenKit" &&
-    intent.blockedReason === "needs-solar-station" &&
-    storyState?.flags?.strawBedPlacedInBulbasaurHabitat &&
-    session?.strawBed?.position
-  ) {
-    return {
-      ...intent,
-      blockedReason: null
-    };
-  }
-
-  return intent;
-}
-
-export function hasPendingWorkbenchPlacementIntent(session) {
-  const intent = session?.pendingPlacementIntent || null;
-  return Boolean(intent?.source === "workbench" && intent.itemId);
-}
-
-export function cancelPendingWorkbenchPlacementIntent(session) {
-  if (!hasPendingWorkbenchPlacementIntent(session)) {
-    return null;
-  }
-
-  const intent = session.pendingPlacementIntent;
-  session.pendingPlacementIntent = null;
-  return intent;
 }
 
 function isDryGrassHydroMissionActive(activeQuest, storyState = {}, playerSkills = {}) {
