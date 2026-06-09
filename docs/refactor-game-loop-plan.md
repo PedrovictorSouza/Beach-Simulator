@@ -250,6 +250,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move Build Block approach/displacement positions into the
   `fieldMoveRuntime` boundary.
+- Completed: move Build Block placement notices and cost marker formatting
+  into the `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1744,6 +1746,60 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Build Block Placement Prompt Boundary
+
+Moved Build Block placement notices and free-block cost marker formatting from
+`app/runtime/gameLoop.js` into
+`app/runtime/construction/placementPreviewPrompts.js`.
+
+Boundary classification: `construction`, focused on placement prompt copy and
+small HUD marker payloads for Build Block.
+
+Study path:
+
+1. `getFreeBlockInvalidPlacementNotice(...)` owns invalid placement notice copy.
+2. `getFreeBlockPlacementNotice(...)` owns success, wall-success and missing
+   material notice copy.
+3. `formatFreeBlockCostNumber(...)` and `buildFreeBlockBuildCostMarker(...)`
+   own the free-block material marker payload.
+4. `gameLoop.js` still owns live controller lookup and inventory access before
+   calling the pure marker builder.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10208` to `10161`.
+- Removed Build Block notice-copy branching and cost formatting from
+  `gameLoop.js`.
+- Kept no new file; extended the existing `construction` prompt module.
+- Added focused tests for placement notice copy and free-block cost markers.
+
+Validation:
+
+```sh
+npm test -- --run tests/placementPreviewPrompts.test.js
+npm test -- --run tests/placementPreviewPrompts.test.js tests/placementBlockers.test.js tests/freeBlockBuildSystem.test.js
+git diff --check
+npm run build
+```
+
+The focused construction prompt/build suite passed with `52` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1598` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
