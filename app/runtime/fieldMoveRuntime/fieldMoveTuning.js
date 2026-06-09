@@ -1,8 +1,8 @@
 // app/runtime/fieldMoveRuntime/fieldMoveTuning.js
 
-import { ACT_TWO_PLAYER_SPEED } from "../../session/configurePlayerSpawner.js";
+import { PLAYER_SPEED } from "../../session/configurePlayerSpawner.js";
 
-export const TIMBURR_BUILD_BLOCK_SPEED = ACT_TWO_PLAYER_SPEED;
+export const TIMBURR_BUILD_BLOCK_SPEED = PLAYER_SPEED;
 export const TIMBURR_BUILD_BLOCK_STAND_DISTANCE = 1.04;
 export const TIMBURR_BUILD_BLOCK_ARRIVE_DISTANCE = 0.08;
 export const TIMBURR_BUILD_BLOCK_CAST_DURATION = 0.42;

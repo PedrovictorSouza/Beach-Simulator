@@ -1,2 +1,0 @@
-export const ACT_TWO_PLAYER_SPEED = 5.1;
-export const ACT_TWO_PLAYER_RUN_SPEED_MULTIPLIER = 1.55 * 1.2;

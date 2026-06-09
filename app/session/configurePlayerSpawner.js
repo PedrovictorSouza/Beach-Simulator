@@ -25,11 +25,13 @@ import { createPlayerConstructionTerrainColliders } from "../gameplay/placementB
 
 import {
   ACT_TWO_PLAYER_SPEED,
+  PLAYER_SPEED,
   ACT_TWO_PLAYER_RUN_SPEED_MULTIPLIER
-} from "./playerMovementTuning.js";
+} from "../runtime/movement/playerMovementTuning.js";
 
 export {
   ACT_TWO_PLAYER_SPEED,
+  PLAYER_SPEED,
   ACT_TWO_PLAYER_RUN_SPEED_MULTIPLIER
 };
 
@@ -90,7 +92,7 @@ export function configurePlayerSpawner(
     session.playerCharacter = characterFactory.createCharacter({
       id: "player",
       position,
-      speed: ACT_TWO_PLAYER_SPEED,
+      speed: PLAYER_SPEED,
       runSpeedMultiplier: ACT_TWO_PLAYER_RUN_SPEED_MULTIPLIER,
       worldHeight: 1.55,
       controller: keyboardController,

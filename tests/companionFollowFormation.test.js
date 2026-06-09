@@ -3,7 +3,7 @@ import {
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
 } from "../app/runtime/gameLoop.js";
-import { ACT_TWO_PLAYER_SPEED } from "../app/session/configurePlayerSpawner.js";
+import { PLAYER_SPEED } from "../app/session/configurePlayerSpawner.js";
 
 describe("resolveCompanionFollowDistance", () => {
   it("keeps the companion for the active move closer to the player", () => {
@@ -65,6 +65,6 @@ describe("resolveCompanionFollowDistance", () => {
   });
 
   it("uses the player movement speed for following companions", () => {
-    expect(resolveCompanionFollowSpeed()).toBe(ACT_TWO_PLAYER_SPEED);
+    expect(resolveCompanionFollowSpeed()).toBe(PLAYER_SPEED);
   });
 });

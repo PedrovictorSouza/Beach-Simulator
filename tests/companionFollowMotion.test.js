@@ -6,7 +6,7 @@ import {
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
 } from "../app/runtime/companions/companionFollowMotion.js";
-import { ACT_TWO_PLAYER_SPEED } from "../app/session/configurePlayerSpawner.js";
+import { PLAYER_SPEED } from "../app/session/configurePlayerSpawner.js";
 
 describe("companion follow motion", () => {
   it("keeps the selected field-move companion closest to the player", () => {
@@ -64,7 +64,7 @@ describe("companion follow motion", () => {
   });
 
   it("uses the act-two player speed for follow speed", () => {
-    expect(resolveCompanionFollowSpeed()).toBe(ACT_TWO_PLAYER_SPEED);
+    expect(resolveCompanionFollowSpeed()).toBe(PLAYER_SPEED);
   });
 
   it("puts the active field-move companion first in the follow formation", () => {
