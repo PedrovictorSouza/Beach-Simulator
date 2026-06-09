@@ -238,6 +238,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move Solar Station placement blockers into the `construction`
   boundary.
+- Completed: move world-object placement blockers into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1732,6 +1734,63 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### World Object Placement Blocker Boundary
+
+Moved tree and Leppa Tree placement blocker sizing/assembly from
+`app/runtime/gameLoop.js` into
+`app/runtime/construction/worldObjectPlacementBlockers.js`.
+
+Boundary classification: `construction`, focused on world objects that block
+construction placement and foundation zones.
+
+Study path:
+
+1. `getTreePlacementBlockerSize(...)` owns living/dead tree blocker footprint
+   sizing.
+2. `getLeppaTreePlacementBlockerSize(...)` owns the Leppa Tree default/grid
+   footprint blocker sizing.
+3. `getWorldObjectPlacementBlockers(...)` owns active palm and Leppa Tree
+   blocker assembly.
+4. `gameLoop.js` still owns the tuning constants and `treeFootprint(...)`
+   dependency through a wrapper, so construction/foundation call sites did not
+   change.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10639` to `10605`.
+- Removed tree/Leppa Tree blocker implementation details from `gameLoop.js`.
+- Kept foundation-zone blocker lifecycle and Solar Station placement lifecycle
+  in `gameLoop.js`.
+- Added focused tests for living/dead tree sizing, fallback sizing, Leppa Tree
+  grid sizing and blocker filtering/assembly.
+
+Validation:
+
+```sh
+npm test -- --run tests/worldObjectPlacementBlockers.test.js
+npm test -- --run tests/worldObjectPlacementBlockers.test.js tests/solarStationPlacementBlockers.test.js tests/solarStationPowerRadius.test.js tests/placementBlockers.test.js tests/worldObjectPlacementValidation.test.js tests/worldObjectPlacementPreview.test.js tests/placementPreviewVisual.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/placement suite passed with `42` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1578` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

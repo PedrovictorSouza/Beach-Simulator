@@ -57,6 +57,11 @@ import {
   isSolarStationPlacementBlocked as isSolarStationPlacementBlockedWithConfig
 } from "./construction/solarStationPlacementBlockers.js";
 import {
+  getLeppaTreePlacementBlockerSize as getLeppaTreePlacementBlockerSizeWithConfig,
+  getTreePlacementBlockerSize as getTreePlacementBlockerSizeWithConfig,
+  getWorldObjectPlacementBlockers as getWorldObjectPlacementBlockersWithConfig
+} from "./construction/worldObjectPlacementBlockers.js";
+import {
   getNewlyCollectedDropPositions,
   getNewlyCollectedResourcePositions,
   snapshotAvailableWoodDrops,
@@ -1179,75 +1184,36 @@ function buildPlacedSolarStationPowerRadiusGroundCells(session, storyState) {
 }
 
 function getTreePlacementBlockerSize(treeModel, instance) {
-  const rawFootprint = treeModel && instance ?
-    treeFootprint(treeModel, instance) :
-    0;
-  const isDeadTree = instance?.alive === false;
-  const footprintScale = isDeadTree ?
-    DEAD_TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE :
-    TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE;
-  const minSize = isDeadTree ?
-    DEAD_TREE_PLACEMENT_BLOCKER_MIN_SIZE :
-    TREE_PLACEMENT_BLOCKER_MIN_SIZE;
-  const footprint = Number.isFinite(rawFootprint) && rawFootprint > 0 ?
-    rawFootprint :
-    minSize;
-  const size = Math.max(
-    minSize,
-    footprint * footprintScale
-  );
-
-  return [size, size];
+  return getTreePlacementBlockerSizeWithConfig({
+    treeModel,
+    instance,
+    treeFootprint,
+    treeFootprintScale: TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
+    deadTreeFootprintScale: DEAD_TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
+    treeMinSize: TREE_PLACEMENT_BLOCKER_MIN_SIZE,
+    deadTreeMinSize: DEAD_TREE_PLACEMENT_BLOCKER_MIN_SIZE
+  });
 }
 
 function getLeppaTreePlacementBlockerSize(session) {
-  const footprint = session?.leppaTree?.footprint;
-  const width = Math.max(1, Math.round(Number(footprint?.width) || 1));
-  const height = Math.max(1, Math.round(Number(footprint?.height) || 1));
-  if (width <= 1 && height <= 1) {
-    return LEPPA_TREE_PLACEMENT_BLOCKER_SIZE;
-  }
-
-  const gridStep = Math.max(
-    0.25,
-    Number(session?.buildGridConfig?.cellSize) ||
-      LEPPA_TREE_PLACEMENT_BLOCKER_DEFAULT_CELL_SIZE
-  );
-
-  return [
-    Number((width * gridStep).toFixed(3)),
-    Number((height * gridStep).toFixed(3))
-  ];
+  return getLeppaTreePlacementBlockerSizeWithConfig({
+    session,
+    blockerSize: LEPPA_TREE_PLACEMENT_BLOCKER_SIZE,
+    defaultCellSize: LEPPA_TREE_PLACEMENT_BLOCKER_DEFAULT_CELL_SIZE
+  });
 }
 
 function getWorldObjectPlacementBlockers(session) {
-  const blockers = [];
-
-  if (session?.palmModel && Array.isArray(session.palmInstances)) {
-    for (const instance of session.palmInstances) {
-      if (instance?.active === false || !Array.isArray(instance?.offset)) {
-        continue;
-      }
-
-      blockers.push({
-        id: instance.id ? `tree:${instance.id}` : "tree",
-        kind: "tree",
-        position: instance.offset,
-        size: getTreePlacementBlockerSize(session.palmModel, instance)
-      });
-    }
-  }
-
-  if (Array.isArray(session?.leppaTree?.position)) {
-    blockers.push({
-      id: session.leppaTree.id ? `tree:${session.leppaTree.id}` : "tree:leppa-tree",
-      kind: "tree",
-      position: session.leppaTree.position,
-      size: getLeppaTreePlacementBlockerSize(session)
-    });
-  }
-
-  return blockers;
+  return getWorldObjectPlacementBlockersWithConfig({
+    session,
+    treeFootprint,
+    treeFootprintScale: TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
+    deadTreeFootprintScale: DEAD_TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
+    treeMinSize: TREE_PLACEMENT_BLOCKER_MIN_SIZE,
+    deadTreeMinSize: DEAD_TREE_PLACEMENT_BLOCKER_MIN_SIZE,
+    leppaTreeBlockerSize: LEPPA_TREE_PLACEMENT_BLOCKER_SIZE,
+    leppaTreeDefaultCellSize: LEPPA_TREE_PLACEMENT_BLOCKER_DEFAULT_CELL_SIZE
+  });
 }
 
 function getSolarStationPlacementBlockers(session, storyState) {
