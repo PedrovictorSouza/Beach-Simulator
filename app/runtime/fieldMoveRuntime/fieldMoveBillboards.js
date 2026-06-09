@@ -1,4 +1,14 @@
 import {
+  BULBASAUR_LEAFAGE_ARC_HEIGHT,
+  BULBASAUR_LEAFAGE_BURST_DURATION,
+  BULBASAUR_LEAFAGE_BURST_PARTICLE_COUNT,
+  BULBASAUR_LEAFAGE_BURST_RADIUS,
+  BULBASAUR_LEAFAGE_CAST_DURATION,
+  BULBASAUR_LEAFAGE_IMPACT_TIME,
+  BULBASAUR_LEAFAGE_PARTICLE_COUNT,
+  BULBASAUR_LEAFAGE_PARTICLE_SIZE_MAX,
+  BULBASAUR_LEAFAGE_PARTICLE_SIZE_MIN,
+  BULBASAUR_LEAFAGE_STREAM_WIDTH,
   CHARMANDER_FIRE_ARC_HEIGHT,
   CHARMANDER_FIRE_BURST_DURATION,
   CHARMANDER_FIRE_BURST_PARTICLE_COUNT,
@@ -140,6 +150,98 @@ export function getSquirtleWaterGunBillboards({
           size * (1.45 + splashProgress * 1.85),
           size * (0.48 - splashProgress * 0.18)
         ],
+        uvRect
+      });
+    }
+  }
+
+  return billboards;
+}
+
+export function getBulbasaurLeafageBillboards({
+  action = null,
+  texture = null,
+  uvRect = [0, 0, 1, 1],
+  getEmitterPosition = () => [0, 0, 0]
+} = {}) {
+  if (!action || action.phase !== "cast" || !texture || !Array.isArray(action.targetPosition)) {
+    return [];
+  }
+
+  const castElapsed = Math.max(0, Number(action.castElapsed || 0));
+  const progress = clamp01(castElapsed / BULBASAUR_LEAFAGE_CAST_DURATION);
+  const emitterPosition = getEmitterPosition();
+  const targetPosition = action.targetPosition;
+  const streamDirectionX = targetPosition[0] - emitterPosition[0];
+  const streamDirectionZ = targetPosition[2] - emitterPosition[2];
+  const streamLength = Math.hypot(streamDirectionX, streamDirectionZ) || 1;
+  const sideX = -streamDirectionZ / streamLength;
+  const sideZ = streamDirectionX / streamLength;
+  const billboards = [];
+
+  for (let index = 0; index < BULBASAUR_LEAFAGE_PARTICLE_COUNT; index += 1) {
+    const seed = index + 1;
+    const pathProgress = (progress * 1.48 + index * 0.041) % 1;
+    const lane = ((index % 5) - 2) * BULBASAUR_LEAFAGE_STREAM_WIDTH;
+    const sideWobble = Math.sin(castElapsed * 18 + seed * 1.73) * 0.08;
+    const pathLift = Math.sin(pathProgress * Math.PI) * BULBASAUR_LEAFAGE_ARC_HEIGHT;
+    const baseSize = lerp(
+      BULBASAUR_LEAFAGE_PARTICLE_SIZE_MIN,
+      BULBASAUR_LEAFAGE_PARTICLE_SIZE_MAX,
+      hashUnit(seed + 0.37)
+    );
+    const fadeIn = clamp01(castElapsed / 0.08);
+    const fadeOut = clamp01((BULBASAUR_LEAFAGE_CAST_DURATION - castElapsed) / 0.18);
+
+    billboards.push({
+      texture,
+      position: [
+        emitterPosition[0] +
+          (targetPosition[0] - emitterPosition[0]) * pathProgress +
+          sideX * (lane + sideWobble),
+        emitterPosition[1] +
+          (targetPosition[1] - emitterPosition[1]) * pathProgress +
+          pathLift +
+          (hashUnit(seed + 0.57) - 0.5) * 0.08,
+        emitterPosition[2] +
+          (targetPosition[2] - emitterPosition[2]) * pathProgress +
+          sideZ * (lane + sideWobble)
+      ],
+      size: [
+        baseSize * (0.82 + Math.sin(pathProgress * Math.PI) * 0.62),
+        baseSize * (0.82 + hashUnit(seed + 0.77) * 0.5)
+      ],
+      alpha: fadeIn * fadeOut * (0.72 + hashUnit(seed + 0.91) * 0.28),
+      rotation: castElapsed * (2.8 + hashUnit(seed + 1.11) * 3.2) + seed,
+      uvRect
+    });
+  }
+
+  const burstElapsed = castElapsed - BULBASAUR_LEAFAGE_IMPACT_TIME;
+  if (burstElapsed >= 0) {
+    const burstProgress = clamp01(burstElapsed / BULBASAUR_LEAFAGE_BURST_DURATION);
+    const burstRadius = easeOutCubic(burstProgress) * BULBASAUR_LEAFAGE_BURST_RADIUS;
+    const burstLift = Math.sin(burstProgress * Math.PI) * 0.24;
+    const fade = 1 - burstProgress;
+
+    for (let index = 0; index < BULBASAUR_LEAFAGE_BURST_PARTICLE_COUNT; index += 1) {
+      const angle = index * 2.39996 + progress * 2.6;
+      const radius = burstRadius * (0.32 + (index % 4) * 0.18);
+      const size = 0.18 + (index % 3) * 0.04;
+
+      billboards.push({
+        texture,
+        position: [
+          targetPosition[0] + Math.cos(angle) * radius,
+          targetPosition[1] + 0.1 + burstLift + (index % 2) * 0.018,
+          targetPosition[2] + Math.sin(angle) * radius
+        ],
+        size: [
+          size * (1.1 + burstProgress * 1.35),
+          size * (1.1 + Math.sin(burstProgress * Math.PI) * 0.75)
+        ],
+        alpha: fade * 0.92,
+        rotation: angle + burstProgress * 1.8,
         uvRect
       });
     }

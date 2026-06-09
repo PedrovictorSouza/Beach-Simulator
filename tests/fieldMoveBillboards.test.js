@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  BULBASAUR_LEAFAGE_BURST_PARTICLE_COUNT,
+  BULBASAUR_LEAFAGE_IMPACT_TIME,
+  BULBASAUR_LEAFAGE_PARTICLE_COUNT,
   CHARMANDER_FIRE_BURST_PARTICLE_COUNT,
   CHARMANDER_FIRE_IMPACT_TIME,
   CHARMANDER_FIRE_PARTICLE_COUNT,
@@ -10,6 +13,7 @@ import {
   SQUIRTLE_WATER_GUN_STREAM_WIDTH
 } from "../app/runtime/fieldMoveRuntime/fieldMoveTuning.js";
 import {
+  getBulbasaurLeafageBillboards,
   getCharmanderFireBillboards,
   getSquirtleWaterGunBillboards
 } from "../app/runtime/fieldMoveRuntime/fieldMoveBillboards.js";
@@ -135,6 +139,63 @@ describe("field move billboards", () => {
       texture: null,
       uvRect,
       getMouthPosition: () => [0, 0.58, 0]
+    })).toEqual([]);
+  });
+
+  it("builds Bulbasaur Leafage stream billboards before impact", () => {
+    const [first, ...rest] = getBulbasaurLeafageBillboards({
+      action: {
+        phase: "cast",
+        castElapsed: BULBASAUR_LEAFAGE_IMPACT_TIME - 0.01,
+        targetPosition: [0, 0, 2]
+      },
+      texture: "leaf",
+      uvRect,
+      getEmitterPosition: () => [0, 0.72, 0]
+    });
+
+    expect(rest).toHaveLength(BULBASAUR_LEAFAGE_PARTICLE_COUNT - 1);
+    expect(first.texture).toBe("leaf");
+    expect(first.position).toHaveLength(3);
+    expect(first.size).toHaveLength(2);
+    expect(Number.isFinite(first.alpha)).toBe(true);
+    expect(Number.isFinite(first.rotation)).toBe(true);
+    expect(first.uvRect).toBe(uvRect);
+  });
+
+  it("adds Bulbasaur Leafage burst billboards after impact time", () => {
+    const billboards = getBulbasaurLeafageBillboards({
+      action: {
+        phase: "cast",
+        castElapsed: BULBASAUR_LEAFAGE_IMPACT_TIME,
+        targetPosition: [0, 0, 2]
+      },
+      texture: "leaf",
+      uvRect,
+      getEmitterPosition: () => [0, 0.72, 0]
+    });
+
+    expect(billboards).toHaveLength(
+      BULBASAUR_LEAFAGE_PARTICLE_COUNT + BULBASAUR_LEAFAGE_BURST_PARTICLE_COUNT
+    );
+  });
+
+  it("returns no Bulbasaur Leafage billboards when inactive or missing target", () => {
+    expect(getBulbasaurLeafageBillboards({
+      action: null,
+      texture: "leaf",
+      uvRect,
+      getEmitterPosition: () => [0, 0.72, 0]
+    })).toEqual([]);
+    expect(getBulbasaurLeafageBillboards({
+      action: {
+        phase: "cast",
+        castElapsed: 0,
+        targetPosition: null
+      },
+      texture: "leaf",
+      uvRect,
+      getEmitterPosition: () => [0, 0.72, 0]
     })).toEqual([]);
   });
 });

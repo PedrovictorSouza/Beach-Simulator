@@ -228,6 +228,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move Charmander Fire billboards into the `fieldMoveRuntime`
   boundary.
+- Completed: move Bulbasaur Leafage billboards into the `fieldMoveRuntime`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1722,6 +1724,58 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Bulbasaur Leafage Billboard Boundary
+
+Moved Bulbasaur Leafage stream/burst billboard geometry from
+`app/runtime/gameLoop.js` into the existing field-move billboard boundary at
+`app/runtime/fieldMoveRuntime/fieldMoveBillboards.js`.
+
+Study path:
+
+1. `getBulbasaurLeafageBillboards(...)` owns only visual billboard geometry for
+   Leafage stream and burst particles.
+2. `gameLoop.js` still owns Leafage action lifecycle, target selection, impact
+   application, object growth/destruction logic and render insertion order.
+3. The builder receives `getEmitterPosition` as an explicit callback, so
+   Bulbasaur pose lookup remains owned by `gameLoop` and is not read while
+   inactive.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10967` to `10874`.
+- Removed the local Leafage particle billboard builder from `gameLoop.js`.
+- Removed Leafage visual tuning imports from `gameLoop.js`; the field-move
+  billboard boundary imports the existing tuning values directly.
+- Extended focused tests for Leafage stream count, burst count and inactive
+  behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/fieldMoveBillboards.test.js
+npm test -- --run tests/fieldMoveBillboards.test.js tests/gameLoopFrameRuntime.test.js tests/frameSnapshotController.test.js
+git diff --check
+npm run build
+```
+
+The focused field-move billboard suite passed with `18` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1558` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
