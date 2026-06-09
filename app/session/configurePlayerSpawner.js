@@ -23,8 +23,15 @@ import {
 import { getGameplayOpeningShipDynamicBarrier } from "./gameplayOpeningShip.js";
 import { createPlayerConstructionTerrainColliders } from "../gameplay/placementBlockers.js";
 
-export const ACT_TWO_PLAYER_SPEED = 5.1;
-const ACT_TWO_PLAYER_RUN_SPEED_MULTIPLIER = 1.55 * 1.2;
+import {
+  ACT_TWO_PLAYER_SPEED,
+  ACT_TWO_PLAYER_RUN_SPEED_MULTIPLIER
+} from "./playerMovementTuning.js";
+
+export {
+  ACT_TWO_PLAYER_SPEED,
+  ACT_TWO_PLAYER_RUN_SPEED_MULTIPLIER
+};
 
 export function configurePlayerSpawner(
   session,
