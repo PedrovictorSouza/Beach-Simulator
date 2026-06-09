@@ -185,10 +185,72 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: extract the frame prompt target-state helper.
 - Completed: extract the follower call frame helper.
 - Completed: extract the ambient world simulation frame helper.
+- Completed: extract the companion follow motion helper.
 - Next: select the next small visual helper boundary without moving placement,
   construction, music, field moves or camera rules.
 
 ## Validation Log
+
+### Companion Follow Motion Helper Extraction
+
+Created `app/runtime/companionFollowMotion.js` for the pure companion follow
+spacing and speed helpers.
+
+Boundary classification: `bot/companion motion`.
+
+Study path:
+
+1. `gameLoop.js` still owns composition and frame orchestration; `frame(now)`
+   was not changed in this cut.
+2. `resolveCompanionFollowDistance(...)` and `resolveCompanionFollowSpeed()`
+   moved out of `gameLoop.js`.
+3. `gameLoop.js` imports the helpers for internal use and re-exports them to
+   preserve the existing public API.
+4. Existing formation tests still cover the `gameLoop.js` re-export path.
+5. New module tests import `companionFollowMotion.js` directly and protect the
+   extracted boundary.
+
+This extraction does not change companion spacing, movement speed, formation
+slots, field moves, input, camera, audio, placement or frame order.
+
+TDD:
+
+- Red: `npm test -- --run tests/companionFollowMotion.test.js` failed while
+  the new module did not exist.
+- Green: focused tests passed after moving the helpers and preserving the
+  `gameLoop.js` re-export.
+
+Passed:
+
+```sh
+git diff --check
+npm test -- --run tests/companionFollowMotion.test.js tests/companionFollowFormation.test.js
+npm test -- --run tests/gameLoopFrameRuntime.test.js tests/companionFollowDirectionRuntime.test.js tests/companionFollowFormation.test.js tests/companionFollowMotion.test.js
+npm run build
+curl -sI http://127.0.0.1:5173/
+```
+
+Focused tests passed:
+
+- `2` files / `7` tests for direct module plus re-export coverage.
+- `4` files / `17` tests for adjacent frame and companion-follow coverage.
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `1476` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+The remaining failures cover Native Tree growth, safe-cell selection and Wood
+drops. They are outside the companion follow motion helper extraction and were
+not modified.
+
+Manual smoke:
+
+- A Vite server for this project was already listening on
+  `http://127.0.0.1:5173/`.
+- `curl -sI http://127.0.0.1:5173/` returned `HTTP/1.1 200 OK`.
+- The pre-existing dev server was left running because this step did not start
+  it.
 
 ### Ambient World Simulation Frame Helper Extraction
 
