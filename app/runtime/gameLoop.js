@@ -77,7 +77,10 @@ import {
 } from "./gameLoopFramePolicies.js";
 import { getBulbasaurInteractionRadiusGizmoBillboards } from "./bulbasaurInteractionRadiusGizmoBillboards.js";
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
-import { getSquirtleWaterGunBillboards } from "./fieldMoveRuntime/fieldMoveBillboards.js";
+import {
+  getCharmanderFireBillboards,
+  getSquirtleWaterGunBillboards
+} from "./fieldMoveRuntime/fieldMoveBillboards.js";
 import { getFlowerArrangementBillboards } from "./flowerArrangementBillboards.js";
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
 import { getGrassPlayerBend } from "./grassPlayerBend.js";
@@ -182,21 +185,8 @@ import {
   BULBASAUR_LEAFAGE_STREAM_WIDTH,
   CHARMANDER_CARBON_VISUAL_DECREASE_DURATION,
   CHARMANDER_CARBON_VISUAL_INCREASE_DURATION,
-  CHARMANDER_FIRE_ARC_HEIGHT,
   CHARMANDER_FIRE_ARRIVE_DISTANCE,
-  CHARMANDER_FIRE_BURST_DURATION,
-  CHARMANDER_FIRE_BURST_PARTICLE_COUNT,
-  CHARMANDER_FIRE_BURST_RADIUS,
-  CHARMANDER_FIRE_CONE_RADIUS,
   CHARMANDER_FIRE_IMPACT_TIME,
-  CHARMANDER_FIRE_NOISE_POSITION_AMOUNT,
-  CHARMANDER_FIRE_NOISE_ROTATION_AMOUNT,
-  CHARMANDER_FIRE_NOISE_STRENGTH,
-  CHARMANDER_FIRE_PARTICLE_COUNT,
-  CHARMANDER_FIRE_PARTICLE_LIFETIME_MAX,
-  CHARMANDER_FIRE_PARTICLE_LIFETIME_MIN,
-  CHARMANDER_FIRE_PARTICLE_SIZE_MAX,
-  CHARMANDER_FIRE_PARTICLE_SIZE_MIN,
   CHARMANDER_FIRE_SPEED,
   CHARMANDER_FIRE_SPRAY_DURATION,
   CHARMANDER_FIRE_STAND_DISTANCE,
@@ -556,7 +546,6 @@ const GEAR_PICKUP_PARTICLE_BASE_HEIGHT = 0.42;
 const GEAR_PICKUP_PARTICLE_LIFT = 0.78;
 const GEAR_PICKUP_PARTICLE_RADIUS = 0.72;
 const GEAR_PICKUP_PARTICLE_SIZE = 0.32;
-const CHARMANDER_FIRE_VISUAL_SCALE = 3;
 const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const WATER_GUN_FIRST_USE_PROMPT_TEXT = `Press LT to use ${SANDBOTS_BOT_NAMES.hydro}`;
 const LEAFAGE_SWITCH_PROMPT_TEXT = `Press LT on dry ground, then <- / -> to select ${SANDBOTS_BOT_NAMES.grow}`;
@@ -6302,120 +6291,6 @@ export function startGameLoop({
     ];
   }
 
-  function getCharmanderFireBillboards(action, texture, uvRect) {
-    if (!action || action.phase !== "spray" || !texture) {
-      return [];
-    }
-
-    const progress = clamp01(action.sprayElapsed / CHARMANDER_FIRE_SPRAY_DURATION);
-    const elapsedSeconds = Math.max(0, action.sprayElapsed);
-    const mouthPosition = getCharmanderMouthPosition();
-    const targetPosition = action.targetPosition;
-    const streamDirectionX = targetPosition[0] - mouthPosition[0];
-    const streamDirectionZ = targetPosition[2] - mouthPosition[2];
-    const streamLength = Math.hypot(streamDirectionX, streamDirectionZ) || 1;
-    const sideX = -streamDirectionZ / streamLength;
-    const sideZ = streamDirectionX / streamLength;
-    const forwardX = streamDirectionX / streamLength;
-    const forwardZ = streamDirectionZ / streamLength;
-    const billboards = [];
-
-    for (let index = 0; index < CHARMANDER_FIRE_PARTICLE_COUNT; index += 1) {
-      const seed = index + 1;
-      const lifetime = lerp(
-        CHARMANDER_FIRE_PARTICLE_LIFETIME_MIN,
-        CHARMANDER_FIRE_PARTICLE_LIFETIME_MAX,
-        hashUnit(seed + 0.11)
-      );
-      const life = ((elapsedSeconds + hashUnit(seed + 0.23) * lifetime) % lifetime) /
-        lifetime;
-      const pathProgress = clamp01(life * (1.08 + hashUnit(seed + 0.37) * 0.22));
-      const opacityCurve = clamp01(life / 0.12) * (1 - life);
-      const sizeCurve = Math.sin(life * Math.PI);
-      const impactStretch = clamp01((pathProgress - 0.68) / 0.32);
-      const coneRadius = CHARMANDER_FIRE_CONE_RADIUS * (0.44 + impactStretch * 0.72);
-      const noiseTime = elapsedSeconds * 11.2 + seed * 1.91;
-      const noiseSide = (
-        Math.sin(noiseTime) * CHARMANDER_FIRE_NOISE_STRENGTH +
-        Math.sin(noiseTime * 0.57 + seed) * CHARMANDER_FIRE_NOISE_POSITION_AMOUNT
-      ) * (0.22 + pathProgress * 0.78);
-      const sideOffset = (hashUnit(seed + 0.49) - 0.5) * coneRadius + noiseSide;
-      const forwardOffset = (hashUnit(seed + 0.61) - 0.5) *
-        CHARMANDER_FIRE_NOISE_POSITION_AMOUNT *
-        impactStretch;
-      const baseSize = lerp(
-        CHARMANDER_FIRE_PARTICLE_SIZE_MIN,
-        CHARMANDER_FIRE_PARTICLE_SIZE_MAX,
-        hashUnit(seed + 0.73)
-      ) * Math.max(0.08, sizeCurve);
-      const arcY = mouthPosition[1] +
-        (targetPosition[1] - mouthPosition[1]) * pathProgress +
-        Math.sin(pathProgress * Math.PI) * CHARMANDER_FIRE_ARC_HEIGHT * 0.32;
-      const gravityDrop = pathProgress * pathProgress * 0.08 * CHARMANDER_FIRE_VISUAL_SCALE;
-      const y = Math.max(
-        targetPosition[1] + 0.06,
-        arcY - gravityDrop + (hashUnit(seed + 0.83) - 0.5) * coneRadius * 0.36
-      );
-
-      billboards.push({
-        texture,
-        position: [
-          mouthPosition[0] +
-            (targetPosition[0] - mouthPosition[0]) * pathProgress +
-            sideX * sideOffset +
-            forwardX * forwardOffset,
-          y,
-          mouthPosition[2] +
-            (targetPosition[2] - mouthPosition[2]) * pathProgress +
-            sideZ * sideOffset +
-            forwardZ * forwardOffset
-        ],
-        size: [
-          baseSize * (0.72 + impactStretch * 0.46),
-          baseSize * (1.12 + sizeCurve * 0.32)
-        ],
-        alpha: opacityCurve * (0.84 + hashUnit(seed + 0.97) * 0.16),
-        rotation: (hashUnit(seed + 1.09) - 0.5) * Math.PI * 2 +
-          Math.sin(noiseTime * 0.42) * CHARMANDER_FIRE_NOISE_ROTATION_AMOUNT +
-          lerp(-0.7, 0.7, hashUnit(seed + 1.17)) * life,
-        uvRect
-      });
-    }
-
-    const burstElapsed = action.sprayElapsed - CHARMANDER_FIRE_IMPACT_TIME;
-
-    if (burstElapsed >= 0) {
-      const burstProgress = clamp01(burstElapsed / CHARMANDER_FIRE_BURST_DURATION);
-      const burstRadius = easeOutCubic(burstProgress) * CHARMANDER_FIRE_BURST_RADIUS;
-      const fade = 1 - burstProgress;
-
-      for (let index = 0; index < CHARMANDER_FIRE_BURST_PARTICLE_COUNT; index += 1) {
-        const angle = index * 2.39996 + progress * 2.2;
-        const radius = burstRadius * (0.28 + (index % 5) * 0.16);
-        const size = (0.22 + (index % 3) * 0.045) *
-          CHARMANDER_FIRE_VISUAL_SCALE;
-
-        billboards.push({
-          texture,
-          position: [
-            targetPosition[0] + Math.cos(angle) * radius,
-            targetPosition[1] + 0.08 + Math.sin(burstProgress * Math.PI) * 0.18,
-            targetPosition[2] + Math.sin(angle) * radius
-          ],
-          size: [
-            size * (1.1 + burstProgress * 1.5),
-            size * (1.35 + burstProgress * 1.1)
-          ],
-          alpha: fade * 0.9,
-          rotation: angle + burstProgress * 1.2,
-          uvRect
-        });
-      }
-    }
-
-    return billboards;
-  }
-
   function getBulbasaurGrowEmitterPosition() {
     const bulbasaur = session.bulbasaurEncounter;
     const position = bulbasaur?.position || bulbasaur?.modelInstance?.offset || [0, 0, 0];
@@ -10994,11 +10869,12 @@ if (canProcessDestroyAction && destroyActionRequested) {
       })
     );
     nextFrame.render.genericBillboards.push(
-      ...getCharmanderFireBillboards(
-        session.charmanderFireAction,
-        session.charmanderFireTexture || session.campfireTexture,
-        rendering.fullUvRect
-      )
+      ...getCharmanderFireBillboards({
+        action: session.charmanderFireAction,
+        texture: session.charmanderFireTexture || session.campfireTexture,
+        uvRect: rendering.fullUvRect,
+        getMouthPosition: getCharmanderMouthPosition
+      })
     );
     nextFrame.render.genericBillboards.push(
       ...getBulbasaurLeafageBillboards(
