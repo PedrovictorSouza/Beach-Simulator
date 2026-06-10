@@ -3786,6 +3786,82 @@ baseline:
 Manual gameplay validation remains pending because the in-app browser backend
 was not available during this pass.
 
+### Gameplay Prompt Target Frame State Boundary
+
+Created `app/runtime/presentation/gameplayPromptTargetFrameState.js`.
+
+Module boundary:
+
+- Domain: `presentation/render helpers`.
+- Responsibility: resolve the frame's prompt target state before HUD/world
+  prompt copy is assembled.
+- Removed from `gameLoop.js`: the private `resolveFramePromptTargetState(...)`
+  implementation, including pending placement prompt resolution, workbench
+  rotation prompt target selection, nearby workbench prompt gating and
+  destroyable-object prompt lookup/debug payload.
+
+Study path:
+
+1. `frame(now)` still computes placement preview state, input modality and
+   nearby gameplay targets in the same order as before.
+2. `frame(now)` now calls `resolveGameplayPromptTargetFrameState(...)` with
+   explicit dependencies: `session`, `storyState`, `inventory`, `gameplay`,
+   workbench target callbacks and `debugInteractionFlow`.
+3. The presentation resolver delegates to the existing construction prompt
+   helpers and input prompt resolver. No placement, field-move or workbench
+   gameplay rules were changed.
+4. The resolver returns the same shape previously produced inside
+   `gameLoop.js`: `framePlacementPrompts`, `pendingPlacementIntent`,
+   `pendingPlacementPrompt`, selected/nearby workbench targets,
+   `workbenchRotationPrompt` and `destroyableObjectPrompt`.
+5. `resolveFrameHudPromptCopy(...)`, world prompt frame state and HUD snapshot
+   updates consume the same fields as before.
+
+Tests added:
+
+- `tests/gameplayPromptTargetFrameState.test.js`
+
+The tests cover:
+
+- pending placement prompt and selected workbench prompt resolution;
+- placement preview blockers suppressing lower-priority prompt targets;
+- movement/flow gating for nearby workbench rotation prompts;
+- destroyable-object prompt lookup and debug payload shape.
+
+Risks reduced:
+
+- `gameLoop.js` no longer imports or directly combines construction prompt
+  state, pending placement intent, generic input prompt actions and
+  destroyable-object prompt lookup for HUD prompt target assembly.
+- Prompt target assembly is now testable without executing the full frame.
+
+Risks remaining:
+
+- `frame(now)` still performs substantial presentation orchestration around
+  ground guidance, HUD prompt copy, world-space UI and render snapshot prep.
+- Workbench rotation behavior is still runtime-owned elsewhere, but prompt
+  routing still crosses presentation/construction boundaries by explicit
+  callbacks.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/gameplayPromptTargetFrameState.test.js
+npm test -- --run tests/gameplayPromptTargetFrameState.test.js tests/placementPreviewPrompts.test.js tests/pendingPlacementIntent.test.js tests/worldPromptCopy.test.js tests/hudPromptCopy.test.js tests/inputPromptResolver.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused suite passed with `31` tests. `npm run build` passed with the
+existing large chunk warning. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1729` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+No manual browser validation was run in this cut.
+
 ### Companion Lost Hint Resolver Extraction
 
 Moved the Water Gun companion-lost hint decision out of
