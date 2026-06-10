@@ -308,10 +308,72 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move destroyable landscape patch target selection into the
   `fieldMoveRuntime` boundary.
+- Completed: move world-space UI frame context into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### World-Space UI Frame Context Boundary
+
+Moved world-space UI frame context preparation from `app/runtime/gameLoop.js`
+into `app/runtime/presentation/worldSpaceUiFrameContext.js`.
+
+Boundary classification: `presentation/render helpers`, focused on resolving
+world-space UI visibility, Tangrowth speech anchor position and Workbench green
+arrow cue activation for the current frame.
+
+Module boundary note:
+
+- This is a new file inside the existing `presentation` domain, not a loose
+  helper under `app/runtime/`.
+- It receives `session`, `storyState`, flow state and the existing policy/cue
+  callbacks explicitly.
+- It does not change Workbench cue rules, world-space UI visibility rules,
+  camera locks or frame order.
+
+Study path:
+
+1. `gameLoop.js` still calls the context helper in the same frame location and
+   consumes `{ canShowWorldSpaceUi, tangrowthPosition }` exactly as before.
+2. `prepareWorldSpaceUiFrameContext(...)` now owns finding Tangrowth's actor
+   position and applying the Workbench green arrow cue.
+3. `resolveWorldSpaceUiVisibility(...)`,
+   `shouldShowWorkbenchGreenArrowCue(...)` and
+   `applyWorkbenchGreenArrowCue(...)` remain the existing source-of-truth
+   functions.
+4. No presentation priority, text, cue timing or render snapshot shape changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9172` to `9163`.
+- Removed the direct world-space UI visibility and Workbench cue block from
+  `startGameLoop()`.
+- Added focused tests for Tangrowth position resolution, world-space UI
+  visibility forwarding and inactive Workbench cue behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/worldSpaceUiFrameContext.test.js
+npm test -- --run tests/worldSpaceUiFrameContext.test.js tests/gameLoopFramePolicies.test.js tests/workbenchRuntime.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused world-space UI/Workbench cue suite passed with `19` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1669` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Destroyable Landscape Patch Target Boundary
 

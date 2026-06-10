@@ -227,6 +227,7 @@ import {
 } from "./presentation/worldPromptCopy.js";
 import { updateWorldPromptSnapshotFrame } from "./presentation/worldPromptSnapshotFrame.js";
 import { resolveWorldSpeechVisibility } from "./presentation/worldSpeechVisibility.js";
+import { prepareWorldSpaceUiFrameContext as prepareWorldSpaceUiFrameContextWithSources } from "./presentation/worldSpaceUiFrameContext.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
@@ -6539,29 +6540,19 @@ export function startGameLoop({
     activeTask,
     activeSystemQuest
   }) {
-    const tangrowthActor = session.npcActors.find((npcActor) => npcActor.id === "tangrowth");
-    const tangrowthPosition =
-      tangrowthActor?.character?.getPosition?.() ||
-      null;
-    const canShowWorldSpaceUi = resolveWorldSpaceUiVisibility({
+    return prepareWorldSpaceUiFrameContextWithSources({
+      now,
+      session,
+      storyState: controls.storyState,
       gameplayOpeningCameraLocked,
-      flowState
+      flowState,
+      activeQuest,
+      activeTask,
+      activeSystemQuest,
+      resolveWorldSpaceUiVisibility,
+      shouldShowWorkbenchGreenArrowCue,
+      applyWorkbenchGreenArrowCue
     });
-
-    applyWorkbenchGreenArrowCue(session.workbenchGreenArrowModelInstance, {
-      active: canShowWorldSpaceUi && shouldShowWorkbenchGreenArrowCue({
-        activeQuest,
-        activeTask,
-        activeSystemQuest,
-        storyState: controls.storyState
-      }),
-      now
-    });
-
-    return {
-      canShowWorldSpaceUi,
-      tangrowthPosition
-    };
   }
 
   function updateGameplayPresentationFrame({
