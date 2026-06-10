@@ -296,10 +296,69 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move world-speech visibility priority into the `presentation`
   boundary.
+- Completed: move world-prompt snapshot writing into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### World Prompt Snapshot Frame Boundary
+
+Moved the world-prompt snapshot writer from `app/runtime/gameLoop.js` into
+`app/runtime/presentation/worldPromptSnapshotFrame.js`.
+
+Boundary classification: `presentation/render helpers`, focused on converting
+already-resolved prompt flags and candidates into `nextFrame.worldPrompt`.
+
+Module boundary note:
+
+- This is a new file inside the existing `presentation` domain, not a loose
+  helper under `app/runtime/`.
+- It owns a named responsibility: world-prompt snapshot writing.
+- It preserves the existing prompt priority order and writes through
+  `setFrameWorldPrompt(...)`, so the snapshot shape stays unchanged.
+
+Study path:
+
+1. `gameLoop.js` still computes prompt visibility, prompt text candidates and
+   world query targets.
+2. `updateWorldPromptSnapshotFrame(...)` now owns the `if/else` priority chain
+   that chooses which prompt payload is written to `nextFrame.worldPrompt`.
+3. Player position is passed explicitly instead of the helper reading
+   `session.playerCharacter` directly.
+4. First-use, invalid-target and placement prompt copy moved with the snapshot
+   writer without changing text.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9696` to `9487`.
+- Removed the internal `updateWorldPromptSnapshotFrame(...)` implementation from
+  `startGameLoop()`.
+- Added focused tests for placement priority, destroyable fallback position and
+  first-use prompt copy.
+
+Validation:
+
+```sh
+npm test -- --run tests/worldPromptSnapshotFrame.test.js
+npm test -- --run tests/worldPromptSnapshotFrame.test.js tests/worldPromptCopy.test.js tests/frameSnapshotController.test.js tests/worldSpeechController.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused presentation/snapshot suite passed with `20` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1652` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### World Speech Visibility Boundary
 
