@@ -179,10 +179,8 @@ import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { resolveGameplayPromptFrameState } from "./presentation/gameplayPromptTargetFrameState.js";
-import { resolveWorldPromptFrameState } from "./presentation/worldPromptFrameState.js";
 import { updateWorldPromptSnapshotFrame } from "./presentation/worldPromptSnapshotFrame.js";
-import { resolveWorldSpeechFrameState } from "./presentation/worldSpeechFrameState.js";
-import { prepareWorldSpaceUiFrameContext as prepareWorldSpaceUiFrameContextWithSources } from "./presentation/worldSpaceUiFrameContext.js";
+import { resolveWorldSpacePresentationFrameState } from "./presentation/worldSpacePresentationFrameState.js";
 import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
 import { createBaseRenderSnapshotFrameRuntime } from "./presentation/baseRenderSnapshotFrame.js";
 import { prepareRenderSnapshotContext as prepareRenderSnapshotContextWithSources } from "./presentation/renderSnapshotContext.js";
@@ -6113,29 +6111,6 @@ export function startGameLoop({
     });
   }
 
-  function prepareWorldSpaceUiFrameContext({
-    now,
-    gameplayOpeningCameraLocked,
-    flowState,
-    activeQuest,
-    activeTask,
-    activeSystemQuest
-  }) {
-    return prepareWorldSpaceUiFrameContextWithSources({
-      now,
-      session,
-      storyState: controls.storyState,
-      gameplayOpeningCameraLocked,
-      flowState,
-      activeQuest,
-      activeTask,
-      activeSystemQuest,
-      resolveWorldSpaceUiVisibility,
-      shouldShowWorkbenchGreenArrowCue,
-      applyWorkbenchGreenArrowCue
-    });
-  }
-
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -7211,16 +7186,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     // World-space UI and render preparation.
     const {
       canShowWorldSpaceUi,
-      tangrowthPosition
-    } = prepareWorldSpaceUiFrameContext({
-      now,
-      gameplayOpeningCameraLocked,
-      flowState: currentFlowState,
-      activeQuest,
-      activeTask,
-      activeSystemQuest
-    });
-    const {
+      tangrowthPosition,
       shouldShowTangrowthSpeech,
       shouldShowTangrowthLogChairSpeech,
       shouldShowTangrowthPokemonCenterSpeech,
@@ -7233,21 +7199,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       shouldShowCharmanderFollowSpeech,
       shouldShowBulbasaurStrawBedSpeech,
       shouldShowBulbasaurStrawBedCompleteSpeech,
-      shouldShowCharmanderCelebrationSpeech
-    } = resolveWorldSpeechFrameState({
-      canShowWorldSpaceUi,
-      activeQuest,
-      tangrowthPosition,
-      storyState: controls.storyState,
-      session,
-      chopperBulbasaurRepairBoxInvestigationTarget,
-      repairBoxPromptDistance: REPAIR_BOX_PROMPT_DISTANCE,
-      isPlayerNearWorldPosition,
-      openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState),
-      firstTaughtActionFreedomWindowActive: firstTaughtActionFreedomWindow.active,
-      restoredGrassMissionTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT
-    });
-    const {
+      shouldShowCharmanderCelebrationSpeech,
       shouldShowSolarStationPlacementPrompt,
       shouldShowGreenhousePlacementPrompt,
       shouldShowCampfirePlacementPrompt,
@@ -7277,16 +7229,17 @@ if (canProcessDestroyAction && destroyActionRequested) {
       dryGrassHydroPromptText,
       runBreadcrumbPromptText,
       chopperAttentionCue
-    } = resolveWorldPromptFrameState({
+    } = resolveWorldSpacePresentationFrameState({
+      now,
+      gameplayOpeningCameraLocked,
+      flowState: currentFlowState,
       activeMoveId,
       activeQuest,
       activeTask,
       activeSystemQuest,
       buildBlockEquipped,
-      canShowWorldSpaceUi,
       controls,
       session,
-      now,
       inputModalityState,
       solarStationPlacementPreview,
       greenhousePlacementPreview,
@@ -7301,15 +7254,17 @@ if (canProcessDestroyAction && destroyActionRequested) {
       waterGunEquipped,
       leafageEquipped,
       nearbyInteractable,
-      tangrowthPosition,
+      chopperBulbasaurRepairBoxInvestigationTarget,
       repairBoxPromptDistance: REPAIR_BOX_PROMPT_DISTANCE,
+      firstTaughtActionFreedomWindowActive: firstTaughtActionFreedomWindow.active,
+      restoredGrassMissionTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
       waterGunFirstUsePromptDismissed: controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG],
-      dryGrassHydroMissionActive: isDryGrassHydroMissionActive(
-        activeQuest,
-        controls.storyState,
-        controls.playerSkills
-      ),
       openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState),
+      resolveWorldSpaceUiVisibility,
+      shouldShowWorkbenchGreenArrowCue,
+      applyWorkbenchGreenArrowCue,
+      isPlayerNearWorldPosition,
+      isDryGrassHydroMissionActive,
       getEncounterRepairBoxPosition,
       getLeppaTreeSurroundingGroundCells,
       getSquirtleWorldPosition,

@@ -4076,6 +4076,81 @@ Native Tree baseline:
 
 No manual browser validation was run in this cut.
 
+### World Space Presentation Frame State
+
+Created `app/runtime/presentation/worldSpacePresentationFrameState.js`.
+
+Module boundary:
+
+- Domain: `presentation/render helpers`.
+- Responsibility: compose the world-space UI context, world speech frame state
+  and world prompt frame state for the current frame.
+- Removed from `frame(now)`: the local `prepareWorldSpaceUiFrameContext(...)`
+  helper, direct calls to `resolveWorldSpeechFrameState(...)` and direct calls
+  to `resolveWorldPromptFrameState(...)`.
+
+Study path:
+
+1. `frame(now)` still calls the world-space presentation resolver at the same
+   point after HUD/base render snapshot prep and before snapshot writers.
+2. `resolveWorldSpacePresentationFrameState(...)` first delegates to
+   `prepareWorldSpaceUiFrameContext(...)`, preserving Workbench arrow cue side
+   effects and Tangrowth position lookup.
+3. It then delegates to `resolveWorldSpeechFrameState(...)` with the same
+   speech inputs previously passed by `gameLoop.js`.
+4. It finally delegates to `resolveWorldPromptFrameState(...)`, including the
+   same dry-grass Hydro mission predicate callback and runtime prompt
+   visibility callbacks.
+5. `frame(now)` keeps snapshot writes in the same order:
+   world speech snapshot, world prompt snapshot, ground-cell highlight snapshot
+   and status popups.
+
+Tests added:
+
+- `tests/worldSpacePresentationFrameState.test.js`
+
+The test covers:
+
+- world-space UI visibility and Tangrowth position forwarding;
+- Workbench arrow cue callback forwarding;
+- Tangrowth speech state from the composed speech resolver;
+- world prompt state including free-block cost marker and chopper attention cue;
+- dry-grass Hydro mission predicate forwarding.
+
+Risks reduced:
+
+- `gameLoop.js` no longer owns the orchestration chain for world-space
+  presentation state.
+- The presentation module now owns the dependency order between UI context,
+  speech state and world prompt state.
+
+Risks remaining:
+
+- Snapshot writes still remain in `frame(now)` because they mutate
+  `nextFrame`; moving them should be a separate snapshot-writer boundary, not
+  mixed with state resolution.
+- The new resolver intentionally accepts many explicit dependencies because it
+  composes existing systems without becoming a service locator.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/worldSpacePresentationFrameState.test.js
+npm test -- --run tests/worldSpacePresentationFrameState.test.js tests/worldSpaceUiFrameContext.test.js tests/worldSpeechFrameState.test.js tests/worldPromptFrameState.test.js tests/gameLoopFrameRuntime.test.js
+npm run build
+git diff --check
+npm test
+```
+
+The focused suite passed with `13` tests. `npm run build` passed with the
+existing large chunk warning. `git diff --check` passed. `npm test` completed
+with the existing Leafage Native Tree baseline:
+
+- `1734` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+No manual browser validation was run in this cut.
+
 ### Gameplay Prompt Frame State Wrapper
 
 Expanded `app/runtime/presentation/gameplayPromptTargetFrameState.js` with
