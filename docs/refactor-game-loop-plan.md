@@ -272,6 +272,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   the `construction` boundary.
 - Completed: move builder tutorial foundation-zone creation into the
   `construction` boundary.
+- Completed: move foundation-zone blocker assembly into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1766,6 +1768,66 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Foundation Zone Blocker Assembly Boundary
+
+Moved foundation build-zone blocker assembly and blocked-zone overlap policy
+from `app/runtime/gameLoop.js` into
+`app/runtime/construction/foundationBuildZone.js`.
+
+Boundary classification: `construction`, focused on deciding which active world
+entities block the builder tutorial foundation zone. The live session reads,
+rendering activity callbacks and saved-zone selection loop remain in
+`gameLoop.js`.
+
+Study path:
+
+1. `buildFoundationBuildZoneBlockers(...)` owns the conversion from active
+   construction/world entities into rectangular blockers.
+2. It preserves the existing blocker categories and radii for terrain
+   colliders, free blocks, world objects, player, NPCs, interactables,
+   companions, resource nodes, drops and ground patches.
+3. `isBuilderTutorialFoundationBuildZoneBlocked(...)` owns the final
+   missing-rect and rectangle-overlap policy.
+4. `gameLoop.js` still owns collecting live session arrays, activity callbacks
+   and calling this boundary while searching for an available zone.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9974` to `9860`.
+- Removed direct foundation-zone blocker rectangle construction and overlap
+  checks from `gameLoop.js`.
+- Removed the direct `createFoundationBuildZoneBlockerRect(...)` and
+  `doFoundationBuildZoneRectsOverlap(...)` dependencies from `gameLoop.js`.
+- Added focused tests for active source filtering, blocker id/kind shape,
+  terrain sizing and blocked-zone overlap behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/foundationBuildZone.test.js
+npm test -- --run tests/foundationBuildZone.test.js tests/placementGeometry.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/foundation/placement suite passed with `53` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1628` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

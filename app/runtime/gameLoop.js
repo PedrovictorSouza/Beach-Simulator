@@ -24,6 +24,7 @@ import {
   BUILDER_TUTORIAL_FOUNDATION_HEIGHT,
   BUILDER_TUTORIAL_FOUNDATION_WIDTH,
   buildBuilderTutorialFoundationCandidateOrigins,
+  buildFoundationBuildZoneBlockers as buildFoundationBuildZoneBlockersWithSources,
   canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
   createBuilderTutorialFoundationBuildZone,
   createUnavailableFoundationBuildZonePlacementResult,
@@ -31,6 +32,7 @@ import {
   getBuilderTutorialFoundationZoneSignature,
   getFoundationBuildZoneProgressCount as getFoundationBuildZoneProgressCountFromState,
   getSavedFoundationBuildZoneOriginCell as getSavedFoundationBuildZoneOriginCellFromFlags,
+  isBuilderTutorialFoundationBuildZoneBlocked as isBuilderTutorialFoundationBuildZoneBlockedWithBlockers,
   isFoundationFreeBlockAllowedInZone as isFoundationFreeBlockAllowedInZoneWithState,
   saveFoundationBuildZoneOriginCell as saveFoundationBuildZoneOriginCellToFlags,
   shouldShowFoundationBuildZone as shouldShowFoundationBuildZoneWithState
@@ -96,8 +98,6 @@ import {
   buildFreeBlockFeedbackGroundCell as buildFreeBlockFeedbackGroundCellWithConfig,
   buildPlacementPreviewFootprintCells,
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
-  createFoundationBuildZoneBlockerRect as createFoundationBuildZoneBlocker,
-  doFoundationBuildZoneRectsOverlap as doFoundationRectsOverlap,
   doPlacementRectsOverlap,
   getFoundationBuildZoneWorldRect as getFoundationBuildZoneWorldRectWithGrid,
   getFreeBlockBuildZoneCenterPosition as getFreeBlockBuildZoneCenterPositionWithConfig,
@@ -3481,157 +3481,43 @@ export function startGameLoop({
   }
 
   function getFoundationBuildZoneBlockers(buildZone = null) {
-    const blockers = [];
-    const pushBlocker = (blocker) => {
-      if (blocker) {
-        blockers.push(blocker);
-      }
-    };
-
-    for (const collider of getPlayerConstructionTerrainColliders()) {
-      if (collider.kind === "freeBlock") {
-        continue;
-      }
-
-      pushBlocker(createFoundationBuildZoneBlocker({
-        id: collider.id,
-        kind: collider.kind,
-        position: collider.position,
-        size: [collider.size?.[0], collider.size?.[2]]
-      }));
-    }
-
-    for (const instance of session.freeBlockInstances || []) {
-      if (
-        instance?.active === false ||
-        !Array.isArray(instance?.offset) ||
-        isFoundationFreeBlockAllowedInZone(instance, buildZone)
-      ) {
-        continue;
-      }
-
-      pushBlocker(createFoundationBuildZoneBlocker({
-        id: instance.id ? `free-block:${instance.id}` : "free-block",
-        kind: "freeBlock",
-        position: instance.offset,
-        size: [1, 1]
-      }));
-    }
-
-    for (const blocker of getWorldObjectPlacementBlockers(session)) {
-      pushBlocker(createFoundationBuildZoneBlocker(blocker));
-    }
-
-    if (session.playerCharacter?.getPosition) {
-      pushBlocker(createFoundationBuildZoneBlocker({
-        id: "player",
-        kind: "player",
-        position: session.playerCharacter.getPosition(),
-        radius: 0.55
-      }));
-    }
-
-    for (const npcActor of session.npcActors || []) {
-      if (rendering?.isNpcActive?.(npcActor, controls.storyState) === false) {
-        continue;
-      }
-
-      pushBlocker(createFoundationBuildZoneBlocker({
-        id: npcActor.id ? `npc:${npcActor.id}` : "npc",
-        kind: "npc",
-        position: getActorDebugPosition(npcActor),
-        radius: 0.72
-      }));
-    }
-
-    for (const interactable of session.interactables || []) {
-      if (rendering?.isInteractableActive?.(interactable, controls.storyState) === false) {
-        continue;
-      }
-
-      pushBlocker(createFoundationBuildZoneBlocker({
-        id: interactable.id ? `interactable:${interactable.id}` : "interactable",
-        kind: "interactable",
-        position: interactable.position,
-        radius: Number(interactable.interactDistance) || 1.1
-      }));
-    }
-
-    for (const companion of [
-      session.actTwoSquirtle,
-      session.bulbasaurEncounter,
-      session.timburrEncounter,
-      session.charmanderEncounter
-    ]) {
-      if (companion?.visible === false) {
-        continue;
-      }
-
-      pushBlocker(createFoundationBuildZoneBlocker({
-        id: companion?.id ? `companion:${companion.id}` : "companion",
-        kind: "companion",
-        position: companion?.position || companion?.repairPosition || null,
-        radius: 0.72
-      }));
-    }
-
-    for (const resourceNode of session.resourceNodes || []) {
-      if (rendering?.isResourceNodeActive?.(resourceNode, controls.storyState) === false) {
-        continue;
-      }
-
-      pushBlocker(createFoundationBuildZoneBlocker({
-        id: resourceNode.id ? `resource:${resourceNode.id}` : "resource",
-        kind: "resource",
-        position: resourceNode.position,
-        radius: 0.72
-      }));
-    }
-
-    for (const drop of [
-      ...(session.woodDrops || []),
-      ...(session.fieldDrops || []),
-      ...(session.leppaBerryDrops || [])
-    ]) {
-      if (drop?.collected) {
-        continue;
-      }
-
-      pushBlocker(createFoundationBuildZoneBlocker({
-        id: drop?.id ? `drop:${drop.id}` : "drop",
-        kind: "drop",
-        position: drop?.position,
-        radius: 0.42
-      }));
-    }
-
-    for (const patch of [
-      ...(session.groundGrassPatches || []),
-      ...(session.groundFlowerPatches || [])
-    ]) {
-      if (!Array.isArray(patch?.position)) {
-        continue;
-      }
-
-      pushBlocker(createFoundationBuildZoneBlocker({
-        id: patch?.id || patch?.cellId || "ground-patch",
-        kind: "groundPatch",
-        position: patch.position,
-        radius: 0.48
-      }));
-    }
-
-    return blockers;
+    return buildFoundationBuildZoneBlockersWithSources({
+      terrainColliders: getPlayerConstructionTerrainColliders(),
+      freeBlockInstances: session.freeBlockInstances || [],
+      isFoundationFreeBlockAllowed: (instance) => isFoundationFreeBlockAllowedInZone(instance, buildZone),
+      worldObjectBlockers: getWorldObjectPlacementBlockers(session),
+      playerPosition: session.playerCharacter?.getPosition?.() || null,
+      npcActors: session.npcActors || [],
+      isNpcActive: (npcActor) => rendering?.isNpcActive?.(npcActor, controls.storyState),
+      getActorPosition: getActorDebugPosition,
+      interactables: session.interactables || [],
+      isInteractableActive: (interactable) => rendering?.isInteractableActive?.(interactable, controls.storyState),
+      companions: [
+        session.actTwoSquirtle,
+        session.bulbasaurEncounter,
+        session.timburrEncounter,
+        session.charmanderEncounter
+      ],
+      resourceNodes: session.resourceNodes || [],
+      isResourceNodeActive: (resourceNode) => rendering?.isResourceNodeActive?.(resourceNode, controls.storyState),
+      drops: [
+        ...(session.woodDrops || []),
+        ...(session.fieldDrops || []),
+        ...(session.leppaBerryDrops || [])
+      ],
+      groundPatches: [
+        ...(session.groundGrassPatches || []),
+        ...(session.groundFlowerPatches || [])
+      ]
+    });
   }
 
   function isBuilderTutorialFoundationBuildZoneBlocked(buildZone = null) {
     const zoneRect = getFoundationBuildZoneWorldRect(buildZone);
-    if (!zoneRect) {
-      return true;
-    }
-
-    return getFoundationBuildZoneBlockers(buildZone)
-      .some((blocker) => doFoundationRectsOverlap(zoneRect, blocker));
+    return isBuilderTutorialFoundationBuildZoneBlockedWithBlockers({
+      zoneRect,
+      blockers: getFoundationBuildZoneBlockers(buildZone)
+    });
   }
 
   function findAvailableBuilderTutorialFoundationBuildZone() {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL,
+  buildFoundationBuildZoneBlockers,
   buildBuilderTutorialFoundationCandidateOrigins,
   canStackFreeBlockPlacement,
   createBuilderTutorialFoundationBuildZone,
@@ -11,6 +12,7 @@ import {
   getFoundationBuildZoneProgressCount,
   getSavedFoundationBuildZoneOriginCell,
   hasFoundationWallObjective,
+  isBuilderTutorialFoundationBuildZoneBlocked,
   isFoundationFreeBlockAllowedInZone,
   saveFoundationBuildZoneOriginCell,
   shouldShowFoundationBuildZone
@@ -49,6 +51,117 @@ describe("foundation build zone", () => {
       width: 6,
       height: 4
     })).toBe("107:98:6:4");
+  });
+
+  it("builds foundation zone blockers from active placement sources", () => {
+    const blockers = buildFoundationBuildZoneBlockers({
+      terrainColliders: [
+        { id: "free", kind: "freeBlock", position: [9, 0, 9], size: [1, 1, 1] },
+        { id: "rock", kind: "rock", position: [1, 0, 2], size: [2, 1, 4] }
+      ],
+      freeBlockInstances: [
+        { id: "placed", active: true, offset: [3, 0, 4] },
+        { id: "inactive", active: false, offset: [5, 0, 5] },
+        { id: "allowed", active: true, offset: [7, 0, 7] }
+      ],
+      isFoundationFreeBlockAllowed: (instance) => instance.id === "allowed",
+      worldObjectBlockers: [
+        { id: "house", kind: "worldObject", position: [5, 0, 6], size: [2, 3] }
+      ],
+      playerPosition: [0, 0, 0],
+      npcActors: [
+        { id: "npc1", position: [8, 0, 8] },
+        { id: "hidden", position: [9, 0, 9] }
+      ],
+      isNpcActive: (npcActor) => npcActor.id !== "hidden",
+      getActorPosition: (npcActor) => npcActor.position,
+      interactables: [
+        { id: "terminal", position: [10, 0, 10], interactDistance: 2 },
+        { id: "off", position: [11, 0, 11] }
+      ],
+      isInteractableActive: (interactable) => interactable.id !== "off",
+      companions: [
+        { id: "squirtle", position: [12, 0, 12] },
+        { id: "hidden", visible: false, position: [13, 0, 13] },
+        { repairPosition: [14, 0, 14] }
+      ],
+      resourceNodes: [
+        { id: "wood", position: [15, 0, 15] },
+        { id: "gone", position: [16, 0, 16] }
+      ],
+      isResourceNodeActive: (resourceNode) => resourceNode.id !== "gone",
+      drops: [
+        { id: "wood-1", position: [17, 0, 17] },
+        { id: "collected", collected: true, position: [18, 0, 18] }
+      ],
+      groundPatches: [
+        { id: "grass", position: [19, 0, 19] },
+        { cellId: "flower-cell", position: [20, 0, 20] },
+        { id: "invalid" }
+      ]
+    });
+
+    expect(blockers.map((blocker) => `${blocker.kind}:${blocker.id}`)).toEqual([
+      "rock:rock",
+      "freeBlock:free-block:placed",
+      "worldObject:house",
+      "player:player",
+      "npc:npc:npc1",
+      "interactable:interactable:terminal",
+      "companion:companion:squirtle",
+      "companion:companion",
+      "resource:resource:wood",
+      "drop:drop:wood-1",
+      "groundPatch:grass",
+      "groundPatch:flower-cell"
+    ]);
+    expect(blockers[0]).toMatchObject({
+      minX: 0,
+      maxX: 2,
+      minZ: 0,
+      maxZ: 4
+    });
+  });
+
+  it("detects blocked builder tutorial foundation zones by rect overlap", () => {
+    expect(isBuilderTutorialFoundationBuildZoneBlocked({
+      zoneRect: null,
+      blockers: []
+    })).toBe(true);
+
+    expect(isBuilderTutorialFoundationBuildZoneBlocked({
+      zoneRect: {
+        minX: 0,
+        maxX: 2,
+        minZ: 0,
+        maxZ: 2
+      },
+      blockers: [
+        {
+          minX: 4,
+          maxX: 5,
+          minZ: 4,
+          maxZ: 5
+        }
+      ]
+    })).toBe(false);
+
+    expect(isBuilderTutorialFoundationBuildZoneBlocked({
+      zoneRect: {
+        minX: 0,
+        maxX: 2,
+        minZ: 0,
+        maxZ: 2
+      },
+      blockers: [
+        {
+          minX: 1,
+          maxX: 3,
+          minZ: 1,
+          maxZ: 3
+        }
+      ]
+    })).toBe(true);
   });
 
   it("detects foundation wall objectives", () => {
