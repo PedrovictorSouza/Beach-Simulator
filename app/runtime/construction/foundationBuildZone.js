@@ -116,6 +116,25 @@ export function resolveActiveBuilderTutorialFoundationBuildZone({
   };
 }
 
+export function findAvailableBuilderTutorialFoundationBuildZone({
+  gridConfig = null,
+  candidateOrigins = buildBuilderTutorialFoundationCandidateOrigins(),
+  isBuildZoneBlocked = () => true
+} = {}) {
+  for (const originCell of candidateOrigins || []) {
+    if (!isBuilderTutorialFoundationOriginInsideGrid({ originCell, gridConfig })) {
+      continue;
+    }
+
+    const candidateZone = createBuilderTutorialFoundationBuildZone(originCell);
+    if (!isBuildZoneBlocked(candidateZone)) {
+      return candidateZone;
+    }
+  }
+
+  return null;
+}
+
 function pushFoundationBuildZoneBlocker(blockers, blocker) {
   if (blocker) {
     blockers.push(blocker);

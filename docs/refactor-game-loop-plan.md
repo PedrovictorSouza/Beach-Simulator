@@ -276,6 +276,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move builder tutorial foundation origin state policy into the
   `construction` boundary.
+- Completed: move builder tutorial foundation available-zone search into the
+  `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1770,6 +1772,64 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Builder Tutorial Foundation Available-Zone Boundary
+
+Moved the available builder tutorial foundation-zone search from
+`app/runtime/gameLoop.js` into
+`app/runtime/construction/foundationBuildZone.js`.
+
+Boundary classification: `construction`, focused on scanning candidate origins,
+skipping out-of-grid origins and returning the first unblocked tutorial
+foundation zone. The live blocked-zone callback remains wired by `gameLoop.js`
+because it still depends on live session blockers.
+
+Study path:
+
+1. `findAvailableBuilderTutorialFoundationBuildZone(...)` owns iterating
+   candidate origins and constructing candidate zones.
+2. It reuses `isBuilderTutorialFoundationOriginInsideGrid(...)` and
+   `createBuilderTutorialFoundationBuildZone(...)`, keeping tutorial dimensions
+   inside the construction module.
+3. `gameLoop.js` still supplies `gridConfig` and the live
+   `isBuilderTutorialFoundationBuildZoneBlocked(...)` callback.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9841` to `9824`.
+- Removed local candidate-origin scanning and grid-fit wrapper from
+  `gameLoop.js`.
+- Removed direct imports for tutorial candidate origins and zone creation from
+  `gameLoop.js`.
+- Added a focused test that verifies out-of-grid origins are skipped and the
+  first unblocked candidate is selected.
+
+Validation:
+
+```sh
+npm test -- --run tests/foundationBuildZone.test.js
+npm test -- --run tests/foundationBuildZone.test.js tests/placementGeometry.test.js tests/freeBlockBuildSystem.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/foundation/placement suite passed with `88` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1632` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

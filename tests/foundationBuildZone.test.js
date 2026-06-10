@@ -8,6 +8,7 @@ import {
   createBuilderTutorialFoundationBuildZone,
   createUnavailableFoundationBuildZonePlacementResult,
   createUnavailableFoundationBuildZoneValidation,
+  findAvailableBuilderTutorialFoundationBuildZone,
   getBuilderTutorialFoundationZoneSignature,
   getSavedBuilderTutorialFoundationOriginCell,
   getFoundationBuildZoneProgressCount,
@@ -255,6 +256,31 @@ describe("foundation build zone", () => {
       originCellToSave: null
     });
     expect(blockedWithProgress.buildZone.originCell).toEqual({ x: 107, y: 98 });
+  });
+
+  it("finds the first in-grid unblocked builder tutorial foundation zone", () => {
+    const visitedOrigins = [];
+    const zone = findAvailableBuilderTutorialFoundationBuildZone({
+      gridConfig: {
+        width: 20,
+        height: 20
+      },
+      candidateOrigins: [
+        { x: 18, y: 18 },
+        { x: 1, y: 1 },
+        { x: 2, y: 2 }
+      ],
+      isBuildZoneBlocked: (candidateZone) => {
+        visitedOrigins.push(candidateZone.originCell);
+        return candidateZone.originCell.x === 1;
+      }
+    });
+
+    expect(visitedOrigins).toEqual([
+      { x: 1, y: 1 },
+      { x: 2, y: 2 }
+    ]);
+    expect(zone.originCell).toEqual({ x: 2, y: 2 });
   });
 
   it("detects foundation wall objectives", () => {

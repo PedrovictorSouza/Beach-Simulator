@@ -20,17 +20,15 @@ import {
   syncLeafDenConstructionClouds as syncLeafDenConstructionCloudsWithSession
 } from "./construction/constructionCloudEffects.js";
 import {
-  buildBuilderTutorialFoundationCandidateOrigins,
   buildFoundationBuildZoneBlockers as buildFoundationBuildZoneBlockersWithSources,
   canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
-  createBuilderTutorialFoundationBuildZone,
   createUnavailableFoundationBuildZonePlacementResult,
   createUnavailableFoundationBuildZoneValidation,
+  findAvailableBuilderTutorialFoundationBuildZone as findAvailableBuilderTutorialFoundationBuildZoneWithConfig,
   getBuilderTutorialFoundationZoneSignature,
   getFoundationBuildZoneProgressCount as getFoundationBuildZoneProgressCountFromState,
   getSavedBuilderTutorialFoundationOriginCell as getSavedBuilderTutorialFoundationOriginCellFromFlags,
   isBuilderTutorialFoundationBuildZoneBlocked as isBuilderTutorialFoundationBuildZoneBlockedWithBlockers,
-  isBuilderTutorialFoundationOriginInsideGrid as isBuilderTutorialFoundationOriginInsideGridWithConfig,
   isFoundationFreeBlockAllowedInZone as isFoundationFreeBlockAllowedInZoneWithState,
   resolveActiveBuilderTutorialFoundationBuildZone,
   saveBuilderTutorialFoundationOriginCell as saveBuilderTutorialFoundationOriginCellToFlags,
@@ -3426,13 +3424,6 @@ export function startGameLoop({
     );
   }
 
-  function isBuilderTutorialFoundationOriginInsideGrid(originCell) {
-    return isBuilderTutorialFoundationOriginInsideGridWithConfig({
-      originCell,
-      gridConfig: getFreeBlockBuildGridConfig()
-    });
-  }
-
   function getSavedBuilderTutorialFoundationOriginCell() {
     return getSavedBuilderTutorialFoundationOriginCellFromFlags({
       flags: controls.storyState?.flags
@@ -3512,18 +3503,10 @@ export function startGameLoop({
   }
 
   function findAvailableBuilderTutorialFoundationBuildZone() {
-    for (const originCell of buildBuilderTutorialFoundationCandidateOrigins()) {
-      if (!isBuilderTutorialFoundationOriginInsideGrid(originCell)) {
-        continue;
-      }
-
-      const candidateZone = createBuilderTutorialFoundationBuildZone(originCell);
-      if (!isBuilderTutorialFoundationBuildZoneBlocked(candidateZone)) {
-        return candidateZone;
-      }
-    }
-
-    return null;
+    return findAvailableBuilderTutorialFoundationBuildZoneWithConfig({
+      gridConfig: getFreeBlockBuildGridConfig(),
+      isBuildZoneBlocked: isBuilderTutorialFoundationBuildZoneBlocked
+    });
   }
 
   function syncActiveFreeBlockBuildZone() {
