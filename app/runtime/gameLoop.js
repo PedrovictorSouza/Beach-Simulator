@@ -65,7 +65,7 @@ import {
   buildFreeBlockBuildCostMarker,
   getFreeBlockInvalidPlacementNotice,
   getFreeBlockPlacementNotice,
-  resolveFramePlacementPrompts
+  resolveFramePlacementPromptState
 } from "./construction/placementPreviewPrompts.js";
 import {
   applyPlayerPlacementSpawnToBillboard,
@@ -6139,13 +6139,10 @@ export function startGameLoop({
     gameplayOpeningMovementLocked,
     flowState
   }) {
-    const placementPreviewBlocked = Boolean(
-      solarStationPlacementPreview ||
-      greenhousePlacementPreview ||
-      campfirePlacementPreview ||
-      leafDenKitPlacementPreview
-    );
-    const framePlacementPrompts = resolveFramePlacementPrompts({
+    const {
+      placementPreviewBlocked,
+      framePlacementPrompts
+    } = resolveFramePlacementPromptState({
       solarStationPlacementPreview,
       greenhousePlacementPreview,
       campfirePlacementPreview,

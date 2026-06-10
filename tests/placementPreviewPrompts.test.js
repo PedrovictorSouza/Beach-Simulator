@@ -5,6 +5,8 @@ import {
   formatFreeBlockCostNumber,
   getFreeBlockInvalidPlacementNotice,
   getFreeBlockPlacementNotice,
+  hasPlacementPreviewPromptBlocker,
+  resolveFramePlacementPromptState,
   resolveFramePlacementPrompts
 } from "../app/runtime/construction/placementPreviewPrompts.js";
 
@@ -61,6 +63,46 @@ describe("placement preview prompts", () => {
     }).solarStationPlacementPrompt).toBe(
       "Set Solar Station site  X Place  B Cancel  LB/RB Rotate"
     );
+  });
+
+  it("detects active placement previews that block other prompt targets", () => {
+    expect(hasPlacementPreviewPromptBlocker({})).toBe(false);
+    expect(hasPlacementPreviewPromptBlocker({
+      solarStationPlacementPreview: { valid: true }
+    })).toBe(true);
+    expect(hasPlacementPreviewPromptBlocker({
+      greenhousePlacementPreview: { valid: true }
+    })).toBe(true);
+    expect(hasPlacementPreviewPromptBlocker({
+      campfirePlacementPreview: { valid: true }
+    })).toBe(true);
+    expect(hasPlacementPreviewPromptBlocker({
+      leafDenKitPlacementPreview: { valid: true }
+    })).toBe(true);
+  });
+
+  it("resolves placement preview prompt state with blocker status", () => {
+    expect(resolveFramePlacementPromptState({
+      solarStationPlacementPreview: { valid: true }
+    })).toEqual({
+      placementPreviewBlocked: true,
+      framePlacementPrompts: {
+        solarStationPlacementPrompt: "Set Solar Station site  X / Enter Place  Space Cancel",
+        greenhousePlacementPrompt: "",
+        campfirePlacementPrompt: "",
+        leafDenKitPlacementPrompt: ""
+      }
+    });
+
+    expect(resolveFramePlacementPromptState({})).toEqual({
+      placementPreviewBlocked: false,
+      framePlacementPrompts: {
+        solarStationPlacementPrompt: "",
+        greenhousePlacementPrompt: "",
+        campfirePlacementPrompt: "",
+        leafDenKitPlacementPrompt: ""
+      }
+    });
   });
 
   it("resolves free block placement notices without changing copy", () => {

@@ -65,6 +65,20 @@ export function buildFreeBlockBuildCostMarker({
   };
 }
 
+export function hasPlacementPreviewPromptBlocker({
+  solarStationPlacementPreview = null,
+  greenhousePlacementPreview = null,
+  campfirePlacementPreview = null,
+  leafDenKitPlacementPreview = null
+} = {}) {
+  return Boolean(
+    solarStationPlacementPreview ||
+    greenhousePlacementPreview ||
+    campfirePlacementPreview ||
+    leafDenKitPlacementPreview
+  );
+}
+
 export function resolveFramePlacementPrompts({
   solarStationPlacementPreview,
   greenhousePlacementPreview,
@@ -130,5 +144,29 @@ export function resolveFramePlacementPrompts({
     greenhousePlacementPrompt,
     campfirePlacementPrompt,
     leafDenKitPlacementPrompt
+  };
+}
+
+export function resolveFramePlacementPromptState({
+  solarStationPlacementPreview = null,
+  greenhousePlacementPreview = null,
+  campfirePlacementPreview = null,
+  leafDenKitPlacementPreview = null,
+  inputModalityState
+} = {}) {
+  return {
+    placementPreviewBlocked: hasPlacementPreviewPromptBlocker({
+      solarStationPlacementPreview,
+      greenhousePlacementPreview,
+      campfirePlacementPreview,
+      leafDenKitPlacementPreview
+    }),
+    framePlacementPrompts: resolveFramePlacementPrompts({
+      solarStationPlacementPreview,
+      greenhousePlacementPreview,
+      campfirePlacementPreview,
+      leafDenKitPlacementPreview,
+      inputModalityState
+    })
   };
 }

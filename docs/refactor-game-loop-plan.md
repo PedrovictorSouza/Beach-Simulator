@@ -288,10 +288,59 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move camera look input calculation into the `gameLoop` policy
   boundary.
+- Completed: move placement-preview prompt blocker state into the
+  `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Placement Preview Prompt State Boundary
+
+Moved placement-preview prompt blocker state from `app/runtime/gameLoop.js` into
+`app/runtime/construction/placementPreviewPrompts.js`.
+
+Boundary classification: `construction`, focused on placement-preview prompt
+state and whether active placement previews should block other prompt targets.
+
+Study path:
+
+1. `hasPlacementPreviewPromptBlocker(...)` owns the "any active placement
+   preview blocks other prompt targets" check.
+2. `resolveFramePlacementPromptState(...)` returns both
+   `placementPreviewBlocked` and `framePlacementPrompts`.
+3. `gameLoop.js` still owns workbench rotation target lookup, pending placement
+   intent lookup, destroyable-object prompt lookup and debug payload emission.
+4. No prompt copy, input mapping, placement rule or frame order changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9772` to `9769`.
+- Removed local placement-preview blocker boolean assembly from
+  `resolveFramePromptTargetState(...)`.
+- Added focused tests for blocker detection and the combined prompt state.
+
+Validation:
+
+```sh
+npm test -- --run tests/placementPreviewPrompts.test.js
+npm test -- --run tests/placementPreviewPrompts.test.js tests/worldPromptCopy.test.js tests/hudPromptCopy.test.js tests/pendingPlacementIntent.test.js tests/gameLoopFrameRuntime.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused construction/prompt/frame suite passed with `24` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1644` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Camera Look Input Policy Boundary
 
