@@ -335,10 +335,69 @@ There is no dedicated lint or typecheck script in `package.json`.
   `camera` boundary.
 - Completed: move gameplay input frame coordination into the existing `input`
   boundary.
+- Completed: move construction placement frame coordination into the
+  `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Construction Placement Frame Boundary
+
+Moved frame-level construction placement coordination from
+`app/runtime/gameLoop.js` into
+`app/runtime/construction/constructionPlacementFrameRuntime.js`.
+
+Boundary classification: `construction`, focused on placement rotation,
+placement cancellation, Build Block request routing, placement-preview updates,
+Solar Station spawn/rotation visuals and free-block preview/debug updates.
+
+Module boundary note:
+
+- This file belongs to the existing `construction` domain boundary.
+- The runtime does not implement placement rules or field-move rules directly;
+  it calls existing game-loop functions through explicit callbacks.
+- `gameLoop.js` still owns frame order: placement controls/previews run before
+  player movement, and free-block preview still runs after `buildBlockEquipped`
+  is resolved.
+- Existing prompt text and feedback side effects are preserved, including
+  `"Need Wood"` and invalid-placement notices.
+
+Study path:
+
+1. `updatePlacementControlsAndPreviews(...)` replaces the inline block that
+   consumed placement rotation/cancel/build inputs and refreshed placement
+   previews.
+2. `updateFreeBlockPreview(...)` replaces the inline Build Block preview gate
+   and debug overlay update after active field-move state is known.
+3. `gameLoop.js` receives the same four placement preview objects and continues
+   using them in the later prompt/highlight/render stages.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `7919` to `7887`.
+- Removed the visibly awkward inline placement cancel/build request block from
+  `frame(now)`.
+- Added focused tests for rotation priority, cancel priority, blocked input
+  draining, Build Block feedback, placement-preview update timing and Build
+  Block preview/debug overlay state.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js tests/freeBlockPreview.test.js tests/freeBlockBuildSystem.test.js tests/pendingPlacementIntent.test.js tests/placementConsumptionContract.test.js tests/workbenchRotationRuntime.test.js tests/placementPreviewPrompts.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused construction placement suite passed with `62` tests across the new
+runtime and existing placement/free-block/workbench tests. The production build
+passed with the existing chunk-size warning. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1717` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
 
 ### Gameplay Input Frame Boundary
 

@@ -56,6 +56,7 @@ import {
 import {
   moveConstructionHelperToLeafDen as moveConstructionHelperToLeafDenWithConfig
 } from "./construction/constructionHelperMotion.js";
+import { createConstructionPlacementFrameRuntime } from "./construction/constructionPlacementFrameRuntime.js";
 import {
   cancelPendingWorkbenchPlacementIntent,
   hasPendingWorkbenchPlacementIntent,
@@ -1109,6 +1110,34 @@ export function startGameLoop({
   const playSoundEvent = (eventId, options) => {
     gameplay?.playSoundEvent?.(eventId, options);
   };
+  const constructionPlacementFrameRuntime = createConstructionPlacementFrameRuntime({
+    controls,
+    session,
+    placementContracts: PLACEMENT_CONTRACTS,
+    workbenchRotationRuntime,
+    callbacks: {
+      rotateActivePlacementPreview,
+      rotateNearbyWorkbenchConstruction,
+      hasActivePlacementPreview,
+      hasPendingWorkbenchPlacementIntent,
+      clearWorkbenchConstructionRotationSelection,
+      cancelActivePlacementPreviews,
+      cancelPendingWorkbenchPlacementIntentWithNotice,
+      isBuildBlockFieldMoveEquipped,
+      startTimburrBuildBlockAction,
+      playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
+      pushNotice: (message) => hud?.pushNotice?.(message),
+      getFreeBlockInvalidPlacementNotice,
+      updateSolarStationPlacementPreview,
+      updateGreenhousePlacementPreview,
+      updateCampfirePlacementPreview,
+      updateLeafDenKitPlacementPreview,
+      updateSolarStationSpawnEffect,
+      syncSolarStationWorkbenchRotationVisual,
+      syncFreeBlockBuildPreview,
+      updateBuildBlockDebugOverlay: (debug) => buildBlockDebugOverlay.update(debug)
+    }
+  });
   const playerModelRuntime = createPlayerModelRuntime({
     moveValueToward,
     rotateAngleToward,
@@ -6286,72 +6315,16 @@ export function startGameLoop({
     });
 
     // Placement and player movement.
-    const placementRotationRequest = controls.consumePlacementRotationRequest?.() || 0;
-    if (placementRotationRequest) {
-      const rotatedPreview = rotateActivePlacementPreview(placementRotationRequest);
-      if (!rotatedPreview) {
-        rotateNearbyWorkbenchConstruction(placementRotationRequest);
-      }
-    }
-
-    const shouldConsumePlacementCancel = Boolean(
-      workbenchRotationRuntime.getSelection() ||
-      hasActivePlacementPreview(session, PLACEMENT_CONTRACTS) ||
-      hasPendingWorkbenchPlacementIntent(session)
-    );
-    let placementCancelRequested = false;
-    if (shouldConsumePlacementCancel) {
-      placementCancelRequested = typeof controls.consumePlacementCancelRequest === "function" ?
-        controls.consumePlacementCancelRequest() :
-        controls.consumeJumpRequest?.() || false;
-    }
-    if (
-  placementCancelRequested &&
-  workbenchRotationRuntime.getSelection()
-) {
-  clearWorkbenchConstructionRotationSelection();
-} else if (
-  placementCancelRequested &&
-  hasActivePlacementPreview(session, PLACEMENT_CONTRACTS)
-) {
-  cancelActivePlacementPreviews();
-} else if (placementCancelRequested) {
-  cancelPendingWorkbenchPlacementIntentWithNotice();
-}
-
-if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacter)) {
-  controls.consumeFreeBlockBuildRequest?.();
-  controls.consumeJumpRequest?.();
-}
-
-    if (
-      !shouldConsumePlacementCancel &&
-      !movementBlocked &&
-      session.playerCharacter &&
-      controls.consumeFreeBlockBuildRequest?.()
-    ) {
-      if (isBuildBlockFieldMoveEquipped()) {
-        const buildRequestResult = startTimburrBuildBlockAction({
-          playerPosition: session.playerCharacter.getPosition()
-        });
-        if (buildRequestResult === "invalid") {
-          playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-          hud?.pushNotice?.(getFreeBlockInvalidPlacementNotice(session.lastTimburrBuildBlockInvalidReason));
-        } else if (buildRequestResult === "missing-material") {
-          playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-          hud?.pushNotice?.("Need Wood");
-        }
-      } else {
-        playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-      }
-    }
-
-    let solarStationPlacementPreview = updateSolarStationPlacementPreview(now * 0.001);
-    let greenhousePlacementPreview = updateGreenhousePlacementPreview(now * 0.001);
-    let campfirePlacementPreview = updateCampfirePlacementPreview(now * 0.001);
-    let leafDenKitPlacementPreview = updateLeafDenKitPlacementPreview(now * 0.001);
-    updateSolarStationSpawnEffect(session.strawBedModelInstance, deltaTime);
-    syncSolarStationWorkbenchRotationVisual(now * 0.001);
+    let {
+      solarStationPlacementPreview,
+      greenhousePlacementPreview,
+      campfirePlacementPreview,
+      leafDenKitPlacementPreview
+    } = constructionPlacementFrameRuntime.updatePlacementControlsAndPreviews({
+      now,
+      deltaTime,
+      movementBlocked
+    });
     const { playerMovedThisFrame } = playerMovementFrameRuntime.update({
       deltaTime,
       now,
@@ -6386,23 +6359,18 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
     const buildBlockEquipped = Boolean(
       isBuildBlockFieldMoveEquipped()
     );
-    const freeBlockPreviewTarget = syncFreeBlockBuildPreview({
-      active: Boolean(
-        buildBlockEquipped &&
-        session.playerCharacter &&
-        !cinematicActive &&
-        !gameplayOpeningMovementLocked &&
-        !foundationBuildZoneCameraFocusActive &&
-        !tutorialActive &&
-        !pokedexModalOpen &&
-        !skillLearnActive &&
-        !scriptedInteractionActive &&
-        !dialogueActive
-      ),
-      playerPosition: session.playerCharacter?.getPosition?.(),
-      nowSeconds: now * 0.001
+    const { freeBlockPreviewTarget } = constructionPlacementFrameRuntime.updateFreeBlockPreview({
+      now,
+      buildBlockEquipped,
+      cinematicActive,
+      gameplayOpeningMovementLocked,
+      foundationBuildZoneCameraFocusActive,
+      tutorialActive,
+      pokedexModalOpen,
+      skillLearnActive,
+      scriptedInteractionActive,
+      dialogueActive
     });
-    buildBlockDebugOverlay.update(freeBlockPreviewTarget?.debug || null);
     const isWaterGunTreeTarget = (target) => Boolean(
       waterGunEquipped &&
       target?.palm
