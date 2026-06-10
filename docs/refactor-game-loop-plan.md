@@ -313,10 +313,71 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move frame HUD prompt copy resolution into the `presentation`
   boundary.
 - Completed: move Leppa tree dance motion into the `presentation` boundary.
+- Completed: move render snapshot context preparation into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Render Snapshot Context Boundary
+
+Moved render snapshot context preparation from `app/runtime/gameLoop.js` into
+`app/runtime/presentation/renderSnapshotContext.js`.
+
+Boundary classification: `presentation/render helpers`, focused on preparing
+frame-local render context values before snapshot population.
+
+Module boundary note:
+
+- This is a new file inside the existing `presentation` domain, not a loose
+  helper under `app/runtime/`.
+- It owns clearing temporary nature render collections and resolving the
+  per-frame grass bend, render center, grass collision and repair-box particle
+  targets.
+- It receives `session`, `camera` and the existing target/collision callbacks
+  explicitly; it does not import gameplay, camera runtime or repair-box
+  runtime state directly.
+
+Study path:
+
+1. `gameLoop.js` still calls context preparation in the same render-prep spot.
+2. `prepareRenderSnapshotContext(...)` now owns the temporary collection reset
+   and context object construction.
+3. `getGrassCollisionObjects(...)`, `getSelectedRepairBoxParticleTarget(...)`
+   and `getRepairBoxRevealParticleTarget(...)` remain the existing
+   source-of-truth functions.
+4. No render snapshot shape, repair-box particle priority, grass bend behavior
+   or frame order changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9108` to `9075`.
+- Removed the detailed render context preparation block from `startGameLoop()`.
+- Added focused tests for temporary collection clearing, cinematic grass bend
+  gating and repair-box target source forwarding.
+
+Validation:
+
+```sh
+npm test -- --run tests/renderSnapshotContext.test.js
+npm test -- --run tests/renderSnapshotContext.test.js tests/repairBoxParticleTargets.test.js tests/frameSnapshotController.test.js tests/grassPlayerBend.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused render snapshot context suite passed with `16` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1677` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Leppa Tree Dance Boundary
 
