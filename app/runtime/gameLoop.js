@@ -131,7 +131,10 @@ import {
   getSquirtleChargingBillboards,
   getSquirtleStaminaBillboards
 } from "./companions/companionStatusBillboards.js";
-import { createFoundationBuildZoneCameraFocusRuntime } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
+import {
+  createFoundationBuildZoneCameraFocusPose,
+  createFoundationBuildZoneCameraFocusRuntime
+} from "./camera/foundationBuildZoneCameraFocusRuntime.js";
 import {
   resolveCameraInputPermissions,
   resolveGameplayActionPermission,
@@ -503,12 +506,6 @@ const FREE_BLOCK_BUILD_GRID_CONFIG = Object.freeze({
   height: 256,
   visualOffsetY: 0.03
 });
-const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DURATION_MS = 3000;
-const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_ZOOM = 6.4;
-const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DISTANCE = 15.5;
-const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_HEIGHT = 1.45;
-const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG = "builderTutorialFoundationCameraFocusZoneSignature";
-
 const LEAF_DEN_BUILT_ROTATION_FOOTPRINT = [
   LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[0] * 2,
   LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[1] * 2
@@ -1122,10 +1119,7 @@ export function startGameLoop({
       popScale: LANDSCAPE_CUT_EFFECT_POP_SCALE
     }
   });
-  const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime({
-    durationMs: BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DURATION_MS,
-    focusFlag: BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG
-  });
+  const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime();
   const companionLostHintRuntime = createCompanionLostHintRuntime({
     initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
     repeatMs: COMPANION_LOST_HINT_REPEAT_MS,
@@ -1997,24 +1991,6 @@ export function startGameLoop({
     );
   }
 
-  function getFoundationBuildZoneCameraFocusPose(buildZone = null) {
-    const position = getFreeBlockBuildZoneCenterPosition(buildZone);
-    if (!position) {
-      return null;
-    }
-
-    return {
-      target: [
-        position[0],
-        BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_HEIGHT,
-        position[2]
-      ],
-      direction: cameraOrbit.getDirection?.() || camera.getPose?.()?.direction,
-      zoom: BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_ZOOM,
-      distance: BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DISTANCE
-    };
-  }
-
   function updateFoundationBuildZoneCameraFocus(now) {
     const missionActive = isFoundationBuildMissionActive();
     if (!missionActive) {
@@ -2041,7 +2017,10 @@ export function startGameLoop({
       zoneSignature: getBuilderTutorialFoundationZoneSignature(buildZone),
       flags: controls.storyState?.flags || {},
       startFocus: () => {
-        const pose = getFoundationBuildZoneCameraFocusPose(buildZone);
+        const pose = createFoundationBuildZoneCameraFocusPose({
+          position: getFreeBlockBuildZoneCenterPosition(buildZone),
+          direction: cameraOrbit.getDirection?.() || camera.getPose?.()?.direction
+        });
         if (!pose) {
           return false;
         }

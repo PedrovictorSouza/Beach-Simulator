@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createFoundationBuildZoneCameraFocusRuntime } from "../app/runtime/camera/foundationBuildZoneCameraFocusRuntime.js";
+import {
+  createFoundationBuildZoneCameraFocusPose,
+  createFoundationBuildZoneCameraFocusRuntime
+} from "../app/runtime/camera/foundationBuildZoneCameraFocusRuntime.js";
 
 const FOCUS_FLAG = "builderTutorialFoundationCameraFocusZoneSignature";
 
@@ -168,5 +171,23 @@ describe("createFoundationBuildZoneCameraFocusRuntime", () => {
       flags: secondFlags,
       startFocus: () => true
     })).toBe(true);
+  });
+});
+
+describe("createFoundationBuildZoneCameraFocusPose", () => {
+  it("creates the existing foundation camera focus pose from a zone center", () => {
+    expect(createFoundationBuildZoneCameraFocusPose({
+      position: [4, 0.03, 5],
+      direction: [0, -0.5, -1]
+    })).toEqual({
+      target: [4, 1.45, 5],
+      direction: [0, -0.5, -1],
+      zoom: 6.4,
+      distance: 15.5
+    });
+  });
+
+  it("does not create a pose without a valid center position", () => {
+    expect(createFoundationBuildZoneCameraFocusPose({ position: null })).toBe(null);
   });
 });

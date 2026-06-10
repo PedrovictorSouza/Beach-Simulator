@@ -280,10 +280,59 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move foundation completion effect policy into the `construction`
   boundary.
+- Completed: move foundation build-zone camera focus pose into the `camera`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Foundation Build-Zone Camera Focus Pose Boundary
+
+Moved foundation build-zone camera focus pose creation from
+`app/runtime/gameLoop.js` into
+`app/runtime/camera/foundationBuildZoneCameraFocusRuntime.js`.
+
+Boundary classification: `camera runtime/debug`, focused on camera pose payload
+creation for the builder tutorial foundation-zone focus.
+
+Study path:
+
+1. `createFoundationBuildZoneCameraFocusPose(...)` owns the target height,
+   zoom and distance values used by the one-time foundation focus.
+2. `createFoundationBuildZoneCameraFocusRuntime(...)` now carries defaults for
+   duration and story flag key, preserving the existing optional argument API.
+3. `gameLoop.js` still decides mission activity, zone availability and when to
+   call `camera.startPoseTransition(...)`.
+4. Frame order and `startFocus` side effects are unchanged.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9804` to `9783`.
+- Removed foundation camera focus tuning constants and the local pose builder
+  from `gameLoop.js`.
+- Added focused tests for the exact pose payload and invalid-position behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js
+npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js tests/camera.test.js tests/gameplayCameraDirector.test.js tests/gameLoopFrameRuntime.test.js tests/gameLoopFramePolicies.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused camera/frame suite passed with `27` tests. Manual gameplay
+validation remains pending in this pass.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1636` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
 
 ### Foundation Completion Effect Policy Boundary
 
