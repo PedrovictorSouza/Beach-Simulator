@@ -239,6 +239,7 @@ import {
   getGrassCollisionObjects,
   getGrassObjectCollisionAlpha
 } from "./presentation/grassCollisionObjects.js";
+import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
   getRepairBoxRevealParticleTarget,
@@ -429,7 +430,6 @@ import {
   POKEMON_TALK_INTERACT_DISTANCE,
   RUINED_POKEMON_CENTER_GUIDE_POSITION,
   RUINED_POKEMON_CENTER_POSITION,
-  WORLD_LIMIT,
   WORKBENCH_INTERACT_DISTANCE,
   WORKBENCH_POSITION
 } from "../../gameplayContent.js";
@@ -693,39 +693,6 @@ function debugInteractionFlow(node, payload = {}) {
 
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));
-}
-
-function isVector3Like(value) {
-  return value && value.length >= 3;
-}
-
-function getWrappedPlanarDelta(value, reference) {
-  const numericValue = Number(value) || 0;
-  const numericReference = Number(reference) || 0;
-  let delta = numericValue - numericReference;
-
-  if (!(WORLD_LIMIT > 0)) {
-    return delta;
-  }
-
-  const period = WORLD_LIMIT * 2;
-  if (delta > WORLD_LIMIT) {
-    delta -= period;
-  } else if (delta < -WORLD_LIMIT) {
-    delta += period;
-  }
-
-  return delta;
-}
-
-function isWorldPositionWithinRenderDistance(position, referencePosition, distance) {
-  if (!(distance > 0) || !isVector3Like(position) || !isVector3Like(referencePosition)) {
-    return true;
-  }
-
-  const dx = getWrappedPlanarDelta(position[0], referencePosition[0]);
-  const dz = getWrappedPlanarDelta(position[2], referencePosition[2]);
-  return dx * dx + dz * dz <= distance * distance;
 }
 
 function easeOutCubic(value) {

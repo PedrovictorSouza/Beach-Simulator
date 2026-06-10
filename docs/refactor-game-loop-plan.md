@@ -317,10 +317,73 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move grass collision presentation helpers into the
   `presentation` boundary.
+- Completed: move wrapped render-distance helpers into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Render Distance Presentation Boundary
+
+Moved wrapped planar render-distance helpers from `app/runtime/gameLoop.js` into
+`app/runtime/presentation/renderDistance.js`.
+
+Boundary classification: `presentation/render helpers`, focused on deciding
+whether world-space presentation objects are close enough to prepare/render.
+
+Module boundary note:
+
+- This is a new file inside the existing `presentation` domain, not a loose
+  helper under `app/runtime/`.
+- It owns the world-wrap planar delta and render-distance predicate used by
+  grass, flower, drop and construction presentation preparation.
+- The default world limit still comes from `gameplayContent.js`; tests can pass
+  a local `worldLimit` to cover wrap behavior without changing gameplay tuning.
+- `gameLoop.js` still decides where the predicate is used and keeps the same
+  render-prep order.
+
+Study path:
+
+1. `isWorldPositionWithinRenderDistance(...)` keeps the previous permissive
+   fallback for invalid distance or invalid vector inputs.
+2. `getWrappedPlanarDelta(...)` keeps the existing wrap formula for world
+   positions crossing `WORLD_LIMIT`.
+3. `gameLoop.js` imports the helper and passes it to existing presentation
+   callers exactly where the local function was previously used.
+4. No culling distance, scene-object shape, frame order or render snapshot data
+   changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `8989` to `8956`.
+- Removed the private `isVector3Like(...)`, `getWrappedPlanarDelta(...)` and
+  `isWorldPositionWithinRenderDistance(...)` implementations from
+  `gameLoop.js`.
+- Removed direct `WORLD_LIMIT` knowledge from `gameLoop.js`.
+- Added focused tests for normal culling, world-wrap culling and permissive
+  fallback behavior.
+
+Passed:
+
+```sh
+npm test -- --run tests/renderDistance.test.js
+npm test -- --run tests/renderDistance.test.js tests/renderCulling.test.js tests/renderSnapshotContext.test.js tests/leafBillboards.test.js tests/constructionHouseModelInstances.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused render-distance test passed with `3` tests and the focused
+presentation/render culling suite passed with `17` tests. The production build
+passed with the existing chunk-size warning. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1684` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
 
 ### Grass Collision Presentation Boundary
 
