@@ -50,3 +50,27 @@ export function createCameraZoomPresetController({
     }
   };
 }
+
+export function restoreActiveZoomPresetOnMovement({
+  playerPosition = null,
+  camera = null,
+  cameraOrbit = null,
+  cameraZoomPresetController = null
+} = {}) {
+  if (!Array.isArray(playerPosition) || !camera?.isTargetTransitionActive?.()) {
+    return false;
+  }
+
+  const currentPose = camera.getPose?.() || {};
+  const activePreset = cameraZoomPresetController?.getCurrentPreset?.() || {};
+
+  camera.setPose?.({
+    target: currentPose.target || playerPosition,
+    direction: cameraOrbit?.getDirection?.() || currentPose.direction,
+    zoom: activePreset.zoom,
+    distance: activePreset.distance
+  });
+  cameraZoomPresetController?.applyCurrent?.();
+  camera.follow?.(playerPosition);
+  return true;
+}

@@ -377,7 +377,10 @@ import {
   createFrameSnapshotController,
   setFrameWorldPrompt
 } from "./frameSnapshotController.js";
-import { createCameraZoomPresetController } from "./camera/cameraZoomPresetController.js";
+import {
+  createCameraZoomPresetController,
+  restoreActiveZoomPresetOnMovement
+} from "./camera/cameraZoomPresetController.js";
 import { createPlacementCameraAssist } from "./camera/placementCameraAssist.js";
 import { updatePlayerDustParticles } from "../session/playerDustParticles.js";
 import {
@@ -1964,24 +1967,6 @@ export function startGameLoop({
 
   function triggerWaterGunSfxBurst(duration = SQUIRTLE_WATER_GUN_SPRAY_DURATION) {
     waterGunSfxBurstRuntime.trigger(getRuntimeNowSeconds(), duration);
-  }
-
-  function restoreActiveZoomPresetOnMovement(playerPosition) {
-    if (!Array.isArray(playerPosition) || !camera.isTargetTransitionActive()) {
-      return;
-    }
-
-    const currentPose = camera.getPose?.() || {};
-    const activePreset = cameraZoomPresetController.getCurrentPreset?.() || {};
-
-    camera.setPose({
-      target: currentPose.target || playerPosition,
-      direction: cameraOrbit.getDirection?.() || currentPose.direction,
-      zoom: activePreset.zoom,
-      distance: activePreset.distance
-    });
-    cameraZoomPresetController.applyCurrent?.();
-    camera.follow(playerPosition);
   }
 
   function isFoundationBuildMissionActive() {
@@ -6516,7 +6501,12 @@ export function startGameLoop({
         !gameplayOpeningCameraLocked &&
         !foundationBuildZoneCameraFocusActive
       ) {
-        restoreActiveZoomPresetOnMovement(nextPlayerPosition);
+        restoreActiveZoomPresetOnMovement({
+          playerPosition: nextPlayerPosition,
+          camera,
+          cameraOrbit,
+          cameraZoomPresetController
+        });
       }
 
       movementQuestRuntime.update({
