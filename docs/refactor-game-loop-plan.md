@@ -268,6 +268,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move free-block preview debug payload building into the
   `construction` boundary.
+- Completed: move unavailable foundation-zone placement payload factories into
+  the `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1762,6 +1764,60 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Foundation Unavailable Payload Boundary
+
+Moved unavailable foundation build-zone placement/validation payload creation
+from `app/runtime/gameLoop.js` into
+`app/runtime/construction/foundationBuildZone.js`.
+
+Boundary classification: `construction`, focused on foundation-zone blocked
+placement state. The live action/control flow remains in `gameLoop.js`.
+
+Study path:
+
+1. `createUnavailableFoundationBuildZonePlacementResult(...)` owns the
+   `{ placed: false, reason: "blocked-cell", ... }` payload used by direct
+   player placement and Timburr impact placement.
+2. `createUnavailableFoundationBuildZoneValidation(...)` owns the
+   `{ valid: false, reason: "blocked-cell", ... }` payload used by preview
+   target validation.
+3. `gameLoop.js` still owns deciding when the foundation zone is unavailable,
+   invoking controllers and applying HUD/audio/feedback side effects.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10012` to `10005`.
+- Removed duplicated unavailable/blocked-cell placement and validation payload
+  literals from `gameLoop.js`.
+- Added focused tests for unavailable placement and validation payload shape.
+
+Validation:
+
+```sh
+npm test -- --run tests/foundationBuildZone.test.js
+npm test -- --run tests/foundationBuildZone.test.js tests/freeBlockBuildSystem.test.js tests/freeBlockPreview.test.js tests/placementGeometry.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/foundation/build suite passed with `84` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1623` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

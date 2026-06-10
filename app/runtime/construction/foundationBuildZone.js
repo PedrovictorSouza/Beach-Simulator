@@ -90,3 +90,26 @@ export function saveFoundationBuildZoneOriginCell({
   };
   return flags[originFlag];
 }
+
+export function createUnavailableFoundationBuildZonePlacementResult({
+  blockType = "wall",
+  targetCell = null
+} = {}) {
+  return {
+    placed: false,
+    reason: "blocked-cell",
+    blockType,
+    block: null,
+    targetCell
+  };
+}
+
+export function createUnavailableFoundationBuildZoneValidation({
+  targetCell = null
+} = {}) {
+  return {
+    valid: false,
+    reason: "blocked-cell",
+    targetCell
+  };
+}

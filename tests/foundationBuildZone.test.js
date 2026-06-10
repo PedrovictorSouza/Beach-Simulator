@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   canStackFreeBlockPlacement,
+  createUnavailableFoundationBuildZonePlacementResult,
+  createUnavailableFoundationBuildZoneValidation,
   getFoundationBuildZoneProgressCount,
   getSavedFoundationBuildZoneOriginCell,
   hasFoundationWallObjective,
@@ -151,5 +153,28 @@ describe("foundation build zone", () => {
       originFlag,
       defaultOriginCell: { x: 0, y: 0 }
     })).toBeNull();
+  });
+
+  it("creates unavailable foundation zone placement payloads", () => {
+    expect(createUnavailableFoundationBuildZonePlacementResult({
+      blockType: "wall",
+      targetCell: { x: 1, y: 2 }
+    })).toEqual({
+      placed: false,
+      reason: "blocked-cell",
+      blockType: "wall",
+      block: null,
+      targetCell: { x: 1, y: 2 }
+    });
+  });
+
+  it("creates unavailable foundation zone validation payloads", () => {
+    expect(createUnavailableFoundationBuildZoneValidation({
+      targetCell: { x: 3, y: 4 }
+    })).toEqual({
+      valid: false,
+      reason: "blocked-cell",
+      targetCell: { x: 3, y: 4 }
+    });
   });
 });

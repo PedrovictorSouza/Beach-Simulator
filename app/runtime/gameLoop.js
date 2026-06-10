@@ -21,6 +21,8 @@ import {
 } from "./construction/constructionCloudEffects.js";
 import {
   canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
+  createUnavailableFoundationBuildZonePlacementResult,
+  createUnavailableFoundationBuildZoneValidation,
   getFoundationBuildZoneProgressCount as getFoundationBuildZoneProgressCountFromState,
   getSavedFoundationBuildZoneOriginCell as getSavedFoundationBuildZoneOriginCellFromFlags,
   isFoundationFreeBlockAllowedInZone as isFoundationFreeBlockAllowedInZoneWithState,
@@ -3966,13 +3968,9 @@ export function startGameLoop({
 
     const playerPosition = session.playerCharacter?.getPosition?.();
     const result = isFoundationBuildZoneUnavailable() ?
-      {
-        placed: false,
-        reason: "blocked-cell",
-        blockType: FREE_BLOCK_TYPES.WALL,
-        block: null,
-        targetCell: null
-      } :
+      createUnavailableFoundationBuildZonePlacementResult({
+        blockType: FREE_BLOCK_TYPES.WALL
+      }) :
       controller.placeSelectedBlockAtTarget({
         playerPosition,
         buildZone: getActiveFreeBlockBuildZone(),
@@ -4012,11 +4010,9 @@ export function startGameLoop({
     }
 
     const validation = isFoundationBuildZoneUnavailable() ?
-      {
-        valid: false,
-        reason: "blocked-cell",
+      createUnavailableFoundationBuildZoneValidation({
         targetCell: target.targetCell
-      } :
+      }) :
       controller?.validateSelectedBlockTarget?.({
         targetCell: target.targetCell,
         buildZone: getActiveFreeBlockBuildZone(),
@@ -4172,13 +4168,10 @@ export function startGameLoop({
 
     const playerPosition = session.playerCharacter?.getPosition?.();
     const result = isFoundationBuildZoneUnavailable() ?
-      {
-        placed: false,
-        reason: "blocked-cell",
+      createUnavailableFoundationBuildZonePlacementResult({
         blockType: FREE_BLOCK_TYPES.WALL,
-        block: null,
         targetCell: action.targetCell
-      } :
+      }) :
       controller.placeSelectedBlockAtTarget({
         targetCell: action.targetCell,
         buildZone: getActiveFreeBlockBuildZone(),
