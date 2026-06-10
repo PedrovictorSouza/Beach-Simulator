@@ -3862,6 +3862,72 @@ Native Tree baseline:
 
 No manual browser validation was run in this cut.
 
+### Gameplay Prompt Frame State Wrapper
+
+Expanded `app/runtime/presentation/gameplayPromptTargetFrameState.js` with
+`resolveGameplayPromptFrameState(...)`.
+
+Module boundary:
+
+- Domain: `presentation/render helpers`.
+- Responsibility: gather the frame prompt presentation state after ground
+  guidance has produced `pendingWaterGunGroundCells`.
+- Removed from `frame(now)`: direct input-modality lookup for prompt assembly,
+  transient notice routing, counter prompt text lookup, prompt target resolution
+  call wiring and `resolveFrameHudPromptCopy(...)` wiring.
+
+Study path:
+
+1. `frame(now)` still computes `activeQuest`, `activeTask`,
+   `activeSystemQuest` and ground guidance before prompt copy. This preserves
+   the existing dependency order.
+2. `resolveGameplayPromptFrameState(...)` receives the already-known frame
+   inputs and explicit callbacks for modality, counter prompt and workbench
+   targets.
+3. The wrapper delegates to `resolveGameplayPromptTargetFrameState(...)`,
+   `resolveTransientNoticeRoute(...)` and `resolveFrameHudPromptCopy(...)`.
+4. The returned object preserves the same names consumed later by HUD snapshot,
+   world prompt state and render snapshot prep.
+
+Tests expanded:
+
+- `tests/gameplayPromptTargetFrameState.test.js`
+
+The new test covers prompt-copy priority through the wrapper, transient notice
+routing, input modality forwarding and player counter prompt forwarding.
+
+Risks reduced:
+
+- `gameLoop.js` no longer coordinates the low-level HUD prompt-copy adapter.
+- `resolveFrameHudPromptCopy(...)` and `resolveTransientNoticeRoute(...)` are no
+  longer direct `gameLoop.js` imports.
+
+Risks remaining:
+
+- `frame(now)` still owns the ordering between gameplay target lookup, ground
+  guidance, prompt frame state and ground-cell highlight state.
+- The presentation module intentionally receives explicit callbacks instead of
+  owning gameplay systems.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/gameplayPromptTargetFrameState.test.js
+npm test -- --run tests/gameplayPromptTargetFrameState.test.js tests/placementPreviewPrompts.test.js tests/pendingPlacementIntent.test.js tests/worldPromptCopy.test.js tests/hudPromptCopy.test.js tests/inputPromptResolver.test.js tests/worldPromptFrameState.test.js tests/worldPromptSnapshotFrame.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused suite passed with `37` tests. `npm run build` passed with the
+existing large chunk warning. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1730` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+No manual browser validation was run in this cut.
+
 ### Companion Lost Hint Resolver Extraction
 
 Moved the Water Gun companion-lost hint decision out of

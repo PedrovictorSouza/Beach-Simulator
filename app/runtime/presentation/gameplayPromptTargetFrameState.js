@@ -1,10 +1,12 @@
 import { resolveFramePendingPlacementIntent } from "../construction/pendingPlacementIntent.js";
 import { resolveFramePlacementPromptState } from "../construction/placementPreviewPrompts.js";
+import { resolveTransientNoticeRoute } from "../contextualPromptNotice.js";
 import {
   resolveInputPrompt,
   resolveWorkbenchRotationPrompt,
   UI_PROMPT_ACTION
 } from "../../ui/inputPromptResolver.js";
+import { resolveFrameHudPromptCopy } from "./hudPromptCopy.js";
 import { getPendingPlacementPrompt } from "./worldPromptCopy.js";
 
 export function resolveGameplayPromptTargetFrameState({
@@ -93,5 +95,84 @@ export function resolveGameplayPromptTargetFrameState({
     nearbyWorkbenchRotationTarget,
     workbenchRotationPrompt,
     destroyableObjectPrompt
+  };
+}
+
+export function resolveGameplayPromptFrameState({
+  now = 0,
+  session = {},
+  storyState = {},
+  inventory = {},
+  gameplay = {},
+  hud = {},
+  activeQuest = null,
+  activeMoveId = null,
+  pendingWaterGunGroundCells = [],
+  nearbyHarvestTarget = null,
+  nearbyInteractable = null,
+  gameplayOpeningMovementLocked = false,
+  cinematicActive = false,
+  tutorialActive = false,
+  skillLearnActive = false,
+  scriptedInteractionActive = false,
+  flowState = {},
+  solarStationPlacementPreview = null,
+  greenhousePlacementPreview = null,
+  campfirePlacementPreview = null,
+  leafDenKitPlacementPreview = null,
+  getCurrentInputModalityState = () => null,
+  getPlayerCounterPromptText = () => "",
+  getSelectedRotatableWorkbenchPlacement = () => null,
+  getNearestRotatableWorkbenchPlacement = () => null,
+  debug = null
+} = {}) {
+  const inputModalityState = getCurrentInputModalityState();
+  const transientNoticeRoute = resolveTransientNoticeRoute(hud.getNoticeMessage?.());
+  const playerCounterPromptText = getPlayerCounterPromptText(now);
+  const promptTargetState = resolveGameplayPromptTargetFrameState({
+    solarStationPlacementPreview,
+    greenhousePlacementPreview,
+    campfirePlacementPreview,
+    leafDenKitPlacementPreview,
+    inputModalityState,
+    nearbyHarvestTarget,
+    gameplayOpeningMovementLocked,
+    flowState,
+    session,
+    storyState,
+    inventory,
+    gameplay,
+    getSelectedRotatableWorkbenchPlacement,
+    getNearestRotatableWorkbenchPlacement,
+    debug
+  });
+  const promptCopy = resolveFrameHudPromptCopy({
+    gameplayOpeningMovementLocked,
+    cinematicActive,
+    tutorialActive,
+    skillLearnActive,
+    scriptedInteractionActive,
+    placementPrompts: promptTargetState.framePlacementPrompts,
+    pendingPlacementPrompt: promptTargetState.pendingPlacementPrompt,
+    workbenchRotationPrompt: promptTargetState.workbenchRotationPrompt,
+    destroyableObjectPrompt: promptTargetState.destroyableObjectPrompt,
+    nearbyHarvestTarget,
+    nearbyInteractable,
+    activeQuest,
+    transientNoticeRoute,
+    activeMoveId,
+    pendingWaterGunGroundCells,
+    storyState,
+    getItemLabel: gameplay.getItemLabel,
+    buildNearbyPrompt: gameplay.buildNearbyPrompt,
+    debug
+  });
+
+  return {
+    inputModalityState,
+    transientNoticeRoute,
+    playerCounterPromptText,
+    ...promptTargetState,
+    promptCopy
   };
 }

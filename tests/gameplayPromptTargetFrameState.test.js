@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { resolveGameplayPromptTargetFrameState } from "../app/runtime/presentation/gameplayPromptTargetFrameState.js";
+import {
+  resolveGameplayPromptFrameState,
+  resolveGameplayPromptTargetFrameState
+} from "../app/runtime/presentation/gameplayPromptTargetFrameState.js";
 
 function createSession(overrides = {}) {
   return {
@@ -14,6 +17,53 @@ function createSession(overrides = {}) {
 }
 
 describe("gameplay prompt target frame state", () => {
+  it("resolves the frame prompt presentation state without changing prompt priority", () => {
+    const session = createSession({
+      pendingPlacementIntent: {
+        itemId: "crate",
+        label: "Crate"
+      }
+    });
+    const inputModalityState = { device: "keyboard" };
+    const gameplay = {
+      findNearbyDestroyableObjectPrompt: vi.fn(() => ({ promptCopy: "Cut" })),
+      getItemLabel: vi.fn(),
+      buildNearbyPrompt: vi.fn(() => "nearby")
+    };
+
+    const state = resolveGameplayPromptFrameState({
+      now: 123,
+      session,
+      storyState: { flags: {} },
+      inventory: { crate: 1 },
+      gameplay,
+      hud: {
+        getNoticeMessage: () => "Missing: Wood 1 / 2"
+      },
+      activeQuest: { id: "quest" },
+      activeMoveId: "waterGun",
+      pendingWaterGunGroundCells: [{ id: "water" }],
+      nearbyHarvestTarget: { id: "harvest" },
+      nearbyInteractable: { id: "interact" },
+      gameplayOpeningMovementLocked: false,
+      flowState: {},
+      getCurrentInputModalityState: vi.fn(() => inputModalityState),
+      getPlayerCounterPromptText: vi.fn(() => "2/5"),
+      getSelectedRotatableWorkbenchPlacement: vi.fn(() => null),
+      getNearestRotatableWorkbenchPlacement: vi.fn(() => null)
+    });
+
+    expect(state.inputModalityState).toBe(inputModalityState);
+    expect(state.transientNoticeRoute).toEqual({
+      hudMessage: "",
+      worldPromptMessage: "Need more Wood"
+    });
+    expect(state.playerCounterPromptText).toBe("2/5");
+    expect(state.pendingPlacementPrompt).toBe("Crate ready  X / Enter Place");
+    expect(state.promptCopy).toBe("Crate ready  X / Enter Place");
+    expect(gameplay.buildNearbyPrompt).not.toHaveBeenCalled();
+  });
+
   it("resolves pending placement prompt, workbench prompt and destroyable prompt targets", () => {
     const session = createSession({
       pendingPlacementIntent: {

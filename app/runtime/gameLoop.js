@@ -176,8 +176,7 @@ import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
-import { resolveFrameHudPromptCopy } from "./presentation/hudPromptCopy.js";
-import { resolveGameplayPromptTargetFrameState } from "./presentation/gameplayPromptTargetFrameState.js";
+import { resolveGameplayPromptFrameState } from "./presentation/gameplayPromptTargetFrameState.js";
 import { resolveWorldPromptFrameState } from "./presentation/worldPromptFrameState.js";
 import { updateWorldPromptSnapshotFrame } from "./presentation/worldPromptSnapshotFrame.js";
 import { resolveWorldSpeechFrameState } from "./presentation/worldSpeechFrameState.js";
@@ -399,7 +398,6 @@ import {
   SQUIRTLE_IDLE_PATROL_RADIUS
 } from "./robotPatrolConfig.js";
 import { resolveBotAttentionFacing } from "./botAttentionFacing.js";
-import { resolveTransientNoticeRoute } from "./contextualPromptNotice.js";
 import {
   applyInteractionObjectHighlight,
   clearInteractionObjectHighlights
@@ -7116,53 +7114,43 @@ if (canProcessDestroyAction && destroyActionRequested) {
     if (!session.leafDenKitPlacementPreview?.active) {
       leafDenKitPlacementPreview = null;
     }
-    const inputModalityState = getCurrentInputModalityState();
-    const transientNoticeRoute = resolveTransientNoticeRoute(hud.getNoticeMessage());
-    const playerCounterPromptText = playerCounterPromptRuntime.get(now);
     const {
+      inputModalityState,
+      transientNoticeRoute,
+      playerCounterPromptText,
       framePlacementPrompts,
       pendingPlacementIntent,
       pendingPlacementPrompt,
       selectedWorkbenchRotationTarget,
       nearbyWorkbenchRotationTarget,
       workbenchRotationPrompt,
-      destroyableObjectPrompt
-    } = resolveGameplayPromptTargetFrameState({
+      destroyableObjectPrompt,
+      promptCopy
+    } = resolveGameplayPromptFrameState({
+      now,
       solarStationPlacementPreview,
       greenhousePlacementPreview,
       campfirePlacementPreview,
       leafDenKitPlacementPreview,
-      inputModalityState,
       nearbyHarvestTarget,
-      gameplayOpeningMovementLocked,
-      flowState: currentFlowState,
-      session,
-      storyState: controls.storyState,
-      inventory: controls.inventory,
-      gameplay,
-      getSelectedRotatableWorkbenchPlacement,
-      getNearestRotatableWorkbenchPlacement,
-      debug: debugInteractionFlow
-    });
-    const promptCopy = resolveFrameHudPromptCopy({
+      nearbyInteractable,
       gameplayOpeningMovementLocked,
       cinematicActive,
       tutorialActive,
       skillLearnActive,
       scriptedInteractionActive,
-      placementPrompts: framePlacementPrompts,
-      pendingPlacementPrompt,
-      workbenchRotationPrompt,
-      destroyableObjectPrompt,
-      nearbyHarvestTarget,
-      nearbyInteractable,
+      flowState: currentFlowState,
+      session,
+      storyState: controls.storyState,
+      inventory: controls.inventory,
+      gameplay,
       activeQuest,
-      transientNoticeRoute,
       activeMoveId,
       pendingWaterGunGroundCells,
-      storyState: controls.storyState,
-      getItemLabel: gameplay.getItemLabel,
-      buildNearbyPrompt: gameplay.buildNearbyPrompt,
+      getCurrentInputModalityState,
+      getPlayerCounterPromptText: (frameNow) => playerCounterPromptRuntime.get(frameNow),
+      getSelectedRotatableWorkbenchPlacement,
+      getNearestRotatableWorkbenchPlacement,
       debug: debugInteractionFlow
     });
 
