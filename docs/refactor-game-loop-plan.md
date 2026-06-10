@@ -341,10 +341,77 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move passive player resource collection into the `player`
   boundary.
+- Completed: move companion simulation frame coordination into the `companions`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Companion Simulation Frame Boundary
+
+Moved companion/bot simulation coordination from `frame(now)` into
+`app/runtime/companions/companionFrameRuntime.js`.
+
+Boundary classification: `bot/companion motion`, focused on the per-frame
+update order for Chopper, Grow Bot, Hydro Bot, Thermal Bot, Builder Bot and Bee
+Field repair companions.
+
+Module boundary note:
+
+- The new file belongs to the existing `companions` domain boundary.
+- `gameLoop.js` still owns frame order. `processFollowerCallFrame(...)` remains
+  before `updateAmbientWorldSimulationFrame(...)`, and the companion simulation
+  runtime still runs immediately after ambient simulation.
+- The runtime does not move field-move rules. Existing action/update functions
+  are still passed as callbacks from `startGameLoop()`.
+- Chopper actor update moved out of `gameLoop.js`; the runtime imports the
+  default `updateChopperNpcActor(...)` and keeps it injectable for tests.
+
+Study path:
+
+1. `createCompanionFrameRuntime(...)` is wired in `startGameLoop()` with
+   `session`, `controls`, `rendering`, `audio`, Chopper guide position and
+   explicit callbacks.
+2. `frame(now)` still processes follower calls first, then ambient world
+   simulation, then calls `companionFrameRuntime.update(...)`.
+3. The runtime returns `chopperBulbasaurRepairBoxInvestigationTarget`, preserving
+   the later world-speech/prompt dependency.
+4. Fire and Water Gun audio activity still derives from the same companion
+   action phases and Water Gun SFX burst runtime.
+5. Idle patrol gating still uses the same gameplay/opening/cinematic/tutorial/
+   modal/dialogue/skill/scripted blockers.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `7769` to `7761`.
+- More importantly, the body of `frame(now)` lost the direct companion
+  simulation sequence and now delegates it through one domain runtime call.
+- Removed the direct `updateChopperNpcActor` import from `gameLoop.js`.
+- Added focused tests for companion simulation order, audio payloads, returned
+  Chopper investigation target and idle patrol gating.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionFrameRuntime.test.js
+npm test -- --run tests/companionFrameRuntime.test.js tests/chopperNpcActor.test.js tests/followerCallFrame.test.js tests/companionPresentationFrame.test.js tests/chopperAttentionCueRuntime.test.js tests/waterGunSfxBurstRuntime.test.js tests/audioMixRuntime.test.js
+git diff --check
+npm run build
+npm test
+```
+
+TDD note: the first focused test run failed with the expected missing-module
+error before `app/runtime/companions/companionFrameRuntime.js` was added.
+
+The focused companion suite passed with `30` tests. The production build passed
+with the existing chunk-size warning. `npm test` completed with the existing
+Leafage Native Tree baseline:
+
+- `1723` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending for this pass.
 
 ### Player Resource Collection Frame Boundary
 

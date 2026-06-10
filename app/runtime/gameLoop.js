@@ -9,6 +9,7 @@ import {
 import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
+import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import {
   getConstructionCloudBurstBillboards as getConstructionCloudBurstBillboardsWithConfig,
@@ -364,7 +365,6 @@ import {
 } from "../session/natureRevivalEffects.js";
 import { getColliderGizmoBillboards } from "../session/colliderGizmos.js";
 import { updateIntroRoomFrame } from "../scenes/introRoom/introRoomSequence.js";
-import { updateChopperNpcActor } from "../session/chopperNpcActor.js";
 import { createGameplayCameraDirector } from "./gameplayCameraDirector.js";
 import { SOUND_EVENT_IDS } from "./soundEventRuntime.js";
 import {
@@ -1202,6 +1202,35 @@ export function startGameLoop({
     getSfxVolumeScale,
     getMusicVolumeScale,
     playSoundEvent
+  });
+  const companionFrameRuntime = createCompanionFrameRuntime({
+    session,
+    controls,
+    rendering,
+    audio,
+    guidePosition: RUINED_POKEMON_CENTER_GUIDE_POSITION,
+    callbacks: {
+      isDialogueActive: () => gameplayDialogue.isActive(),
+      isGameplayActive: () => isGameFlow(gameFlowValues.GAMEPLAY),
+      getRepairBoxInvestigationTarget: getBulbasaurRepairBoxInvestigationTarget,
+      isWaterGunSfxBurstActive: (nowSeconds) => waterGunSfxBurstRuntime.isActive(nowSeconds),
+      updateBulbasaurRepairBoxRustle,
+      updateBulbasaurEncounter,
+      updateCharmanderEncounter,
+      updateCharmanderFireAction,
+      updateTimburrEncounter,
+      updateTimburrBuildBlockAction,
+      syncCompanionRepairModules,
+      syncBeeFieldRepairBox,
+      syncBeeFieldBees,
+      updateSquirtleReassembly,
+      updateSquirtleWaterStamina,
+      updateCharmanderCarbonEnergy,
+      updateSquirtleWaterGunAction,
+      updateBulbasaurLeafageAction,
+      updateSquirtleIdlePatrol,
+      updateBulbasaurIdlePatrol
+    }
   });
   const playerResourceCollectionFrameRuntime = createPlayerResourceCollectionFrameRuntime({
     session,
@@ -7039,56 +7068,19 @@ if (canProcessDestroyAction && destroyActionRequested) {
 
     // Simulation updates.
     updateAmbientWorldSimulationFrame({ deltaTime, now });
-    const chopperBulbasaurRepairBoxInvestigationTarget =
-      getBulbasaurRepairBoxInvestigationTarget();
-    updateChopperNpcActor(session.chopperNpcActor, {
+    const {
+      chopperBulbasaurRepairBoxInvestigationTarget
+    } = companionFrameRuntime.update({
       deltaTime,
-      storyState: controls.storyState,
-      isNpcActive: rendering.isNpcActive,
-      isDialogueActive: () => gameplayDialogue.isActive(),
-      guidePosition: RUINED_POKEMON_CENTER_GUIDE_POSITION,
-      investigationTarget: chopperBulbasaurRepairBoxInvestigationTarget
-    });
-    updateBulbasaurRepairBoxRustle(deltaTime);
-    updateBulbasaurEncounter(deltaTime);
-    updateCharmanderEncounter(deltaTime, { activeMoveId });
-    updateCharmanderFireAction(deltaTime);
-    audio.updateFireFlame({
-      active: session.charmanderFireAction?.phase === "spray",
-      nowSeconds: now * 0.001
-    });
-    updateTimburrEncounter(deltaTime, { activeMoveId });
-    updateTimburrBuildBlockAction(deltaTime, now);
-    syncCompanionRepairModules();
-    syncBeeFieldRepairBox();
-    syncBeeFieldBees(deltaTime);
-    updateSquirtleReassembly(deltaTime);
-    updateSquirtleWaterStamina(deltaTime);
-    updateCharmanderCarbonEnergy(deltaTime);
-    updateSquirtleWaterGunAction(deltaTime);
-    audio.updateWaterGun({
-      active: session.squirtleWaterGunAction?.phase === "spray" ||
-        waterGunSfxBurstRuntime.isActive(now * 0.001),
-      nowSeconds: now * 0.001
-    });
-    updateBulbasaurLeafageAction(deltaTime);
-    const robotIdlePatrolActive = Boolean(
-      isGameFlow(gameFlowValues.GAMEPLAY) &&
-      !gameplayOpeningMovementLocked &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !dialogueActive &&
-      !skillLearnActive &&
-      !scriptedInteractionActive
-    );
-    updateSquirtleIdlePatrol(deltaTime, {
-      active: robotIdlePatrolActive,
-      activeMoveId
-    });
-    updateBulbasaurIdlePatrol(deltaTime, {
-      active: robotIdlePatrolActive,
-      activeMoveId
+      now,
+      activeMoveId,
+      gameplayOpeningMovementLocked,
+      cinematicActive,
+      tutorialActive,
+      pokedexModalOpen,
+      dialogueActive,
+      skillLearnActive,
+      scriptedInteractionActive
     });
 
     if (cinematicActive) {
