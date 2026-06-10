@@ -213,7 +213,7 @@ import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { getMissionTargetPositions } from "./missionTargetPositions.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
-import { resolveHudPromptCopy } from "./presentation/hudPromptCopy.js";
+import { resolveFrameHudPromptCopy } from "./presentation/hudPromptCopy.js";
 import {
   findNearbyDryGrassHintTarget,
   findNearbyDryGrassWorldPromptTarget
@@ -6009,48 +6009,6 @@ export function startGameLoop({
     deadInstance.swayStrength = Math.sin(now * LEPPA_TREE_DANCE_SPEED) * LEPPA_TREE_DANCE_SWAY;
   }
 
-  function resolveFrameHudPromptCopy({
-    gameplayOpeningMovementLocked,
-    cinematicActive,
-    tutorialActive,
-    skillLearnActive,
-    scriptedInteractionActive,
-    placementPrompts,
-    pendingPlacementPrompt,
-    workbenchRotationPrompt,
-    destroyableObjectPrompt,
-    nearbyHarvestTarget,
-    nearbyInteractable,
-    activeQuest,
-    transientNoticeRoute,
-    activeMoveId,
-    pendingWaterGunGroundCells
-  }) {
-    return resolveHudPromptCopy({
-      blockedByMode: {
-        gameplayOpeningMovementLocked,
-        cinematicActive,
-        tutorialActive,
-        skillLearnActive,
-        scriptedInteractionActive
-      },
-      placementPrompts,
-      pendingPlacementPrompt,
-      workbenchRotationPrompt,
-      destroyableObjectPrompt,
-      nearbyHarvestTarget,
-      nearbyInteractable,
-      activeQuest,
-      transientNoticeRoute,
-      activeMoveId,
-      pendingWaterGunGroundCells,
-      storyState: controls.storyState,
-      getItemLabel: gameplay.getItemLabel,
-      buildNearbyPrompt: gameplay.buildNearbyPrompt,
-      debug: debugInteractionFlow
-    });
-  }
-
   function resolveFramePromptTargetState({
     solarStationPlacementPreview,
     greenhousePlacementPreview,
@@ -7952,7 +7910,11 @@ if (canProcessDestroyAction && destroyActionRequested) {
       activeQuest,
       transientNoticeRoute,
       activeMoveId,
-      pendingWaterGunGroundCells
+      pendingWaterGunGroundCells,
+      storyState: controls.storyState,
+      getItemLabel: gameplay.getItemLabel,
+      buildNearbyPrompt: gameplay.buildNearbyPrompt,
+      debug: debugInteractionFlow
     });
 
     const shouldShowGroundCellHighlight =

@@ -310,10 +310,70 @@ There is no dedicated lint or typecheck script in `package.json`.
   `fieldMoveRuntime` boundary.
 - Completed: move world-space UI frame context into the `presentation`
   boundary.
+- Completed: move frame HUD prompt copy resolution into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Frame HUD Prompt Copy Boundary
+
+Moved frame-level HUD prompt copy resolution from `app/runtime/gameLoop.js` into
+the existing `app/runtime/presentation/hudPromptCopy.js` module.
+
+Boundary classification: `presentation/render helpers`, focused on turning
+already-resolved frame blockers, placement prompts and nearby targets into the
+HUD prompt copy string.
+
+Module boundary note:
+
+- No new file was created; the behavior belongs to the existing
+  `presentation/hudPromptCopy.js` boundary.
+- `resolveFrameHudPromptCopy(...)` builds the frame-specific blocked-mode
+  payload and delegates to the existing `resolveHudPromptCopy(...)` resolver.
+- `gameLoop.js` now passes `storyState`, `getItemLabel`, `buildNearbyPrompt`
+  and `debug` explicitly instead of closing over `controls` and `gameplay`.
+
+Study path:
+
+1. `gameLoop.js` still computes placement prompts, nearby targets, active quest
+   and blocker booleans in the same frame order.
+2. `resolveFrameHudPromptCopy(...)` now owns the frame-to-presentation adapter
+   for HUD prompt copy.
+3. `resolveHudPromptCopy(...)` remains the source of prompt priority.
+4. No prompt text, prompt priority, input rule, placement rule or HUD snapshot
+   shape changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9163` to `9125`.
+- Removed the private `resolveFrameHudPromptCopy(...)` implementation from
+  `startGameLoop()`.
+- Added focused tests for frame-level blocked-mode payload construction and
+  opening movement lock hiding prompt copy.
+
+Validation:
+
+```sh
+npm test -- --run tests/hudPromptCopy.test.js
+npm test -- --run tests/hudPromptCopy.test.js tests/worldPromptCopy.test.js tests/hudSnapshotFrame.test.js tests/worldPromptSnapshotFrame.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused HUD/world prompt suite passed with `15` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1671` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### World-Space UI Frame Context Boundary
 

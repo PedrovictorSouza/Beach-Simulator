@@ -48,3 +48,49 @@ export function resolveHudPromptCopy({
 
   return promptCopy;
 }
+
+export function resolveFrameHudPromptCopy({
+  gameplayOpeningMovementLocked,
+  cinematicActive,
+  tutorialActive,
+  skillLearnActive,
+  scriptedInteractionActive,
+  placementPrompts,
+  pendingPlacementPrompt,
+  workbenchRotationPrompt,
+  destroyableObjectPrompt,
+  nearbyHarvestTarget,
+  nearbyInteractable,
+  activeQuest,
+  transientNoticeRoute,
+  activeMoveId,
+  pendingWaterGunGroundCells,
+  storyState,
+  getItemLabel,
+  buildNearbyPrompt,
+  debug
+}) {
+  return resolveHudPromptCopy({
+    blockedByMode: {
+      gameplayOpeningMovementLocked,
+      cinematicActive,
+      tutorialActive,
+      skillLearnActive,
+      scriptedInteractionActive
+    },
+    placementPrompts,
+    pendingPlacementPrompt,
+    workbenchRotationPrompt,
+    destroyableObjectPrompt,
+    nearbyHarvestTarget,
+    nearbyInteractable,
+    activeQuest,
+    transientNoticeRoute,
+    activeMoveId,
+    pendingWaterGunGroundCells,
+    storyState,
+    getItemLabel,
+    buildNearbyPrompt,
+    debug
+  });
+}

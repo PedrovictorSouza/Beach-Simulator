@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { resolveHudPromptCopy } from "../app/runtime/presentation/hudPromptCopy.js";
+import {
+  resolveFrameHudPromptCopy,
+  resolveHudPromptCopy
+} from "../app/runtime/presentation/hudPromptCopy.js";
 
 describe("HUD prompt copy", () => {
   it("hides prompt copy while blocking modes are active", () => {
@@ -128,5 +131,72 @@ describe("HUD prompt copy", () => {
         tutorialActive: false
       }
     });
+  });
+
+  it("builds the frame-level blocked mode payload before resolving copy", () => {
+    const buildNearbyPrompt = vi.fn(() => "nearby prompt");
+    const debug = vi.fn();
+    const storyState = { flags: { introComplete: true } };
+    const getItemLabel = vi.fn();
+
+    expect(resolveFrameHudPromptCopy({
+      gameplayOpeningMovementLocked: false,
+      cinematicActive: false,
+      tutorialActive: false,
+      skillLearnActive: false,
+      scriptedInteractionActive: false,
+      placementPrompts: {},
+      pendingPlacementPrompt: "",
+      workbenchRotationPrompt: "",
+      destroyableObjectPrompt: null,
+      nearbyHarvestTarget: { id: "wood" },
+      nearbyInteractable: { id: "bench" },
+      activeQuest: { id: "quest" },
+      transientNoticeRoute: { hudMessage: "notice" },
+      activeMoveId: "waterGun",
+      pendingWaterGunGroundCells: [{ id: "a" }],
+      storyState,
+      getItemLabel,
+      buildNearbyPrompt,
+      debug
+    })).toBe("nearby prompt");
+
+    expect(buildNearbyPrompt).toHaveBeenCalledWith({
+      harvestTarget: { id: "wood" },
+      interactTarget: { id: "bench" },
+      quest: { id: "quest" },
+      transientMessage: "notice",
+      getItemLabel,
+      storyState,
+      activeMoveId: "waterGun",
+      pendingWaterGunCount: 1
+    });
+    expect(debug).toHaveBeenCalledWith("gameLoop.promptCopy.resolved", expect.objectContaining({
+      blockedByMode: {
+        gameplayOpeningMovementLocked: false,
+        cinematicActive: false,
+        tutorialActive: false,
+        skillLearnActive: false,
+        scriptedInteractionActive: false
+      },
+      promptCopy: "nearby prompt"
+    }));
+  });
+
+  it("hides frame-level prompt copy when movement is blocked by opening", () => {
+    const buildNearbyPrompt = vi.fn(() => "nearby prompt");
+
+    expect(resolveFrameHudPromptCopy({
+      gameplayOpeningMovementLocked: true,
+      cinematicActive: false,
+      tutorialActive: false,
+      skillLearnActive: false,
+      scriptedInteractionActive: false,
+      placementPrompts: {
+        solarStationPlacementPrompt: "place solar"
+      },
+      buildNearbyPrompt
+    })).toBe("");
+    expect(buildNearbyPrompt).not.toHaveBeenCalled();
   });
 });
