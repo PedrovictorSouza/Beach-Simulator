@@ -20,9 +20,15 @@ import {
   syncLeafDenConstructionClouds as syncLeafDenConstructionCloudsWithSession
 } from "./construction/constructionCloudEffects.js";
 import {
+  BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL,
+  BUILDER_TUTORIAL_FOUNDATION_HEIGHT,
+  BUILDER_TUTORIAL_FOUNDATION_WIDTH,
+  buildBuilderTutorialFoundationCandidateOrigins,
   canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
+  createBuilderTutorialFoundationBuildZone,
   createUnavailableFoundationBuildZonePlacementResult,
   createUnavailableFoundationBuildZoneValidation,
+  getBuilderTutorialFoundationZoneSignature,
   getFoundationBuildZoneProgressCount as getFoundationBuildZoneProgressCountFromState,
   getSavedFoundationBuildZoneOriginCell as getSavedFoundationBuildZoneOriginCellFromFlags,
   isFoundationFreeBlockAllowedInZone as isFoundationFreeBlockAllowedInZoneWithState,
@@ -85,7 +91,6 @@ import {
   getWorldObjectPlacementBlockers as getWorldObjectPlacementBlockersWithConfig
 } from "./construction/worldObjectPlacementBlockers.js";
 import {
-  buildFoundationBuildZoneCandidateOrigins,
   buildFoundationBuildZoneGroundCells as buildFoundationBuildZoneGroundCellsWithConfig,
   buildFoundationCompletionInteriorGroundCells as buildFoundationCompletionInteriorGroundCellsWithConfig,
   buildFreeBlockFeedbackGroundCell as buildFreeBlockFeedbackGroundCellWithConfig,
@@ -94,7 +99,6 @@ import {
   createFoundationBuildZoneBlockerRect as createFoundationBuildZoneBlocker,
   doFoundationBuildZoneRectsOverlap as doFoundationRectsOverlap,
   doPlacementRectsOverlap,
-  getFoundationBuildZoneSignature,
   getFoundationBuildZoneWorldRect as getFoundationBuildZoneWorldRectWithGrid,
   getFreeBlockBuildZoneCenterPosition as getFreeBlockBuildZoneCenterPositionWithConfig,
   getFreeBlockCellWorldPosition as getFreeBlockCellWorldPositionWithGrid,
@@ -446,7 +450,6 @@ import { createGridSystem } from "../gameplay/gridBuildingSystem.js";
 import {
   createFreeBlockBuildController,
   createFreeBlockBuildState,
-  createRectangularFreeBlockBuildZone,
   FREE_BLOCK_TYPES,
   getFreeBlockBuildZoneProgress,
   resolveFreeBlockTargetCell
@@ -503,47 +506,13 @@ const FREE_BLOCK_BUILD_GRID_CONFIG = Object.freeze({
   height: 256,
   visualOffsetY: 0.03
 });
-const BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL = Object.freeze({ x: 110, y: 100 });
-const BUILDER_TUTORIAL_FOUNDATION_WIDTH = 6;
-const BUILDER_TUTORIAL_FOUNDATION_HEIGHT = 4;
-const BUILDER_TUTORIAL_FOUNDATION_SEARCH_RADIUS = 16;
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DURATION_MS = 3000;
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_ZOOM = 6.4;
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DISTANCE = 15.5;
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_HEIGHT = 1.45;
 const BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG = "builderTutorialFoundationOriginCell";
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG = "builderTutorialFoundationCameraFocusZoneSignature";
-const BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL = Object.freeze({
-  x: Math.round(BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.x - BUILDER_TUTORIAL_FOUNDATION_WIDTH / 2),
-  y: Math.round(BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.y - BUILDER_TUTORIAL_FOUNDATION_HEIGHT / 2)
-});
 const FOUNDATION_COMPLETE_GROUND_EFFECT_DURATION_MS = 3000;
-
-function createBuilderTutorialFoundationBuildZone(originCell = BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL) {
-  const zone = createRectangularFreeBlockBuildZone({
-    id: "builder-tutorial-foundation",
-    originCell,
-    width: BUILDER_TUTORIAL_FOUNDATION_WIDTH,
-    height: BUILDER_TUTORIAL_FOUNDATION_HEIGHT
-  });
-
-  return Object.freeze({
-    ...zone,
-    borderCells: zone.cells
-  });
-}   
-
-
-function getBuilderTutorialFoundationZoneSignature(buildZone = null) {
-  return getFoundationBuildZoneSignature(buildZone);
-}
-
-function buildBuilderTutorialFoundationCandidateOrigins() {
-  return buildFoundationBuildZoneCandidateOrigins({
-    defaultOriginCell: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL,
-    searchRadius: BUILDER_TUTORIAL_FOUNDATION_SEARCH_RADIUS
-  });
-}
 
 const LEAF_DEN_BUILT_ROTATION_FOOTPRINT = [
   LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[0] * 2,

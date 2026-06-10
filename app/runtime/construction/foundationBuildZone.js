@@ -1,7 +1,46 @@
+import { createRectangularFreeBlockBuildZone } from "../../gameplay/freeBlockBuildSystem.js";
 import {
+  buildFoundationBuildZoneCandidateOrigins as buildFoundationBuildZoneCandidateOriginsWithConfig,
   getFoundationBuildZoneCellKeys,
+  getFoundationBuildZoneSignature,
   normalizeFoundationBuildZoneOriginCell
 } from "./placementGeometry.js";
+
+export const BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL = Object.freeze({ x: 110, y: 100 });
+export const BUILDER_TUTORIAL_FOUNDATION_WIDTH = 6;
+export const BUILDER_TUTORIAL_FOUNDATION_HEIGHT = 4;
+const BUILDER_TUTORIAL_FOUNDATION_SEARCH_RADIUS = 16;
+export const BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL = Object.freeze({
+  x: Math.round(BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.x - BUILDER_TUTORIAL_FOUNDATION_WIDTH / 2),
+  y: Math.round(BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.y - BUILDER_TUTORIAL_FOUNDATION_HEIGHT / 2)
+});
+
+export function createBuilderTutorialFoundationBuildZone(
+  originCell = BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL
+) {
+  const zone = createRectangularFreeBlockBuildZone({
+    id: "builder-tutorial-foundation",
+    originCell,
+    width: BUILDER_TUTORIAL_FOUNDATION_WIDTH,
+    height: BUILDER_TUTORIAL_FOUNDATION_HEIGHT
+  });
+
+  return Object.freeze({
+    ...zone,
+    borderCells: zone.cells
+  });
+}
+
+export function getBuilderTutorialFoundationZoneSignature(buildZone = null) {
+  return getFoundationBuildZoneSignature(buildZone);
+}
+
+export function buildBuilderTutorialFoundationCandidateOrigins() {
+  return buildFoundationBuildZoneCandidateOriginsWithConfig({
+    defaultOriginCell: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL,
+    searchRadius: BUILDER_TUTORIAL_FOUNDATION_SEARCH_RADIUS
+  });
+}
 
 export function hasFoundationWallObjective(quest = null) {
   return (quest?.objectives || []).some((objective) => {

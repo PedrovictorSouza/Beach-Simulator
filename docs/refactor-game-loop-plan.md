@@ -270,6 +270,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move unavailable foundation-zone placement payload factories into
   the `construction` boundary.
+- Completed: move builder tutorial foundation-zone creation into the
+  `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1764,6 +1766,65 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Builder Tutorial Foundation Zone Boundary
+
+Moved builder tutorial foundation-zone creation, signature forwarding and
+candidate-origin generation from `app/runtime/gameLoop.js` into
+`app/runtime/construction/foundationBuildZone.js`.
+
+Boundary classification: `construction`, focused on the fixed foundation-zone
+shape and search origins used by the builder tutorial. The live mission checks,
+camera focus, saved-origin flow and blocker checks remain in `gameLoop.js`.
+
+Study path:
+
+1. `createBuilderTutorialFoundationBuildZone(...)` owns the tutorial zone id,
+   dimensions and the existing `borderCells: zone.cells` behavior.
+2. `buildBuilderTutorialFoundationCandidateOrigins(...)` owns the existing
+   search radius and origin expansion around the default tutorial origin.
+3. `getBuilderTutorialFoundationZoneSignature(...)` keeps the signature lookup
+   near the zone factory while delegating to placement geometry.
+4. `gameLoop.js` still decides when to find, save, render and focus the active
+   foundation zone.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10005` to `9974`.
+- Removed tutorial foundation-zone constants, factory wrappers and candidate
+  origin generation from `gameLoop.js`.
+- Removed the direct `createRectangularFreeBlockBuildZone(...)`,
+  `buildFoundationBuildZoneCandidateOrigins(...)` and
+  `getFoundationBuildZoneSignature(...)` dependencies from `gameLoop.js`.
+- Added focused tests for the default origin, fixed zone shape, candidate count
+  and signature behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/foundationBuildZone.test.js
+npm test -- --run tests/foundationBuildZone.test.js tests/placementGeometry.test.js tests/freeBlockBuildSystem.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/foundation/placement suite passed with `82` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1626` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
