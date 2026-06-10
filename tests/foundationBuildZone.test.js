@@ -9,11 +9,15 @@ import {
   createUnavailableFoundationBuildZonePlacementResult,
   createUnavailableFoundationBuildZoneValidation,
   getBuilderTutorialFoundationZoneSignature,
+  getSavedBuilderTutorialFoundationOriginCell,
   getFoundationBuildZoneProgressCount,
   getSavedFoundationBuildZoneOriginCell,
   hasFoundationWallObjective,
   isBuilderTutorialFoundationBuildZoneBlocked,
+  isBuilderTutorialFoundationOriginInsideGrid,
   isFoundationFreeBlockAllowedInZone,
+  resolveActiveBuilderTutorialFoundationBuildZone,
+  saveBuilderTutorialFoundationOriginCell,
   saveFoundationBuildZoneOriginCell,
   shouldShowFoundationBuildZone
 } from "../app/runtime/construction/foundationBuildZone.js";
@@ -162,6 +166,95 @@ describe("foundation build zone", () => {
         }
       ]
     })).toBe(true);
+  });
+
+  it("checks builder tutorial foundation origins against the build grid", () => {
+    const gridConfig = {
+      width: 256,
+      height: 256
+    };
+
+    expect(isBuilderTutorialFoundationOriginInsideGrid({
+      originCell: { x: 107, y: 98 },
+      gridConfig
+    })).toBe(true);
+    expect(isBuilderTutorialFoundationOriginInsideGrid({
+      originCell: { x: 251, y: 253 },
+      gridConfig
+    })).toBe(false);
+  });
+
+  it("reads and writes builder tutorial foundation origin flags", () => {
+    const flags = {
+      builderTutorialFoundationOriginCell: {
+        x: "111",
+        y: "112"
+      }
+    };
+
+    expect(getSavedBuilderTutorialFoundationOriginCell({ flags })).toEqual({
+      x: 111,
+      y: 112
+    });
+    expect(getSavedBuilderTutorialFoundationOriginCell({ flags: {} })).toEqual({
+      x: 107,
+      y: 98
+    });
+
+    expect(saveBuilderTutorialFoundationOriginCell({
+      flags,
+      originCell: {
+        x: "113",
+        y: "114"
+      }
+    })).toEqual({
+      x: 113,
+      y: 114
+    });
+    expect(flags.builderTutorialFoundationOriginCell).toEqual({
+      x: 113,
+      y: 114
+    });
+  });
+
+  it("resolves the active builder tutorial foundation zone from saved or available origins", () => {
+    const savedAvailable = resolveActiveBuilderTutorialFoundationBuildZone({
+      savedOriginCell: { x: 107, y: 98 },
+      isBuildZoneBlocked: () => false
+    });
+
+    expect(savedAvailable).toMatchObject({
+      unavailable: false,
+      originCellToSave: { x: 107, y: 98 }
+    });
+    expect(savedAvailable.buildZone.originCell).toEqual({ x: 107, y: 98 });
+
+    const alternativeZone = createBuilderTutorialFoundationBuildZone({ x: 108, y: 99 });
+    const alternativeAvailable = resolveActiveBuilderTutorialFoundationBuildZone({
+      savedOriginCell: { x: 107, y: 98 },
+      getFoundationProgressCount: () => 0,
+      isBuildZoneBlocked: () => true,
+      findAvailableBuildZone: () => alternativeZone
+    });
+
+    expect(alternativeAvailable).toMatchObject({
+      buildZone: alternativeZone,
+      unavailable: false,
+      originCellToSave: { x: 108, y: 99 }
+    });
+
+    const blockedWithProgress = resolveActiveBuilderTutorialFoundationBuildZone({
+      savedOriginCell: { x: 107, y: 98 },
+      getFoundationProgressCount: () => 1,
+      isBuildZoneBlocked: () => true,
+      findAvailableBuildZone: () => alternativeZone
+    });
+
+    expect(blockedWithProgress).toMatchObject({
+      unavailable: true,
+      originCellToSave: null
+    });
+    expect(blockedWithProgress.buildZone.originCell).toEqual({ x: 107, y: 98 });
   });
 
   it("detects foundation wall objectives", () => {

@@ -5,6 +5,7 @@ import {
   doFoundationBuildZoneRectsOverlap,
   getFoundationBuildZoneCellKeys,
   getFoundationBuildZoneSignature,
+  isFoundationBuildZoneOriginInsideGrid,
   normalizeFoundationBuildZoneOriginCell
 } from "./placementGeometry.js";
 
@@ -12,6 +13,7 @@ export const BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL = Object.freeze({ x: 110, y
 export const BUILDER_TUTORIAL_FOUNDATION_WIDTH = 6;
 export const BUILDER_TUTORIAL_FOUNDATION_HEIGHT = 4;
 const BUILDER_TUTORIAL_FOUNDATION_SEARCH_RADIUS = 16;
+const BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG = "builderTutorialFoundationOriginCell";
 export const BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL = Object.freeze({
   x: Math.round(BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.x - BUILDER_TUTORIAL_FOUNDATION_WIDTH / 2),
   y: Math.round(BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.y - BUILDER_TUTORIAL_FOUNDATION_HEIGHT / 2)
@@ -42,6 +44,76 @@ export function buildBuilderTutorialFoundationCandidateOrigins() {
     defaultOriginCell: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL,
     searchRadius: BUILDER_TUTORIAL_FOUNDATION_SEARCH_RADIUS
   });
+}
+
+export function isBuilderTutorialFoundationOriginInsideGrid({
+  originCell = null,
+  gridConfig = null
+} = {}) {
+  return isFoundationBuildZoneOriginInsideGrid({
+    originCell,
+    width: BUILDER_TUTORIAL_FOUNDATION_WIDTH,
+    height: BUILDER_TUTORIAL_FOUNDATION_HEIGHT,
+    gridConfig
+  });
+}
+
+export function getSavedBuilderTutorialFoundationOriginCell({
+  flags = null
+} = {}) {
+  return getSavedFoundationBuildZoneOriginCell({
+    flags,
+    originFlag: BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG,
+    defaultOriginCell: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL
+  });
+}
+
+export function saveBuilderTutorialFoundationOriginCell({
+  flags = null,
+  originCell = null
+} = {}) {
+  return saveFoundationBuildZoneOriginCell({
+    flags,
+    originCell,
+    originFlag: BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG,
+    defaultOriginCell: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL
+  });
+}
+
+export function resolveActiveBuilderTutorialFoundationBuildZone({
+  savedOriginCell = BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL,
+  getFoundationProgressCount = () => 0,
+  isBuildZoneBlocked = () => true,
+  findAvailableBuildZone = () => null
+} = {}) {
+  let buildZone = createBuilderTutorialFoundationBuildZone(savedOriginCell);
+  const hasFoundationProgress = getFoundationProgressCount(buildZone) > 0;
+
+  if (!isBuildZoneBlocked(buildZone)) {
+    return {
+      buildZone,
+      unavailable: false,
+      originCellToSave: buildZone.originCell
+    };
+  }
+
+  if (!hasFoundationProgress) {
+    const availableZone = findAvailableBuildZone();
+    if (availableZone) {
+      buildZone = availableZone;
+      return {
+        buildZone,
+        unavailable: false,
+        originCellToSave: buildZone.originCell
+      };
+    }
+  }
+
+  return {
+    buildZone,
+    unavailable: true,
+    originCellToSave: null
+  };
 }
 
 function pushFoundationBuildZoneBlocker(blockers, blocker) {

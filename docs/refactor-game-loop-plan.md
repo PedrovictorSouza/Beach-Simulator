@@ -274,6 +274,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move foundation-zone blocker assembly into the `construction`
   boundary.
+- Completed: move builder tutorial foundation origin state policy into the
+  `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1768,6 +1770,64 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1541` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Builder Tutorial Foundation Origin Policy Boundary
+
+Moved builder tutorial foundation-origin grid checks, saved-origin flag access
+and active-zone resolution policy from `app/runtime/gameLoop.js` into
+`app/runtime/construction/foundationBuildZone.js`.
+
+Boundary classification: `construction`, focused on foundation tutorial origin
+state and saved/available zone selection. The live `session` writes remain in
+`gameLoop.js`.
+
+Study path:
+
+1. `isBuilderTutorialFoundationOriginInsideGrid(...)` owns the tutorial zone
+   width/height check against the free-block grid.
+2. `getSavedBuilderTutorialFoundationOriginCell(...)` and
+   `saveBuilderTutorialFoundationOriginCell(...)` own the specific story flag
+   key and default origin for this tutorial zone.
+3. `resolveActiveBuilderTutorialFoundationBuildZone(...)` owns choosing between
+   the saved origin, an available alternate zone or an unavailable saved zone
+   when progress already exists.
+4. `gameLoop.js` still owns reading live flags, applying `session` state and
+   saving the selected origin when the policy returns one.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9860` to `9841`.
+- Removed tutorial foundation origin constants and generic origin helper wiring
+  from `gameLoop.js`.
+- Added focused tests for grid-fit policy, story flag read/write behavior and
+  active-zone resolution.
+
+Validation:
+
+```sh
+npm test -- --run tests/foundationBuildZone.test.js
+npm test -- --run tests/foundationBuildZone.test.js tests/placementGeometry.test.js tests/freeBlockBuildSystem.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/foundation/placement suite passed with `87` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1631` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

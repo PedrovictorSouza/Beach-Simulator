@@ -20,9 +20,6 @@ import {
   syncLeafDenConstructionClouds as syncLeafDenConstructionCloudsWithSession
 } from "./construction/constructionCloudEffects.js";
 import {
-  BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL,
-  BUILDER_TUTORIAL_FOUNDATION_HEIGHT,
-  BUILDER_TUTORIAL_FOUNDATION_WIDTH,
   buildBuilderTutorialFoundationCandidateOrigins,
   buildFoundationBuildZoneBlockers as buildFoundationBuildZoneBlockersWithSources,
   canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
@@ -31,10 +28,12 @@ import {
   createUnavailableFoundationBuildZoneValidation,
   getBuilderTutorialFoundationZoneSignature,
   getFoundationBuildZoneProgressCount as getFoundationBuildZoneProgressCountFromState,
-  getSavedFoundationBuildZoneOriginCell as getSavedFoundationBuildZoneOriginCellFromFlags,
+  getSavedBuilderTutorialFoundationOriginCell as getSavedBuilderTutorialFoundationOriginCellFromFlags,
   isBuilderTutorialFoundationBuildZoneBlocked as isBuilderTutorialFoundationBuildZoneBlockedWithBlockers,
+  isBuilderTutorialFoundationOriginInsideGrid as isBuilderTutorialFoundationOriginInsideGridWithConfig,
   isFoundationFreeBlockAllowedInZone as isFoundationFreeBlockAllowedInZoneWithState,
-  saveFoundationBuildZoneOriginCell as saveFoundationBuildZoneOriginCellToFlags,
+  resolveActiveBuilderTutorialFoundationBuildZone,
+  saveBuilderTutorialFoundationOriginCell as saveBuilderTutorialFoundationOriginCellToFlags,
   shouldShowFoundationBuildZone as shouldShowFoundationBuildZoneWithState
 } from "./construction/foundationBuildZone.js";
 import {
@@ -108,7 +107,6 @@ import {
   getRotatedPlacementSize as getRotatedPlacementSizeWithConfig,
   getSnappedPlacementPreviewPosition,
   hasFinitePlacementBounds,
-  isFoundationBuildZoneOriginInsideGrid as isFoundationBuildZoneOriginInsideGridWithConfig,
   isWorldPositionOnFreeBlockCell,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
@@ -510,7 +508,6 @@ const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DURATION_MS = 3000;
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_ZOOM = 6.4;
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DISTANCE = 15.5;
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_HEIGHT = 1.45;
-const BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG = "builderTutorialFoundationOriginCell";
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG = "builderTutorialFoundationCameraFocusZoneSignature";
 const FOUNDATION_COMPLETE_GROUND_EFFECT_DURATION_MS = 3000;
 
@@ -3430,28 +3427,22 @@ export function startGameLoop({
   }
 
   function isBuilderTutorialFoundationOriginInsideGrid(originCell) {
-    return isFoundationBuildZoneOriginInsideGridWithConfig({
+    return isBuilderTutorialFoundationOriginInsideGridWithConfig({
       originCell,
-      width: BUILDER_TUTORIAL_FOUNDATION_WIDTH,
-      height: BUILDER_TUTORIAL_FOUNDATION_HEIGHT,
       gridConfig: getFreeBlockBuildGridConfig()
     });
   }
 
   function getSavedBuilderTutorialFoundationOriginCell() {
-    return getSavedFoundationBuildZoneOriginCellFromFlags({
-      flags: controls.storyState?.flags,
-      originFlag: BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG,
-      defaultOriginCell: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL
+    return getSavedBuilderTutorialFoundationOriginCellFromFlags({
+      flags: controls.storyState?.flags
     });
   }
 
   function saveBuilderTutorialFoundationOriginCell(originCell) {
-    saveFoundationBuildZoneOriginCellToFlags({
+    saveBuilderTutorialFoundationOriginCellToFlags({
       flags: controls.storyState?.flags,
-      originCell,
-      originFlag: BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG,
-      defaultOriginCell: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL
+      originCell
     });
   }
 
@@ -3537,30 +3528,20 @@ export function startGameLoop({
 
   function syncActiveFreeBlockBuildZone() {
     const savedOrigin = getSavedBuilderTutorialFoundationOriginCell();
-    let buildZone = createBuilderTutorialFoundationBuildZone(savedOrigin);
-    const hasFoundationProgress = getFoundationBuildZoneProgressCount(buildZone) > 0;
+    const resolution = resolveActiveBuilderTutorialFoundationBuildZone({
+      savedOriginCell: savedOrigin,
+      getFoundationProgressCount: getFoundationBuildZoneProgressCount,
+      isBuildZoneBlocked: isBuilderTutorialFoundationBuildZoneBlocked,
+      findAvailableBuildZone: findAvailableBuilderTutorialFoundationBuildZone
+    });
 
-    if (!isBuilderTutorialFoundationBuildZoneBlocked(buildZone)) {
-      saveBuilderTutorialFoundationOriginCell(buildZone.originCell);
-      session.freeBlockBuildZoneUnavailable = false;
-      session.activeFreeBlockBuildZone = buildZone;
-      return buildZone;
+    if (resolution.originCellToSave) {
+      saveBuilderTutorialFoundationOriginCell(resolution.originCellToSave);
     }
 
-    if (!hasFoundationProgress) {
-      const availableZone = findAvailableBuilderTutorialFoundationBuildZone();
-      if (availableZone) {
-        buildZone = availableZone;
-        saveBuilderTutorialFoundationOriginCell(buildZone.originCell);
-        session.freeBlockBuildZoneUnavailable = false;
-        session.activeFreeBlockBuildZone = buildZone;
-        return buildZone;
-      }
-    }
-
-    session.freeBlockBuildZoneUnavailable = true;
-    session.activeFreeBlockBuildZone = buildZone;
-    return buildZone;
+    session.freeBlockBuildZoneUnavailable = resolution.unavailable;
+    session.activeFreeBlockBuildZone = resolution.buildZone;
+    return resolution.buildZone;
   }
 
   function getActiveFreeBlockBuildZone() {
