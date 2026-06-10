@@ -4223,6 +4223,81 @@ Native Tree baseline:
 
 No manual browser validation was run in this cut.
 
+### Repair Box Reveal Opening Runtime
+
+Created `app/runtime/companions/repairBoxRevealOpeningRuntime.js`.
+
+Module boundary:
+
+- Domain: `companions`.
+- Responsibility: own the repair-box reveal opening sequence for companion
+  bots: reveal timing, falling reveal origin, box hiding, flash opacity reset,
+  reveal SFX trigger and completion callback.
+- Removed from `gameLoop.js`: local `revealBotAtRepairPosition(...)`,
+  `updateBotRevealFall(...)`, `updateBotRevealBoxOpening(...)`,
+  `updateBulbasaurRevealBoxOpening(...)` and
+  `updateCharmanderRevealBoxOpening(...)` wrappers.
+
+Study path:
+
+1. `startGameLoop()` still composes the runtime because it owns the concrete
+   dependencies: repair-box position lookup, flash runtime, SFX callback,
+   clamp helper and existing tuning constants.
+2. `updateBulbasaurEncounter(...)` and `updateCharmanderEncounter(...)` now
+   call `repairBoxRevealOpeningRuntime.update(...)` with their current model
+   sync callbacks.
+3. The fallback already-revealed Bulbasaur path now calls
+   `repairBoxRevealOpeningRuntime.revealAtRepairPosition(...)`.
+4. The runtime delegates pure motion math to the existing
+   `botRevealMotion.js` helpers instead of duplicating reveal-position logic.
+5. No reveal duration, progress threshold, fall height, flash visual, SFX or
+   model sync timing changed intentionally.
+
+Tests added:
+
+- `tests/repairBoxRevealOpeningRuntime.test.js`
+
+The test covers:
+
+- falling reveal from repair-box origin;
+- one-shot reveal SFX start;
+- repair module hiding when the bot becomes visible;
+- completion callback and flash opacity reset;
+- invalid opening cleanup when `repairPosition` is missing.
+
+Risks reduced:
+
+- `gameLoop.js` no longer owns the internal reveal-opening state machine for
+  companion repair boxes.
+- Bulbasaur and Charmander reveal openings now share one domain runtime instead
+  of local wrappers.
+
+Risks remaining:
+
+- Companion encounter update functions still contain patrol, follow, guide and
+  construction-helper movement logic. Those are separate companion-motion cuts.
+- `botRevealMotion.js` still lives at the old runtime root for compatibility;
+  a later domain move should preserve its public import path through re-export.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/repairBoxRevealOpeningRuntime.test.js
+npm test -- --run tests/repairBoxRevealOpeningRuntime.test.js tests/botRevealMotion.test.js
+npm test -- --run tests/repairBoxRevealOpeningRuntime.test.js tests/botRevealMotion.test.js tests/repairBoxRevealFlashRuntime.test.js tests/repairBoxMotionRuntime.test.js
+npm run build
+npm test
+```
+
+The focused repair-box suite passed with `14` tests. `npm run build` passed
+with the existing large chunk warning. `npm test` completed with the existing
+Leafage Native Tree baseline:
+
+- `1737` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+No manual browser validation was run in this cut.
+
 ### Gameplay Prompt Frame State Wrapper
 
 Expanded `app/runtime/presentation/gameplayPromptTargetFrameState.js` with

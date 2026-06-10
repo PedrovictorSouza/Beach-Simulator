@@ -1,16 +1,12 @@
 import { createGameLoopFrameClock } from "./gameLoopFrameClock.js";
 import { createGameLoopFrameRuntime } from "./gameLoopFrameRuntime.js";
-import {
-  isRevealBoxBotVisible,
-  revealBotAtRepairPosition as revealBotAtRepairPositionWithConfig,
-  setRevealBoxBotVisible,
-  updateBotRevealFall as updateBotRevealFallWithConfig
-} from "./botRevealMotion.js";
+import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
+import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
 import {
   getConstructionCloudBurstBillboards as getConstructionCloudBurstBillboardsWithConfig,
   getLeafDenConstructionBillboards as getLeafDenConstructionBillboardsWithConfig
@@ -1023,6 +1019,16 @@ export function startGameLoop({
     peakOpacity: BULBASAUR_REVEAL_FLASH_PEAK_OPACITY,
     repairBoxFloatHeight: ROBOT_REPAIR_BOX_FLOAT_HEIGHT,
     getRepairBoxPosition: getEncounterRepairBoxPosition
+  });
+  const repairBoxRevealOpeningRuntime = createRepairBoxRevealOpeningRuntime({
+    getRepairBoxPosition: getEncounterRepairBoxPosition,
+    fallHeight: BULBASAUR_REVEAL_BOT_FALL_HEIGHT,
+    defaultDuration: BULBASAUR_REVEAL_BOX_DURATION,
+    defaultVisibleProgress: BULBASAUR_REVEAL_VISIBLE_PROGRESS,
+    defaultFallEndProgress: BULBASAUR_REVEAL_BOT_FALL_END_PROGRESS,
+    clamp01,
+    flashRuntime: repairBoxRevealFlashRuntime,
+    playRevealSfx: playGrowBotRevealSfx
   });
   const workbenchRotationRuntime = createWorkbenchRotationRuntime({
     normalizePlacementYaw,
@@ -5540,94 +5546,6 @@ export function startGameLoop({
     }
   }
 
-  function revealBotAtRepairPosition(encounter, { falling = false } = {}) {
-    return revealBotAtRepairPositionWithConfig({
-      encounter,
-      falling,
-      getRepairBoxPosition: getEncounterRepairBoxPosition,
-      fallHeight: BULBASAUR_REVEAL_BOT_FALL_HEIGHT
-    });
-  }
-
-  function updateBotRevealFall(opening, encounter, progress) {
-    updateBotRevealFallWithConfig({
-      opening,
-      encounter,
-      progress,
-      clamp01,
-      defaultVisibleProgress: BULBASAUR_REVEAL_VISIBLE_PROGRESS,
-      defaultFallEndProgress: BULBASAUR_REVEAL_BOT_FALL_END_PROGRESS
-    });
-  }
-
-  function updateBotRevealBoxOpening(deltaTime, encounter, { syncModelInstance } = {}) {
-    const opening = encounter?.revealBoxOpening;
-
-    if (!opening?.active) {
-      return false;
-    }
-
-    if (!Array.isArray(encounter.repairPosition)) {
-      opening.active = false;
-      repairBoxRevealFlashRuntime.setOpacity(0);
-      return false;
-    }
-
-    opening.duration = Number(opening.duration || BULBASAUR_REVEAL_BOX_DURATION);
-    opening.elapsed = Math.min(opening.duration, Number(opening.elapsed || 0) + deltaTime);
-    const progress = clamp01(opening.elapsed / opening.duration);
-    repairBoxRevealFlashRuntime.update({ opening, encounter });
-    if (!opening.sfxStarted) {
-      playGrowBotRevealSfx();
-      opening.sfxStarted = true;
-    }
-
-    const visibleProgress = clamp01(
-      Number(opening.visibleProgress ?? BULBASAUR_REVEAL_VISIBLE_PROGRESS)
-    );
-
-    if (progress >= visibleProgress && !isRevealBoxBotVisible(opening)) {
-      revealBotAtRepairPosition(encounter, { falling: true });
-      setRevealBoxBotVisible(opening);
-      if (opening.hideBoxWhenVisible && encounter.repairModuleInstance) {
-        encounter.repairModuleInstance.active = false;
-      }
-    }
-    updateBotRevealFall(opening, encounter, progress);
-
-    if (progress >= 1) {
-      revealBotAtRepairPosition(encounter);
-      if (encounter.repairModuleInstance) {
-        encounter.repairModuleInstance.active = false;
-      }
-      opening.active = false;
-      const onComplete = opening.onComplete;
-      opening.onComplete = null;
-      encounter.revealBoxOpening = null;
-      repairBoxRevealFlashRuntime.setOpacity(0);
-      syncModelInstance?.();
-      if (typeof onComplete === "function") {
-        onComplete();
-      }
-      return true;
-    }
-
-    syncModelInstance?.();
-    return true;
-  }
-
-  function updateBulbasaurRevealBoxOpening(deltaTime, encounter) {
-    return updateBotRevealBoxOpening(deltaTime, encounter, {
-      syncModelInstance: syncBulbasaurModelInstance
-    });
-  }
-
-  function updateCharmanderRevealBoxOpening(deltaTime, encounter) {
-    return updateBotRevealBoxOpening(deltaTime, encounter, {
-      syncModelInstance: syncCharmanderModelInstance
-    });
-  }
-
   function getWorkbenchRampCollider() {
     return (session.elevatedTerrainColliders || [])
       .find((collider) => collider?.id === BULBASAUR_WORKBENCH_GUIDE_RAMP_COLLIDER_ID) || null;
@@ -5727,7 +5645,11 @@ export function startGameLoop({
   function updateBulbasaurEncounter(deltaTime) {
     const encounter = session.bulbasaurEncounter;
 
-    if (updateBulbasaurRevealBoxOpening(deltaTime, encounter)) {
+    if (
+      repairBoxRevealOpeningRuntime.update(deltaTime, encounter, {
+        syncModelInstance: syncBulbasaurModelInstance
+      })
+    ) {
       return;
     }
 
@@ -5737,7 +5659,7 @@ export function startGameLoop({
       !encounter.visible &&
       Array.isArray(encounter.repairPosition)
     ) {
-      revealBotAtRepairPosition(encounter);
+      repairBoxRevealOpeningRuntime.revealAtRepairPosition(encounter);
       if (encounter.repairModuleInstance) {
         encounter.repairModuleInstance.active = false;
       }
@@ -5815,7 +5737,11 @@ export function startGameLoop({
   function updateCharmanderEncounter(deltaTime, { activeMoveId = null } = {}) {
     const encounter = session.charmanderEncounter;
 
-    if (updateCharmanderRevealBoxOpening(deltaTime, encounter)) {
+    if (
+      repairBoxRevealOpeningRuntime.update(deltaTime, encounter, {
+        syncModelInstance: syncCharmanderModelInstance
+      })
+    ) {
       return;
     }
 
