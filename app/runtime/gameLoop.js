@@ -125,11 +125,7 @@ import {
   createCompanionLostHintRuntime,
   resolveWaterGunCompanionLostHint
 } from "./companions/companionLostHintRuntime.js";
-import {
-  getCharmanderCarbonBillboards,
-  getSquirtleChargingBillboards,
-  getSquirtleStaminaBillboards
-} from "./companions/companionStatusBillboards.js";
+import { updateCompanionPresentationFrame } from "./companions/companionPresentationFrame.js";
 import {
   createFoundationBuildZoneCameraFocusPose,
   createFoundationBuildZoneCameraFocusRuntime
@@ -144,7 +140,6 @@ import {
   resolvePlayerMovementPermission,
   resolveWorldSpaceUiVisibility
 } from "./gameLoopFramePolicies.js";
-import { getBulbasaurInteractionRadiusGizmoBillboards } from "./bulbasaurInteractionRadiusGizmoBillboards.js";
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
 import {
   resolveConstructionDisplacementPosition,
@@ -166,11 +161,6 @@ import {
   getSquirtleMouthPosition as resolveSquirtleMouthPosition,
   getSquirtleWorldPosition as resolveSquirtleWorldPosition
 } from "./fieldMoveRuntime/fieldMoveActorPositions.js";
-import {
-  getBulbasaurLeafageBillboards,
-  getCharmanderFireBillboards,
-  getSquirtleWaterGunBillboards
-} from "./fieldMoveRuntime/fieldMoveBillboards.js";
 import {
   getGardenProgressSnapshot,
   getTreeRevivalSnapshot
@@ -8239,114 +8229,24 @@ if (canProcessDestroyAction && destroyActionRequested) {
         isSquirtleWaterCharging()
       );
     }
-    const squirtleWaterStamina = getSquirtleWaterStaminaState();
-    const shouldShowSquirtleStamina =
-      controls.playerSkills?.waterGun &&
-      (
-        activeMoveId === "waterGun" ||
-        session.squirtleWaterGunAction ||
-        isSquirtleWaterCharging() ||
-        squirtleWaterStamina.current < squirtleWaterStamina.max
-      );
-    if (shouldShowSquirtleStamina) {
-      nextFrame.render.genericBillboards.push(
-        ...getSquirtleStaminaBillboards({
-          position: getSquirtleWorldPosition(),
-          fillTexture: session.squirtleWaterStaminaFillTexture,
-          uvRect: rendering.fullUvRect,
-          stamina: squirtleWaterStamina,
-          billboardRight: camera.getBillboardAxes?.()?.right
-        })
-      );
-    }
-    const charmanderCarbonEnergy = getCharmanderCarbonEnergyState();
-    const shouldShowCharmanderCarbon =
-      controls.playerSkills?.fire &&
-      (
-        activeMoveId === "fire" ||
-        session.charmanderFireAction ||
-        charmanderCarbonEnergy.current < 1 ||
-        charmanderCarbonEnergy.visualCurrent < 1
-      );
-    if (shouldShowCharmanderCarbon) {
-      nextFrame.render.genericBillboards.push(
-        ...getCharmanderCarbonBillboards({
-          position: getCharmanderWorldPosition(),
-          fillTexture: session.charmanderCarbonFillTexture,
-          backTexture: session.squirtleWaterStaminaBackTexture,
-          uvRect: rendering.fullUvRect,
-          energy: charmanderCarbonEnergy,
-          billboardRight: camera.getBillboardAxes?.()?.right,
-          cameraDirection: camera.getPose?.()?.direction
-        })
-      );
-    }
-    nextFrame.render.genericBillboards.push(
-      ...getSquirtleWaterGunBillboards({
-        action: session.squirtleWaterGunAction,
-        texture: session.squirtleWaterSprayTexture,
-        uvRect: rendering.fullUvRect,
-        getMouthPosition: getSquirtleMouthPosition
-      })
-    );
-    nextFrame.render.genericBillboards.push(
-      ...getCharmanderFireBillboards({
-        action: session.charmanderFireAction,
-        texture: session.charmanderFireTexture || session.campfireTexture,
-        uvRect: rendering.fullUvRect,
-        getMouthPosition: getCharmanderMouthPosition
-      })
-    );
-    nextFrame.render.genericBillboards.push(
-      ...getBulbasaurLeafageBillboards({
-        action: session.bulbasaurLeafageAction,
-        texture: session.natureRevivalSparkTexture,
-        uvRect: rendering.fullUvRect,
-        getEmitterPosition: getBulbasaurGrowEmitterPosition
-      })
-    );
-    nextFrame.render.genericBillboards.push(
-      ...getSquirtleChargingBillboards({
-        active: isSquirtleWaterCharging(),
-        position: getSquirtleWorldPosition(),
-        texture: session.squirtleChargingParticleTexture,
-        uvRect: rendering.fullUvRect,
-        now
-      })
-    );
-    if (!session.bulbasaurEncounter?.modelInstance) {
-      nextFrame.render.genericBillboards.push({
-        texture: session.bulbasaurEncounter?.visible ? session.bulbasaurEncounter.texture : null,
-        position: session.bulbasaurEncounter?.visible ? session.bulbasaurEncounter.position : null,
-        size: session.bulbasaurEncounter?.visible ? session.bulbasaurEncounter.size : null,
-        uvRect: rendering.fullUvRect
-      });
-    }
-    nextFrame.render.genericBillboards.push(
-      ...getBulbasaurInteractionRadiusGizmoBillboards({
-        encounter: session.bulbasaurEncounter,
-        texture: session.natureRevivalSparkTexture,
-        uvRect: rendering.fullUvRect,
-        now,
-        config: BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG
-      })
-    );
-    if (!session.charmanderEncounter?.modelInstance) {
-      nextFrame.render.genericBillboards.push({
-        texture: session.charmanderEncounter?.visible ? session.charmanderEncounter.texture : null,
-        position: session.charmanderEncounter?.visible ? session.charmanderEncounter.position : null,
-        size: session.charmanderEncounter?.visible ? session.charmanderEncounter.size : null,
-        uvRect: rendering.fullUvRect
-      });
-    }
-    if (!session.timburrEncounter?.modelInstance) {
-      nextFrame.render.genericBillboards.push({
-        texture: session.timburrEncounter?.visible ? session.timburrEncounter.texture : null,
-        position: session.timburrEncounter?.visible ? session.timburrEncounter.position : null,
-        size: session.timburrEncounter?.visible ? session.timburrEncounter.size : null,
-        uvRect: rendering.fullUvRect
-      });
-    }
+    updateCompanionPresentationFrame({
+      session,
+      nextFrame,
+      playerSkills: controls.playerSkills,
+      activeMoveId,
+      rendering,
+      camera,
+      now,
+      getSquirtleWorldPosition,
+      getCharmanderWorldPosition,
+      getSquirtleMouthPosition,
+      getCharmanderMouthPosition,
+      getBulbasaurGrowEmitterPosition,
+      getSquirtleWaterStaminaState,
+      getCharmanderCarbonEnergyState,
+      isSquirtleWaterCharging,
+      interactionRadiusGizmoConfig: BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG
+    });
     nextFrame.render.genericBillboards.push(
       ...getNatureRevivalBillboards(
         session.natureRevivalEffects,

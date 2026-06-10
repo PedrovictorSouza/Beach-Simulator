@@ -322,10 +322,76 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move the nature render frame into the `presentation` boundary.
 - Completed: move world-object billboard frame into the `presentation`
   boundary.
+- Completed: move companion presentation frame into the `companions`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Companion Presentation Frame Boundary
+
+Moved the companion presentation pass from `app/runtime/gameLoop.js` into
+`app/runtime/companions/companionPresentationFrame.js`.
+
+Boundary classification: `bot/companion motion` plus companion presentation,
+focused on status bars, fallback companion billboards, Bulbasaur interaction
+gizmo billboards and field-move visual billboards emitted by companions.
+
+Module boundary note:
+
+- This is one cohesive `companions` domain module, not a one-helper file.
+- `gameLoop.js` still owns frame order and calls this pass after world-object
+  billboard assembly and before nature revival/debug collider billboards.
+- The Squirtle model-instance active sync intentionally remains in
+  `gameLoop.js` because it mutates runtime model state, not just presentation.
+- Field-move gameplay state and action rules remain in `gameLoop.js`; this
+  module only forwards existing action snapshots to already-tested billboard
+  builders.
+
+Study path:
+
+1. `updateCompanionPresentationFrame(...)` receives frame state already resolved
+   by `gameLoop.js`: active move id, player skill flags, camera, render UVs,
+   companion position callbacks and current companion action objects.
+2. The module owns the previous billboard chain for Hydro Bot stamina/charging,
+   Thermal Bot carbon, Water Gun spray, Fire spray, Leafage stream, fallback
+   Bulbasaur/Charmander/Timburr billboards and the Bulbasaur interaction ring.
+3. The module preserves the placeholder fallback billboard behavior for hidden
+   companions whose model instance is absent.
+4. No field-move rule, companion movement rule, camera behavior, render snapshot
+   shape or frame scheduling changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `8389` to `8289`.
+- Removed direct imports of companion status billboard builders from
+  `gameLoop.js`.
+- Removed direct imports of field-move billboard builders from `gameLoop.js`.
+- Removed direct import of the Bulbasaur interaction-radius gizmo builder from
+  `gameLoop.js`.
+- Added focused tests for companion status/fallback/gizmo output and companion
+  field-move/charging billboard forwarding.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionPresentationFrame.test.js tests/companionStatusBillboards.test.js tests/fieldMoveBillboards.test.js tests/bulbasaurInteractionRadiusGizmoBillboards.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused companion presentation suite passed with `20` tests across the new
+frame test and the existing billboard tests. The production build passed with
+the existing chunk-size warning. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1690` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
 
 ### World Object Billboard Frame Boundary
 
