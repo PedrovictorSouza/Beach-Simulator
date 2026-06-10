@@ -180,6 +180,7 @@ import {
   getYawToward
 } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
+import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { resolveFrameHudPromptCopy } from "./presentation/hudPromptCopy.js";
@@ -356,7 +357,6 @@ import {
   restoreActiveZoomPresetOnMovement
 } from "./camera/cameraZoomPresetController.js";
 import { createPlacementCameraAssist } from "./camera/placementCameraAssist.js";
-import { updatePlayerDustParticles } from "../session/playerDustParticles.js";
 import {
   getSnowstormBillboards,
   getSnowstormFogIntensity,
@@ -1112,6 +1112,43 @@ export function startGameLoop({
     moveValueToward,
     rotateAngleToward,
     playJumpSound: () => playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_JUMP)
+  });
+  const playerMovementFrameRuntime = createPlayerMovementFrameRuntime({
+    session,
+    movementPolicy: { resolvePlayerMovementPermission },
+    model: playerModelRuntime,
+    followDirection: companionFollowDirectionRuntime,
+    movementQuest: movementQuestRuntime,
+    runBreadcrumbPrompt: runBreadcrumbPromptRuntime,
+    callbacks: {
+      isMovementQuestActive: () => gameplay.getActiveSystemQuest?.()?.id === "learn-to-move",
+      isRunActive: () => controls.isRunActive?.(),
+      reportMovement: () => gameplay.recordQuestEvent?.({
+        type: "MOVE",
+        targetId: "player"
+      }),
+      onPlayerMoved: ({
+        movedDistance,
+        nextPlayerPosition,
+        gameplayOpeningCameraLocked,
+        foundationBuildZoneCameraFocusActive,
+        tutorialActive
+      }) => {
+        if (
+          movedDistance > 0.0005 &&
+          !tutorialActive &&
+          !gameplayOpeningCameraLocked &&
+          !foundationBuildZoneCameraFocusActive
+        ) {
+          restoreActiveZoomPresetOnMovement({
+            playerPosition: nextPlayerPosition,
+            camera,
+            cameraOrbit,
+            cameraZoomPresetController
+          });
+        }
+      }
+    }
   });
 
   const audio = createGameplayAudioRuntime({
@@ -6073,87 +6110,6 @@ export function startGameLoop({
     }
   }
 
-  function updatePlayerMovementFrame({
-    deltaTime,
-    now,
-    flowState,
-    gameplayOpeningMovementLocked,
-    gameplayOpeningCameraLocked,
-    foundationBuildZoneCameraFocusActive,
-    tutorialActive
-  }) {
-    const canUpdatePlayerMovement = resolvePlayerMovementPermission({
-      hasPlayerCharacter: Boolean(session.playerCharacter),
-      foundationBuildZoneCameraFocusActive,
-      flowState
-    });
-    let playerMovedThisFrame = false;
-
-    if (canUpdatePlayerMovement) {
-      const previousPlayerPosition = session.playerCharacter.getPosition();
-      session.playerCharacter.update(deltaTime);
-      if (session.playerCharacter.consumeJumpStarted?.()) {
-        playerModelRuntime.startJumpFlip(session);
-      }
-      const nextPlayerPosition = session.playerCharacter.getPosition();
-      const movedDistance = Math.hypot(
-        nextPlayerPosition[0] - previousPlayerPosition[0],
-        nextPlayerPosition[2] - previousPlayerPosition[2]
-      );
-      playerMovedThisFrame = movedDistance > 0.0005;
-      if (
-        playerMovedThisFrame &&
-        !gameplayOpeningMovementLocked &&
-        !tutorialActive &&
-        gameplay.getActiveSystemQuest?.()?.id === "learn-to-move" &&
-        !controls.isRunActive?.()
-      ) {
-        runBreadcrumbPromptRuntime.trigger(now);
-      }
-      companionFollowDirectionRuntime.update(
-        nextPlayerPosition[0] - previousPlayerPosition[0],
-        nextPlayerPosition[2] - previousPlayerPosition[2]
-      );
-      playerModelRuntime.sync(session, deltaTime, [
-        nextPlayerPosition[0] - previousPlayerPosition[0],
-        nextPlayerPosition[2] - previousPlayerPosition[2]
-      ]);
-
-      if (
-        movedDistance > 0.0005 &&
-        !tutorialActive &&
-        !gameplayOpeningCameraLocked &&
-        !foundationBuildZoneCameraFocusActive
-      ) {
-        restoreActiveZoomPresetOnMovement({
-          playerPosition: nextPlayerPosition,
-          camera,
-          cameraOrbit,
-          cameraZoomPresetController
-        });
-      }
-
-      movementQuestRuntime.update({
-        active: () => gameplay.getActiveSystemQuest?.()?.id === "learn-to-move",
-        movedDistance,
-        reportMovement: () => gameplay.recordQuestEvent?.({
-          type: "MOVE",
-          targetId: "player"
-        })
-      });
-    } else {
-      playerModelRuntime.sync(session, deltaTime);
-    }
-
-    updatePlayerDustParticles(session.playerDust, {
-      deltaTime,
-      playerPosition: session.playerCharacter?.getPosition?.() || null,
-      active: canUpdatePlayerMovement
-    });
-
-    return { playerMovedThisFrame };
-  }
-
   function updatePassiveEffectFrames(deltaTime) {
     updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
     treeRevivalLeafBurstRuntime.update(deltaTime);
@@ -6495,7 +6451,7 @@ if (!shouldConsumePlacementCancel && (movementBlocked || !session.playerCharacte
     let leafDenKitPlacementPreview = updateLeafDenKitPlacementPreview(now * 0.001);
     updateSolarStationSpawnEffect(session.strawBedModelInstance, deltaTime);
     syncSolarStationWorkbenchRotationVisual(now * 0.001);
-    const { playerMovedThisFrame } = updatePlayerMovementFrame({
+    const { playerMovedThisFrame } = playerMovementFrameRuntime.update({
       deltaTime,
       now,
       flowState: frameFlowState,

@@ -330,10 +330,70 @@ There is no dedicated lint or typecheck script in `package.json`.
   `presentation` boundary.
 - Completed: move ground-cell highlight frame-state preparation into the
   `presentation` boundary.
+- Completed: move player movement frame ownership into the `player` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Player Movement Frame Boundary
+
+Moved the player movement frame pass from `app/runtime/gameLoop.js` into
+`app/player/playerMovementFrame.js`.
+
+Boundary classification: `player/`, focused on updating the player character
+for one frame and coordinating player-owned movement side effects.
+
+Module boundary note:
+
+- This is a domain module under `app/player`, not a loose runtime helper in
+  `app/runtime`.
+- `gameLoop.js` still owns the temporal order and still decides when player
+  movement is updated.
+- The player boundary now owns character update, jump-start handoff to the
+  model runtime, movement delta calculation, companion follow-direction update,
+  movement quest update, run breadcrumb trigger and player dust update.
+- Camera zoom restoration stays outside the player module as an explicit
+  callback, because it is camera behavior triggered by player movement.
+
+Study path:
+
+1. `createPlayerMovementFrameRuntime(...)` is wired in `startGameLoop()` with
+   the existing session, model runtime, follow-direction runtime, movement quest
+   runtime and breadcrumb prompt runtime.
+2. `frame(now)` now calls `playerMovementFrameRuntime.update(...)` where the
+   old local helper was called.
+3. The runtime returns `playerMovedThisFrame`, preserving the audio/presentation
+   behavior that depends on player movement.
+4. No input mapping, movement permission policy, movement speed, camera tuning,
+   quest thresholds or dust tuning changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `8062` to `8018`.
+- Removed the local `updatePlayerMovementFrame(...)` implementation from
+  `gameLoop.js`.
+- Removed direct `updatePlayerDustParticles(...)` import from `gameLoop.js`.
+- Added focused tests for allowed movement, blocked movement, model sync,
+  follow-direction update, movement quest update, run breadcrumb gating, camera
+  callback payload and dust update.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerMovementFrame.test.js tests/gameLoopFramePolicies.test.js tests/playerDustParticles.test.js tests/cameraZoomPresetController.test.js tests/movementQuestRuntime.test.js tests/runBreadcrumbPromptRuntime.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused player movement suite passed with `28` tests across the new
+movement-frame test and related policy/effect/runtime tests. The production
+build passed with the existing chunk-size warning. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1702` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
 
 ### Ground Cell Highlight Frame-State Boundary
 
