@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   resolveGameplayGroundGuidanceFrameState,
+  resolveGameplayGroundCellHighlightFrameState,
   resolveGroundCellHighlightFrameState,
   resolveMarkedGroundCellGuidanceFrameState
 } from "../app/runtime/presentation/groundCellHighlightFrameState.js";
@@ -258,5 +259,31 @@ describe("ground cell highlight frame state", () => {
     expect(getWorkbenchRotationGroundCell).toHaveBeenCalledWith({ id: "workbench" });
     expect(getFieldToolTargetPulseFrame).toHaveBeenCalledWith(highlightedGroundCell);
     expect(getGroundActionFeedbackFrame).toHaveBeenCalledTimes(1);
+  });
+
+  it("applies gameplay highlight visibility before resolving direct ground-cell highlight state", () => {
+    const highlightedGroundCell = { id: "highlighted" };
+    const getFieldToolTargetPulseFrame = vi.fn(() => ({ id: "pulse-frame" }));
+
+    const visibleState = resolveGameplayGroundCellHighlightFrameState({
+      gameplayOpeningMovementLocked: false,
+      flowState: {},
+      highlightedGroundCell,
+      getFieldToolTargetPulseFrame
+    });
+
+    expect(visibleState.shouldShowGroundCellHighlight).toBe(true);
+    expect(visibleState.fieldToolTargetPulseFrame).toEqual({ id: "pulse-frame" });
+
+    const blockedState = resolveGameplayGroundCellHighlightFrameState({
+      gameplayOpeningMovementLocked: true,
+      flowState: {},
+      highlightedGroundCell,
+      getFieldToolTargetPulseFrame
+    });
+
+    expect(blockedState.shouldShowGroundCellHighlight).toBe(false);
+    expect(blockedState.fieldToolTargetPulseFrame).toBe(null);
+    expect(getFieldToolTargetPulseFrame).toHaveBeenCalledTimes(1);
   });
 });

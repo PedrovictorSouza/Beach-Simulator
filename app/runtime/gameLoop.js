@@ -127,7 +127,6 @@ import { createGameplayCameraFrameRuntime } from "./camera/gameplayCameraFrameRu
 import {
   resolveGameplayActionPermission,
   resolveGameLoopBlockers,
-  resolveGroundGuidanceVisibility,
   resolvePlayerMovementPermission,
   resolveWorldSpaceUiVisibility
 } from "./gameLoopFramePolicies.js";
@@ -189,8 +188,8 @@ import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { resolveGameplayTargetFrameState } from "./presentation/gameplayTargetFrameState.js";
 import {
-  resolveGameplayGroundGuidanceFrameState,
-  resolveGroundCellHighlightFrameState
+  resolveGameplayGroundCellHighlightFrameState,
+  resolveGameplayGroundGuidanceFrameState
 } from "./presentation/groundCellHighlightFrameState.js";
 import { updateGroundCellHighlightFrame } from "./presentation/groundCellHighlightFrame.js";
 import { updateWorldSpeechSnapshotFrame } from "./presentation/worldSpeechSnapshotFrame.js";
@@ -7144,13 +7143,6 @@ if (canProcessDestroyAction && destroyActionRequested) {
       debug: debugInteractionFlow
     });
 
-    const shouldShowGroundCellHighlight =
-      resolveGroundGuidanceVisibility({
-        gameplayOpeningMovementLocked,
-        requireDialogueClosed: true,
-        flowState: currentFlowState
-      }) &&
-      Boolean(highlightedGroundCell);
     const {
       fieldToolTargetPulseFrame,
       solarStationPlacementGroundCells,
@@ -7164,8 +7156,9 @@ if (canProcessDestroyAction && destroyActionRequested) {
       leafDenKitPlacementGroundCell,
       workbenchRotationGroundCell,
       groundActionFeedbackFrame
-    } = resolveGroundCellHighlightFrameState({
-      canShowGroundCellHighlight: shouldShowGroundCellHighlight,
+    } = resolveGameplayGroundCellHighlightFrameState({
+      gameplayOpeningMovementLocked,
+      flowState: currentFlowState,
       highlightedGroundCell,
       placementFootprints: {
         solarStation: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,

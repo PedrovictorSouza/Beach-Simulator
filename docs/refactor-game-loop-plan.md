@@ -3940,6 +3940,76 @@ execution-load noise for this cut rather than a behavior change.
 
 No manual browser validation was run in this cut.
 
+### Gameplay Ground Cell Highlight Frame State Wrapper
+
+Expanded `app/runtime/presentation/groundCellHighlightFrameState.js` with
+`resolveGameplayGroundCellHighlightFrameState(...)`.
+
+Module boundary:
+
+- Domain: `presentation/render helpers`.
+- Responsibility: resolve direct ground-cell highlight visibility and then
+  delegate highlight frame-state assembly.
+- Removed from `frame(now)`: direct use of
+  `resolveGroundGuidanceVisibility(...)` for ground-cell highlight visibility
+  and direct wiring into `resolveGroundCellHighlightFrameState(...)`.
+
+Study path:
+
+1. `frame(now)` still computes gameplay targets before prompt/highlight
+   presentation.
+2. `resolveGameplayGroundCellHighlightFrameState(...)` applies the existing
+   `resolveGroundGuidanceVisibility(...)` policy with
+   `requireDialogueClosed: true`, matching the old inline logic.
+3. The wrapper keeps the existing `Boolean(highlightedGroundCell)` gate before
+   field-tool target pulse calculation.
+4. The returned object preserves the same highlight fields consumed by
+   `updateGroundCellHighlightFrame(...)`.
+
+Tests expanded:
+
+- `tests/groundCellHighlightFrameState.test.js`
+
+The new test covers:
+
+- direct highlight visibility while gameplay is available;
+- suppression while opening movement lock is active;
+- avoiding target-pulse callback execution when highlight visibility is blocked.
+
+Risks reduced:
+
+- `gameLoop.js` no longer imports or applies ground guidance visibility policy
+  directly.
+- Ground-cell highlight visibility is now covered next to the highlight frame
+  state it controls.
+
+Risks remaining:
+
+- Placement preview pruning still happens inline before prompt/highlight
+  presentation state.
+- `frame(now)` still passes a wide set of placement/highlight dependencies into
+  presentation, which is acceptable until construction placement preview state
+  gets its own cleaner boundary.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/groundCellHighlightFrameState.test.js
+npm test -- --run tests/groundCellHighlightFrameState.test.js tests/groundCellHighlightFrame.test.js tests/gameLoopFramePolicies.test.js tests/gameplayTargetFrameState.test.js tests/gameplayPromptTargetFrameState.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused suite passed with `24` tests. `npm run build` passed with the
+existing large chunk warning and plugin timing report. `npm test` completed with
+the existing Leafage Native Tree baseline:
+
+- `1732` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+No manual browser validation was run in this cut.
+
 ### Gameplay Prompt Frame State Wrapper
 
 Expanded `app/runtime/presentation/gameplayPromptTargetFrameState.js` with

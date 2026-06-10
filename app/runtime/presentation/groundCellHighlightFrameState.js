@@ -298,3 +298,50 @@ export function resolveGroundCellHighlightFrameState({
     groundActionFeedbackFrame
   };
 }
+
+export function resolveGameplayGroundCellHighlightFrameState({
+  gameplayOpeningMovementLocked = false,
+  flowState = {},
+  highlightedGroundCell = null,
+  placementFootprints = EMPTY_PLACEMENT_FOOTPRINTS,
+  solarStationPlacementPreview = null,
+  greenhousePlacementPreview = null,
+  campfirePlacementPreview = null,
+  leafDenKitPlacementPreview = null,
+  selectedWorkbenchRotationTarget = null,
+  activeFireGroundCell = null,
+  session = null,
+  storyState = null,
+  getWorkbenchRotationGroundCell = () => null,
+  buildSolarStationPreviewPowerRadiusGroundCells = () => [],
+  buildPlacedSolarStationPowerRadiusGroundCells = () => [],
+  getGroundActionFeedbackFrame = () => null,
+  getFieldToolTargetPulseFrame = () => null
+} = {}) {
+  const canShowGroundCellHighlight =
+    resolveGroundGuidanceVisibility({
+      gameplayOpeningMovementLocked,
+      requireDialogueClosed: true,
+      flowState
+    }) &&
+    Boolean(highlightedGroundCell);
+
+  return resolveGroundCellHighlightFrameState({
+    canShowGroundCellHighlight,
+    highlightedGroundCell,
+    placementFootprints,
+    solarStationPlacementPreview,
+    greenhousePlacementPreview,
+    campfirePlacementPreview,
+    leafDenKitPlacementPreview,
+    selectedWorkbenchRotationTarget,
+    activeFireGroundCell,
+    session,
+    storyState,
+    getWorkbenchRotationGroundCell,
+    buildSolarStationPreviewPowerRadiusGroundCells,
+    buildPlacedSolarStationPowerRadiusGroundCells,
+    getGroundActionFeedbackFrame,
+    getFieldToolTargetPulseFrame
+  });
+}
