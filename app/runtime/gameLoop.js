@@ -235,6 +235,10 @@ import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { updateGroundCellHighlightFrame } from "./presentation/groundCellHighlightFrame.js";
 import { updateWorldSpeechSnapshotFrame } from "./presentation/worldSpeechSnapshotFrame.js";
+import {
+  getGrassCollisionObjects,
+  getGrassObjectCollisionAlpha
+} from "./presentation/grassCollisionObjects.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
   getRepairBoxRevealParticleTarget,
@@ -252,8 +256,7 @@ import { resolveSupplyPickupViewportOrigin } from "./supplyPickupViewportOrigin.
 import {
   getTallGrassInstanceScale,
   getTallGrassSway,
-  getTallGrassYaw,
-  TALL_GRASS_MIN_FOOTPRINT
+  getTallGrassYaw
 } from "./tallGrassMotion.js";
 import { applyTrainHouseDance } from "./trainHouseDance.js";
 import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime.js";
@@ -646,8 +649,6 @@ const REPAIR_BOX_INACTIVE_ALPHA = 0.5;
 const ROBOT_IDLE_PATROL_SPEED = 0.82;
 const ROBOT_IDLE_PATROL_PAUSE_DURATION = 0.75;
 const ROBOT_IDLE_PATROL_ARRIVE_DISTANCE = 0.08;
-const GRASS_OBJECT_COLLISION_ALPHA = 0.5;
-const GRASS_OBJECT_COLLISION_BASE_RADIUS = 0.58;
 const NATURE_PATCH_GRASS_MODEL_LOD_DISTANCE = 28;
 const NATURE_PATCH_MODEL_PREPARE_DISTANCE = 48;
 const NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE = 78;
@@ -2942,93 +2943,6 @@ export function startGameLoop({
       bee.pitch = Math.sin(elapsed * 1.8 + bee.bobPhase) * 0.04;
       bee.roll = wobble * 0.08;
     });
-  }
-
-  function appendGrassCollisionObject(objects, position, radius = GRASS_OBJECT_COLLISION_BASE_RADIUS) {
-    if (!Array.isArray(position) || position.length < 3) {
-      return;
-    }
-
-    const x = Number(position[0]);
-    const z = Number(position[2]);
-
-    if (!Number.isFinite(x) || !Number.isFinite(z)) {
-      return;
-    }
-
-    objects.push({
-      position,
-      radius
-    });
-  }
-
-  function getGrassCollisionObjects() {
-    const objects = [];
-
-    if (session.playerCharacter) {
-      appendGrassCollisionObject(objects, session.playerCharacter.getPosition?.(), 0.52);
-    }
-
-    appendGrassCollisionObject(objects, session.chopperNpcActor?.bodyInstance?.offset, 0.54);
-
-    if (session.actTwoSquirtle?.modelInstance?.active) {
-      appendGrassCollisionObject(
-        objects,
-        session.actTwoSquirtle.position || session.actTwoSquirtle.modelInstance.offset,
-        0.48
-      );
-    }
-
-    if (session.bulbasaurEncounter?.visible) {
-      appendGrassCollisionObject(
-        objects,
-        session.bulbasaurEncounter.position || session.bulbasaurEncounter.modelInstance?.offset,
-        0.66
-      );
-    }
-
-    if (session.charmanderEncounter?.visible) {
-      appendGrassCollisionObject(objects, session.charmanderEncounter.position, 0.54);
-    }
-
-    if (session.timburrEncounter?.visible) {
-      appendGrassCollisionObject(objects, session.timburrEncounter.position, 0.56);
-    }
-
-    for (const repairModuleInstance of session.robotRepairModuleInstances || []) {
-      if (repairModuleInstance?.active !== false) {
-        appendGrassCollisionObject(
-          objects,
-          repairModuleInstance.baseOffset || repairModuleInstance.offset,
-          0.62
-        );
-      }
-    }
-
-    return objects;
-  }
-
-  function getGrassObjectCollisionAlpha(groundGrassPatch, objects) {
-    if (!Array.isArray(groundGrassPatch?.position) || !objects.length) {
-      return 1;
-    }
-
-    const patchRadius = Math.max(
-      groundGrassPatch.size?.[0] || TALL_GRASS_MIN_FOOTPRINT,
-      groundGrassPatch.size?.[1] || TALL_GRASS_MIN_FOOTPRINT
-    ) * 0.42;
-
-    for (const object of objects) {
-      const radius = patchRadius + object.radius;
-      const deltaX = groundGrassPatch.position[0] - object.position[0];
-      const deltaZ = groundGrassPatch.position[2] - object.position[2];
-
-      if (deltaX * deltaX + deltaZ * deltaZ <= radius * radius) {
-        return GRASS_OBJECT_COLLISION_ALPHA;
-      }
-    }
-
-    return 1;
   }
 
   function syncActiveRepairBoxHighlight() {
@@ -6384,7 +6298,7 @@ export function startGameLoop({
       session,
       camera,
       cinematicActive,
-      getGrassCollisionObjects,
+      getGrassCollisionObjects: () => getGrassCollisionObjects({ session }),
       getSelectedRepairBoxParticleTarget,
       getRepairBoxRevealParticleTarget,
       getEncounterRepairBoxPosition,

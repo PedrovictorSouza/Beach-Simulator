@@ -315,10 +315,74 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move Leppa tree dance motion into the `presentation` boundary.
 - Completed: move render snapshot context preparation into the `presentation`
   boundary.
+- Completed: move grass collision presentation helpers into the
+  `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Grass Collision Presentation Boundary
+
+Moved grass collision object collection and grass alpha overlap calculation from
+`app/runtime/gameLoop.js` into
+`app/runtime/presentation/grassCollisionObjects.js`.
+
+Boundary classification: `presentation/render helpers`, focused on visual grass
+fade around actors and repair modules.
+
+Module boundary note:
+
+- This is a new file inside the existing `presentation` domain, not a loose
+  helper under `app/runtime/`.
+- It owns only render/presentation collision objects and grass alpha fade.
+- The existing alpha and radius tuning values moved with the visual helper; the
+  numbers did not change.
+- It imports `TALL_GRASS_MIN_FOOTPRINT` from the existing tall-grass motion
+  module instead of keeping that dependency in `gameLoop.js`.
+
+Study path:
+
+1. `gameLoop.js` still asks the render snapshot context for
+   `grassCollisionObjects` in the same render-prep location.
+2. `getGrassCollisionObjects(...)` now receives `session` explicitly and builds
+   the same actor/module collision list.
+3. `getGrassObjectCollisionAlpha(...)` now owns the visual fade decision for
+   grass patches near those objects.
+4. No actor visibility rule, grass render shape, sway behavior or frame order
+   changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9075` to `8989`.
+- Removed the private `appendGrassCollisionObject(...)`,
+  `getGrassCollisionObjects(...)` and `getGrassObjectCollisionAlpha(...)`
+  implementations from `startGameLoop()`.
+- Moved grass collision alpha/radius tuning out of the `gameLoop.js` constant
+  block.
+- Added focused tests for actor/module collision collection, invalid position
+  filtering and grass alpha overlap behavior.
+
+Passed:
+
+```sh
+npm test -- --run tests/grassCollisionObjects.test.js
+npm test -- --run tests/grassCollisionObjects.test.js tests/renderSnapshotContext.test.js tests/grassPlayerBend.test.js tests/tallGrassMotion.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused grass collision test passed with `4` tests, the focused
+presentation/grass render suite passed with `18` tests and the production build
+passed with the existing chunk-size warning. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1681` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
 
 ### Render Snapshot Context Boundary
 
