@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  consumeCameraZoomCycleRequests,
   createCameraZoomPresetController,
   restoreActiveZoomPresetOnMovement
 } from "../app/runtime/camera/cameraZoomPresetController.js";
@@ -89,5 +90,55 @@ describe("createCameraZoomPresetController", () => {
     })).toBe(false);
     expect(camera.setPose).not.toHaveBeenCalled();
     expect(camera.follow).not.toHaveBeenCalled();
+  });
+
+  it("consumes queued zoom cycle requests and applies allowed cycles", () => {
+    let pendingRequests = 2;
+    const cameraZoomPresetController = {
+      cycle: vi.fn()
+    };
+    const onCycle = vi.fn();
+
+    expect(consumeCameraZoomCycleRequests({
+      consumeRequest: () => {
+        if (pendingRequests <= 0) {
+          return false;
+        }
+        pendingRequests -= 1;
+        return true;
+      },
+      canCycleCameraZoom: true,
+      cameraZoomPresetController,
+      onCycle
+    })).toBe(2);
+
+    expect(pendingRequests).toBe(0);
+    expect(cameraZoomPresetController.cycle).toHaveBeenCalledTimes(2);
+    expect(onCycle).toHaveBeenCalledTimes(2);
+  });
+
+  it("drains zoom cycle requests without applying cycles when zoom cycling is blocked", () => {
+    let pendingRequests = 2;
+    const cameraZoomPresetController = {
+      cycle: vi.fn()
+    };
+    const onCycle = vi.fn();
+
+    expect(consumeCameraZoomCycleRequests({
+      consumeRequest: () => {
+        if (pendingRequests <= 0) {
+          return false;
+        }
+        pendingRequests -= 1;
+        return true;
+      },
+      canCycleCameraZoom: false,
+      cameraZoomPresetController,
+      onCycle
+    })).toBe(0);
+
+    expect(pendingRequests).toBe(0);
+    expect(cameraZoomPresetController.cycle).not.toHaveBeenCalled();
+    expect(onCycle).not.toHaveBeenCalled();
   });
 });

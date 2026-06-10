@@ -284,10 +284,62 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move active zoom preset restoration on movement into the `camera`
   boundary.
+- Completed: move camera zoom-cycle request draining into the `camera`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Camera Zoom-Cycle Request Boundary
+
+Moved zoom-cycle request draining from `app/runtime/gameLoop.js` into
+`app/runtime/camera/cameraZoomPresetController.js`.
+
+Boundary classification: `camera runtime/debug`, focused on camera zoom input
+application. The frame still decides whether zoom cycling is allowed through
+`resolveCameraInputPermissions(...)`.
+
+Study path:
+
+1. `consumeCameraZoomCycleRequests(...)` drains every pending zoom-cycle request,
+   preserving the previous behavior where blocked requests are consumed without
+   applying a zoom change.
+2. When cycling is allowed, it calls the active
+   `cameraZoomPresetController.cycle()` and then the supplied `onCycle`
+   callback for sound/UI side effects.
+3. `gameLoop.js` still owns camera permission resolution and passes the same
+   `SOUND_EVENT_IDS.UI_NAVIGATE` side effect from the same frame position.
+4. No camera tuning, input mapping or frame order changed.
+
+Reduced responsibility:
+
+- `gameLoop.js` line count stayed effectively flat, changing from `9773` to
+  `9774` because the extracted policy is called with explicit dependencies.
+- Removed the manual zoom-cycle request drain loop from `gameLoop.js`.
+- Added focused tests for allowed cycles and blocked-but-drained requests.
+
+Validation:
+
+```sh
+npm test -- --run tests/cameraZoomPresetController.test.js
+npm test -- --run tests/cameraZoomPresetController.test.js tests/camera.test.js tests/gameplayCameraDirector.test.js tests/gameLoopFrameRuntime.test.js tests/gameLoopFramePolicies.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused camera/frame suite passed with `24` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1640` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Active Zoom Preset Restore Boundary
 

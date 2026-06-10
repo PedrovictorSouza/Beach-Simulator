@@ -74,3 +74,24 @@ export function restoreActiveZoomPresetOnMovement({
   camera.follow?.(playerPosition);
   return true;
 }
+
+export function consumeCameraZoomCycleRequests({
+  consumeRequest = null,
+  canCycleCameraZoom = false,
+  cameraZoomPresetController = null,
+  onCycle = null
+} = {}) {
+  let appliedCycles = 0;
+
+  while (consumeRequest?.()) {
+    if (!canCycleCameraZoom) {
+      continue;
+    }
+
+    cameraZoomPresetController?.cycle?.();
+    onCycle?.();
+    appliedCycles += 1;
+  }
+
+  return appliedCycles;
+}

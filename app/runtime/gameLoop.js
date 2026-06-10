@@ -378,6 +378,7 @@ import {
   setFrameWorldPrompt
 } from "./frameSnapshotController.js";
 import {
+  consumeCameraZoomCycleRequests,
   createCameraZoomPresetController,
   restoreActiveZoomPresetOnMovement
 } from "./camera/cameraZoomPresetController.js";
@@ -6422,12 +6423,12 @@ export function startGameLoop({
       flowState
     });
 
-    while (controls.consumeCameraZoomCycleRequest?.()) {
-      if (canCycleCameraZoom) {
-        cameraZoomPresetController.cycle();
-        playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE);
-      }
-    }
+    consumeCameraZoomCycleRequests({
+      consumeRequest: () => controls.consumeCameraZoomCycleRequest?.(),
+      canCycleCameraZoom,
+      cameraZoomPresetController,
+      onCycle: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE)
+    });
 
     const cameraTurnDirection =
       (controls.cameraTurnKeys.has("ArrowRight") ? 1 : 0) -
