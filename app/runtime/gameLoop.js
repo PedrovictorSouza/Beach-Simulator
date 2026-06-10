@@ -444,7 +444,10 @@ import { PLACEMENT_CONTRACTS } from "../gameplay/contracts/placementContracts.js
 import { cancelPlacementPreview, hasActivePlacementPreview } from "../gameplay/contracts/placementRuntime.js";
 import { createGameplayAudioRuntime } from "./gameplayAudioRuntime.js";
 import { createGameplayOpeningRuntime } from "./opening/createGameplayOpeningRuntime.js";
-import { createGameplayInputRuntime } from "./input/createGameplayInputRuntime.js";
+import {
+  createGameplayInputFrameRuntime,
+  createGameplayInputRuntime
+} from "./input/createGameplayInputRuntime.js";
 
 
 const BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT = 10;
@@ -1157,6 +1160,13 @@ export function startGameLoop({
 
   const gameplayInputRuntime = createGameplayInputRuntime({
     controls
+  });
+  const gameplayInputFrameRuntime = createGameplayInputFrameRuntime({
+    gameplayInputRuntime,
+    inputModalityPanelController,
+    getInputModalityState: getCurrentInputModalityState,
+    getCameraTransitionActive: () => camera.isTargetTransitionActive(),
+    updateCameraDebugFrameOverlay
   });
 
   const gameplayOpeningRuntime = createGameplayOpeningRuntime({
@@ -6000,45 +6010,6 @@ export function startGameLoop({
     }));
   }
 
-  function updateGameplayInputFrame({
-    now,
-    deltaTime,
-    flowState,
-    cinematicActive,
-    movementBlocked,
-    placementPreviewActive,
-    dialogueActive,
-    tutorialActive,
-    skillLearnActive,
-    scriptedInteractionActive,
-    gameplayOpeningMovementLocked
-  }) {
-    gameplayInputRuntime.update({
-      now,
-      deltaTime,
-      gameplayActive: flowState.gameplayActive,
-      cinematicActive,
-      movementBlocked,
-      placementActive: placementPreviewActive,
-      dialogueActive,
-      tutorialActive,
-      skillLearnActive,
-      scriptedInteractionActive
-    });
-    inputModalityPanelController.update(getCurrentInputModalityState());
-    const cameraTransitionActive = camera.isTargetTransitionActive();
-
-    updateCameraDebugFrameOverlay({
-      now,
-      flowState,
-      movementBlocked,
-      gameplayOpeningMovementLocked,
-      cameraTransitionActive
-    });
-
-    return { cameraTransitionActive };
-  }
-
   function updateEarlyGameplayControlFrame({
     nextFrame,
     deltaTime,
@@ -6278,7 +6249,7 @@ export function startGameLoop({
       flowState: frameFlowState
     });
 
-    const { cameraTransitionActive } = updateGameplayInputFrame({
+    const { cameraTransitionActive } = gameplayInputFrameRuntime.update({
       now,
       deltaTime,
       flowState: frameFlowState,

@@ -333,10 +333,64 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move player movement frame ownership into the `player` boundary.
 - Completed: move gameplay camera input/follow frame ownership into the
   `camera` boundary.
+- Completed: move gameplay input frame coordination into the existing `input`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Gameplay Input Frame Boundary
+
+Moved frame-level gameplay input coordination from `app/runtime/gameLoop.js`
+into the existing `app/runtime/input/createGameplayInputRuntime.js` module.
+
+Boundary classification: `input runtime`, focused on applying per-frame input
+state, updating the input-modality panel and forwarding the camera-debug payload
+for the same frame.
+
+Module boundary note:
+
+- No new file was added; the existing `input` module boundary was extended.
+- `gameLoop.js` still owns frame order and still receives
+  `cameraTransitionActive` before camera input and movement updates.
+- Camera debug remains a callback, so the input boundary does not become owner
+  of camera debug internals.
+- No input mapping, action consumption behavior, camera behavior or pause logic
+  changed.
+
+Study path:
+
+1. `createGameplayInputRuntime(...)` still captures the low-level input frame.
+2. `createGameplayInputFrameRuntime(...)` coordinates the old
+   `updateGameplayInputFrame(...)` sequence: update input runtime, update input
+   modality panel, read camera transition state and forward debug state.
+3. `frame(now)` now calls `gameplayInputFrameRuntime.update(...)` in the same
+   position where the local helper used to run.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `7948` to `7919`.
+- Removed local `updateGameplayInputFrame(...)` from `gameLoop.js`.
+- Added focused tests for input frame capture, modality panel update,
+  camera-transition return value and camera-debug forwarding.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameplayInputRuntime.test.js tests/gameLoopFramePolicies.test.js tests/cameraDebugFrameState.test.js tests/cameraDebugRuntime.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused gameplay input suite passed with `16` tests across input runtime,
+frame policies and camera-debug tests. The production build passed with the
+existing chunk-size warning. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1711` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
 
 ### Gameplay Camera Frame Boundary
 

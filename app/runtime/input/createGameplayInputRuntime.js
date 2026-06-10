@@ -61,6 +61,57 @@ export function createGameplayInputRuntime({ controls }) {
   };
 }
 
+export function createGameplayInputFrameRuntime({
+  gameplayInputRuntime,
+  inputModalityPanelController,
+  getInputModalityState = () => null,
+  getCameraTransitionActive = () => false,
+  updateCameraDebugFrameOverlay = () => {}
+} = {}) {
+  function update({
+    now = 0,
+    deltaTime = 0,
+    flowState = {},
+    cinematicActive = false,
+    movementBlocked = false,
+    placementPreviewActive = false,
+    dialogueActive = false,
+    tutorialActive = false,
+    skillLearnActive = false,
+    scriptedInteractionActive = false,
+    gameplayOpeningMovementLocked = false
+  } = {}) {
+    gameplayInputRuntime?.update?.({
+      now,
+      deltaTime,
+      gameplayActive: flowState.gameplayActive,
+      cinematicActive,
+      movementBlocked,
+      placementActive: placementPreviewActive,
+      dialogueActive,
+      tutorialActive,
+      skillLearnActive,
+      scriptedInteractionActive
+    });
+    inputModalityPanelController?.update?.(getInputModalityState());
+    const cameraTransitionActive = Boolean(getCameraTransitionActive());
+
+    updateCameraDebugFrameOverlay({
+      now,
+      flowState,
+      movementBlocked,
+      gameplayOpeningMovementLocked,
+      cameraTransitionActive
+    });
+
+    return { cameraTransitionActive };
+  }
+
+  return {
+    update
+  };
+}
+
 function createEmptyGameplayInputFrame() {
   return {
     now: 0,
