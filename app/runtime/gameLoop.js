@@ -130,7 +130,6 @@ import {
   resolveGameplayActionPermission,
   resolveGameLoopBlockers,
   resolveGroundGuidanceVisibility,
-  resolveNearbyGameplayQueryPermission,
   resolvePlayerMovementPermission,
   resolveWorldSpaceUiVisibility
 } from "./gameLoopFramePolicies.js";
@@ -191,6 +190,7 @@ import { prepareRenderSnapshotContext as prepareRenderSnapshotContextWithSources
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
+import { resolveGameplayTargetFrameState } from "./presentation/gameplayTargetFrameState.js";
 import {
   resolveGroundCellHighlightFrameState,
   resolveMarkedGroundCellGuidanceFrameState
@@ -7124,102 +7124,24 @@ if (canProcessDestroyAction && destroyActionRequested) {
       gameplayOpeningHudHidden,
       currentFlowState
     } = gameplayPresentationFrame;
-    const canQueryNearbyGameplayTargets = resolveNearbyGameplayQueryPermission({
-      hasPlayerCharacter: Boolean(session.playerCharacter),
-      gameplayOpeningMovementLocked,
-      flowState: currentFlowState
-    });
-
     // Prompt and snapshot preparation.
-    const nearbyHarvestTarget =
-      canQueryNearbyGameplayTargets ?
-        gameplay.findNearbyActionTarget({
-          playerPosition: session.playerCharacter.getPosition(),
-          palmModel: session.palmModel,
-          palmInstances: session.palmInstances,
-          resourceNodes: session.resourceNodes,
-          leppaTree: session.leppaTree,
-          leafDen: session.leafDen,
-          storyState: controls.storyState,
-          inventory: controls.inventory,
-          groundDeadInstances: session.groundDeadInstances,
-          iceGroundInstances: session.iceGroundInstances,
-          groundPurifiedInstances: session.groundPurifiedInstances,
-          groundGrassPatches: session.groundGrassPatches,
-          groundFlowerPatches: session.groundFlowerPatches,
-          canPurifyGround: waterGunEquipped,
-          canUseLeafage: leafageEquipped,
-          canUseFire: fireEquipped
-        }) :
-        null;
-    const nearbyInvalidMoveTarget =
-      canQueryNearbyGameplayTargets &&
-      (
-        (leafageEquipped && !nearbyHarvestTarget?.leafageGroundCell) ||
-        (waterGunEquipped && !nearbyHarvestTarget?.groundCell) ||
-        (fireEquipped && !nearbyHarvestTarget?.fireGroundCell)
-      ) ?
-        gameplay.findNearbyActionTarget({
-          playerPosition: session.playerCharacter.getPosition(),
-          palmModel: session.palmModel,
-          palmInstances: session.palmInstances,
-          resourceNodes: session.resourceNodes,
-          leppaTree: session.leppaTree,
-          leafDen: session.leafDen,
-          storyState: controls.storyState,
-          inventory: controls.inventory,
-          groundDeadInstances: session.groundDeadInstances,
-          iceGroundInstances: session.iceGroundInstances,
-          groundPurifiedInstances: session.groundPurifiedInstances,
-          groundGrassPatches: session.groundGrassPatches,
-          groundFlowerPatches: session.groundFlowerPatches,
-          canPurifyGround: leafageEquipped,
-          canUseLeafage: waterGunEquipped,
-          canUseFire: false
-        }) :
-        null;
-    const invalidMoveGroundCell = leafageEquipped ?
-      nearbyInvalidMoveTarget?.groundCell :
-      waterGunEquipped ?
-        nearbyInvalidMoveTarget?.leafageGroundCell :
-        fireEquipped ?
-          null :
-        null;
-    const highlightedGroundCell =
-      nearbyHarvestTarget?.groundCell ||
-      nearbyHarvestTarget?.leafageGroundCell ||
-      nearbyHarvestTarget?.fireGroundCell ||
-      invalidMoveGroundCell ||
-      null;
-    const highlightedGroundCellTargetState =
-      highlightedGroundCell && highlightedGroundCell === invalidMoveGroundCell ?
-        "invalid" :
-        "valid";
-    const highlightedGroundCellAbilityId =
-      leafageEquipped ?
-        "leafage" :
-        waterGunEquipped ?
-          "waterGun" :
-          fireEquipped ?
-            "fire" :
-          null;
-    const nearbyInteractable =
-      canQueryNearbyGameplayTargets ?
-        gameplay.findNearbyInteractable(
-          session.playerCharacter.getPosition(),
-          session.npcActors,
-          session.interactables,
-          controls.storyState,
-          session.groundGrassPatches || [],
-          session.logChair,
-          session.leafDen,
-          session.timburrEncounter,
-          session.charmanderEncounter,
-          session.leppaTree,
-          session.bulbasaurEncounter,
-          session.groundFlowerPatches || []
-        ) :
-        null;
+    const {
+      canQueryNearbyGameplayTargets,
+      nearbyHarvestTarget,
+      highlightedGroundCell,
+      highlightedGroundCellTargetState,
+      highlightedGroundCellAbilityId,
+      nearbyInteractable
+    } = resolveGameplayTargetFrameState({
+      session,
+      controls,
+      gameplay,
+      flowState: currentFlowState,
+      gameplayOpeningMovementLocked,
+      waterGunEquipped,
+      leafageEquipped,
+      fireEquipped
+    });
     const activeQuest = gameplay.getActiveQuest(controls.storyState);
     const activeTask = gameplay.getActiveTask?.() || null;
     const activeSystemQuest = gameplay.getActiveSystemQuest?.() || null;

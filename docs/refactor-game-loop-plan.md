@@ -343,10 +343,78 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move companion simulation frame coordination into the `companions`
   boundary.
+- Completed: move gameplay prompt/highlight target preparation into the
+  `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Gameplay Target Frame State Boundary
+
+Moved nearby gameplay target preparation from `frame(now)` into
+`app/runtime/presentation/gameplayTargetFrameState.js`.
+
+Boundary classification: `presentation/render helpers`, focused on preparing
+targets consumed by HUD prompt copy, world prompts and ground-cell highlight
+snapshot writing.
+
+Module boundary note:
+
+- The new file belongs to the existing `presentation` boundary because it does
+  not execute gameplay actions; it prepares frame state for prompts/highlights.
+- `gameLoop.js` still owns frame order and passes the resulting state to the
+  existing prompt/highlight helpers.
+- Field-move execution rules remain in `gameLoop.js`; this extraction only
+  preserves the old `findNearbyActionTarget(...)` and
+  `findNearbyInteractable(...)` query sequence.
+- The helper reuses the existing nearby-query policy from
+  `gameLoopFramePolicies.js`.
+
+Study path:
+
+1. `resolveGameplayTargetFrameState(...)` first applies the same nearby-query
+   permission gate.
+2. When allowed, it resolves the primary nearby action target with the same
+   Water Gun/Leafage/Fire capability flags.
+3. It resolves the invalid alternate target with the same swapped Water
+   Gun/Leafage query used previously.
+4. It derives `highlightedGroundCell`, target state and ability id for the
+   existing ground-cell highlight frame helper.
+5. It resolves the nearby interactable with the same NPC/interactable/session
+   arguments used before.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `7761` to `7683`.
+- Removed the inline nearby target/highlight preparation block from
+  `frame(now)`.
+- Removed the direct `resolveNearbyGameplayQueryPermission` import from
+  `gameLoop.js`.
+- Added focused tests for invalid Leafage target highlighting and blocked-frame
+  query gating.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameplayTargetFrameState.test.js
+npm test -- --run tests/gameplayTargetFrameState.test.js tests/gameLoopFramePolicies.test.js tests/hudPromptCopy.test.js tests/worldPromptFrameState.test.js tests/groundCellHighlightFrameState.test.js tests/groundCellHighlightFrame.test.js tests/worldPromptSnapshotFrame.test.js
+git diff --check
+npm run build
+npm test
+```
+
+TDD note: the first focused test run failed with the expected missing-module
+error before `app/runtime/presentation/gameplayTargetFrameState.js` was added.
+
+The focused presentation target-state suite passed with `29` tests. The
+production build passed with the existing chunk-size warning. `npm test`
+completed with the existing Leafage Native Tree baseline:
+
+- `1725` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending for this pass.
 
 ### Companion Simulation Frame Boundary
 
