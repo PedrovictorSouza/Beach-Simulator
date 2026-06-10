@@ -300,10 +300,69 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move ground-cell highlight snapshot writing into the
   `presentation` boundary.
+- Completed: move world-speech snapshot writing into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### World Speech Snapshot Frame Boundary
+
+Moved the world-speech snapshot writer from `app/runtime/gameLoop.js` into
+`app/runtime/presentation/worldSpeechSnapshotFrame.js`.
+
+Boundary classification: `presentation/render helpers`, focused on converting
+already-resolved speech flags/cues into `nextFrame.worldSpeech`.
+
+Module boundary note:
+
+- This is a new file inside the existing `presentation` domain, not a loose
+  helper under `app/runtime/`.
+- It owns a named responsibility: world-speech snapshot writing.
+- It keeps the Chopper voice sound as an explicit callback so the presentation
+  module does not import the audio runtime.
+
+Study path:
+
+1. `gameLoop.js` still computes speech visibility, companion lost hints,
+   attention cues and frame timing.
+2. `updateWorldSpeechSnapshotFrame(...)` now owns writing speech text and
+   world positions into the frame snapshot.
+3. Bulbasaur/Charmander positions and Tangrowth opening text are passed
+   explicitly instead of being captured through `session`, `controls` or
+   `gameplay`.
+4. No dialogue text, voice cue rule, frame order or render shape changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9395` to `9275`.
+- Removed the internal `updateWorldSpeechSnapshotFrame(...)` implementation from
+  `startGameLoop()`.
+- Added focused tests for Tangrowth guide copy, companion-lost priority over
+  Chopper attention cues and Chopper voice callback consumption.
+
+Validation:
+
+```sh
+npm test -- --run tests/worldSpeechSnapshotFrame.test.js
+npm test -- --run tests/worldSpeechSnapshotFrame.test.js tests/worldSpeechVisibility.test.js tests/worldSpeechController.test.js tests/frameSnapshotController.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused presentation/snapshot suite passed with `19` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1658` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Ground Cell Highlight Frame Boundary
 
