@@ -26,6 +26,10 @@ import {
   shouldShowFoundationBuildZone as shouldShowFoundationBuildZoneWithState
 } from "./construction/foundationBuildZone.js";
 import {
+  findNearbyFreeBlockTarget,
+  spawnFreeBlockRemovalDrops as spawnFreeBlockRemovalDropsWithConfig
+} from "./construction/freeBlockRemoval.js";
+import {
   getLeafDenConstructionProgress as getLeafDenConstructionProgressFromState,
   isLeafDenBusyCompanionTarget as isLeafDenBusyCompanionTargetFromState,
   isLeafDenConstructionActive as isLeafDenConstructionActiveFromState
@@ -4297,86 +4301,11 @@ export function startGameLoop({
     }
   }
 
-  function findNearbyFreeBlockTarget(playerPosition) {
-    if (!Array.isArray(playerPosition) || !Array.isArray(session.freeBlockInstances)) {
-      return null;
-    }
-
-    let nearest = null;
-    let nearestDistance = Infinity;
-    for (const instance of session.freeBlockInstances) {
-      if (instance?.active === false || !Array.isArray(instance?.offset) || !instance.freeBlockCell) {
-        continue;
-      }
-
-      const distance = Math.hypot(
-        Number(playerPosition[0] || 0) - Number(instance.offset[0] || 0),
-        Number(playerPosition[2] || 0) - Number(instance.offset[2] || 0)
-      );
-      const layer = Math.max(0, Math.trunc(Number(instance.freeBlockCell?.layer || 0)));
-      const nearestLayer = Math.max(0, Math.trunc(Number(nearest?.freeBlockCell?.layer || 0)));
-      if (
-        distance < 1.35 &&
-        (
-          distance < nearestDistance ||
-          (Math.abs(distance - nearestDistance) < 0.001 && layer > nearestLayer)
-        )
-      ) {
-        nearest = instance;
-        nearestDistance = distance;
-      }
-    }
-
-    return nearest;
-  }
-
-  function getNextFreeBlockWoodDropId(woodDrops = []) {
-    let nextId = 1;
-    for (const drop of woodDrops || []) {
-      const match = String(drop?.id || "").match(/^wood-(\d+)$/u);
-      if (match) {
-        nextId = Math.max(nextId, Number(match[1]) + 1);
-      }
-    }
-    return nextId;
-  }
-
-  function spawnFreeBlockRemovalDrops(result, target) {
-    const materialCost = result?.materialCost;
-    const quantity = Math.max(0, Math.trunc(Number(materialCost?.quantity || 0)));
-    if (
-      !quantity ||
-      materialCost?.itemId !== "wood" ||
-      !Array.isArray(target?.offset)
-    ) {
-      return 0;
-    }
-
-    session.woodDrops ||= [];
-    let nextId = getNextFreeBlockWoodDropId(session.woodDrops);
-    for (let index = 0; index < quantity; index += 1) {
-      const angle = quantity > 1 ? (index / quantity) * Math.PI * 2 : 0;
-      const spread = quantity > 1 ? FREE_BLOCK_DROP_SPREAD : 0;
-      session.woodDrops.push({
-        id: `wood-${nextId++}`,
-        itemId: materialCost.itemId,
-        position: [
-          Number(target.offset[0] || 0) + Math.cos(angle) * spread,
-          0.02,
-          Number(target.offset[2] || 0) + Math.sin(angle) * spread
-        ],
-        size: [...FREE_BLOCK_DROP_SIZE],
-        uvRect: [0, 0, 1, 1],
-        pickupRadius: FREE_BLOCK_DROP_PICKUP_RADIUS,
-        collected: false
-      });
-    }
-
-    return quantity;
-  }
-
   function tryRemoveNearbyFreeBlock(playerPosition, now) {
-    const target = findNearbyFreeBlockTarget(playerPosition);
+    const target = findNearbyFreeBlockTarget({
+      playerPosition,
+      freeBlockInstances: session.freeBlockInstances
+    });
     if (!target) {
       return false;
     }
@@ -4392,7 +4321,15 @@ export function startGameLoop({
       return false;
     }
 
-    const dropCount = spawnFreeBlockRemovalDrops(result, target);
+    session.woodDrops ||= [];
+    const dropCount = spawnFreeBlockRemovalDropsWithConfig({
+      result,
+      target,
+      woodDrops: session.woodDrops,
+      dropSize: FREE_BLOCK_DROP_SIZE,
+      pickupRadius: FREE_BLOCK_DROP_PICKUP_RADIUS,
+      spread: FREE_BLOCK_DROP_SPREAD
+    });
     syncFreeBlockBuildSnapshot();
     const feedbackGroundCell = buildFreeBlockFeedbackGroundCell({
       targetCell: target.freeBlockCell,

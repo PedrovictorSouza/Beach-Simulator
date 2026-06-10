@@ -258,6 +258,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move foundation build-zone policy helpers into the `construction`
   boundary.
+- Completed: move free-block removal target/drop helpers into the
+  `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1808,6 +1810,61 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1608` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Free-Block Removal Boundary
+
+Moved free-block removal target selection and wood-drop spawning helpers from
+`app/runtime/gameLoop.js` into
+`app/runtime/construction/freeBlockRemoval.js`.
+
+Boundary classification: `construction`, focused on free-block removal support
+data. The side-effectful action remains in `gameLoop.js`.
+
+Study path:
+
+1. `findNearbyFreeBlockTarget(...)` owns active target filtering, distance
+   gating and higher-layer tie-breaking.
+2. `getNextFreeBlockWoodDropId(...)` owns sequential wood-drop id allocation.
+3. `spawnFreeBlockRemovalDrops(...)` owns material refund drop payload creation
+   for removed free blocks.
+4. `tryRemoveNearbyFreeBlock(...)` remains in `gameLoop.js` because it still
+   calls the controller, syncs snapshots, triggers feedback, plays audio and
+   pushes HUD notices.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10101` to `10038`.
+- Removed free-block target scanning, wood-drop id parsing and wood-drop payload
+  construction from `gameLoop.js`.
+- Added focused tests for target filtering, layer tie-breaking, id allocation,
+  invalid drop inputs and configured wood-drop payloads.
+
+Validation:
+
+```sh
+npm test -- --run tests/freeBlockRemoval.test.js
+npm test -- --run tests/freeBlockRemoval.test.js tests/freeBlockBuildSystem.test.js tests/foundationBuildZone.test.js tests/placementGeometry.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused construction removal/build suite passed with `79` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1613` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`
