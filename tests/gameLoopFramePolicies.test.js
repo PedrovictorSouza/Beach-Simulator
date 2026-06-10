@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   resolveCameraInputPermissions,
+  resolveCameraLookInput,
   resolveGameplayActionPermission,
   resolveGameLoopBlockers,
   resolveGroundGuidanceVisibility,
@@ -43,6 +44,43 @@ describe("game loop frame policies", () => {
     })).toEqual({
       canRotateCamera: true,
       canCycleCameraZoom: false
+    });
+  });
+
+  it("resolves camera look input from keyboard turn keys and consumed look delta", () => {
+    expect(resolveCameraLookInput({
+      cameraTurnKeys: new Set(["ArrowRight"]),
+      cameraLookDelta: { yaw: 0.25, pitch: -0.1 },
+      deltaTime: 0.5,
+      turnSpeed: 2
+    })).toEqual({
+      yaw: 1.25,
+      pitch: -0.1,
+      hasInput: true
+    });
+
+    expect(resolveCameraLookInput({
+      cameraTurnKeys: new Set(["ArrowLeft"]),
+      cameraLookDelta: { yaw: 0, pitch: 0 },
+      deltaTime: 0.25,
+      turnSpeed: 4
+    })).toEqual({
+      yaw: -1,
+      pitch: 0,
+      hasInput: true
+    });
+  });
+
+  it("ignores camera look deltas below the existing input epsilon", () => {
+    expect(resolveCameraLookInput({
+      cameraTurnKeys: new Set(),
+      cameraLookDelta: { yaw: 0.00001, pitch: -0.00001 },
+      deltaTime: 1,
+      turnSpeed: 2
+    })).toEqual({
+      yaw: 0.00001,
+      pitch: -0.00001,
+      hasInput: false
     });
   });
 

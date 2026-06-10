@@ -91,6 +91,34 @@ export function resolveCameraInputPermissions({
   };
 }
 
+export function resolveCameraLookInput({
+  cameraTurnKeys = null,
+  cameraLookDelta = { yaw: 0, pitch: 0 },
+  deltaTime = 0,
+  turnSpeed = 0,
+  inputEpsilon = 0.0001
+} = {}) {
+  const hasTurnKey = typeof cameraTurnKeys?.has === "function" ?
+    (key) => cameraTurnKeys.has(key) :
+    () => false;
+  const cameraTurnDirection =
+    (hasTurnKey("ArrowRight") ? 1 : 0) -
+    (hasTurnKey("ArrowLeft") ? 1 : 0);
+  const keyboardYaw = cameraTurnDirection * deltaTime * turnSpeed;
+  const yaw = keyboardYaw + (cameraLookDelta?.yaw || 0);
+  const pitch = cameraLookDelta?.pitch || 0;
+
+  return {
+    yaw,
+    pitch,
+    hasInput: Boolean(
+      keyboardYaw !== 0 ||
+      Math.abs(cameraLookDelta?.yaw || 0) > inputEpsilon ||
+      Math.abs(cameraLookDelta?.pitch || 0) > inputEpsilon
+    )
+  };
+}
+
 export function resolvePlayerMovementPermission({
   hasPlayerCharacter = false,
   foundationBuildZoneCameraFocusActive = false,

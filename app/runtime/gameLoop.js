@@ -137,6 +137,7 @@ import {
 } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
 import {
   resolveCameraInputPermissions,
+  resolveCameraLookInput,
   resolveGameplayActionPermission,
   resolveGameLoopBlockers,
   resolveGroundGuidanceVisibility,
@@ -6430,18 +6431,15 @@ export function startGameLoop({
       onCycle: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE)
     });
 
-    const cameraTurnDirection =
-      (controls.cameraTurnKeys.has("ArrowRight") ? 1 : 0) -
-      (controls.cameraTurnKeys.has("ArrowLeft") ? 1 : 0);
-    const cameraLookDelta = controls.consumeCameraLookDelta?.() || { yaw: 0, pitch: 0 };
-    const keyboardCameraYaw = cameraTurnDirection * deltaTime * cameraOrbit.turnSpeed;
-    const hasCameraLookInput =
-      keyboardCameraYaw !== 0 ||
-      Math.abs(cameraLookDelta.yaw) > 0.0001 ||
-      Math.abs(cameraLookDelta.pitch) > 0.0001;
+    const cameraLookInput = resolveCameraLookInput({
+      cameraTurnKeys: controls.cameraTurnKeys,
+      cameraLookDelta: controls.consumeCameraLookDelta?.() || { yaw: 0, pitch: 0 },
+      deltaTime,
+      turnSpeed: cameraOrbit.turnSpeed
+    });
 
-    if (canRotateCamera && hasCameraLookInput) {
-      cameraOrbit.rotate(keyboardCameraYaw + cameraLookDelta.yaw, cameraLookDelta.pitch);
+    if (canRotateCamera && cameraLookInput.hasInput) {
+      cameraOrbit.rotate(cameraLookInput.yaw, cameraLookInput.pitch);
       if (tutorialActive) {
         actTwoTutorial.registerCameraLook();
       }

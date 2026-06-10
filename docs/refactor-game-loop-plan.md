@@ -286,10 +286,61 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move camera zoom-cycle request draining into the `camera`
   boundary.
+- Completed: move camera look input calculation into the `gameLoop` policy
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Camera Look Input Policy Boundary
+
+Moved camera look input calculation from `app/runtime/gameLoop.js` into
+`app/runtime/gameLoopFramePolicies.js`.
+
+Boundary classification: `gameLoop` policy with camera input data. The frame
+still owns applying the result to `cameraOrbit.rotate(...)`, clearing blocked
+input and registering tutorial camera-look progress.
+
+Study path:
+
+1. `resolveCameraLookInput(...)` owns keyboard turn direction, consumed
+   look-delta combination, yaw/pitch output and the existing `0.0001` input
+   epsilon.
+2. `gameLoop.js` still decides whether camera rotation is allowed through
+   `resolveCameraInputPermissions(...)`.
+3. The `cameraOrbit.rotate(...)` side effect remains in the same
+   `updateCameraInputFrame(...)` position.
+4. No camera tuning, input mapping or frame order changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9774` to `9772`.
+- Removed keyboard-turn and look-delta math from the frame body.
+- Added focused tests for keyboard yaw, analog look delta and below-epsilon
+  no-input behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/gameLoopFramePolicies.test.js
+npm test -- --run tests/gameLoopFramePolicies.test.js tests/cameraZoomPresetController.test.js tests/camera.test.js tests/gameplayCameraDirector.test.js tests/gameLoopFrameRuntime.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused camera/frame suite passed with `26` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1642` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Camera Zoom-Cycle Request Boundary
 
