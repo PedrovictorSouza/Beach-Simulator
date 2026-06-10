@@ -179,21 +179,18 @@ import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { resolveGameplayPromptFrameState } from "./presentation/gameplayPromptTargetFrameState.js";
-import { updateWorldPromptSnapshotFrame } from "./presentation/worldPromptSnapshotFrame.js";
 import { resolveWorldSpacePresentationFrameState } from "./presentation/worldSpacePresentationFrameState.js";
+import { updateWorldSpacePresentationSnapshotFrame } from "./presentation/worldSpacePresentationSnapshotFrame.js";
 import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
 import { createBaseRenderSnapshotFrameRuntime } from "./presentation/baseRenderSnapshotFrame.js";
 import { prepareRenderSnapshotContext as prepareRenderSnapshotContextWithSources } from "./presentation/renderSnapshotContext.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
-import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { resolveGameplayTargetFrameState } from "./presentation/gameplayTargetFrameState.js";
 import {
   resolveGameplayGroundCellHighlightFrameState,
   resolveGameplayGroundGuidanceFrameState
 } from "./presentation/groundCellHighlightFrameState.js";
-import { updateGroundCellHighlightFrame } from "./presentation/groundCellHighlightFrame.js";
-import { updateWorldSpeechSnapshotFrame } from "./presentation/worldSpeechSnapshotFrame.js";
 import { getGrassCollisionObjects } from "./presentation/grassCollisionObjects.js";
 import {
   updateNatureGrassRenderFrame,
@@ -7184,52 +7181,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
     });
 
     // World-space UI and render preparation.
-    const {
-      canShowWorldSpaceUi,
-      tangrowthPosition,
-      shouldShowTangrowthSpeech,
-      shouldShowTangrowthLogChairSpeech,
-      shouldShowTangrowthPokemonCenterSpeech,
-      shouldShowTangrowthHouseSpeech,
-      shouldShowTangrowthCelebrationSpeech,
-      shouldShowChopperBulbasaurRepairBoxSpeech,
-      shouldShowBulbasaurMissionSpeech,
-      shouldShowBulbasaurWorkbenchGuideSpeech,
-      shouldShowBulbasaurRequestReadySpeech,
-      shouldShowCharmanderFollowSpeech,
-      shouldShowBulbasaurStrawBedSpeech,
-      shouldShowBulbasaurStrawBedCompleteSpeech,
-      shouldShowCharmanderCelebrationSpeech,
-      shouldShowSolarStationPlacementPrompt,
-      shouldShowGreenhousePlacementPrompt,
-      shouldShowCampfirePlacementPrompt,
-      shouldShowLeafDenKitPlacementPrompt,
-      shouldShowPendingPlacementPrompt,
-      shouldShowWorkbenchRotationPrompt,
-      shouldShowDestroyableObjectPrompt,
-      shouldShowFreeBlockBuildCostPrompt,
-      shouldShowPlayerCounterPrompt,
-      shouldShowFieldMoveSwitchPrompt,
-      shouldShowSquirtleChargingPrompt,
-      shouldShowInvalidLeafageUsePrompt,
-      shouldShowInvalidFireUsePrompt,
-      shouldShowTransientWorldPrompt,
-      shouldShowDryGrassHydroPrompt,
-      shouldShowRunBreadcrumbPrompt,
-      shouldShowPlayerInteractionPrompt,
-      shouldShowRepairBoxPrompt,
-      shouldShowLeafageFirstUsePrompt,
-      shouldShowWaterGunFirstUsePrompt,
-      nearbyRepairBoxPrompt,
-      squirtleChargingPosition,
-      fieldMoveSwitchPrompt,
-      freeBlockBuildCostMarker,
-      nearbyDryGrassHintTarget,
-      playerInteractionPromptText,
-      dryGrassHydroPromptText,
-      runBreadcrumbPromptText,
-      chopperAttentionCue
-    } = resolveWorldSpacePresentationFrameState({
+    const worldSpacePresentationFrameState = resolveWorldSpacePresentationFrameState({
       now,
       gameplayOpeningCameraLocked,
       flowState: currentFlowState,
@@ -7278,110 +7230,61 @@ if (canProcessDestroyAction && destroyActionRequested) {
       isRunBreadcrumbVisible: (frameNow) =>
         runBreadcrumbPromptRuntime.isVisible(frameNow)
     });
+    const { canShowWorldSpaceUi } = worldSpacePresentationFrameState;
 
-    updateWorldSpeechSnapshotFrame(nextFrame, {
+    updateWorldSpacePresentationSnapshotFrame(nextFrame, {
       now,
       activeQuest,
       activeMoveId,
-      tangrowthPosition,
-      bulbasaurPosition: session.bulbasaurEncounter?.position || null,
-      charmanderPosition: session.charmanderEncounter?.position || null,
-      tangrowthOpeningLine: gameplay.tangrowthOpeningLine,
-      charmanderFollowing: controls.storyState.flags.charmanderFollowing,
-      chopperAttentionCue,
+      session,
+      controls,
+      gameplay,
+      inputModalityState,
+      presentationState: worldSpacePresentationFrameState,
+      promptSources: {
+        solarStationPlacementPreview,
+        greenhousePlacementPreview,
+        campfirePlacementPreview,
+        leafDenKitPlacementPreview,
+        pendingPlacementIntent,
+        nearbyHarvestTarget,
+        workbenchRotationPrompt,
+        destroyableObjectPrompt,
+        transientNoticeRoute,
+        playerCounterPromptText,
+        leafageEquipped
+      },
+      groundCellHighlightState: {
+        solarStationPlacementGroundCell,
+        solarStationPowerRadiusGroundCells,
+        solarStationPlacementGroundCells,
+        greenhousePlacementGroundCell,
+        greenhousePlacementGroundCells,
+        campfirePlacementGroundCell,
+        campfirePlacementGroundCells,
+        leafDenKitPlacementGroundCell,
+        leafDenKitPlacementGroundCells,
+        workbenchRotationGroundCell,
+        activeFireGroundCell,
+        shouldShowGroundCellHighlight,
+        highlightedGroundCell,
+        highlightedGroundCellTargetState,
+        highlightedGroundCellAbilityId,
+        markedActionGroundCells,
+        markedGroundCellPulsePhase,
+        groundActionFeedbackFrame,
+        fieldToolTargetPulseFrame
+      },
+      frameBlockers: {
+        gameplayOpeningCameraLocked,
+        cinematicActive,
+        tutorialActive,
+        pokedexModalOpen
+      },
       getCompanionLostHint: getPeriodicCompanionLostHint,
       consumeChopperAttentionCueSoundCycle: (cycleId) =>
         chopperAttentionCueRuntime.consumeSoundCycle(cycleId),
-      playChopperVoice: () => playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE),
-      shouldShowTangrowthSpeech,
-      shouldShowTangrowthLogChairSpeech,
-      shouldShowTangrowthPokemonCenterSpeech,
-      shouldShowTangrowthHouseSpeech,
-      shouldShowTangrowthCelebrationSpeech,
-      shouldShowChopperBulbasaurRepairBoxSpeech,
-      shouldShowBulbasaurMissionSpeech,
-      shouldShowBulbasaurWorkbenchGuideSpeech,
-      shouldShowBulbasaurRequestReadySpeech,
-      shouldShowBulbasaurStrawBedSpeech,
-      shouldShowBulbasaurStrawBedCompleteSpeech,
-      shouldShowCharmanderFollowSpeech,
-      shouldShowCharmanderCelebrationSpeech
-    });
-
-    updateWorldPromptSnapshotFrame(nextFrame, {
-      inputModalityState,
-      playerPosition: session.playerCharacter?.getPosition?.() || [0, 0, 0],
-      shouldShowSolarStationPlacementPrompt,
-      solarStationPlacementPreview,
-      shouldShowDestroyableObjectPrompt,
-      destroyableObjectPrompt,
-      shouldShowGreenhousePlacementPrompt,
-      greenhousePlacementPreview,
-      shouldShowCampfirePlacementPrompt,
-      campfirePlacementPreview,
-      shouldShowLeafDenKitPlacementPrompt,
-      leafDenKitPlacementPreview,
-      shouldShowPendingPlacementPrompt,
-      pendingPlacementIntent,
-      nearbyHarvestTarget,
-      shouldShowWorkbenchRotationPrompt,
-      workbenchRotationPrompt,
-      shouldShowFreeBlockBuildCostPrompt,
-      freeBlockBuildCostMarker,
-      shouldShowPlayerCounterPrompt,
-      playerCounterPromptText,
-      shouldShowFieldMoveSwitchPrompt,
-      fieldMoveSwitchPrompt,
-      shouldShowSquirtleChargingPrompt,
-      squirtleChargingPosition,
-      shouldShowInvalidLeafageUsePrompt,
-      shouldShowInvalidFireUsePrompt,
-      shouldShowTransientWorldPrompt,
-      transientNoticeRoute,
-      shouldShowDryGrassHydroPrompt,
-      dryGrassHydroPromptText,
-      shouldShowRunBreadcrumbPrompt,
-      runBreadcrumbPromptText,
-      shouldShowPlayerInteractionPrompt,
-      playerInteractionPromptText,
-      shouldShowRepairBoxPrompt,
-      nearbyRepairBoxPrompt,
-      shouldShowLeafageFirstUsePrompt,
-      leafageEquipped,
-      shouldShowWaterGunFirstUsePrompt
-    });
-
-    updateGroundCellHighlightFrame(nextFrame, {
-      solarStationPlacementGroundCell,
-      solarStationPowerRadiusGroundCells,
-      solarStationPlacementGroundCells,
-      greenhousePlacementGroundCell,
-      greenhousePlacementGroundCells,
-      campfirePlacementGroundCell,
-      campfirePlacementGroundCells,
-      leafDenKitPlacementGroundCell,
-      leafDenKitPlacementGroundCells,
-      workbenchRotationGroundCell,
-      activeFireGroundCell,
-      shouldShowGroundCellHighlight,
-      highlightedGroundCell,
-      highlightedGroundCellTargetState,
-      highlightedGroundCellAbilityId,
-      markedActionGroundCells,
-      markedGroundCellPulsePhase,
-      groundActionFeedbackFrame,
-      fieldToolTargetPulseFrame
-    });
-
-    updateStatusPopupsFrame(nextFrame, {
-      nearbyDryGrassHintTarget,
-      questCompletionPop: gameplay.getQuestCompletionPop?.(),
-      hasPlayerCharacter: Boolean(session.playerCharacter),
-      getPlayerPosition: () => session.playerCharacter.getPosition(),
-      gameplayOpeningCameraLocked,
-      cinematicActive,
-      tutorialActive,
-      pokedexModalOpen
+      playChopperVoice: () => playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE)
     });
 
     // Render snapshot preparation.

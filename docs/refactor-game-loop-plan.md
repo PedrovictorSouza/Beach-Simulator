@@ -4126,9 +4126,8 @@ Risks reduced:
 
 Risks remaining:
 
-- Snapshot writes still remain in `frame(now)` because they mutate
-  `nextFrame`; moving them should be a separate snapshot-writer boundary, not
-  mixed with state resolution.
+- The snapshot writer chain was intentionally left for the next presentation
+  cut, so this state resolver stayed focused on deriving frame state.
 - The new resolver intentionally accepts many explicit dependencies because it
   composes existing systems without becoming a service locator.
 
@@ -4147,6 +4146,79 @@ existing large chunk warning. `git diff --check` passed. `npm test` completed
 with the existing Leafage Native Tree baseline:
 
 - `1734` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+No manual browser validation was run in this cut.
+
+### World Space Presentation Snapshot Frame
+
+Created `app/runtime/presentation/worldSpacePresentationSnapshotFrame.js`.
+
+Module boundary:
+
+- Domain: `presentation/render helpers`.
+- Responsibility: write world-space speech, world prompts, ground-cell
+  highlights and status popups into `nextFrame` from already-resolved frame
+  state.
+- Removed from `frame(now)`: direct calls to
+  `updateWorldSpeechSnapshotFrame(...)`,
+  `updateWorldPromptSnapshotFrame(...)`,
+  `updateGroundCellHighlightFrame(...)` and `updateStatusPopupsFrame(...)`.
+
+Study path:
+
+1. `frame(now)` still resolves `worldSpacePresentationFrameState` at the same
+   point in the frame.
+2. `frame(now)` keeps only `canShowWorldSpaceUi` because later billboard
+   rendering still needs it.
+3. `updateWorldSpacePresentationSnapshotFrame(...)` preserves the previous
+   writer order: speech, prompt, ground-cell highlight, status popups.
+4. The new module delegates to the existing snapshot writers; it does not own
+   prompt copy, speech copy, highlight rules or popup rules.
+5. The module belongs in `presentation/` because it translates frame
+   presentation state into snapshot channels, not gameplay state.
+
+Tests added:
+
+- `tests/worldSpacePresentationSnapshotFrame.test.js`
+
+The test covers:
+
+- speech snapshot write from Tangrowth presentation state;
+- world prompt snapshot write using the previous player-position fallback;
+- ground-cell highlight snapshot write;
+- dry grass hint and quest completion popup writes;
+- `gameplay.getQuestCompletionPop()` forwarding.
+
+Risks reduced:
+
+- `gameLoop.js` no longer coordinates four world-space snapshot writer calls.
+- The order of world-space presentation snapshot writes is now explicit and
+  testable in a single domain module.
+- Four presentation imports were removed from `gameLoop.js`.
+
+Risks remaining:
+
+- `frame(now)` still assembles grouped source objects for prompt and highlight
+  snapshot writing. That is acceptable for this cut because those sources cross
+  presentation, placement and field-move state.
+- The broader render snapshot section after world-space presentation is still
+  large and should be split by domain later.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/worldSpacePresentationSnapshotFrame.test.js
+npm test -- --run tests/worldSpacePresentationSnapshotFrame.test.js tests/worldSpacePresentationFrameState.test.js tests/worldSpeechSnapshotFrame.test.js tests/worldPromptSnapshotFrame.test.js tests/groundCellHighlightFrame.test.js tests/statusPopupsFrame.test.js
+npm run build
+npm test
+```
+
+The focused suite passed with `14` tests. `npm run build` passed with the
+existing large chunk warning. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1735` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 No manual browser validation was run in this cut.
