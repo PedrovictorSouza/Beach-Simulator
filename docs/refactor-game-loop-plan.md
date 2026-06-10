@@ -331,10 +331,76 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move ground-cell highlight frame-state preparation into the
   `presentation` boundary.
 - Completed: move player movement frame ownership into the `player` boundary.
+- Completed: move gameplay camera input/follow frame ownership into the
+  `camera` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Gameplay Camera Frame Boundary
+
+Moved the camera input and gameplay camera follow/opening pass from
+`app/runtime/gameLoop.js` into
+`app/runtime/camera/gameplayCameraFrameRuntime.js`.
+
+Boundary classification: `camera runtime/debug`, focused on camera input,
+camera zoom cycling, tutorial look registration, tutorial focus pose, opening
+camera update and regular player-follow fallback.
+
+Module boundary note:
+
+- This module belongs to the existing `camera` boundary under `app/runtime`.
+- `gameLoop.js` still owns the frame order and calls camera input before
+  placement/player movement, then camera follow after gameplay simulation in the
+  same old positions.
+- The runtime imports the existing pure camera policies and zoom-cycle helper
+  instead of duplicating input logic.
+- Camera zoom restoration triggered by player movement remains in the player
+  movement callback because that side effect is initiated by movement.
+
+Study path:
+
+1. `gameplayCameraFrameRuntime.updateInput(...)` replaces the old
+   `updateCameraInputFrame(...)` helper and consumes zoom/look input with the
+   same policy gates.
+2. `gameplayCameraFrameRuntime.updateFollow(...)` replaces the old
+   `updateGameplayCameraFrame(...)` helper and preserves tutorial focus,
+   foundation build-zone camera hold, opening camera update and player follow
+   priority.
+3. `frame(now)` still computes `cameraTransitionActive` before camera input and
+   still passes it into the later camera-follow update.
+4. No camera tuning, camera preset values, opening timing, input mapping or
+   frame scheduling changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `8018` to `7948`.
+- Removed local `updateCameraInputFrame(...)` and
+  `updateGameplayCameraFrame(...)` implementations from `gameLoop.js`.
+- Removed direct `resolveCameraInputPermissions(...)`,
+  `resolveCameraLookInput(...)` and `consumeCameraZoomCycleRequests(...)`
+  imports from `gameLoop.js`.
+- Added focused tests for camera look input, tutorial look registration, zoom
+  cycling, blocked look clearing, tutorial focus priority and gameplay opening
+  camera delegation.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameplayCameraFrameRuntime.test.js tests/gameLoopFramePolicies.test.js tests/cameraZoomPresetController.test.js tests/gameplayOpeningShip.test.js tests/gameplayCameraDirector.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused gameplay camera suite passed with `25` tests across the new camera
+frame runtime and existing camera policy/opening/director tests. The production
+build passed with the existing chunk-size warning. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1707` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
 
 ### Player Movement Frame Boundary
 

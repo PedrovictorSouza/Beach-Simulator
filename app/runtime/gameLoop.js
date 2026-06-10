@@ -129,9 +129,8 @@ import {
   createFoundationBuildZoneCameraFocusPose,
   createFoundationBuildZoneCameraFocusRuntime
 } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
+import { createGameplayCameraFrameRuntime } from "./camera/gameplayCameraFrameRuntime.js";
 import {
-  resolveCameraInputPermissions,
-  resolveCameraLookInput,
   resolveGameplayActionPermission,
   resolveGameLoopBlockers,
   resolveGroundGuidanceVisibility,
@@ -352,7 +351,6 @@ export {
 
 import { createFrameSnapshotController } from "./frameSnapshotController.js";
 import {
-  consumeCameraZoomCycleRequests,
   createCameraZoomPresetController,
   restoreActiveZoomPresetOnMovement
 } from "./camera/cameraZoomPresetController.js";
@@ -1167,6 +1165,19 @@ export function startGameLoop({
     controls,
     gameplayUiVisibility,
     audio
+  });
+  const gameplayCameraFrameRuntime = createGameplayCameraFrameRuntime({
+    camera,
+    cameraOrbit,
+    cameraZoomPresetController,
+    controls,
+    tutorial: actTwoTutorial,
+    session,
+    openingRuntime: gameplayOpeningRuntime,
+    callbacks: {
+      isGameplayFlow: () => isGameFlow(gameFlowValues.GAMEPLAY),
+      onCycleCameraZoom: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE)
+    }
   });
 
   function cancelActivePlacementPreviews() {
@@ -6065,51 +6076,6 @@ export function startGameLoop({
     return { committedEarlyFrame: false };
   }
 
-  function updateCameraInputFrame({
-    deltaTime,
-    flowState,
-    gameplayOpeningCameraLocked,
-    foundationBuildZoneCameraFocusActive,
-    placementPreviewActive,
-    tutorialActive
-  }) {
-    const {
-      canRotateCamera,
-      canCycleCameraZoom
-    } = resolveCameraInputPermissions({
-      hasPlayerCharacter: Boolean(session.playerCharacter),
-      gameplayOpeningCameraLocked,
-      foundationBuildZoneCameraFocusActive,
-      builderPanelOpen: controls.isBuilderPanelOpen(),
-      placementPreviewActive,
-      tutorialAllowsCameraLook: actTwoTutorial.allowsCameraLook(),
-      flowState
-    });
-
-    consumeCameraZoomCycleRequests({
-      consumeRequest: () => controls.consumeCameraZoomCycleRequest?.(),
-      canCycleCameraZoom,
-      cameraZoomPresetController,
-      onCycle: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE)
-    });
-
-    const cameraLookInput = resolveCameraLookInput({
-      cameraTurnKeys: controls.cameraTurnKeys,
-      cameraLookDelta: controls.consumeCameraLookDelta?.() || { yaw: 0, pitch: 0 },
-      deltaTime,
-      turnSpeed: cameraOrbit.turnSpeed
-    });
-
-    if (canRotateCamera && cameraLookInput.hasInput) {
-      cameraOrbit.rotate(cameraLookInput.yaw, cameraLookInput.pitch);
-      if (tutorialActive) {
-        actTwoTutorial.registerCameraLook();
-      }
-    } else if (!canRotateCamera) {
-      controls.clearCameraLookInput?.();
-    }
-  }
-
   function updatePassiveEffectFrames(deltaTime) {
     updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
     treeRevivalLeafBurstRuntime.update(deltaTime);
@@ -6266,42 +6232,6 @@ export function startGameLoop({
     syncPokemonCenterWorkshopVisualState();
   }
 
-  function updateGameplayCameraFrame({
-    now,
-    cinematicActive,
-    tutorialCameraFocus,
-    foundationBuildZoneCameraFocusActive,
-    gameplayOpeningCameraFrame,
-    dialogueActive,
-    cameraTransitionActive,
-    scriptedInteractionActive
-  }) {
-    let nextGameplayOpeningCameraFrame = gameplayOpeningCameraFrame;
-
-    if (!cinematicActive) {
-      if (tutorialCameraFocus && session.playerCharacter) {
-        camera.setPose({
-          target: [tutorialCameraFocus[0], 1.25, tutorialCameraFocus[2]],
-          direction: cameraOrbit.getDirection(),
-          zoom: 3.95,
-          distance: 7.35
-        });
-      } else if (foundationBuildZoneCameraFocusActive) {
-        // The focus transition was started at mission activation; hold the pose until it expires.
-      } else if (isGameFlow(gameFlowValues.GAMEPLAY) && !gameplayOpeningCameraFrame?.skipped) {
-        nextGameplayOpeningCameraFrame = gameplayOpeningRuntime.updateCamera({
-          now,
-          gameplayActive: true,
-          canFollow: !dialogueActive && !cameraTransitionActive && !scriptedInteractionActive
-        });
-      } else if (session.playerCharacter && !dialogueActive && !camera.isTargetTransitionActive()) {
-        camera.follow(session.playerCharacter.getPosition());
-      }
-    }
-
-    return { gameplayOpeningCameraFrame: nextGameplayOpeningCameraFrame };
-  }
-
   function frame(now) {
     // Timing and flow state.
     const {
@@ -6375,7 +6305,7 @@ export function startGameLoop({
       return;
     }
 
-    updateCameraInputFrame({
+    gameplayCameraFrameRuntime.updateInput({
       deltaTime,
       flowState: frameFlowState,
       gameplayOpeningCameraLocked,
@@ -7355,7 +7285,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       }
     }
 
-    const gameplayCameraFrame = updateGameplayCameraFrame({
+    const gameplayCameraFrame = gameplayCameraFrameRuntime.updateFollow({
       now,
       cinematicActive,
       tutorialCameraFocus,
