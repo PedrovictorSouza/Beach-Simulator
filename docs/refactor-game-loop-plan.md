@@ -337,10 +337,71 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move construction placement frame coordination into the
   `construction` boundary.
+- Completed: move base render snapshot frame ownership into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Base Render Snapshot Frame Runtime Boundary
+
+Moved base render snapshot frame ownership from the local
+`updateBaseRenderSnapshotFrame(...)` helper inside `app/runtime/gameLoop.js` into
+`app/runtime/presentation/baseRenderSnapshotFrame.js`.
+
+Boundary classification: `presentation/render helpers`, focused on writing the
+base render snapshot fields and running the adjacent presentation/model sync
+callbacks needed before world-space UI and speech resolution.
+
+Module boundary note:
+
+- The new file belongs to the existing `presentation` domain boundary.
+- `gameLoop.js` still owns frame order and dependency wiring.
+- Construction and opening behavior are not reimplemented in the presentation
+  module; existing functions are passed as explicit callbacks.
+- No render data shape changed: the runtime still writes
+  `viewProjection`, `sceneObjects`, `skyTexture` and `psxDistanceFog` into
+  `nextFrame.render`.
+
+Study path:
+
+1. `startGameLoop()` creates `baseRenderSnapshotFrameRuntime` after construction
+   placement coordination is wired.
+2. `frame(now)` calls `baseRenderSnapshotFrameRuntime.update(...)` in the same
+   position where the local helper previously ran: after HUD snapshot writes and
+   before world-space UI context preparation.
+3. View-projection, construction visual sync, Leaf Den completion polling,
+   player-house model sync, interaction highlight, opening ship scene objects,
+   Squirtle assembly scene objects and PSX distance fog are forwarded through
+   explicit dependencies.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `7887` to `7861`.
+- Removed the base render snapshot helper implementation from
+  `startGameLoop()`.
+- Added focused tests for construction visual sync calls, render snapshot writes,
+  player-position fallback and disabled fog handling.
+
+Passed:
+
+```sh
+npm test -- --run tests/baseRenderSnapshotFrame.test.js
+npm test -- --run tests/baseRenderSnapshotFrame.test.js tests/frameSnapshotController.test.js tests/renderFrameController.test.js tests/interactionObjectHighlight.test.js tests/psxDistanceFogConfig.test.js tests/constructionHouseModelInstances.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused presentation/render-helper suite passed with `24` tests. The
+production build passed with the existing chunk-size warning. `npm test`
+completed with the existing Leafage Native Tree baseline:
+
+- `1719` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending for this pass.
 
 ### Construction Placement Frame Boundary
 

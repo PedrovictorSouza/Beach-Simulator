@@ -190,6 +190,7 @@ import { updateWorldPromptSnapshotFrame } from "./presentation/worldPromptSnapsh
 import { resolveWorldSpeechFrameState } from "./presentation/worldSpeechFrameState.js";
 import { prepareWorldSpaceUiFrameContext as prepareWorldSpaceUiFrameContextWithSources } from "./presentation/worldSpaceUiFrameContext.js";
 import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
+import { createBaseRenderSnapshotFrameRuntime } from "./presentation/baseRenderSnapshotFrame.js";
 import { prepareRenderSnapshotContext as prepareRenderSnapshotContextWithSources } from "./presentation/renderSnapshotContext.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
@@ -1137,6 +1138,27 @@ export function startGameLoop({
       syncFreeBlockBuildPreview,
       updateBuildBlockDebugOverlay: (debug) => buildBlockDebugOverlay.update(debug)
     }
+  });
+  const baseRenderSnapshotFrameRuntime = createBaseRenderSnapshotFrameRuntime({
+    camera,
+    worldCanvas,
+    session,
+    controls,
+    gameFlowValues,
+    construction: {
+      syncActiveRepairBoxHighlight,
+      syncGreenhouseModelInstance,
+      syncCampfireTrainHouseModelInstance,
+      isLeafDenConstructionActive,
+      syncLeafDenConstructionClouds,
+      syncConstructionCloudBurstEffects,
+      syncLeafDenModelInstance,
+      syncPlayerHouseModelInstances
+    },
+    applyInteractionObjectHighlight,
+    getGameplayOpeningShipSceneObjects,
+    getSquirtleAssemblySceneObjects,
+    resolvePsxDistanceFogSettings
   });
   const playerModelRuntime = createPlayerModelRuntime({
     moveValueToward,
@@ -6118,54 +6140,6 @@ export function startGameLoop({
     });
   }
 
-  function updateBaseRenderSnapshotFrame(nextFrame, {
-    now,
-    deltaTime,
-    cinematicActive,
-    nearbyInteractable,
-    nearbyWorkbenchRotationTarget
-  }) {
-    const followedViewProjection = camera.getViewProjection(
-      worldCanvas.width,
-      worldCanvas.height
-    );
-    const nowSeconds = now * 0.001;
-
-    syncActiveRepairBoxHighlight();
-    syncGreenhouseModelInstance(deltaTime);
-    syncCampfireTrainHouseModelInstance(nowSeconds, deltaTime);
-    if (isLeafDenConstructionActive()) {
-      controls.completeLeafDenConstructionIfReady?.({ playDialogue: false });
-    }
-    syncLeafDenConstructionClouds(nowSeconds);
-    syncConstructionCloudBurstEffects(nowSeconds);
-    syncLeafDenModelInstance(deltaTime);
-    syncPlayerHouseModelInstances(
-      deltaTime,
-      camera.getPose?.()?.target || session.playerCharacter?.getPosition?.() || null
-    );
-    applyInteractionObjectHighlight(session, {
-      interactTarget: nearbyInteractable,
-      workbenchRotationTarget: nearbyWorkbenchRotationTarget
-    });
-
-    nextFrame.render.viewProjection = followedViewProjection;
-    nextFrame.render.sceneObjects = getSquirtleAssemblySceneObjects(
-      getGameplayOpeningShipSceneObjects(
-        session.sceneObjects,
-        session.gameplayOpeningShip
-      ),
-      session.actTwoSquirtle
-    );
-    nextFrame.render.skyTexture = session.skyTexture;
-    const psxDistanceFogSettings = resolvePsxDistanceFogSettings({
-      sceneId: cinematicActive ? gameFlowValues.CINEMATIC : gameFlowValues.GAMEPLAY
-    });
-    nextFrame.render.psxDistanceFog = psxDistanceFogSettings.enabled ?
-      psxDistanceFogSettings :
-      null;
-  }
-
   function prepareWorldSpaceUiFrameContext({
     now,
     gameplayOpeningCameraLocked,
@@ -7507,7 +7481,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       inputModalityState
     });
 
-    updateBaseRenderSnapshotFrame(nextFrame, {
+    baseRenderSnapshotFrameRuntime.update(nextFrame, {
       now,
       deltaTime,
       cinematicActive,
