@@ -298,10 +298,69 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move world-prompt snapshot writing into the `presentation`
   boundary.
+- Completed: move ground-cell highlight snapshot writing into the
+  `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Ground Cell Highlight Frame Boundary
+
+Moved the ground-cell highlight snapshot writer from `app/runtime/gameLoop.js`
+into `app/runtime/presentation/groundCellHighlightFrame.js`.
+
+Boundary classification: `presentation/render helpers`, focused on converting
+already-resolved ground-cell highlight candidates into
+`nextFrame.groundCellHighlight`.
+
+Module boundary note:
+
+- This is a new file inside the existing `presentation` domain, not a loose
+  helper under `app/runtime/`.
+- It owns a named responsibility: ground-cell highlight snapshot writing.
+- It preserves the existing priority order for placement footprints, direct
+  highlights, marked action cells, feedback pulses and field-tool target pulses.
+
+Study path:
+
+1. `gameLoop.js` still computes placement footprints, active fire targets,
+   field move targets and feedback frames.
+2. `updateGroundCellHighlightFrame(...)` now owns writing the resolved data into
+   the frame snapshot.
+3. Field-tool target pulse details still override feedback action-pulse details
+   because the write order is preserved.
+4. No placement rule, field move rule, pulse tuning or render shape changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9487` to `9395`.
+- Removed the internal `updateGroundCellHighlightFrame(...)` implementation from
+  `startGameLoop()`.
+- Added focused tests for placement footprint priority, highlighted-cell
+  metadata and field-tool pulse override behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/groundCellHighlightFrame.test.js
+npm test -- --run tests/groundCellHighlightFrame.test.js tests/groundCellHighlightController.test.js tests/frameSnapshotController.test.js tests/groundActionFeedbackRuntime.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused presentation/snapshot suite passed with `17` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1655` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### World Prompt Snapshot Frame Boundary
 
