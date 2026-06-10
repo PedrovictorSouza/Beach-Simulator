@@ -228,6 +228,7 @@ import {
 import { updateWorldPromptSnapshotFrame } from "./presentation/worldPromptSnapshotFrame.js";
 import { resolveWorldSpeechVisibility } from "./presentation/worldSpeechVisibility.js";
 import { prepareWorldSpaceUiFrameContext as prepareWorldSpaceUiFrameContextWithSources } from "./presentation/worldSpaceUiFrameContext.js";
+import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
@@ -650,8 +651,6 @@ const NATURE_PATCH_GRASS_MODEL_LOD_DISTANCE = 28;
 const NATURE_PATCH_MODEL_PREPARE_DISTANCE = 48;
 const NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE = 78;
 const PLAYER_CONSTRUCTION_MODEL_PREPARE_DISTANCE = 58;
-const LEPPA_TREE_DANCE_SWAY = 0.28;
-const LEPPA_TREE_DANCE_SPEED = 0.0056;
 const LEPPA_TREE_MISSION_PARTICLE_COUNT = 9;
 const LEPPA_TREE_MISSION_PARTICLE_RADIUS = 0.72;
 const LEPPA_TREE_MISSION_PARTICLE_BASE_HEIGHT = 0.62;
@@ -5993,22 +5992,6 @@ export function startGameLoop({
     delete flags.rustlingGrassDelay;
   }
 
-  function updateLeppaTreeDance(now) {
-    const leppaTree = session.leppaTree;
-    const deadInstance = leppaTree?.deadInstance;
-
-    if (!deadInstance) {
-      return;
-    }
-
-    if (!leppaTree.revived) {
-      deadInstance.swayStrength = 0;
-      return;
-    }
-
-    deadInstance.swayStrength = Math.sin(now * LEPPA_TREE_DANCE_SPEED) * LEPPA_TREE_DANCE_SWAY;
-  }
-
   function resolveFramePromptTargetState({
     solarStationPlacementPreview,
     greenhousePlacementPreview,
@@ -6387,7 +6370,7 @@ export function startGameLoop({
     });
     snowstormFogRuntime.update({ session, deltaTime });
     gameplay.syncLeppaTreeState?.(session.leppaTree, controls.storyState);
-    updateLeppaTreeDance(now);
+    updateLeppaTreeDance({ leppaTree: session.leppaTree, now });
     updateLeppaTreeMusicNotes({
       leppaTree: session.leppaTree,
       textures: session.leppaTreeMusicalNoteTextures,

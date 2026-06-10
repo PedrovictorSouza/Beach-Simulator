@@ -312,10 +312,66 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move frame HUD prompt copy resolution into the `presentation`
   boundary.
+- Completed: move Leppa tree dance motion into the `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Leppa Tree Dance Boundary
+
+Moved Leppa tree sway motion from `app/runtime/gameLoop.js` into
+`app/runtime/presentation/leppaTreeDance.js`.
+
+Boundary classification: `presentation/render helpers`, focused on the visual
+motion applied to the revived Leppa tree render instance.
+
+Module boundary note:
+
+- This is a new file inside the existing `presentation` domain, not a loose
+  helper under `app/runtime/`.
+- It owns only the visual sway calculation for the tree's dead-instance model.
+- The existing visual tuning values `0.28` and `0.0056` moved with the effect;
+  the numbers did not change.
+
+Study path:
+
+1. `gameLoop.js` still syncs Leppa tree story state before updating visual
+   presentation.
+2. `updateLeppaTreeDance(...)` now receives `{ leppaTree, now }` explicitly.
+3. Non-revived trees still reset `swayStrength` to `0`.
+4. Revived trees still use `Math.sin(now * 0.0056) * 0.28`.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9125` to `9108`.
+- Removed the private `updateLeppaTreeDance(...)` implementation from
+  `startGameLoop()`.
+- Moved Leppa tree dance tuning out of the `gameLoop.js` constant block.
+- Added focused tests for missing model instance, non-revived reset and revived
+  sway tuning.
+
+Validation:
+
+```sh
+npm test -- --run tests/leppaTreeDance.test.js
+npm test -- --run tests/leppaTreeDance.test.js tests/leppaTreeMusicNotes.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/natureRevivalEffects.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused Leppa/nature presentation suite passed with `13` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1674` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Frame HUD Prompt Copy Boundary
 
