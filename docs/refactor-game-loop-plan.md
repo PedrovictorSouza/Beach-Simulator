@@ -339,10 +339,77 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move base render snapshot frame ownership into the `presentation`
   boundary.
+- Completed: move passive player resource collection into the `player`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Player Resource Collection Frame Boundary
+
+Moved passive player resource collection from `frame(now)` into
+`app/player/playerResourceCollectionFrame.js`.
+
+Boundary classification: `player`, focused on player-position based pickup of
+Wood, Leaves, Gear, Carbon and Pulse Berry, plus the existing inventory/HUD/audio
+feedback callbacks attached to those pickups.
+
+Module boundary note:
+
+- The new file belongs to the existing `player` domain boundary.
+- `gameLoop.js` still owns frame order and calls the runtime in the same place:
+  after cinematic simulation updates and before gameplay camera follow.
+- The runtime does not import HUD, audio, gameplay controls or story feedback
+  systems directly. Those side effects remain explicit callbacks wired by
+  `startGameLoop()`.
+- Field moves, placement, camera behavior and render snapshot shape are
+  unchanged.
+
+Study path:
+
+1. `createPlayerResourceCollectionFrameRuntime(...)` receives `session`,
+   `controls`, `gameplay`, item labels/ids and a grouped `feedback` callback
+   object.
+2. `update(...)` applies the old frame gates: no collection during cinematic,
+   tutorial, Pokédex modal, skill-learn flow or scripted interaction.
+3. Wood pickup still snapshots available drops before collection, plays the
+   staggered grab sounds, syncs inventory, queues fly-to-slot items, shows the
+   `+N Wood` notice and consumes the pending habitat-check completion notice.
+4. Leaves, Gear and Carbon still delegate to
+   `pushSupplyResourceCollectFeedback(...)`; Gear still also triggers the gear
+   pickup particle runtime.
+5. Pulse Berry still syncs inventory, queues fly-to-slot feedback, pushes the
+   existing item-name notice and updates the supply counter prompt.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `7861` to `7769`.
+- Removed the large passive collection block from `frame(now)`.
+- Removed the collectible snapshot helper imports from `gameLoop.js`.
+- Added focused tests for active collection feedback and blocked-frame gating.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerResourceCollectionFrame.test.js
+npm test -- --run tests/playerResourceCollectionFrame.test.js tests/collectibleSourceSnapshots.test.js tests/gameplayWoodDrops.test.js tests/inventoryResourceOperations.test.js tests/supplyCounterPrompt.test.js tests/resourcePurposeCatalog.test.js
+git diff --check
+npm run build
+npm test
+```
+
+TDD note: the first focused test run failed with the expected missing-module
+error before `app/player/playerResourceCollectionFrame.js` was added.
+
+The focused player resource-collection suite passed with `25` tests. The
+production build passed with the existing chunk-size warning. `npm test`
+completed with the existing Leafage Native Tree baseline:
+
+- `1721` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending for this pass.
 
 ### Base Render Snapshot Frame Runtime Boundary
 

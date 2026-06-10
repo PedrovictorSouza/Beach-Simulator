@@ -108,12 +108,6 @@ import {
   isWorldPositionOnFreeBlockCell,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
-import {
-  getNewlyCollectedDropPositions,
-  getNewlyCollectedResourcePositions,
-  snapshotAvailableWoodDrops,
-  snapshotCollectibleSources
-} from "./collectibleSourceSnapshots.js";
 import { createCompanionFollowDirectionRuntime } from "./companions/companionFollowDirectionRuntime.js";
 import {
   isCompanionFollowFormationMember,
@@ -182,6 +176,7 @@ import {
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
+import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { resolveFrameHudPromptCopy } from "./presentation/hudPromptCopy.js";
 import { getPendingPlacementPrompt } from "./presentation/worldPromptCopy.js";
@@ -1207,6 +1202,39 @@ export function startGameLoop({
     getSfxVolumeScale,
     getMusicVolumeScale,
     playSoundEvent
+  });
+  const playerResourceCollectionFrameRuntime = createPlayerResourceCollectionFrameRuntime({
+    session,
+    controls,
+    gameplay,
+    itemIds: {
+      wood: "wood",
+      leaves: LEAVES_ITEM_ID,
+      gear: GEAR_ITEM_ID,
+      carbon: CARBON_ITEM_ID,
+      leppaBerry: LEPPA_BERRY_ITEM_ID
+    },
+    labels: {
+      leaves: "Leaves",
+      gear: "Gear",
+      carbon: "Carbon",
+      leppaBerry: SANDBOTS_ITEM_NAMES.pulseBerry
+    },
+    feedback: {
+      triggerWoodCollectPop: (woodDropSnapshots) => woodCollectPopRuntime.trigger(woodDropSnapshots),
+      playWoodGrab: (options) => audio.playWoodGrab(options),
+      syncInventoryUi: (inventory) => hud.syncInventoryUi(inventory),
+      queueSupplyPickupFlyItems,
+      pushNotice: (notice) => hud.pushNotice(notice),
+      triggerSupplyCounterPrompt: (itemId, inventory, promptNow) =>
+        supplyCounterPromptController.trigger(itemId, inventory, promptNow),
+      pushSupplyResourceCollectFeedback,
+      triggerGearPickupParticles: (positions) => gearPickupParticleRuntime.trigger(positions),
+      getHabitatCheckCompleteNotice: () =>
+        getColonyFeedbackNotice(COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE, {
+          growBotName: SANDBOTS_BOT_NAMES.grow
+        })
+    }
   });
 
   const gameplayInputRuntime = createGameplayInputRuntime({
@@ -7069,134 +7097,14 @@ if (canProcessDestroyAction && destroyActionRequested) {
       tutorialActive = isGameFlow(gameFlowValues.TUTORIAL);
     }
 
-    if (session.playerCharacter && !cinematicActive) {
-      if (!tutorialActive && !pokedexModalOpen && !skillLearnActive && !scriptedInteractionActive) {
-        const woodDropSnapshots = snapshotAvailableWoodDrops(session.woodDrops);
-        const collectedWoodCount = gameplay.collectWoodDrops(
-          session.playerCharacter.getPosition(),
-          session.woodDrops,
-          controls.inventory
-        );
-
-        if (collectedWoodCount > 0) {
-          woodCollectPopRuntime.trigger(woodDropSnapshots);
-          const collectedWoodPositions = getNewlyCollectedDropPositions(woodDropSnapshots);
-          for (let woodIndex = 0; woodIndex < collectedWoodCount; woodIndex += 1) {
-            audio.playWoodGrab({
-              active: true,
-              nowSeconds: (now * 0.001) + woodIndex * 0.025
-            });
-          }
-          hud.syncInventoryUi(controls.inventory);
-          queueSupplyPickupFlyItems("wood", collectedWoodPositions);
-          hud.pushNotice(`+${collectedWoodCount} Wood`);
-          supplyCounterPromptController.trigger("wood", controls.inventory, now);
-
-          if (controls.storyState.flags.bulbasaurStrawBedChallengeCompletionNoticePending) {
-            controls.storyState.flags.bulbasaurStrawBedChallengeCompletionNoticePending = false;
-            hud.pushNotice(getColonyFeedbackNotice(COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE, {
-              growBotName: SANDBOTS_BOT_NAMES.grow
-            }));
-          }
-        }
-
-        const leafPlayerPosition = session.playerCharacter.getPosition();
-        const leafDropSnapshots = snapshotCollectibleSources(
-          session.woodDrops,
-          (drop) => drop.itemId === LEAVES_ITEM_ID && !drop.collected
-        );
-        const leafResourceSnapshots = snapshotCollectibleSources(
-          session.resourceNodes,
-          (resourceNode) => resourceNode.itemId === LEAVES_ITEM_ID
-        );
-        const collectedLeafDropCount = gameplay.collectLeafDrops?.(
-          leafPlayerPosition,
-          session.woodDrops,
-          controls.inventory
-        ) || 0;
-        const collectedLeafResourceCount = gameplay.collectLeafResourceNodes?.(
-          leafPlayerPosition,
-          session.resourceNodes,
-          controls.inventory
-        ) || 0;
-        const collectedLeafCount = collectedLeafDropCount + collectedLeafResourceCount;
-
-        if (collectedLeafCount > 0) {
-          const collectedLeafPositions = [
-            ...getNewlyCollectedDropPositions(leafDropSnapshots),
-            ...getNewlyCollectedResourcePositions(leafResourceSnapshots)
-          ];
-          pushSupplyResourceCollectFeedback({
-            itemId: LEAVES_ITEM_ID,
-            count: collectedLeafCount,
-            sourcePositions: collectedLeafPositions,
-            label: "Leaves",
-            now
-          });
-        }
-
-        const gearResourceSnapshots = snapshotCollectibleSources(
-          session.resourceNodes,
-          (resourceNode) => resourceNode.itemId === GEAR_ITEM_ID
-        );
-        const collectedGearCount = gameplay.collectGearResourceNodes?.(
-          leafPlayerPosition,
-          session.resourceNodes,
-          controls.inventory
-        ) || 0;
-
-        if (collectedGearCount > 0) {
-          const collectedGearPositions = getNewlyCollectedResourcePositions(gearResourceSnapshots);
-          gearPickupParticleRuntime.trigger(collectedGearPositions);
-          pushSupplyResourceCollectFeedback({
-            itemId: GEAR_ITEM_ID,
-            count: collectedGearCount,
-            sourcePositions: collectedGearPositions,
-            label: "Gear",
-            now
-          });
-        }
-
-        const carbonResourceSnapshots = snapshotCollectibleSources(
-          session.resourceNodes,
-          (resourceNode) => resourceNode.itemId === CARBON_ITEM_ID
-        );
-        const collectedCarbonCount = gameplay.collectCarbonResourceNodes?.(
-          leafPlayerPosition,
-          session.resourceNodes,
-          controls.inventory
-        ) || 0;
-
-        if (collectedCarbonCount > 0) {
-          const collectedCarbonPositions = getNewlyCollectedResourcePositions(carbonResourceSnapshots);
-          pushSupplyResourceCollectFeedback({
-            itemId: CARBON_ITEM_ID,
-            count: collectedCarbonCount,
-            sourcePositions: collectedCarbonPositions,
-            label: "Carbon",
-            now
-          });
-        }
-
-        const leppaBerrySnapshots = snapshotCollectibleSources(
-          session.leppaBerryDrops,
-          (drop) => !drop.collected
-        );
-        const collectedLeppaBerryCount = gameplay.collectLeppaBerryDrops?.(
-          session.playerCharacter.getPosition(),
-          session.leppaBerryDrops,
-          controls.inventory
-        ) || 0;
-
-        if (collectedLeppaBerryCount > 0) {
-          const collectedLeppaBerryPositions = getNewlyCollectedDropPositions(leppaBerrySnapshots);
-          hud.syncInventoryUi(controls.inventory);
-          queueSupplyPickupFlyItems(LEPPA_BERRY_ITEM_ID, collectedLeppaBerryPositions);
-          hud.pushNotice(`+${collectedLeppaBerryCount} ${SANDBOTS_ITEM_NAMES.pulseBerry}`);
-          supplyCounterPromptController.trigger(LEPPA_BERRY_ITEM_ID, controls.inventory, now);
-        }
-      }
-    }
+    playerResourceCollectionFrameRuntime.update({
+      now,
+      cinematicActive,
+      tutorialActive,
+      pokedexModalOpen,
+      skillLearnActive,
+      scriptedInteractionActive
+    });
 
     const gameplayCameraFrame = gameplayCameraFrameRuntime.updateFollow({
       now,
