@@ -262,6 +262,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move foundation origin flag persistence into the `construction`
   boundary.
+- Completed: move free-block preview visual sync into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1812,6 +1814,58 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1608` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Free-Block Preview Boundary
+
+Moved free-block preview instance visual sync from `app/runtime/gameLoop.js`
+into `app/runtime/construction/freeBlockPreview.js`.
+
+Boundary classification: `construction`, focused on Build Block/free-block
+preview presentation state. Target resolution remains in `gameLoop.js`.
+
+Study path:
+
+1. `syncFreeBlockPreviewInstance(...)` owns preview instance activation,
+   offset/scale/yaw fields, valid/invalid alpha, tint and tint strength.
+2. `gameLoop.js` still owns resolving the free-block target, building the grid
+   system and passing the current cell size.
+3. The wrapper in `gameLoop.js` preserves the old early-return order: missing
+   instance, inactive/missing player position, missing target, then grid lookup.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10030` to `10026`.
+- Removed preview visual tuning and direct preview instance field mutation from
+  `gameLoop.js`.
+- Added focused tests for inactive/missing target handling and valid/invalid
+  preview visuals.
+
+Validation:
+
+```sh
+npm test -- --run tests/freeBlockPreview.test.js
+npm test -- --run tests/freeBlockPreview.test.js tests/freeBlockBuildSystem.test.js tests/freeBlockRemoval.test.js tests/foundationBuildZone.test.js tests/placementGeometry.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused construction preview/build suite passed with `85` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1619` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

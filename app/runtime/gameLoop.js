@@ -31,6 +31,7 @@ import {
   findNearbyFreeBlockTarget,
   spawnFreeBlockRemovalDrops as spawnFreeBlockRemovalDropsWithConfig
 } from "./construction/freeBlockRemoval.js";
+import { syncFreeBlockPreviewInstance } from "./construction/freeBlockPreview.js";
 import {
   getLeafDenConstructionProgress as getLeafDenConstructionProgressFromState,
   isLeafDenBusyCompanionTarget as isLeafDenBusyCompanionTargetFromState,
@@ -4100,37 +4101,32 @@ export function startGameLoop({
     }
 
     if (!active || !Array.isArray(playerPosition)) {
-      instance.active = false;
-      return null;
+      return syncFreeBlockPreviewInstance({
+        instance,
+        active,
+        playerPosition
+      });
     }
 
     const target = getFreeBlockPreviewTarget(playerPosition);
     if (!target?.targetCell || !Array.isArray(target.targetPosition)) {
-      instance.active = false;
-      return null;
+      return syncFreeBlockPreviewInstance({
+        instance,
+        active,
+        playerPosition,
+        target
+      });
     }
 
     const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
-    const pulse = (Math.sin(nowSeconds * 8) + 1) * 0.5;
-    const valid = target.valid !== false;
-
-    instance.active = true;
-    instance.offset = [
-      target.targetPosition[0],
-      target.targetPosition[1],
-      target.targetPosition[2]
-    ];
-    instance.scale = gridSystem.cellSize;
-    instance.yaw = 0;
-    instance.pitch = 0;
-    instance.roll = 0;
-    instance.alpha = valid ? 0.58 + pulse * 0.12 : 0.42 + pulse * 0.08;
-    instance.tint = valid ? [0.36, 1.35, 0.46] : [1.8, 0.32, 0.28];
-    instance.tintStrength = valid ? 0.34 + pulse * 0.12 : 0.5 + pulse * 0.16;
-    instance.freeBlockCell = target.targetCell;
-    instance.freeBlockPreviewValid = valid;
-    instance.freeBlockPreviewReason = target.reason || null;
-    return target;
+    return syncFreeBlockPreviewInstance({
+      instance,
+      active,
+      playerPosition,
+      target,
+      cellSize: gridSystem.cellSize,
+      nowSeconds
+    });
   }
 
   function startTimburrBuildBlockAction({ playerPosition }) {
