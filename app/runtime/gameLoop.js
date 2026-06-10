@@ -178,9 +178,7 @@ import {
   getTreeRevivalSnapshot
 } from "./fieldMoveRuntime/natureProgressSnapshots.js";
 import { getDestroyableLandscapePatchForInteractOptions as getDestroyableLandscapePatchForInteractOptionsWithSources } from "./fieldMoveRuntime/destroyableLandscapePatchTarget.js";
-import { getFlowerArrangementBillboards } from "./flowerArrangementBillboards.js";
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
-import { getGrassPlayerBend } from "./grassPlayerBend.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import {
   createInteractionInfoBillboard,
@@ -193,15 +191,7 @@ import {
   getInteractionDebugColliders as getInteractionDebugCollidersWithConfig
 } from "./interactionDebugColliders.js";
 import { createLandscapeCutEffectRuntime } from "./landscapeCutEffectRuntime.js";
-import {
-  getLeafDropBillboards,
-  getLeafResourceBillboards
-} from "./leafBillboards.js";
-import {
-  getLeppaTreeMusicNoteBillboards,
-  updateLeppaTreeMusicNotes
-} from "./leppaTreeMusicNotes.js";
-import { getLeppaTreeMissionParticleBillboards } from "./leppaTreeMissionParticleBillboards.js";
+import { updateLeppaTreeMusicNotes } from "./leppaTreeMusicNotes.js";
 import { createMissionTargetIndicatorBillboard } from "./missionTargetIndicatorBillboard.js";
 import { getMissionTargetPositionsById as getMissionTargetPositionsByIdWithConfig } from "./missionTargetPositionLookup.js";
 import {
@@ -235,10 +225,11 @@ import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { updateGroundCellHighlightFrame } from "./presentation/groundCellHighlightFrame.js";
 import { updateWorldSpeechSnapshotFrame } from "./presentation/worldSpeechSnapshotFrame.js";
+import { getGrassCollisionObjects } from "./presentation/grassCollisionObjects.js";
 import {
-  getGrassCollisionObjects,
-  getGrassObjectCollisionAlpha
-} from "./presentation/grassCollisionObjects.js";
+  updateNatureGrassRenderFrame,
+  updateNatureRenderFrame
+} from "./presentation/natureRenderFrame.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
@@ -247,16 +238,13 @@ import {
 } from "./repairBoxParticleTargets.js";
 import { getNearbyRepairBoxPrompt } from "./repairBoxPromptTargets.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
-import { getRepairBoxRevealRayBillboards } from "./repairBoxRevealRayBillboards.js";
 import { appendRebirthOfNatureGhostTree } from "./rebirthOfNatureGhostTree.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
-import { getRustlingGrassParticleBillboards } from "./rustlingGrassParticleBillboards.js";
 import { getSavePointStarBillboards } from "./savePointStarBillboards.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import { resolveSupplyPickupViewportOrigin } from "./supplyPickupViewportOrigin.js";
 import {
   getTallGrassInstanceScale,
-  getTallGrassSway,
   getTallGrassYaw
 } from "./tallGrassMotion.js";
 import { applyTrainHouseDance } from "./trainHouseDance.js";
@@ -339,8 +327,6 @@ import {
   LANDSCAPE_CUT_EFFECT_LERP_PORTION,
   LANDSCAPE_CUT_EFFECT_LIFT,
   LANDSCAPE_CUT_EFFECT_POP_SCALE,
-  LEAF_RESOURCE_BILLBOARD_SIZE,
-  LEAF_RESOURCE_BILLBOARD_Y_OFFSET,
   PLAYER_COUNTER_PROMPT_DURATION_MS,
   PLAYER_INTERACTION_WORLD_PROMPT_TARGET_IDS,
   TRAIN_HOUSE_MUSIC_FADE_DISTANCE,
@@ -407,7 +393,6 @@ import {
 import { PLAYER_SPEED } from "../session/configurePlayerSpawner.js";
 import {
   getNatureRevivalBillboards,
-  getNatureRevivalScale,
   updateNatureRevivalEffects
 } from "../session/natureRevivalEffects.js";
 import { getColliderGizmoBillboards } from "../session/colliderGizmos.js";
@@ -627,14 +612,6 @@ const BULBASAUR_REVEAL_VISIBLE_PROGRESS = 0.72;
 const BULBASAUR_REVEAL_BOX_OPEN_START_PROGRESS = 0.62;
 const BULBASAUR_REVEAL_BOX_SHAKE_END_PROGRESS = 0.56;
 const BULBASAUR_REVEAL_BOX_SPIN_ACCELERATION = Math.PI * 8.2;
-const BULBASAUR_REVEAL_BOX_RAY_COUNT = 10;
-const BULBASAUR_REVEAL_BOX_RAY_BASE_SIZE = 0.18;
-const BULBASAUR_REVEAL_BOX_RAY_CHARGE_PROGRESS_MAX = 0.72;
-const BULBASAUR_REVEAL_BOX_RAY_BILLBOARD_CONFIG = Object.freeze({
-  count: BULBASAUR_REVEAL_BOX_RAY_COUNT,
-  baseSize: BULBASAUR_REVEAL_BOX_RAY_BASE_SIZE,
-  chargeProgressMax: BULBASAUR_REVEAL_BOX_RAY_CHARGE_PROGRESS_MAX
-});
 const BULBASAUR_REVEAL_FLASH_PEAK_OPACITY = 1;
 const BULBASAUR_REVEAL_BOT_FALL_HEIGHT = 1.82;
 const BULBASAUR_REVEAL_BOT_FALL_END_PROGRESS = 0.96;
@@ -649,20 +626,7 @@ const REPAIR_BOX_INACTIVE_ALPHA = 0.5;
 const ROBOT_IDLE_PATROL_SPEED = 0.82;
 const ROBOT_IDLE_PATROL_PAUSE_DURATION = 0.75;
 const ROBOT_IDLE_PATROL_ARRIVE_DISTANCE = 0.08;
-const NATURE_PATCH_GRASS_MODEL_LOD_DISTANCE = 28;
-const NATURE_PATCH_MODEL_PREPARE_DISTANCE = 48;
-const NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE = 78;
 const PLAYER_CONSTRUCTION_MODEL_PREPARE_DISTANCE = 58;
-const LEPPA_TREE_MISSION_PARTICLE_COUNT = 9;
-const LEPPA_TREE_MISSION_PARTICLE_RADIUS = 0.72;
-const LEPPA_TREE_MISSION_PARTICLE_BASE_HEIGHT = 0.62;
-const LEPPA_TREE_MISSION_PARTICLE_HEIGHT = 1.64;
-const LEPPA_TREE_MISSION_PARTICLE_BILLBOARD_CONFIG = Object.freeze({
-  count: LEPPA_TREE_MISSION_PARTICLE_COUNT,
-  radius: LEPPA_TREE_MISSION_PARTICLE_RADIUS,
-  baseHeight: LEPPA_TREE_MISSION_PARTICLE_BASE_HEIGHT,
-  height: LEPPA_TREE_MISSION_PARTICLE_HEIGHT
-});
 const SAVE_POINT_STAR_PARTICLE_COUNT = 10;
 const SAVE_POINT_STAR_PARTICLE_RADIUS = 0.64;
 const SAVE_POINT_STAR_PARTICLE_HEIGHT = 1.18;
@@ -8217,333 +8181,38 @@ if (canProcessDestroyAction && destroyActionRequested) {
       shouldShowRepairBoxRustlingParticles
     } = prepareRenderSnapshotContext({ cinematicActive });
 
-    for (const groundGrassPatch of session.groundGrassPatches) {
-      const hasRustlingEncounter =
-        groundGrassPatch.state === "alive" &&
-        (
-          (
-            groundGrassPatch.cellId === controls.storyState.flags.rustlingGrassCellId &&
-            !controls.storyState.flags.bulbasaurRevealed
-          ) ||
-          (
-            groundGrassPatch.cellId === controls.storyState.flags.charmanderRustlingGrassCellId &&
-            !controls.storyState.flags.charmanderRevealed
-          ) ||
-          (
-            groundGrassPatch.cellId === controls.storyState.flags.timburrRustlingGrassCellId &&
-            !controls.storyState.flags.timburrRevealed
-          )
-        );
-      const shouldRustleGrass = false;
-      const rustleOffset = shouldRustleGrass ? Math.sin(now * 0.024) * 0.11 : 0;
-      const standardAliveGrassModelAvailable = Boolean(
-        groundGrassPatch.state === "alive" &&
-        groundGrassPatch.leafageObjectId !== "garden1" &&
-        groundGrassPatch.leafageObjectId !== "nativeTree" &&
-        session.tallGrassModel &&
-        Array.isArray(session.tallGrassInstances)
-      );
-      const gardenGrassModelAvailable = Boolean(
-        groundGrassPatch.state === "alive" &&
-        groundGrassPatch.leafageObjectId === "garden1" &&
-        session.leafageGardenModel &&
-        Array.isArray(session.leafageGardenInstances)
-      );
-      const nativeTreeModelAvailable = Boolean(
-        groundGrassPatch.state === "alive" &&
-        groundGrassPatch.leafageObjectId === "nativeTree" &&
-        session.leafageNativeTreeModel &&
-        Array.isArray(session.leafageNativeTreeInstances)
-      );
-      const deadGrassModelAvailable = Boolean(
-        groundGrassPatch.state !== "alive" &&
-        session.deadGrassModel &&
-        Array.isArray(session.deadGrassInstances)
-      );
-      const grassBillboardScaleX = Number(groundGrassPatch.size?.[0]) || 1;
-      const grassBillboardScaleY = Number(groundGrassPatch.size?.[1]) || grassBillboardScaleX;
-      const canUseGrassBillboardFallback =
-        standardAliveGrassModelAvailable ||
-        deadGrassModelAvailable ||
-        (!gardenGrassModelAvailable && !nativeTreeModelAvailable);
-      const patchPrepareDistance = canUseGrassBillboardFallback ?
-        NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE :
-        NATURE_PATCH_MODEL_PREPARE_DISTANCE;
-      if (
-        !hasRustlingEncounter &&
-        !isWorldPositionWithinRenderDistance(
-          groundGrassPatch.position,
-          natureRenderCenter,
-          patchPrepareDistance
-        )
-      ) {
-        continue;
-      }
-
-      const playerBend = getGrassPlayerBend(groundGrassPatch, grassBendPlayerPosition);
-      const grassRevivalScale = getNatureRevivalScale(
-        session.natureRevivalEffects,
-        groundGrassPatch.id
-      );
-      const grassAlpha = getGrassObjectCollisionAlpha(
-        groundGrassPatch,
-        grassCollisionObjects
-      );
-      const shouldUseGrassModelLod =
-        hasRustlingEncounter ||
-        isWorldPositionWithinRenderDistance(
-          groundGrassPatch.position,
-          natureRenderCenter,
-          NATURE_PATCH_GRASS_MODEL_LOD_DISTANCE
-        );
-      const aliveGrassModelAvailable = Boolean(
-        standardAliveGrassModelAvailable && shouldUseGrassModelLod
-      );
-      const leafageGardenModelAvailable = gardenGrassModelAvailable;
-      const leafageNativeTreeModelAvailable = nativeTreeModelAvailable;
-      const nearDeadGrassModelAvailable = Boolean(
-        deadGrassModelAvailable && shouldUseGrassModelLod
-      );
-
-      if (leafageGardenModelAvailable) {
-        session.leafageGardenInstances.push({
-          id: `leafage-garden-${groundGrassPatch.id}`,
-          offset: [
-            groundGrassPatch.position[0] + rustleOffset,
-            groundGrassPatch.position[1],
-            groundGrassPatch.position[2]
-          ],
-          scale: getTallGrassInstanceScale(
-            session.leafageGardenModel,
-            groundGrassPatch,
-            grassRevivalScale
-          ) * (session.leafageGardenModelScale || 1),
-          alpha: grassAlpha,
-          yaw: getTallGrassYaw(groundGrassPatch) + (session.leafageGardenModelFaceYawOffset || 0),
-          swayStrength: 0
-        });
-      } else if (leafageNativeTreeModelAvailable) {
-        session.leafageNativeTreeInstances.push({
-          id: `leafage-native-tree-${groundGrassPatch.id}`,
-          offset: [
-            groundGrassPatch.position[0] + rustleOffset,
-            groundGrassPatch.position[1],
-            groundGrassPatch.position[2]
-          ],
-          scale: getTallGrassInstanceScale(
-            session.leafageNativeTreeModel,
-            groundGrassPatch,
-            grassRevivalScale
-          ) * (session.leafageNativeTreeModelScale || 1),
-          alpha: grassAlpha,
-          yaw: getTallGrassYaw(groundGrassPatch) + (session.leafageNativeTreeModelFaceYawOffset || 0),
-          swayStrength: 0
-        });
-      } else if (aliveGrassModelAvailable) {
-        session.tallGrassInstances.push({
-          id: `tall-grass-${groundGrassPatch.id}`,
-          offset: [
-            groundGrassPatch.position[0] + rustleOffset + playerBend.offsetX,
-            groundGrassPatch.position[1],
-            groundGrassPatch.position[2] + playerBend.offsetZ
-          ],
-          scale: getTallGrassInstanceScale(
-            session.tallGrassModel,
-            groundGrassPatch,
-            grassRevivalScale
-          ),
-          alpha: grassAlpha,
-          yaw: getTallGrassYaw(groundGrassPatch),
-          swayStrength: getTallGrassSway(groundGrassPatch, shouldRustleGrass, now) + playerBend.swayStrength
-        });
-      } else if (nearDeadGrassModelAvailable) {
-        session.deadGrassInstances.push({
-          id: `dead-grass-${groundGrassPatch.id}`,
-          offset: [
-            groundGrassPatch.position[0] + rustleOffset + playerBend.offsetX,
-            groundGrassPatch.position[1],
-            groundGrassPatch.position[2] + playerBend.offsetZ
-          ],
-          scale: getTallGrassInstanceScale(
-            session.deadGrassModel,
-            groundGrassPatch,
-            grassRevivalScale
-          ),
-          alpha: grassAlpha,
-          yaw: getTallGrassYaw(groundGrassPatch),
-          swayStrength: playerBend.swayStrength
-        });
-      } else {
-        nextFrame.render.grassBillboards.push({
-          texture: groundGrassPatch.state === "alive" ?
-            session.greenGrassTexture :
-            session.deadGrassTexture,
-          position: [
-            groundGrassPatch.position[0] + rustleOffset + playerBend.offsetX,
-            groundGrassPatch.position[1],
-            groundGrassPatch.position[2] + playerBend.offsetZ
-          ],
-          size: [
-            grassBillboardScaleX * grassRevivalScale,
-            grassBillboardScaleY * grassRevivalScale
-          ],
-          alpha: grassAlpha
-        });
-      }
-
-      if (hasRustlingEncounter) {
-        shouldShowRepairBoxRustlingParticles = true;
-      }
-    }
+    const natureGrassFrame = updateNatureGrassRenderFrame({
+      session,
+      nextFrame,
+      storyState: controls.storyState,
+      now,
+      grassBendPlayerPosition,
+      natureRenderCenter,
+      grassCollisionObjects,
+      shouldShowRepairBoxRustlingParticles
+    });
+    shouldShowRepairBoxRustlingParticles =
+      natureGrassFrame.shouldShowRepairBoxRustlingParticles;
 
     appendRebirthOfNatureGhostTree(session, controls.storyState, now);
 
     appendLandscapeCutEffectRenderables(nextFrame);
 
-    if (repairBoxRevealParticleTarget) {
-      nextFrame.render.genericBillboards.push(
-        ...getRepairBoxRevealRayBillboards({
-          target: repairBoxRevealParticleTarget,
-          texture: session.natureRevivalSparkTexture,
-          now,
-          uvRect: rendering.fullUvRect,
-          clamp01,
-          config: BULBASAUR_REVEAL_BOX_RAY_BILLBOARD_CONFIG
-        }),
-        ...getRustlingGrassParticleBillboards(
-          repairBoxRevealParticleTarget,
-          session.natureRevivalSparkTexture,
-          now,
-          rendering.fullUvRect
-        )
-      );
-    } else if (shouldShowRepairBoxRustlingParticles && selectedRepairBoxParticleTarget) {
-      nextFrame.render.genericBillboards.push(
-        ...getRustlingGrassParticleBillboards(
-          selectedRepairBoxParticleTarget,
-          session.natureRevivalSparkTexture,
-          now,
-          rendering.fullUvRect
-        )
-      );
-    }
-
-    for (const groundFlowerPatch of session.groundFlowerPatches) {
-      if (
-        !isWorldPositionWithinRenderDistance(
-          groundFlowerPatch.position,
-          natureRenderCenter,
-          NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE
-        )
-      ) {
-        continue;
-      }
-
-      const flowerRevivalScale = getNatureRevivalScale(
-        session.natureRevivalEffects,
-        groundFlowerPatch.id
-      );
-
-      if (groundFlowerPatch.state === "alive") {
-        getFlowerArrangementBillboards({
-          groundFlowerPatch,
-          texture: session.greenFlowerTexture,
-          playerPosition: grassBendPlayerPosition,
-          revivalScale: flowerRevivalScale,
-          now,
-          target: nextFrame.render.flowerBillboards
-        });
-        continue;
-      }
-
-      nextFrame.render.flowerBillboards.push({
-        texture: session.deadFlowerTexture,
-        position: groundFlowerPatch.position,
-        size: groundFlowerPatch.size.map((value) => value * flowerRevivalScale)
-      });
-    }
-
-    nextFrame.render.woodTexture = session.woodTexture;
-    nextFrame.render.woodDrops = session.woodDrops.filter((drop) => {
-      return (
-        drop?.itemId !== LEAVES_ITEM_ID &&
-        !drop.collected &&
-        isWorldPositionWithinRenderDistance(
-          drop.position,
-          natureRenderCenter,
-          NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE
-        )
-      );
+    updateNatureRenderFrame({
+      session,
+      nextFrame,
+      storyState: controls.storyState,
+      rendering,
+      now,
+      grassBendPlayerPosition,
+      natureRenderCenter,
+      selectedRepairBoxParticleTarget,
+      repairBoxRevealParticleTarget,
+      shouldShowRepairBoxRustlingParticles,
+      woodCollectPopRuntime,
+      gearPickupParticleRuntime,
+      clamp: clamp01
     });
-    nextFrame.render.genericBillboards.push(
-      ...woodCollectPopRuntime.getBillboards(session.woodTexture, rendering.fullUvRect)
-    );
-    nextFrame.render.genericBillboards.push(
-      ...gearPickupParticleRuntime.getBillboards(session.natureRevivalSparkTexture, rendering.fullUvRect)
-    );
-    nextFrame.render.genericBillboards.push(
-      ...getLeafDropBillboards({
-        fieldDrops: session.woodDrops,
-        texture: session.leavesTexture,
-        uvRect: rendering.fullUvRect,
-        renderCenter: natureRenderCenter,
-        itemId: LEAVES_ITEM_ID,
-        isWorldPositionWithinRenderDistance,
-        prepareDistance: NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE
-      })
-    );
-    nextFrame.render.genericBillboards.push(
-      ...getLeafResourceBillboards({
-        resourceNodes: session.resourceNodes,
-        texture: session.leavesTexture,
-        uvRect: rendering.fullUvRect,
-        storyState: controls.storyState,
-        renderCenter: natureRenderCenter,
-        itemId: LEAVES_ITEM_ID,
-        isResourceNodeActive: rendering.isResourceNodeActive,
-        isWorldPositionWithinRenderDistance,
-        prepareDistance: NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE,
-        yOffset: LEAF_RESOURCE_BILLBOARD_Y_OFFSET,
-        size: LEAF_RESOURCE_BILLBOARD_SIZE
-      })
-    );
-    nextFrame.render.genericBillboards.push(
-      ...(session.leppaBerryDrops || [])
-        .filter((leppaBerryDrop) => (
-          !leppaBerryDrop.collected &&
-          isWorldPositionWithinRenderDistance(
-            leppaBerryDrop.position,
-            natureRenderCenter,
-            NATURE_PATCH_BILLBOARD_PREPARE_DISTANCE
-          )
-        ))
-        .map((leppaBerryDrop) => ({
-          texture: session.leppaBerryTexture,
-          position: leppaBerryDrop.position,
-          size: leppaBerryDrop.size,
-          uvRect: rendering.fullUvRect
-        }))
-    );
-    nextFrame.render.genericBillboards.push(
-      ...getLeppaTreeMusicNoteBillboards({
-        leppaTree: session.leppaTree,
-        textures: session.leppaTreeMusicalNoteTextures,
-        uvRect: rendering.fullUvRect,
-        now,
-        clamp01
-      })
-    );
-    nextFrame.render.genericBillboards.push(
-      ...getLeppaTreeMissionParticleBillboards({
-        active: isOpeningLeppaTreeRequestActive(controls.storyState),
-        leppaTree: session.leppaTree,
-        texture: session.natureRevivalSparkTexture,
-        uvRect: rendering.fullUvRect,
-        now,
-        clamp01,
-        config: LEPPA_TREE_MISSION_PARTICLE_BILLBOARD_CONFIG
-      })
-    );
     nextFrame.render.genericBillboards.push(
       ...getSnowstormBillboards(
         session.snowstorm,

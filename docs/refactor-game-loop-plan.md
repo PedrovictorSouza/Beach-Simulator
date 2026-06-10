@@ -319,10 +319,73 @@ There is no dedicated lint or typecheck script in `package.json`.
   `presentation` boundary.
 - Completed: move wrapped render-distance helpers into the `presentation`
   boundary.
+- Completed: move the nature render frame into the `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Nature Render Frame Boundary
+
+Moved the nature presentation pass from `app/runtime/gameLoop.js` into
+`app/runtime/presentation/natureRenderFrame.js`.
+
+Boundary classification: `presentation/render helpers`, focused on preparing
+nature-related render buckets for grass, flowers, field drops, Leppa tree
+billboards and Repair Box rustling/reveal particles.
+
+Module boundary note:
+
+- This is one cohesive domain module, not a one-helper file.
+- Helpers that are only used by this pass stay private inside
+  `natureRenderFrame.js`.
+- The module owns visual presentation decisions for nature render buckets while
+  `gameLoop.js` still owns frame order and still calls Rebirth ghost-tree and
+  landscape-cut effect renderers at their previous position.
+- The visual tuning values moved with the nature presentation pass; the numbers
+  did not change.
+
+Study path:
+
+1. `gameLoop.js` calls `updateNatureGrassRenderFrame(...)` first, before the
+   existing Rebirth ghost-tree and landscape-cut effect calls.
+2. `gameLoop.js` then calls `updateNatureRenderFrame(...)` for Repair Box
+   nature particles, flowers, wood/leaves/Leppa drops and Leppa tree particles.
+3. Splitting the module into two exported frame functions preserves the old
+   render order without exposing the internal per-patch helpers.
+4. No field-move rule, drop collection rule, camera behavior, render snapshot
+   shape or frame scheduling changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `8956` to `8625`.
+- Removed the large ground-grass render loop from `frame(now)`.
+- Removed flower, drop, leaf-resource, Leppa tree and Repair Box nature
+  billboard assembly from `frame(now)`.
+- Removed nature render tuning constants from `gameLoop.js`.
+- Added focused tests for model-vs-billboard grass output and the shared
+  flowers/drops/leaf billboard pass.
+
+Passed:
+
+```sh
+npm test -- --run tests/natureRenderFrame.test.js
+npm test -- --run tests/natureRenderFrame.test.js tests/renderSnapshotContext.test.js tests/grassCollisionObjects.test.js tests/renderDistance.test.js tests/grassPlayerBend.test.js tests/tallGrassMotion.test.js tests/flowerArrangementBillboards.test.js tests/leafBillboards.test.js tests/repairBoxRevealRayBillboards.test.js tests/rustlingGrassParticleBillboards.test.js tests/leppaTreeMissionParticleBillboards.test.js tests/leppaTreeMusicNotes.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused nature render frame test passed with `2` tests, the broader nature
+presentation suite passed with `42` tests and the production build passed with
+the existing chunk-size warning. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1686` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
 
 ### Render Distance Presentation Boundary
 
