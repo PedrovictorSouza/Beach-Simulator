@@ -3,7 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   cancelPendingWorkbenchPlacementIntent,
   getActivePendingPlacementIntent,
-  hasPendingWorkbenchPlacementIntent
+  hasPendingWorkbenchPlacementIntent,
+  resolveFramePendingPlacementIntent
 } from "../app/runtime/construction/pendingPlacementIntent.js";
 
 describe("pending placement intent", () => {
@@ -62,6 +63,30 @@ describe("pending placement intent", () => {
       label: "House Kit",
       blockedReason: null
     });
+  });
+
+  it("blocks frame pending placement intents while a placement preview is active", () => {
+    const session = {
+      pendingPlacementIntent: {
+        itemId: "greenhouse",
+        label: "Greenhouse"
+      }
+    };
+    const inventory = {
+      greenhouse: 1
+    };
+
+    expect(resolveFramePendingPlacementIntent({
+      placementPreviewBlocked: true,
+      session,
+      inventory
+    })).toBeNull();
+
+    expect(resolveFramePendingPlacementIntent({
+      placementPreviewBlocked: false,
+      session,
+      inventory
+    })).toBe(session.pendingPlacementIntent);
   });
 
   it("cancels only pending Workbench placement intents", () => {

@@ -23,6 +23,17 @@ export function getActivePendingPlacementIntent(session, storyState = {}, invent
   return intent;
 }
 
+export function resolveFramePendingPlacementIntent({
+  placementPreviewBlocked = false,
+  session = null,
+  storyState = {},
+  inventory = {}
+} = {}) {
+  return placementPreviewBlocked ?
+    null :
+    getActivePendingPlacementIntent(session, storyState, inventory);
+}
+
 export function hasPendingWorkbenchPlacementIntent(session) {
   const intent = session?.pendingPlacementIntent || null;
   return Boolean(intent?.source === "workbench" && intent.itemId);

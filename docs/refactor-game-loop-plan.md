@@ -290,10 +290,61 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move placement-preview prompt blocker state into the
   `construction` boundary.
+- Completed: move frame pending placement intent gating into the
+  `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Frame Pending Placement Intent Boundary
+
+Moved frame-level pending placement intent gating from
+`app/runtime/gameLoop.js` into
+`app/runtime/construction/pendingPlacementIntent.js`.
+
+Boundary classification: `construction`, focused on whether a pending placement
+intent can be active for the current frame while placement previews are active.
+
+Study path:
+
+1. `resolveFramePendingPlacementIntent(...)` owns the rule that active placement
+   previews suppress pending placement intents for prompt resolution.
+2. It reuses `getActivePendingPlacementIntent(...)` for ownership, inventory and
+   story-flag checks.
+3. `gameLoop.js` still owns HUD prompt composition and delegates prompt copy to
+   `getPendingPlacementPrompt(...)`.
+4. No prompt copy, placement rule, input mapping or frame order changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count stayed at `9769`, while the frame-local pending
+  intent gate moved into the construction boundary.
+- Removed direct `getActivePendingPlacementIntent(...)` usage from
+  `gameLoop.js`.
+- Added focused tests for blocked and allowed frame pending placement intents.
+
+Validation:
+
+```sh
+npm test -- --run tests/pendingPlacementIntent.test.js
+npm test -- --run tests/pendingPlacementIntent.test.js tests/placementPreviewPrompts.test.js tests/worldPromptCopy.test.js tests/hudPromptCopy.test.js tests/gameLoopFrameRuntime.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused construction/prompt/frame suite passed with `25` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1645` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Placement Preview Prompt State Boundary
 

@@ -58,8 +58,8 @@ import {
 } from "./construction/constructionHelperMotion.js";
 import {
   cancelPendingWorkbenchPlacementIntent,
-  getActivePendingPlacementIntent,
-  hasPendingWorkbenchPlacementIntent
+  hasPendingWorkbenchPlacementIntent,
+  resolveFramePendingPlacementIntent
 } from "./construction/pendingPlacementIntent.js";
 import {
   buildFreeBlockBuildCostMarker,
@@ -6149,10 +6149,10 @@ export function startGameLoop({
       leafDenKitPlacementPreview,
       inputModalityState
     });
-    const pendingPlacementIntent =
-      !placementPreviewBlocked ?
-        getActivePendingPlacementIntent(session, controls.storyState, controls.inventory) :
-        null;
+    const pendingPlacementIntent = resolveFramePendingPlacementIntent({
+      placementPreviewBlocked, session,
+      storyState: controls.storyState, inventory: controls.inventory
+    });
     const pendingPlacementPrompt = getPendingPlacementPrompt(
       pendingPlacementIntent,
       nearbyHarvestTarget,
