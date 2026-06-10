@@ -8,7 +8,6 @@ import {
 } from "./botRevealMotion.js";
 import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
-import { getCampfireWoodPileBillboards } from "./campfireWoodPileBillboards.js";
 import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import {
@@ -69,7 +68,6 @@ import {
   resolveFramePlacementPromptState
 } from "./construction/placementPreviewPrompts.js";
 import {
-  applyPlayerPlacementSpawnToBillboard,
   applyPlayerPlacementSpawnToModelInstance,
   updateSolarStationSpawnEffect
 } from "./construction/playerPlacementSpawnEffect.js";
@@ -181,18 +179,11 @@ import { getDestroyableLandscapePatchForInteractOptions as getDestroyableLandsca
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import {
-  createInteractionInfoBillboard,
-  getWorkbenchInteractionParticleBillboards,
-  POKEMON_CENTER_PC_INFO_ICON_OFFSET,
-  WORKBENCH_INFO_ICON_OFFSET
-} from "./interactionInfoBillboards.js";
-import {
   getActorDebugPosition,
   getInteractionDebugColliders as getInteractionDebugCollidersWithConfig
 } from "./interactionDebugColliders.js";
 import { createLandscapeCutEffectRuntime } from "./landscapeCutEffectRuntime.js";
 import { updateLeppaTreeMusicNotes } from "./leppaTreeMusicNotes.js";
-import { createMissionTargetIndicatorBillboard } from "./missionTargetIndicatorBillboard.js";
 import { getMissionTargetPositionsById as getMissionTargetPositionsByIdWithConfig } from "./missionTargetPositionLookup.js";
 import {
   getLogicalFacingYaw as getModelLogicalFacingYaw,
@@ -200,7 +191,6 @@ import {
   getYawToward
 } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
-import { getMissionTargetPositions } from "./missionTargetPositions.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { resolveFrameHudPromptCopy } from "./presentation/hudPromptCopy.js";
@@ -231,6 +221,7 @@ import {
   updateNatureRenderFrame
 } from "./presentation/natureRenderFrame.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
+import { updateWorldObjectBillboardFrame } from "./presentation/worldObjectBillboardFrame.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import {
   getRepairBoxRevealParticleTarget,
@@ -240,7 +231,6 @@ import { getNearbyRepairBoxPrompt } from "./repairBoxPromptTargets.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { appendRebirthOfNatureGhostTree } from "./rebirthOfNatureGhostTree.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
-import { getSavePointStarBillboards } from "./savePointStarBillboards.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import { resolveSupplyPickupViewportOrigin } from "./supplyPickupViewportOrigin.js";
 import {
@@ -411,7 +401,6 @@ import {
   GEAR_ITEM_ID,
   LEAVES_ITEM_ID,
   LEPPA_BERRY_ITEM_ID,
-  LOG_CHAIR_ITEM_ID,
   POKEMON_TALK_INTERACT_DISTANCE,
   RUINED_POKEMON_CENTER_GUIDE_POSITION,
   RUINED_POKEMON_CENTER_POSITION,
@@ -420,7 +409,6 @@ import {
 } from "../../gameplayContent.js";
 import {
   BULBASAUR_TALK_INTERACT_DISTANCE,
-  buildLogChairPlacement,
   findNearbyDestroyableInstantiatedObject,
   getLeppaTreeSurroundingGroundCells,
   treeFootprint,
@@ -479,7 +467,6 @@ import { createGameplayOpeningRuntime } from "./opening/createGameplayOpeningRun
 import { createGameplayInputRuntime } from "./input/createGameplayInputRuntime.js";
 
 
-const LOG_CHAIR_PLACEMENT_PREVIEW_ALPHA = 0.42;
 const BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT = 10;
 const BOULDER_SHADED_TALL_GRASS_TASK_ID = "boulder-shaded-tall-grass";
 const GROW_FIRST_HABITAT_TASK_ID = "grow-first-habitat";
@@ -627,16 +614,6 @@ const ROBOT_IDLE_PATROL_SPEED = 0.82;
 const ROBOT_IDLE_PATROL_PAUSE_DURATION = 0.75;
 const ROBOT_IDLE_PATROL_ARRIVE_DISTANCE = 0.08;
 const PLAYER_CONSTRUCTION_MODEL_PREPARE_DISTANCE = 58;
-const SAVE_POINT_STAR_PARTICLE_COUNT = 10;
-const SAVE_POINT_STAR_PARTICLE_RADIUS = 0.64;
-const SAVE_POINT_STAR_PARTICLE_HEIGHT = 1.18;
-const SAVE_POINT_STAR_PARTICLE_DURATION = 1.9;
-const SAVE_POINT_STAR_BILLBOARD_CONFIG = Object.freeze({
-  count: SAVE_POINT_STAR_PARTICLE_COUNT,
-  radius: SAVE_POINT_STAR_PARTICLE_RADIUS,
-  height: SAVE_POINT_STAR_PARTICLE_HEIGHT,
-  duration: SAVE_POINT_STAR_PARTICLE_DURATION
-});
 const CAMERA_DEBUG_ENABLED = (() => {
   try {
     return new URLSearchParams(globalThis.location?.search || "").get("cameraDebug") === "1";
@@ -8229,235 +8206,22 @@ if (canProcessDestroyAction && destroyActionRequested) {
       flashTexture: session.gameplayOpeningShipFlashTexture,
       fullUvRect: rendering.fullUvRect
     });
-    const workbenchInfoBillboard = createInteractionInfoBillboard(
-      session.markerTextures?.workbench,
-      WORKBENCH_POSITION,
-      WORKBENCH_INFO_ICON_OFFSET,
-      rendering.fullUvRect
-    );
-    if (workbenchInfoBillboard) {
-      nextFrame.render.genericBillboards.push(workbenchInfoBillboard);
-    }
-    if (canShowWorldSpaceUi) {
-      nextFrame.render.genericBillboards.push(
-        ...getWorkbenchInteractionParticleBillboards({
-          texture: session.logChairStarTexture || session.natureRevivalSparkTexture,
-          uvRect: rendering.fullUvRect,
-          playerPosition: session.playerCharacter?.getPosition?.(),
-          now
-        })
-      );
-    }
-    if (
-      session.playerCharacter &&
-      session.logChairTexture &&
-      controls.storyState.flags.logChairReceived &&
-      !controls.storyState.flags.logChairPlaced &&
-      (controls.inventory?.[LOG_CHAIR_ITEM_ID] || 0) > 0
-    ) {
-      const logChairPreview = buildLogChairPlacement(session.playerCharacter.getPosition());
-      nextFrame.render.genericBillboards.push({
-        texture: session.logChairTexture,
-        position: logChairPreview.position,
-        size: logChairPreview.size,
-        uvRect: rendering.fullUvRect,
-        alpha: LOG_CHAIR_PLACEMENT_PREVIEW_ALPHA
-      });
-    }
-    if (session.logChair && controls.storyState.flags.logChairPlaced) {
-      nextFrame.render.genericBillboards.push(
-        applyPlayerPlacementSpawnToBillboard(session.logChair, {
-          texture: session.logChairTexture,
-          position: session.logChair.position,
-          size: session.logChair.size,
-          uvRect: rendering.fullUvRect
-        }, deltaTime)
-      );
-      nextFrame.render.genericBillboards.push(
-        ...getSavePointStarBillboards({
-          logChair: session.logChair,
-          texture: session.logChairStarTexture,
-          uvRect: rendering.fullUvRect,
-          now,
-          clamp01,
-          config: SAVE_POINT_STAR_BILLBOARD_CONFIG
-        })
-      );
-    }
-    if (session.strawBed && controls.storyState.flags.strawBedPlacedInBulbasaurHabitat) {
-      nextFrame.render.genericBillboards.push({
-        texture: session.strawBedTexture,
-        position: session.strawBed.position,
-        size: session.strawBed.size,
-        uvRect: rendering.fullUvRect
-      });
-    }
-    if (
-      campfirePlacementPreview?.snappedPosition &&
-      session.campfireTexture &&
-      !session.campfireTrainHouseModelInstance
-    ) {
-      nextFrame.render.genericBillboards.push({
-        texture: session.campfireTexture,
-        position: campfirePlacementPreview.snappedPosition,
-        size: campfirePlacementPreview.effectiveSize || campfirePlacementPreview.size,
-        uvRect: campfirePlacementPreview.uvRect || rendering.fullUvRect,
-        alpha: campfirePlacementPreview.valid ? 0.58 : 0.36
-      });
-    }
-    if (
-      session.campfire &&
-      controls.storyState.flags.campfireSpatOut &&
-      !session.campfireTrainHouseModelInstance
-    ) {
-      if (controls.storyState.flags.charmanderCampfireLit) {
-        nextFrame.render.genericBillboards.push({
-          texture: session.campfireTexture,
-          position: session.campfire.position,
-          size: session.campfire.size,
-          uvRect: rendering.fullUvRect
-        });
-      } else {
-        nextFrame.render.genericBillboards.push(
-          ...getCampfireWoodPileBillboards({
-            campfire: session.campfire,
-            texture: session.woodTexture,
-            uvRect: rendering.fullUvRect
-          })
-        );
-      }
-    }
-    if (session.leafDen && controls.storyState.flags.leafDenKitPlaced) {
-      const leafDenBuilt = Boolean(controls.storyState.flags.leafDenBuilt);
-      const shouldRenderLeafDenBillboard = !session.leafDenModelInstance;
-
-      if (shouldRenderLeafDenBillboard) {
-        nextFrame.render.genericBillboards.push(
-          applyPlayerPlacementSpawnToBillboard(session.leafDen, {
-            texture: session.leafDenTexture,
-            position: session.leafDen.position,
-            size: [2.55, 1.85],
-            uvRect: rendering.fullUvRect,
-            rotation: Number(session.leafDen.yaw || 0)
-          }, deltaTime)
-        );
-      }
-      if (
-        !leafDenBuilt &&
-        session.leafDen?.interactionBox?.offset
-      ) {
-        const interactionBoxBillboard = createInteractionInfoBillboard(
-          session.markerTextures?.[session.leafDen.interactionBox.markerKey] ||
-            session.markerTextures?.workbench,
-          session.leafDen.position,
-          session.leafDen.interactionBox.offset,
-          rendering.fullUvRect
-        );
-        if (interactionBoxBillboard) {
-          nextFrame.render.genericBillboards.push(interactionBoxBillboard);
-        }
-      }
-      nextFrame.render.genericBillboards.push(
-        ...getLeafDenConstructionBillboards(rendering.fullUvRect, now * 0.001)
-      );
-    }
-    nextFrame.render.genericBillboards.push(
-      ...getConstructionCloudBurstBillboards(rendering.fullUvRect, now * 0.001)
-    );
-    if (session.dittoFlag && controls.storyState.flags.dittoFlagPlacedOnHouse) {
-      nextFrame.render.genericBillboards.push(
-        applyPlayerPlacementSpawnToBillboard(session.dittoFlag, {
-          texture: session.dittoFlagTexture,
-          position: session.dittoFlag.position,
-          size: session.dittoFlag.size,
-          uvRect: rendering.fullUvRect
-        }, deltaTime)
-      );
-    }
-    if (controls.storyState.flags.leafDenInteriorEntered) {
-      nextFrame.render.genericBillboards.push(
-        ...(session.leafDenFurniture || []).map((furniture) => (
-          applyPlayerPlacementSpawnToBillboard(furniture, {
-            texture: furniture.kind === "strawBed" ?
-              session.strawBedTexture :
-              furniture.kind === "campfire" ?
-                session.campfireTexture :
-                session.logChairTexture,
-            position: furniture.position,
-            size: furniture.size,
-            uvRect: rendering.fullUvRect
-          }, deltaTime)
-        ))
-      );
-    }
-    if (
-      session.pokemonCenterPc &&
-      controls.storyState.flags.ruinedPokemonCenterInspected
-    ) {
-      nextFrame.render.genericBillboards.push({
-        texture: session.pokemonCenterPc.texture,
-        position: session.pokemonCenterPc.position,
-        size: session.pokemonCenterPc.size,
-        uvRect: rendering.fullUvRect
-      });
-      const pokemonCenterPcInfoBillboard = createInteractionInfoBillboard(
-        session.markerTextures?.pokemonCenterPc,
-        session.pokemonCenterPc.position,
-        POKEMON_CENTER_PC_INFO_ICON_OFFSET,
-        rendering.fullUvRect
-      );
-      if (pokemonCenterPcInfoBillboard) {
-        nextFrame.render.genericBillboards.push(pokemonCenterPcInfoBillboard);
-      }
-    }
-    if (session.challengeBoulder && controls.storyState.flags.boulderChallengeAvailable) {
-      nextFrame.render.genericBillboards.push({
-        texture: session.challengeBoulder.texture,
-        position: session.challengeBoulder.position,
-        size: session.challengeBoulder.size,
-        uvRect: rendering.fullUvRect
-      });
-    }
-    if (session.billCameo?.visible && session.billCameo.texture) {
-      nextFrame.render.genericBillboards.push({
-        texture: session.billCameo.texture,
-        position: session.billCameo.position,
-        size: session.billCameo.size,
-        uvRect: rendering.fullUvRect
-      });
-    }
-    if (session.actTwoRepairPlant) {
-      const repairPlantTexture = session.actTwoRepairPlant.fixed ?
-        session.repairPlantFixedTexture :
-        session.repairPlantBrokenTexture;
-
-      nextFrame.render.genericBillboards.push({
-        texture: repairPlantTexture,
-        position: session.actTwoRepairPlant.position,
-        size: session.actTwoRepairPlant.size,
-        uvRect: rendering.fullUvRect
-      });
-    }
-
-    if (canShowWorldSpaceUi) {
-      const missionTargetPositions = getMissionTargetPositions({
-        activeQuest,
-        storyState: controls.storyState,
-        getMissionTargetPositionsById
-      });
-      for (const missionTargetPosition of missionTargetPositions) {
-        const missionTargetIndicatorBillboard = createMissionTargetIndicatorBillboard({
-          texture: session.missionTargetIndicatorTexture,
-          targetPosition: missionTargetPosition,
-          now,
-          uvRect: rendering.fullUvRect
-        });
-
-        if (missionTargetIndicatorBillboard) {
-          nextFrame.render.genericBillboards.push(missionTargetIndicatorBillboard);
-        }
-      }
-    }
+    updateWorldObjectBillboardFrame({
+      session,
+      nextFrame,
+      storyState: controls.storyState,
+      inventory: controls.inventory,
+      rendering,
+      now,
+      deltaTime,
+      canShowWorldSpaceUi,
+      activeQuest,
+      campfirePlacementPreview,
+      getMissionTargetPositionsById,
+      getLeafDenConstructionBillboards,
+      getConstructionCloudBurstBillboards,
+      clamp: clamp01
+    });
 
     if (session.actTwoSquirtle?.modelInstance) {
       const squirtle = session.actTwoSquirtle;

@@ -320,10 +320,79 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move wrapped render-distance helpers into the `presentation`
   boundary.
 - Completed: move the nature render frame into the `presentation` boundary.
+- Completed: move world-object billboard frame into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### World Object Billboard Frame Boundary
+
+Moved the world-object billboard presentation pass from
+`app/runtime/gameLoop.js` into
+`app/runtime/presentation/worldObjectBillboardFrame.js`.
+
+Boundary classification: `presentation/render helpers`, focused on billboards
+for placed world objects, construction-adjacent objects, interaction markers and
+mission indicators.
+
+Module boundary note:
+
+- This is one cohesive presentation module, not a set of one-helper files.
+- Helpers used only by the pass stay private inside
+  `worldObjectBillboardFrame.js`.
+- `gameLoop.js` still owns the render order and calls this pass after
+  snowstorm/opening ship billboards and before companion/status/field-move
+  billboards.
+- The old order inside the pass is preserved: workbench, log chair/save point,
+  straw bed, campfire, Leaf Den, construction clouds, house interior, late
+  world objects and mission indicators.
+
+Study path:
+
+1. `updateWorldObjectBillboardFrame(...)` receives frame state that `gameLoop.js`
+   already resolved: `storyState`, `inventory`, `rendering`, `canShowWorldSpaceUi`,
+   placement preview state and construction billboard callbacks.
+2. The module owns billboard assembly for Workbench markers/particles, Log Chair
+   preview/save point, Campfire, Leaf Den, house interior furniture, Pokemon
+   Center PC, challenge boulder, Bill cameo, repair plant and mission target
+   indicators.
+3. Companion status bars, fallback companion billboards and field-move effect
+   billboards intentionally remain outside this boundary for a future companion
+   or field-move presentation cut.
+4. No placement rule, mission target rule, construction rule, camera behavior,
+   render snapshot shape or frame scheduling changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `8625` to `8389`.
+- Removed the world-object billboard chain from `frame(now)`.
+- Moved Log Chair preview alpha and Save Point star billboard config out of
+  `gameLoop.js`.
+- Added focused tests for Log Chair/save point/mission output and simple
+  world-object billboard output.
+
+Passed:
+
+```sh
+npm test -- --run tests/worldObjectBillboardFrame.test.js
+npm test -- --run tests/worldObjectBillboardFrame.test.js tests/workbenchRuntime.test.js tests/savePointStarBillboards.test.js tests/campfireWoodPileBillboards.test.js tests/constructionBillboards.test.js tests/playerPlacementSpawnEffect.test.js tests/missionTargetIndicatorBillboard.test.js tests/missionTargetPositions.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused world-object billboard frame test passed with `2` tests, the
+broader world-object billboard suite passed with `29` tests and the production
+build passed with the existing chunk-size warning. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1688` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
 
 ### Nature Render Frame Boundary
 
