@@ -184,17 +184,8 @@ import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { resolveFrameHudPromptCopy } from "./presentation/hudPromptCopy.js";
-import {
-  findNearbyDryGrassHintTarget,
-  findNearbyDryGrassWorldPromptTarget
-} from "./presentation/dryGrassPromptTargets.js";
-import {
-  getFieldToolWorldPromptText,
-  getPendingPlacementPrompt,
-  getPlayerInteractionWorldPromptText,
-  getRunBreadcrumbWorldPromptText,
-  resolveWorldPromptVisibility
-} from "./presentation/worldPromptCopy.js";
+import { getPendingPlacementPrompt } from "./presentation/worldPromptCopy.js";
+import { resolveWorldPromptFrameState } from "./presentation/worldPromptFrameState.js";
 import { updateWorldPromptSnapshotFrame } from "./presentation/worldPromptSnapshotFrame.js";
 import { resolveWorldSpeechVisibility } from "./presentation/worldSpeechVisibility.js";
 import { prepareWorldSpaceUiFrameContext as prepareWorldSpaceUiFrameContextWithSources } from "./presentation/worldSpaceUiFrameContext.js";
@@ -217,7 +208,6 @@ import {
   getRepairBoxRevealParticleTarget,
   getSelectedRepairBoxParticleTarget
 } from "./repairBoxParticleTargets.js";
-import { getNearbyRepairBoxPrompt } from "./repairBoxPromptTargets.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { appendRebirthOfNatureGhostTree } from "./rebirthOfNatureGhostTree.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
@@ -308,7 +298,6 @@ import {
   LANDSCAPE_CUT_EFFECT_LIFT,
   LANDSCAPE_CUT_EFFECT_POP_SCALE,
   PLAYER_COUNTER_PROMPT_DURATION_MS,
-  PLAYER_INTERACTION_WORLD_PROMPT_TARGET_IDS,
   TRAIN_HOUSE_MUSIC_FADE_DISTANCE,
   TRAIN_HOUSE_MUSIC_FULL_DISTANCE,
   TRAIN_HOUSE_MUSIC_MAX_VOLUME,
@@ -7883,92 +7872,6 @@ if (canProcessDestroyAction && destroyActionRequested) {
         !controls.storyState.flags.charmanderCelebrationSuggested &&
         !controls.storyState.flags.charmanderCelebrationComplete
     });
-    const nearbyRepairBoxPrompt = getNearbyRepairBoxPrompt({
-      playerPosition: session.playerCharacter?.getPosition?.(),
-      repairBoxTargets: [
-        {
-          name: SANDBOTS_BOT_NAMES.hydro,
-          encounter: session.actTwoSquirtle
-        },
-        {
-          name: SANDBOTS_BOT_NAMES.grow,
-          encounter: session.bulbasaurEncounter
-        },
-        {
-          name: SANDBOTS_BOT_NAMES.thermal,
-          encounter: session.charmanderEncounter
-        },
-        {
-          name: SANDBOTS_BOT_NAMES.builder,
-          encounter: session.timburrEncounter
-        }
-      ],
-      promptDistance: REPAIR_BOX_PROMPT_DISTANCE,
-      getEncounterRepairBoxPosition
-    });
-    const waterGunFirstUsePromptVisible =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      controls.playerSkills?.waterGun &&
-      activeMoveId === "waterGun" &&
-      !controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] &&
-      !controls.isPrimaryActionActive?.();
-    const leafageFirstUsePromptVisible =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      controls.playerSkills?.leafage &&
-      !controls.storyState.flags.leafageTallGrassCount &&
-      !controls.storyState.flags.leafageTallGrassHabitatCreated &&
-      !controls.isPrimaryActionActive?.();
-    const squirtleChargingPosition = getSquirtleWorldPosition();
-    const squirtleWaterCharging =
-      canShowWorldSpaceUi &&
-      isSquirtleWaterCharging();
-    const leafageInvalidTargetVisible =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      fieldMoveInvalidTargetPromptRuntime.isLeafageVisible(now);
-    const fireInvalidTargetVisible =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      fieldMoveInvalidTargetPromptRuntime.isFireVisible(now);
-    const fieldMoveSwitchPrompt = controls.getFieldMoveSwitchPrompt?.(now) || null;
-    const freeBlockBuildCostMarker =
-      canShowWorldSpaceUi && buildBlockEquipped ?
-        getFreeBlockBuildCostMarker(freeBlockPreviewTarget) :
-        null;
-    const isPlayerInteractionPromptTarget =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      PLAYER_INTERACTION_WORLD_PROMPT_TARGET_IDS.has(nearbyInteractable?.target?.id);
-    const nearbyDryGrassWorldPromptTarget =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      waterGunEquipped &&
-      isDryGrassHydroMissionActive(activeQuest, controls.storyState, controls.playerSkills) ?
-        findNearbyDryGrassWorldPromptTarget({
-          playerPosition: session.playerCharacter.getPosition(),
-          groundGrassPatches: session.groundGrassPatches,
-          groundDeadInstances: session.groundDeadInstances,
-          groundPurifiedInstances: session.groundPurifiedInstances
-        }) :
-        null;
-    const nearbyDryGrassHintTarget =
-      canShowWorldSpaceUi &&
-      session.playerCharacter ?
-        findNearbyDryGrassHintTarget({
-          playerPosition: session.playerCharacter.getPosition(),
-          groundGrassPatches: session.groundGrassPatches,
-          leppaTree: session.leppaTree,
-          groundDeadInstances: session.groundDeadInstances,
-          openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState),
-          getLeppaTreeSurroundingGroundCells
-        }) :
-        null;
-    const runBreadcrumbVisible =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      runBreadcrumbPromptRuntime.isVisible(now);
     const {
       shouldShowSolarStationPlacementPrompt,
       shouldShowGreenhousePlacementPrompt,
@@ -7989,18 +7892,27 @@ if (canProcessDestroyAction && destroyActionRequested) {
       shouldShowPlayerInteractionPrompt,
       shouldShowRepairBoxPrompt,
       shouldShowLeafageFirstUsePrompt,
-      shouldShowWaterGunFirstUsePrompt
-    } = resolveWorldPromptVisibility({
-      canShowWorldSpaceUi,
-      hasPlayerCharacter: Boolean(session.playerCharacter),
+      shouldShowWaterGunFirstUsePrompt,
       nearbyRepairBoxPrompt,
-      waterGunFirstUsePromptVisible,
-      leafageFirstUsePromptVisible,
-      squirtleWaterCharging,
       squirtleChargingPosition,
-      leafageInvalidTargetVisible,
-      fireInvalidTargetVisible,
       fieldMoveSwitchPrompt,
+      freeBlockBuildCostMarker,
+      nearbyDryGrassHintTarget,
+      playerInteractionPromptText,
+      dryGrassHydroPromptText,
+      runBreadcrumbPromptText,
+      chopperAttentionCue
+    } = resolveWorldPromptFrameState({
+      activeMoveId,
+      activeQuest,
+      activeTask,
+      activeSystemQuest,
+      buildBlockEquipped,
+      canShowWorldSpaceUi,
+      controls,
+      session,
+      now,
+      inputModalityState,
       solarStationPlacementPreview,
       greenhousePlacementPreview,
       campfirePlacementPreview,
@@ -8008,30 +7920,34 @@ if (canProcessDestroyAction && destroyActionRequested) {
       pendingPlacementPrompt,
       workbenchRotationPrompt,
       destroyableObjectPrompt,
-      freeBlockBuildCostMarker,
+      freeBlockPreviewTarget,
       transientNoticeRoute,
       playerCounterPromptText,
-      isPlayerInteractionPromptTarget,
-      nearbyDryGrassWorldPromptTarget,
-      runBreadcrumbVisible
+      waterGunEquipped,
+      leafageEquipped,
+      nearbyInteractable,
+      tangrowthPosition,
+      repairBoxPromptDistance: REPAIR_BOX_PROMPT_DISTANCE,
+      waterGunFirstUsePromptDismissed: controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG],
+      dryGrassHydroMissionActive: isDryGrassHydroMissionActive(
+        activeQuest,
+        controls.storyState,
+        controls.playerSkills
+      ),
+      openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState),
+      getEncounterRepairBoxPosition,
+      getLeppaTreeSurroundingGroundCells,
+      getSquirtleWorldPosition,
+      isSquirtleWaterCharging,
+      getFreeBlockBuildCostMarker,
+      getPeriodicChopperAttentionCue,
+      isLeafageInvalidTargetVisible: (frameNow) =>
+        fieldMoveInvalidTargetPromptRuntime.isLeafageVisible(frameNow),
+      isFireInvalidTargetVisible: (frameNow) =>
+        fieldMoveInvalidTargetPromptRuntime.isFireVisible(frameNow),
+      isRunBreadcrumbVisible: (frameNow) =>
+        runBreadcrumbPromptRuntime.isVisible(frameNow)
     });
-    const playerInteractionPromptText = shouldShowPlayerInteractionPrompt ?
-      getPlayerInteractionWorldPromptText(inputModalityState) :
-      "";
-    const dryGrassHydroPromptText = shouldShowDryGrassHydroPrompt ?
-      getFieldToolWorldPromptText(inputModalityState) :
-      "";
-    const runBreadcrumbPromptText = shouldShowRunBreadcrumbPrompt ?
-      getRunBreadcrumbWorldPromptText(inputModalityState) :
-      "";
-    const chopperAttentionCue = canShowWorldSpaceUi ?
-      getPeriodicChopperAttentionCue({
-        activeTask,
-        activeSystemQuest,
-        chopperPosition: tangrowthPosition,
-        now
-      }) :
-      null;
 
     updateWorldSpeechSnapshotFrame(nextFrame, {
       now,

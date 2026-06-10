@@ -324,10 +324,80 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move companion presentation frame into the `companions`
   boundary.
+- Completed: move world-prompt frame-state preparation into the
+  `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### World Prompt Frame-State Boundary
+
+Moved the world-prompt target, visibility and copy preparation pass from
+`app/runtime/gameLoop.js` into
+`app/runtime/presentation/worldPromptFrameState.js`.
+
+Boundary classification: `presentation/render helpers`, focused on world-space
+prompt state before `updateWorldPromptSnapshotFrame(...)` writes the snapshot.
+
+Module boundary note:
+
+- This is one cohesive presentation module, not a generic helper file.
+- `gameLoop.js` still owns frame order and still calls
+  `updateWorldSpeechSnapshotFrame(...)` and `updateWorldPromptSnapshotFrame(...)`
+  in the same order.
+- Mission-specific decisions remain outside this boundary:
+  `dryGrassHydroMissionActive` and `openingLeppaTreeRequestActive` are passed in
+  as resolved booleans.
+- Runtime state checks remain explicit callbacks for field-move invalid prompts,
+  run breadcrumb visibility, Chopper cue lookup, Squirtle charging and Build
+  Block cost markers.
+
+Study path:
+
+1. `resolveWorldPromptFrameState(...)` receives frame state already resolved by
+   `gameLoop.js`: active move, quest/task ids, placement previews, player skill
+   flags, nearby interaction target, input modality and world-space UI gate.
+2. The module owns the previous pre-snapshot derivation of repair-box prompts,
+   first-use prompts, field-move switch prompt, dry-grass prompt targets,
+   interaction prompt text, run prompt text, Chopper attention cue and the final
+   `shouldShow...` flags.
+3. `updateWorldPromptSnapshotFrame(...)` still owns snapshot writes and prompt
+   priority. This cut does not change prompt priority or prompt data shape.
+4. No field-move rule, placement rule, input mapping, camera behavior, render
+   snapshot shape or frame scheduling changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `8289` to `8205`.
+- Removed direct imports of dry-grass prompt target helpers from `gameLoop.js`.
+- Removed direct imports of world-prompt text/visibility helpers from
+  `gameLoop.js`, except `getPendingPlacementPrompt(...)`, which is still used
+  earlier for HUD copy.
+- Removed direct `getNearbyRepairBoxPrompt(...)` usage and
+  `PLAYER_INTERACTION_WORLD_PROMPT_TARGET_IDS` knowledge from `gameLoop.js`.
+- Added focused tests for prompt target resolution, prompt text derivation,
+  visibility gates and disabled world-space UI behavior.
+
+Passed:
+
+```sh
+npm test -- --run tests/worldPromptFrameState.test.js tests/worldPromptCopy.test.js tests/dryGrassPromptTargets.test.js tests/worldPromptSnapshotFrame.test.js tests/repairBoxPromptTargets.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused world-prompt frame-state suite passed with `16` tests across the
+new frame-state test and the existing prompt tests. The production build passed
+with the existing chunk-size warning. `npm test` completed with the existing
+Leafage Native Tree baseline:
+
+- `1692` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
 
 ### Companion Presentation Frame Boundary
 
