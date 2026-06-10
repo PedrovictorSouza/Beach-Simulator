@@ -306,10 +306,73 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move nature progress snapshots into the `fieldMoveRuntime`
   boundary.
+- Completed: move destroyable landscape patch target selection into the
+  `fieldMoveRuntime` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Destroyable Landscape Patch Target Boundary
+
+Moved destroyable landscape patch target selection from
+`app/runtime/gameLoop.js` into
+`app/runtime/fieldMoveRuntime/destroyableLandscapePatchTarget.js`.
+
+Boundary classification: `gameplay action runtime`, focused on resolving the
+patch snapshot used by landscape cut effects when a Leafage-instantiated grass
+or flower patch is destroyed.
+
+Module boundary note:
+
+- This is a new file inside the existing `fieldMoveRuntime` domain, not a loose
+  helper under `app/runtime/`.
+- It owns only pure target selection/cloning for the cut-effect source patch.
+- It receives `findNearbyDestroyableInstantiatedObject`, `session`,
+  `storyState` and `playerPosition` explicitly and does not perform destroy
+  actions, audio feedback or HUD notices.
+
+Study path:
+
+1. `gameLoop.js` still owns the action wrappers, audio failure feedback and
+   garden progress callbacks.
+2. `getDestroyableLandscapePatchForInteractOptions(...)` now resolves the
+   cut-effect patch by exact id first, then by `cellId`, preserving the previous
+   priority.
+3. The cut-effect snapshot still clones `position` and `size`, using the same
+   `[1.18, 0.96]` fallback size when no size is present.
+4. No destroy action rule, Leafage rule, wood drop rule, UI notice or effect
+   timing changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9202` to `9172`.
+- Removed the private patch-cloning and patch-target lookup helpers from
+  `startGameLoop()`.
+- Added focused tests for ignored non-destroy targets, exact-id priority,
+  cloned effect shape and fallback-by-cell behavior.
+
+Validation:
+
+```sh
+npm test -- --run tests/destroyableLandscapePatchTarget.test.js
+npm test -- --run tests/destroyableLandscapePatchTarget.test.js tests/landscapeCutEffectRuntime.test.js tests/gameplayWoodDrops.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused destroyable landscape/cut-effect suite passed with `10` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1667` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Nature Progress Snapshot Boundary
 
