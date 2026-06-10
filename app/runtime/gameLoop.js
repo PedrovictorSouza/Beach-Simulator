@@ -187,7 +187,7 @@ import { resolveFrameHudPromptCopy } from "./presentation/hudPromptCopy.js";
 import { getPendingPlacementPrompt } from "./presentation/worldPromptCopy.js";
 import { resolveWorldPromptFrameState } from "./presentation/worldPromptFrameState.js";
 import { updateWorldPromptSnapshotFrame } from "./presentation/worldPromptSnapshotFrame.js";
-import { resolveWorldSpeechVisibility } from "./presentation/worldSpeechVisibility.js";
+import { resolveWorldSpeechFrameState } from "./presentation/worldSpeechFrameState.js";
 import { prepareWorldSpaceUiFrameContext as prepareWorldSpaceUiFrameContextWithSources } from "./presentation/worldSpaceUiFrameContext.js";
 import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
 import { prepareRenderSnapshotContext as prepareRenderSnapshotContextWithSources } from "./presentation/renderSnapshotContext.js";
@@ -7772,105 +7772,18 @@ if (canProcessDestroyAction && destroyActionRequested) {
       shouldShowBulbasaurStrawBedSpeech,
       shouldShowBulbasaurStrawBedCompleteSpeech,
       shouldShowCharmanderCelebrationSpeech
-    } = resolveWorldSpeechVisibility({
-      shouldShowTangrowthSpeech: () =>
-        canShowWorldSpaceUi &&
-        activeQuest?.id === "meetTangrowth" &&
-        tangrowthPosition,
-      shouldShowTangrowthLogChairSpeech: () =>
-        canShowWorldSpaceUi &&
-        controls.storyState.flags.tangrowthLogChairRequestAvailable &&
-        !controls.storyState.flags.logChairReceived &&
-        tangrowthPosition,
-      shouldShowTangrowthCampfireSpeech: false,
-      shouldShowTangrowthPokemonCenterSpeech: () =>
-        canShowWorldSpaceUi &&
-        controls.storyState.flags.pokemonCenterGuideStarted &&
-        !controls.storyState.flags.ruinedPokemonCenterInspected &&
-        tangrowthPosition,
-      shouldShowTangrowthHouseSpeech: () =>
-        canShowWorldSpaceUi &&
-        controls.storyState.flags.tangrowthHouseTalkAvailable &&
-        !controls.storyState.flags.tangrowthHouseTalkComplete &&
-        tangrowthPosition,
-      shouldShowTangrowthCelebrationSpeech: () =>
-        canShowWorldSpaceUi &&
-        controls.storyState.flags.charmanderCelebrationSuggested &&
-        !controls.storyState.flags.charmanderCelebrationComplete &&
-        tangrowthPosition,
-      shouldShowChopperBulbasaurRepairBoxSpeech: () =>
-        canShowWorldSpaceUi &&
-        session.playerCharacter &&
-        chopperBulbasaurRepairBoxInvestigationTarget &&
-        tangrowthPosition &&
-        !isPlayerNearWorldPosition(
-          chopperBulbasaurRepairBoxInvestigationTarget.lookAtPosition,
-          REPAIR_BOX_PROMPT_DISTANCE
-        ),
-      shouldShowBulbasaurMissionSpeech: () =>
-        canShowWorldSpaceUi &&
-        Boolean(session.bulbasaurEncounter?.visible) &&
-        Boolean(session.bulbasaurEncounter?.position) &&
-        controls.storyState.flags.bulbasaurRevealed &&
-        !isOpeningLeppaTreeRequestActive(controls.storyState) &&
-        !controls.storyState.flags.bulbasaurDryGrassMissionAccepted,
-      shouldShowBulbasaurWorkbenchGuideSpeech: () =>
-        canShowWorldSpaceUi &&
-        Boolean(session.bulbasaurEncounter?.visible) &&
-        Boolean(session.bulbasaurEncounter?.position) &&
-        controls.storyState.flags.bulbasaurWorkbenchGuideAvailable &&
-        !controls.storyState.flags.workbenchDiyRecipesReceived,
-      shouldShowBulbasaurRequestReadySpeech: () =>
-        canShowWorldSpaceUi &&
-        Boolean(session.bulbasaurEncounter?.visible) &&
-        Boolean(session.bulbasaurEncounter?.position) &&
-        controls.storyState.flags.bulbasaurRevealed &&
-        controls.storyState.flags.bulbasaurDryGrassMissionAccepted &&
-        !controls.storyState.flags.bulbasaurDryGrassRequestTurnedIn &&
-        !firstTaughtActionFreedomWindow.active &&
-        (
-          controls.storyState.flags.bulbasaurDryGrassMissionComplete ||
-          (controls.storyState.flags.restoredGrassCount || 0) >= BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT
-        ),
-      shouldShowCharmanderFollowSpeech: () =>
-        !(
-          Boolean(session.bulbasaurEncounter?.visible) &&
-          Boolean(session.bulbasaurEncounter?.position) &&
-          (
-            (
-              controls.storyState.flags.bulbasaurStrawBedChallengeComplete &&
-              !controls.storyState.flags.strawBedRecipeUnlocked
-            ) ||
-            (
-              controls.storyState.flags.strawBedPlacedInBulbasaurHabitat &&
-              !controls.storyState.flags.bulbasaurStrawBedRequestComplete
-            )
-          )
-        ) &&
-        canShowWorldSpaceUi &&
-        Boolean(session.charmanderEncounter?.visible) &&
-        Boolean(session.charmanderEncounter?.position) &&
-        controls.storyState.flags.charmanderRevealed &&
-        !controls.storyState.flags.charmanderCampfireLit,
-      shouldShowBulbasaurStrawBedSpeech: () =>
-        canShowWorldSpaceUi &&
-        Boolean(session.bulbasaurEncounter?.visible) &&
-        Boolean(session.bulbasaurEncounter?.position) &&
-        controls.storyState.flags.bulbasaurStrawBedChallengeComplete &&
-        !controls.storyState.flags.strawBedRecipeUnlocked,
-      shouldShowBulbasaurStrawBedCompleteSpeech: () =>
-        canShowWorldSpaceUi &&
-        Boolean(session.bulbasaurEncounter?.visible) &&
-        Boolean(session.bulbasaurEncounter?.position) &&
-        controls.storyState.flags.strawBedPlacedInBulbasaurHabitat &&
-        !controls.storyState.flags.bulbasaurStrawBedRequestComplete,
-      shouldShowCharmanderCelebrationSpeech: () =>
-        canShowWorldSpaceUi &&
-        Boolean(session.charmanderEncounter?.visible) &&
-        Boolean(session.charmanderEncounter?.position) &&
-        controls.storyState.flags.charmanderCelebrationRequestAvailable &&
-        !controls.storyState.flags.charmanderCelebrationSuggested &&
-        !controls.storyState.flags.charmanderCelebrationComplete
+    } = resolveWorldSpeechFrameState({
+      canShowWorldSpaceUi,
+      activeQuest,
+      tangrowthPosition,
+      storyState: controls.storyState,
+      session,
+      chopperBulbasaurRepairBoxInvestigationTarget,
+      repairBoxPromptDistance: REPAIR_BOX_PROMPT_DISTANCE,
+      isPlayerNearWorldPosition,
+      openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState),
+      firstTaughtActionFreedomWindowActive: firstTaughtActionFreedomWindow.active,
+      restoredGrassMissionTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT
     });
     const {
       shouldShowSolarStationPlacementPrompt,

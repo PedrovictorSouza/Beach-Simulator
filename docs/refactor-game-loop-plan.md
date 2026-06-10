@@ -326,10 +326,75 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move world-prompt frame-state preparation into the
   `presentation` boundary.
+- Completed: move world-speech frame-state preparation into the
+  `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### World Speech Frame-State Boundary
+
+Moved the world-speech visibility preparation pass from
+`app/runtime/gameLoop.js` into
+`app/runtime/presentation/worldSpeechFrameState.js`.
+
+Boundary classification: `presentation/render helpers`, focused on which
+world-space speech candidate is visible before
+`updateWorldSpeechSnapshotFrame(...)` writes the snapshot.
+
+Module boundary note:
+
+- This is one cohesive presentation module, not a generic helper file.
+- `gameLoop.js` still owns frame order and still calls
+  `updateWorldSpeechSnapshotFrame(...)` in the same place.
+- `worldSpeechSnapshotFrame.js` still owns speech copy, companion-lost hint
+  fallback and Chopper cue sound consumption.
+- `resolveWorldSpeechFrameState(...)` delegates priority to the existing
+  `resolveWorldSpeechVisibility(...)`, preserving the current first-visible
+  candidate behavior.
+
+Study path:
+
+1. `resolveWorldSpeechFrameState(...)` receives frame state already resolved by
+   `gameLoop.js`: world-space UI gate, active quest, Tangrowth position,
+   story flags, session encounters and repair-box investigation state.
+2. The module owns the previous inline conditions for Tangrowth, Chopper,
+   Bulbasaur and Charmander world speech visibility.
+3. Mission-specific counts remain explicit input:
+   `restoredGrassMissionTargetCount` is passed in from `gameLoop.js` rather
+   than hard-coded inside the presentation module.
+4. No speech copy, field-move rule, placement rule, camera behavior, render
+   snapshot shape or frame scheduling changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `8205` to `8118`.
+- Removed direct `resolveWorldSpeechVisibility(...)` usage from `gameLoop.js`.
+- Removed the large inline `shouldShow...Speech` candidate object from
+  `frame(now)`.
+- Added focused tests for speech priority, repair-box distance gating,
+  Bulbasaur request-ready speech and Charmander follow gating.
+
+Passed:
+
+```sh
+npm test -- --run tests/worldSpeechFrameState.test.js tests/worldSpeechVisibility.test.js tests/worldSpeechSnapshotFrame.test.js tests/worldPromptFrameState.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused world-speech frame-state suite passed with `11` tests across the new
+frame-state test and the existing speech/prompt tests. The production build
+passed with the existing chunk-size warning. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1695` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
 
 ### World Prompt Frame-State Boundary
 
