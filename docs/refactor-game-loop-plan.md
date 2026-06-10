@@ -278,10 +278,71 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move builder tutorial foundation available-zone search into the
   `construction` boundary.
+- Completed: move foundation completion effect policy into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Foundation Completion Effect Policy Boundary
+
+Moved builder tutorial foundation completion effect policy from
+`app/runtime/gameLoop.js` into
+`app/runtime/construction/foundationBuildZone.js`.
+
+Boundary classification: `construction`, focused on foundation completion
+flags, foundation-complete feedback metadata and cloud-burst payload
+preparation. The live feedback runtime call and `session` assignment remain in
+`gameLoop.js`.
+
+Study path:
+
+1. `applyFoundationBuildZoneCompleteEffects(...)` owns the specific story flags
+   for foundation completion effects.
+2. It preserves the existing `foundationComplete` feedback id, `3000ms`
+   feedback duration, cloud burst id and `1800ms` cloud duration.
+3. It filters active cloud bursts with the existing started/duration check and
+   returns the next `constructionCloudBursts` list only when a cloud burst
+   should be applied.
+4. `gameLoop.js` still owns building interior ground cells, calling
+   `groundActionFeedbackRuntime.triggerFeedback(...)` and assigning
+   `session.constructionCloudBursts`.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9824` to `9804`.
+- Removed foundation completion flags, feedback tuning and cloud-burst payload
+  construction from `gameLoop.js`.
+- Added focused tests for one-time flag mutation, active cloud filtering and
+  no-replay behavior after both effects have played.
+
+Validation:
+
+```sh
+npm test -- --run tests/foundationBuildZone.test.js
+npm test -- --run tests/foundationBuildZone.test.js tests/placementGeometry.test.js tests/groundActionFeedbackRuntime.test.js tests/constructionCloudEffects.test.js
+git diff --check
+npm run build
+```
+
+The focused construction/foundation/effects suite passed with `53` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1634` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Placement Camera Assist Boundary Move
 

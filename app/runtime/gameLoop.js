@@ -22,6 +22,7 @@ import {
 import {
   buildFoundationBuildZoneBlockers as buildFoundationBuildZoneBlockersWithSources,
   canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
+  applyFoundationBuildZoneCompleteEffects,
   createUnavailableFoundationBuildZonePlacementResult,
   createUnavailableFoundationBuildZoneValidation,
   findAvailableBuilderTutorialFoundationBuildZone as findAvailableBuilderTutorialFoundationBuildZoneWithConfig,
@@ -507,7 +508,6 @@ const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_ZOOM = 6.4;
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_DISTANCE = 15.5;
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_HEIGHT = 1.45;
 const BUILDER_TUTORIAL_FOUNDATION_CAMERA_FOCUS_FLAG = "builderTutorialFoundationCameraFocusZoneSignature";
-const FOUNDATION_COMPLETE_GROUND_EFFECT_DURATION_MS = 3000;
 
 const LEAF_DEN_BUILT_ROTATION_FOOTPRINT = [
   LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[0] * 2,
@@ -3636,45 +3636,25 @@ export function startGameLoop({
     }
 
     const position = getFreeBlockBuildZoneCenterPosition();
-    if (!position) {
-      return;
-    }
+    const effects = applyFoundationBuildZoneCompleteEffects({
+      flags,
+      position,
+      constructionCloudBursts: session.constructionCloudBursts,
+      nowMs: Date.now()
+    });
 
-    const cloudEffectPlayed = Boolean(flags.builderTutorialFoundationCompleteEffectPlayed);
-    const interiorEffectPlayed = Boolean(flags.builderTutorialFoundationInteriorEffectPlayed);
-    if (cloudEffectPlayed && interiorEffectPlayed) {
-      return;
-    }
-
-    const nowMs = Date.now();
-    if (!interiorEffectPlayed) {
-      flags.builderTutorialFoundationInteriorEffectPlayed = true;
+    if (effects.triggerInteriorFeedback) {
       groundActionFeedbackRuntime.triggerFeedback(
         buildFoundationCompletionInteriorGroundCells(),
-        "foundationComplete",
+        effects.feedbackAbilityId,
         now,
-        { durationMs: FOUNDATION_COMPLETE_GROUND_EFFECT_DURATION_MS }
+        { durationMs: effects.feedbackDurationMs }
       );
     }
 
-    if (cloudEffectPlayed) {
-      return;
+    if (effects.constructionCloudBursts) {
+      session.constructionCloudBursts = effects.constructionCloudBursts;
     }
-
-    flags.builderTutorialFoundationCompleteEffectPlayed = true;
-    session.constructionCloudBursts = Array.isArray(session.constructionCloudBursts) ?
-      session.constructionCloudBursts.filter((effect) => {
-        const startedAt = Number(effect?.startedAt || 0);
-        const durationMs = Number(effect?.durationMs || 0);
-        return startedAt > 0 && durationMs > 0 && nowMs - startedAt < durationMs;
-      }) :
-      [];
-    session.constructionCloudBursts.push({
-      id: "builder-tutorial-foundation-complete",
-      position,
-      startedAt: nowMs,
-      durationMs: 1800
-    });
   }
 
   function syncFoundationBuildZoneCompletionEffects(now = performance.now()) {

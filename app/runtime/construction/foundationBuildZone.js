@@ -14,6 +14,8 @@ export const BUILDER_TUTORIAL_FOUNDATION_WIDTH = 6;
 export const BUILDER_TUTORIAL_FOUNDATION_HEIGHT = 4;
 const BUILDER_TUTORIAL_FOUNDATION_SEARCH_RADIUS = 16;
 const BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG = "builderTutorialFoundationOriginCell";
+const FOUNDATION_COMPLETE_GROUND_EFFECT_DURATION_MS = 3000;
+const FOUNDATION_COMPLETE_CLOUD_BURST_DURATION_MS = 1800;
 export const BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL = Object.freeze({
   x: Math.round(BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.x - BUILDER_TUTORIAL_FOUNDATION_WIDTH / 2),
   y: Math.round(BUILDER_TUTORIAL_FOUNDATION_CENTER_CELL.y - BUILDER_TUTORIAL_FOUNDATION_HEIGHT / 2)
@@ -133,6 +135,57 @@ export function findAvailableBuilderTutorialFoundationBuildZone({
   }
 
   return null;
+}
+
+export function applyFoundationBuildZoneCompleteEffects({
+  flags = null,
+  position = null,
+  constructionCloudBursts = [],
+  nowMs = Date.now()
+} = {}) {
+  const result = {
+    triggerInteriorFeedback: false,
+    feedbackAbilityId: "foundationComplete",
+    feedbackDurationMs: FOUNDATION_COMPLETE_GROUND_EFFECT_DURATION_MS,
+    constructionCloudBursts: null
+  };
+
+  if (!flags || !Array.isArray(position)) {
+    return result;
+  }
+
+  const cloudEffectPlayed = Boolean(flags.builderTutorialFoundationCompleteEffectPlayed);
+  const interiorEffectPlayed = Boolean(flags.builderTutorialFoundationInteriorEffectPlayed);
+  if (cloudEffectPlayed && interiorEffectPlayed) {
+    return result;
+  }
+
+  if (!interiorEffectPlayed) {
+    flags.builderTutorialFoundationInteriorEffectPlayed = true;
+    result.triggerInteriorFeedback = true;
+  }
+
+  if (cloudEffectPlayed) {
+    return result;
+  }
+
+  flags.builderTutorialFoundationCompleteEffectPlayed = true;
+  result.constructionCloudBursts = (Array.isArray(constructionCloudBursts) ?
+    constructionCloudBursts.filter((effect) => {
+      const startedAt = Number(effect?.startedAt || 0);
+      const durationMs = Number(effect?.durationMs || 0);
+      return startedAt > 0 && durationMs > 0 && nowMs - startedAt < durationMs;
+    }) :
+    []
+  );
+  result.constructionCloudBursts.push({
+    id: "builder-tutorial-foundation-complete",
+    position,
+    startedAt: nowMs,
+    durationMs: FOUNDATION_COMPLETE_CLOUD_BURST_DURATION_MS
+  });
+
+  return result;
 }
 
 function pushFoundationBuildZoneBlocker(blockers, blocker) {

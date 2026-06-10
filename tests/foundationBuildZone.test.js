@@ -9,6 +9,7 @@ import {
   createUnavailableFoundationBuildZonePlacementResult,
   createUnavailableFoundationBuildZoneValidation,
   findAvailableBuilderTutorialFoundationBuildZone,
+  applyFoundationBuildZoneCompleteEffects,
   getBuilderTutorialFoundationZoneSignature,
   getSavedBuilderTutorialFoundationOriginCell,
   getFoundationBuildZoneProgressCount,
@@ -281,6 +282,58 @@ describe("foundation build zone", () => {
       { x: 2, y: 2 }
     ]);
     expect(zone.originCell).toEqual({ x: 2, y: 2 });
+  });
+
+  it("applies foundation completion effect flags and cloud burst payloads", () => {
+    const flags = {};
+
+    const effects = applyFoundationBuildZoneCompleteEffects({
+      flags,
+      position: [4, 0.03, 5],
+      constructionCloudBursts: [
+        { id: "expired", position: [0, 0, 0], startedAt: 1000, durationMs: 100 },
+        { id: "active", position: [1, 0, 1], startedAt: 1000, durationMs: 1000 }
+      ],
+      nowMs: 1500
+    });
+
+    expect(flags).toEqual({
+      builderTutorialFoundationInteriorEffectPlayed: true,
+      builderTutorialFoundationCompleteEffectPlayed: true
+    });
+    expect(effects).toEqual({
+      triggerInteriorFeedback: true,
+      feedbackAbilityId: "foundationComplete",
+      feedbackDurationMs: 3000,
+      constructionCloudBursts: [
+        { id: "active", position: [1, 0, 1], startedAt: 1000, durationMs: 1000 },
+        {
+          id: "builder-tutorial-foundation-complete",
+          position: [4, 0.03, 5],
+          startedAt: 1500,
+          durationMs: 1800
+        }
+      ]
+    });
+  });
+
+  it("does not replay foundation completion effects after both flags are set", () => {
+    const flags = {
+      builderTutorialFoundationInteriorEffectPlayed: true,
+      builderTutorialFoundationCompleteEffectPlayed: true
+    };
+
+    expect(applyFoundationBuildZoneCompleteEffects({
+      flags,
+      position: [4, 0.03, 5],
+      constructionCloudBursts: [],
+      nowMs: 1500
+    })).toEqual({
+      triggerInteriorFeedback: false,
+      feedbackAbilityId: "foundationComplete",
+      feedbackDurationMs: 3000,
+      constructionCloudBursts: null
+    });
   });
 
   it("detects foundation wall objectives", () => {
