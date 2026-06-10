@@ -217,6 +217,24 @@ export function getFreeBlockCellWorldPosition({
   ];
 }
 
+export function isWorldPositionOnFreeBlockCell({
+  targetCell = null,
+  worldPosition = null,
+  gridSystem = null
+} = {}) {
+  if (!targetCell || !Array.isArray(worldPosition) || !gridSystem?.worldToCell) {
+    return false;
+  }
+
+  const cell = gridSystem.worldToCell({
+    x: Number(worldPosition[0] || 0),
+    y: Number(worldPosition[1] || 0),
+    z: Number(worldPosition[2] || 0)
+  });
+
+  return cell.x === targetCell.x && cell.y === targetCell.y;
+}
+
 export function buildFreeBlockFeedbackGroundCell({
   result = null,
   gridSystem = null

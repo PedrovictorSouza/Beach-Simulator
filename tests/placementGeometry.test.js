@@ -23,6 +23,7 @@ import {
   getSnappedPlacementPreviewPosition,
   hasFinitePlacementBounds,
   isFoundationBuildZoneOriginInsideGrid,
+  isWorldPositionOnFreeBlockCell,
   normalizeFoundationBuildZoneOriginCell,
   normalizePlacementYaw
 } from "../app/runtime/construction/placementGeometry.js";
@@ -264,6 +265,33 @@ describe("placement geometry", () => {
       y: 7
     });
     expect(normalizeFoundationBuildZoneOriginCell(null, fallbackOriginCell)).toEqual(fallbackOriginCell);
+  });
+
+  it("checks whether a world position maps to a free-block target cell", () => {
+    const gridSystem = {
+      worldToCell({ x, z }) {
+        return {
+          x: Math.floor(x),
+          y: Math.floor(z)
+        };
+      }
+    };
+
+    expect(isWorldPositionOnFreeBlockCell({
+      targetCell: { x: 2, y: 4 },
+      worldPosition: [2.4, 0, 4.8],
+      gridSystem
+    })).toBe(true);
+    expect(isWorldPositionOnFreeBlockCell({
+      targetCell: { x: 2, y: 4 },
+      worldPosition: [3.1, 0, 4.8],
+      gridSystem
+    })).toBe(false);
+    expect(isWorldPositionOnFreeBlockCell({
+      targetCell: null,
+      worldPosition: [2.4, 0, 4.8],
+      gridSystem
+    })).toBe(false);
   });
 
   it("checks whether a foundation build-zone origin fits inside a grid", () => {

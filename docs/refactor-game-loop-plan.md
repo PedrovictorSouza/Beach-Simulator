@@ -264,6 +264,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move free-block preview visual sync into the `construction`
   boundary.
+- Completed: move free-block target-cell occupancy geometry into the
+  `construction` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1814,6 +1816,57 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1608` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Free-Block Target Cell Geometry Boundary
+
+Moved the free-block target-cell occupancy check from `app/runtime/gameLoop.js`
+into `app/runtime/construction/placementGeometry.js`.
+
+Boundary classification: `construction`, focused on grid/cell geometry for
+free-block placement displacement.
+
+Study path:
+
+1. `isWorldPositionOnFreeBlockCell(...)` owns converting a world position into a
+   grid cell and comparing it to a free-block target cell.
+2. `movePlayerAwayFromPlacedFreeBlock(...)` remains in `gameLoop.js` because it
+   still owns player mutation, model sync and construction displacement
+   callbacks.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10026` to `10017`.
+- Removed target-cell/world-position comparison and direct `worldToCell(...)`
+  construction from `gameLoop.js`.
+- Added focused tests for matching target cells, non-matching target cells and
+  null target handling.
+
+Validation:
+
+```sh
+npm test -- --run tests/placementGeometry.test.js
+npm test -- --run tests/placementGeometry.test.js tests/freeBlockBuildSystem.test.js tests/freeBlockPreview.test.js tests/freeBlockRemoval.test.js tests/foundationBuildZone.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused construction geometry/build suite passed with `86` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1620` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

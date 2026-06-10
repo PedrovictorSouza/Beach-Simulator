@@ -100,6 +100,7 @@ import {
   getSnappedPlacementPreviewPosition,
   hasFinitePlacementBounds,
   isFoundationBuildZoneOriginInsideGrid as isFoundationBuildZoneOriginInsideGridWithConfig,
+  isWorldPositionOnFreeBlockCell,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
 import {
@@ -3895,27 +3896,17 @@ export function startGameLoop({
     return session.freeBlockBuildSnapshot;
   }
 
-  function isPlayerOnFreeBlockTargetCell(targetCell, playerPosition, gridSystem) {
-    if (!targetCell || !Array.isArray(playerPosition)) {
-      return false;
-    }
-
-    const playerCell = gridSystem.worldToCell({
-      x: Number(playerPosition[0] || 0),
-      y: Number(playerPosition[1] || 0),
-      z: Number(playerPosition[2] || 0)
-    });
-
-    return playerCell.x === targetCell.x && playerCell.y === targetCell.y;
-  }
-
   function movePlayerAwayFromPlacedFreeBlock(targetCell, playerPosition = null) {
     if (!session.playerCharacter || !Array.isArray(playerPosition) || !targetCell) {
       return null;
     }
 
     const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
-    if (!isPlayerOnFreeBlockTargetCell(targetCell, playerPosition, gridSystem)) {
+    if (!isWorldPositionOnFreeBlockCell({
+      targetCell,
+      worldPosition: playerPosition,
+      gridSystem
+    })) {
       return null;
     }
 
