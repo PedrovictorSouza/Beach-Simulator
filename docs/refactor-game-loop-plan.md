@@ -302,10 +302,70 @@ There is no dedicated lint or typecheck script in `package.json`.
   `presentation` boundary.
 - Completed: move world-speech snapshot writing into the `presentation`
   boundary.
+- Completed: move follower-call frame handling into the `companions`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Companion Follower Call Frame Boundary
+
+Moved follower-call frame handling from `app/runtime/gameLoop.js` into
+`app/runtime/companions/followerCallFrame.js`.
+
+Boundary classification: `bot/companion motion`, focused on applying the
+existing "call bots to follow" request for construction help, campfire help and
+Charmander celebration follow-up.
+
+Module boundary note:
+
+- This is a new file inside the existing `companions` domain, not a loose helper
+  under `app/runtime/`.
+- It owns the companion follow-call rule and receives frame dependencies
+  explicitly: `controls`, `session`, `pushNotice` and `playSoundEvent`.
+- It imports only companion/audio copy contracts that were already used by the
+  original implementation.
+
+Study path:
+
+1. `gameLoop.js` still decides frame order and calls the follower-call handler
+   in the same spot before simulation updates.
+2. `processFollowerCallFrame(...)` now owns consuming the follower-call request,
+   playing the bot signal sound and mutating the same follow flags.
+3. Notices remain unchanged for leaf-den construction help, campfire help and
+   Charmander celebration follow-up.
+4. No input mapping, movement rule, companion formation rule or frame order
+   changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9275` to `9241`.
+- Removed the private `processFollowerCallFrame()` implementation from
+  `startGameLoop()`.
+- Added focused tests for the no-request path, leaf-den construction helper
+  call and Thermal Bot campfire call.
+
+Validation:
+
+```sh
+npm test -- --run tests/followerCallFrame.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused companion test passed with `3` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1661` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### World Speech Snapshot Frame Boundary
 

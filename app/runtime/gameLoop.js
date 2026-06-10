@@ -10,6 +10,7 @@ import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { getCampfireWoodPileBillboards } from "./campfireWoodPileBillboards.js";
 import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
+import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import {
   getConstructionCloudBurstBillboards as getConstructionCloudBurstBillboardsWithConfig,
   getLeafDenConstructionBillboards as getLeafDenConstructionBillboardsWithConfig
@@ -6198,46 +6199,6 @@ export function startGameLoop({
     };
   }
 
-  function processFollowerCallFrame() {
-    if (!controls.consumeFollowerCallRequest?.()) {
-      return;
-    }
-
-    playSoundEvent(SOUND_EVENT_IDS.BOT_SIGNAL);
-    const leafDenHelpCall =
-      controls.storyState.flags.leafDenKitPlaced &&
-      !controls.storyState.flags.leafDenConstructionStarted;
-
-    if (leafDenHelpCall) {
-      const called = [];
-      if (controls.storyState.flags.timburrRevealed) {
-        controls.storyState.flags.timburrFollowing = true;
-        called.push(SANDBOTS_BOT_NAMES.builder);
-      }
-      if (controls.storyState.flags.charmanderRevealed) {
-        controls.storyState.flags.charmanderFollowing = true;
-        called.push(SANDBOTS_BOT_NAMES.thermal);
-      }
-      hud.pushNotice(called.length ?
-        `${called.join(" and ")} are following you.` :
-        "No bots are ready to help with construction yet.");
-    } else if (
-      controls.storyState.flags.charmanderRevealed &&
-      !controls.storyState.flags.charmanderCampfireLit &&
-      session.campfire
-    ) {
-      controls.storyState.flags.charmanderFollowing = true;
-      hud.pushNotice(`${SANDBOTS_BOT_NAMES.thermal} is following you.`);
-    } else if (
-      controls.storyState.flags.charmanderCelebrationSuggested &&
-      !controls.storyState.flags.charmanderCelebrationComplete &&
-      controls.storyState.flags.charmanderRevealed
-    ) {
-      controls.storyState.flags.charmanderFollowing = true;
-      hud.pushNotice(`${SANDBOTS_BOT_NAMES.thermal} is following you.`);
-    }
-  }
-
   function readGameLoopFlowState() {
     const tutorialActive = isGameFlow(gameFlowValues.TUTORIAL);
 
@@ -7608,7 +7569,12 @@ if (canProcessDestroyAction && destroyActionRequested) {
       });
     }
 
-    processFollowerCallFrame();
+    processFollowerCallFrame({
+      controls,
+      session,
+      pushNotice: (notice) => hud.pushNotice(notice),
+      playSoundEvent
+    });
 
     // Simulation updates.
     updateAmbientWorldSimulationFrame({ deltaTime, now });
