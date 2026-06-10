@@ -294,10 +294,69 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move world-prompt visibility flags into the `presentation`
   boundary.
+- Completed: move world-speech visibility priority into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### World Speech Visibility Boundary
+
+Moved the frame-local world-speech priority chain from `app/runtime/gameLoop.js`
+into `app/runtime/presentation/worldSpeechVisibility.js`.
+
+Boundary classification: `presentation/render helpers`, focused on deciding
+which world-speech candidate wins for the frame before
+`updateWorldSpeechSnapshotFrame(...)` writes the snapshot.
+
+Module boundary note:
+
+- This is a new file inside the existing `presentation` domain, not a loose
+  helper under `app/runtime/`.
+- It owns a named responsibility: world-speech visibility priority.
+- It keeps candidate conditions lazy, so lower-priority checks are not evaluated
+  after a higher-priority speech wins.
+
+Study path:
+
+1. `resolveWorldSpeechVisibility(...)` owns the current priority order for
+   Tangrowth, Chopper, Bulbasaur and Charmander world speech candidates.
+2. `gameLoop.js` still owns the candidate conditions because they depend on
+   session, story flags, encounter positions and quest state.
+3. `gameLoop.js` still owns speech text/position population through
+   `updateWorldSpeechSnapshotFrame(...)`.
+4. No dialogue text, frame order, render snapshot shape or gameplay rule
+   changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9767` to `9696`.
+- Removed repeated `!previousSpeech` checks from the frame body.
+- Added focused tests for priority selection, all-false state and lazy
+  lower-priority candidate evaluation.
+
+Validation:
+
+```sh
+npm test -- --run tests/worldSpeechVisibility.test.js
+npm test -- --run tests/worldSpeechVisibility.test.js tests/worldSpeechController.test.js tests/frameSnapshotController.test.js tests/worldPromptCopy.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused presentation/snapshot suite passed with `20` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1649` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### World Prompt Visibility Boundary
 
