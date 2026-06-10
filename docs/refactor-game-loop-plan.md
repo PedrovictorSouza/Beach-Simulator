@@ -328,10 +328,79 @@ There is no dedicated lint or typecheck script in `package.json`.
   `presentation` boundary.
 - Completed: move world-speech frame-state preparation into the
   `presentation` boundary.
+- Completed: move ground-cell highlight frame-state preparation into the
+  `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Ground Cell Highlight Frame-State Boundary
+
+Moved the ground-cell highlight preparation pass from
+`app/runtime/gameLoop.js` into
+`app/runtime/presentation/groundCellHighlightFrameState.js`.
+
+Boundary classification: `presentation/render helpers`, focused on preparing
+the data consumed by `updateGroundCellHighlightFrame(...)`.
+
+Module boundary note:
+
+- This is one cohesive presentation module, not a one-helper file.
+- `gameLoop.js` still owns frame order and still calls
+  `updateGroundCellHighlightFrame(...)` in the same place.
+- The module prepares marked guidance cells, pulse phase, active fire highlight,
+  placement footprint cells, Solar Station radius cells, workbench rotation
+  highlight, action feedback and field-tool target pulse state.
+- Domain-specific behaviors remain explicit callbacks: pending Water Gun cells,
+  free-roam restoration cells, Leppa Tree cells, Solar Station field markers,
+  task markers, foundation-zone markers, world-cell planner selection, feedback
+  frames and pulse frames.
+
+Study path:
+
+1. `resolveMarkedGroundCellGuidanceFrameState(...)` runs before inactive
+   placement previews are nulled, matching the old frame order for free-roam
+   restoration guidance.
+2. `resolveGroundCellHighlightFrameState(...)` runs after placement previews are
+   normalized, matching the old frame order for placement footprint rendering.
+3. `updateGroundCellHighlightFrame(...)` still owns snapshot writes and visual
+   priority between placement, workbench, fire, direct target, marked cells and
+   pulse feedback.
+4. No field-move rule, placement rule, camera behavior, render snapshot shape or
+   frame scheduling changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `8118` to `8062`.
+- Removed direct `buildPlacementPreviewFootprintCells(...)` import from
+  `gameLoop.js`.
+- Removed the inline marked-guidance assembly from `frame(now)`.
+- Removed the inline placement footprint / Solar Station radius / workbench /
+  feedback / pulse state assembly from `frame(now)`.
+- Added focused tests for marked guidance cells, deduping, active fire
+  highlight, placement footprints, Solar Station radius cells, workbench
+  rotation, feedback and target pulse state.
+
+Passed:
+
+```sh
+npm test -- --run tests/groundCellHighlightFrameState.test.js tests/groundCellHighlightFrame.test.js tests/placementGeometry.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused ground-cell highlight suite passed with `31` tests across the new
+frame-state test and existing highlight/geometry tests. The production build
+passed with the existing chunk-size warning. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1699` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual visual gameplay validation remains pending because the in-app browser
+backend was not used during this pass.
 
 ### World Speech Frame-State Boundary
 

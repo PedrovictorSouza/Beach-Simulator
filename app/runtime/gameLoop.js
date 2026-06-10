@@ -93,7 +93,6 @@ import {
   buildFoundationBuildZoneGroundCells as buildFoundationBuildZoneGroundCellsWithConfig,
   buildFoundationCompletionInteriorGroundCells as buildFoundationCompletionInteriorGroundCellsWithConfig,
   buildFreeBlockFeedbackGroundCell as buildFreeBlockFeedbackGroundCellWithConfig,
-  buildPlacementPreviewFootprintCells,
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
   doPlacementRectsOverlap,
   getFoundationBuildZoneWorldRect as getFoundationBuildZoneWorldRectWithGrid,
@@ -194,6 +193,10 @@ import { prepareRenderSnapshotContext as prepareRenderSnapshotContextWithSources
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
+import {
+  resolveGroundCellHighlightFrameState,
+  resolveMarkedGroundCellGuidanceFrameState
+} from "./presentation/groundCellHighlightFrameState.js";
 import { updateGroundCellHighlightFrame } from "./presentation/groundCellHighlightFrame.js";
 import { updateWorldSpeechSnapshotFrame } from "./presentation/worldSpeechSnapshotFrame.js";
 import { getGrassCollisionObjects } from "./presentation/grassCollisionObjects.js";
@@ -7532,87 +7535,38 @@ if (canProcessDestroyAction && destroyActionRequested) {
       requireDialogueClosed: true,
       flowState: currentFlowState
     });
-    const pendingWaterGunGroundCells =
-      canShowGroundGuidance ?
-        getPendingSquirtleWaterGunGroundCells() :
-        [];
-    const activeLeafageGroundCells =
-      canShowGroundGuidance &&
-      session.bulbasaurLeafageAction?.groundCell ?
-        [session.bulbasaurLeafageAction.groundCell] :
-        [];
-    const activeFireGroundCell =
-      canShowGroundGuidance &&
-      session.charmanderFireAction?.groundCell &&
-      !session.charmanderFireAction.impactApplied ?
-        {
-          ...session.charmanderFireAction.groundCell,
-          highlightTargetState: "valid",
-          highlightAbilityId: "fire"
-        } :
-        null;
-    const freeRoamRestorationGroundCells =
-      !activeQuest &&
-      canShowPassiveGroundGuidance &&
-      !solarStationPlacementPreview &&
-      !campfirePlacementPreview &&
-      !leafDenKitPlacementPreview &&
-      session.playerCharacter ?
-        getFreeRoamRestorationGroundCells({
-          playerPosition: session.playerCharacter.getPosition(),
-          waterGunEquipped,
-          leafageEquipped,
-          fireEquipped
-        }) :
-        [];
-    const leppaTreeMissionGroundCells =
-      canShowPassiveGroundGuidance &&
-      isOpeningLeppaTreeRequestActive(controls.storyState) ?
-        getLeppaTreeSurroundingGroundCells(
-          session.leppaTree,
-          session.groundDeadInstances
-        ) :
-        [];
-    const leppaTreeTileHintFlashing = Boolean(gameplay.isLeppaTreeTileHintFlashing?.());
-    const markedGroundCellPulsePhase = leppaTreeTileHintFlashing ?
-      (Math.sin(now * 0.035) + 1) * 0.5 :
-      (Math.sin(now * 0.012) + 1) * 0.5;
-    const solarStationFieldMarkedGroundCells =
-      nearbyHarvestTarget?.strawBedPlacement &&
-      !controls.storyState.flags.strawBedPlacedInBulbasaurHabitat ?
-        buildSolarStationFieldMarkedGroundCells(nearbyHarvestTarget.strawBedPlacement) :
-        [];
-    const boulderShadedTaskGroundCells =
-      canShowPassiveGroundGuidance ?
-        getBoulderShadedTaskGroundCells(controls.storyState) :
-        [];
-    const growFirstHabitatTaskGroundCells =
-      canShowPassiveGroundGuidance ?
-        getGrowFirstHabitatTaskGroundCells({
-          activeQuest,
-          activeSystemQuest,
-          activeTask,
-          storyState: controls.storyState
-        }) :
-        [];
-    const foundationBuildZoneGroundCells =
-      canShowPassiveGroundGuidance ?
-        buildFoundationBuildZoneGroundCells(activeQuest, activeSystemQuest) :
-        [];
-    const worldCellPlannerSelectedGroundCell = getWorldCellPlannerSelectedGroundCell();
-    const markedActionGroundCells = [
-      ...new Set([
-        ...leppaTreeMissionGroundCells,
-        ...pendingWaterGunGroundCells,
-        ...activeLeafageGroundCells,
-        ...freeRoamRestorationGroundCells,
-        ...boulderShadedTaskGroundCells,
-        ...growFirstHabitatTaskGroundCells,
-        ...foundationBuildZoneGroundCells,
-        ...solarStationFieldMarkedGroundCells,
-        ...(worldCellPlannerSelectedGroundCell ? [worldCellPlannerSelectedGroundCell] : [])
-      ])
-    ];
+    const {
+      pendingWaterGunGroundCells,
+      activeFireGroundCell,
+      markedGroundCellPulsePhase,
+      markedActionGroundCells
+    } = resolveMarkedGroundCellGuidanceFrameState({
+      canShowGroundGuidance,
+      canShowPassiveGroundGuidance,
+      activeQuest,
+      activeSystemQuest,
+      activeTask,
+      storyState: controls.storyState,
+      session,
+      now,
+      solarStationPlacementPreview,
+      campfirePlacementPreview,
+      leafDenKitPlacementPreview,
+      nearbyHarvestTarget,
+      waterGunEquipped,
+      leafageEquipped,
+      fireEquipped,
+      openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState),
+      getPendingSquirtleWaterGunGroundCells,
+      getFreeRoamRestorationGroundCells,
+      getLeppaTreeSurroundingGroundCells,
+      isLeppaTreeTileHintFlashing: () => gameplay.isLeppaTreeTileHintFlashing?.(),
+      buildSolarStationFieldMarkedGroundCells,
+      getBoulderShadedTaskGroundCells,
+      getGrowFirstHabitatTaskGroundCells,
+      buildFoundationBuildZoneGroundCells,
+      getWorldCellPlannerSelectedGroundCell
+    });
     if (!session.strawBedPlacementPreview?.active) {
       solarStationPlacementPreview = null;
     }
@@ -7675,54 +7629,44 @@ if (canProcessDestroyAction && destroyActionRequested) {
         flowState: currentFlowState
       }) &&
       Boolean(highlightedGroundCell);
-    const fieldToolTargetPulseFrame = shouldShowGroundCellHighlight ?
-      groundActionFeedbackRuntime.getPulseFrame(highlightedGroundCell, now) :
-      null;
-    const solarStationPlacementGroundCells = buildPlacementPreviewFootprintCells(
+    const {
+      fieldToolTargetPulseFrame,
+      solarStationPlacementGroundCells,
+      solarStationPlacementGroundCell,
+      solarStationPowerRadiusGroundCells,
+      greenhousePlacementGroundCells,
+      greenhousePlacementGroundCell,
+      campfirePlacementGroundCells,
+      campfirePlacementGroundCell,
+      leafDenKitPlacementGroundCells,
+      leafDenKitPlacementGroundCell,
+      workbenchRotationGroundCell,
+      groundActionFeedbackFrame
+    } = resolveGroundCellHighlightFrameState({
+      canShowGroundCellHighlight: shouldShowGroundCellHighlight,
+      highlightedGroundCell,
+      placementFootprints: {
+        solarStation: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
+        greenhouse: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
+        campfire: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
+        leafDenKit: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT
+      },
       solarStationPlacementPreview,
-      {
-        idPrefix: "solar-station-placement-preview",
-        footprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
-        targetState: solarStationPlacementPreview?.valid ? "valid" : "invalid"
-      }
-    );
-    const solarStationPlacementGroundCell = solarStationPlacementGroundCells[0] || null;
-    const solarStationPowerRadiusGroundCells = solarStationPlacementPreview ?
-      buildSolarStationPreviewPowerRadiusGroundCells(session, solarStationPlacementPreview) :
-      leafDenKitPlacementPreview ?
-        buildPlacedSolarStationPowerRadiusGroundCells(session, controls.storyState) :
-        [];
-    const greenhousePlacementGroundCells = buildPlacementPreviewFootprintCells(
       greenhousePlacementPreview,
-      {
-        idPrefix: "greenhouse-placement-preview",
-        footprint: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
-        targetState: greenhousePlacementPreview?.valid ? "valid" : "invalid"
-      }
-    );
-    const greenhousePlacementGroundCell = greenhousePlacementGroundCells[0] || null;
-    const campfirePlacementGroundCells = buildPlacementPreviewFootprintCells(
       campfirePlacementPreview,
-      {
-        idPrefix: "train-house-placement-preview",
-        footprint: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
-        targetState: campfirePlacementPreview?.valid ? "valid" : "invalid"
-      }
-    );
-    const campfirePlacementGroundCell = campfirePlacementGroundCells[0] || null;
-    const leafDenKitPlacementGroundCells = buildPlacementPreviewFootprintCells(
       leafDenKitPlacementPreview,
-      {
-        idPrefix: "leaf-den-kit-placement-preview",
-        footprint: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT,
-        targetState: leafDenKitPlacementPreview?.valid ? "valid" : "invalid"
-      }
-    );
-    const leafDenKitPlacementGroundCell = leafDenKitPlacementGroundCells[0] || null;
-    const workbenchRotationGroundCell = selectedWorkbenchRotationTarget ?
-      getWorkbenchRotationGroundCell(selectedWorkbenchRotationTarget) :
-      null;
-    const groundActionFeedbackFrame = groundActionFeedbackRuntime.getFeedbackFrame({ session, now });
+      selectedWorkbenchRotationTarget,
+      activeFireGroundCell,
+      session,
+      storyState: controls.storyState,
+      getWorkbenchRotationGroundCell,
+      buildSolarStationPreviewPowerRadiusGroundCells,
+      buildPlacedSolarStationPowerRadiusGroundCells,
+      getGroundActionFeedbackFrame: () =>
+        groundActionFeedbackRuntime.getFeedbackFrame({ session, now }),
+      getFieldToolTargetPulseFrame: (groundCell) =>
+        groundActionFeedbackRuntime.getPulseFrame(groundCell, now)
+    });
 
     updateHudSnapshotFrame(nextFrame, {
       gameplayOpeningCameraLocked,
