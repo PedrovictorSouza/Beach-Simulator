@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  resolveGameplayGroundGuidanceFrameState,
   resolveGroundCellHighlightFrameState,
   resolveMarkedGroundCellGuidanceFrameState
 } from "../app/runtime/presentation/groundCellHighlightFrameState.js";
@@ -13,6 +14,47 @@ const placementFootprints = {
 };
 
 describe("ground cell highlight frame state", () => {
+  it("resolves gameplay ground guidance visibility before marked cells", () => {
+    const waterCell = { id: "water" };
+    const getPendingSquirtleWaterGunGroundCells = vi.fn(() => [waterCell]);
+
+    const frameState = resolveGameplayGroundGuidanceFrameState({
+      gameplayOpeningMovementLocked: false,
+      gameplayOpeningHudHidden: false,
+      flowState: {},
+      storyState: { flags: {} },
+      session: {
+        playerCharacter: {
+          getPosition: () => [0, 0, 0]
+        }
+      },
+      getPendingSquirtleWaterGunGroundCells
+    });
+
+    expect(frameState.canShowGroundGuidance).toBe(true);
+    expect(frameState.canShowPassiveGroundGuidance).toBe(true);
+    expect(frameState.pendingWaterGunGroundCells).toEqual([waterCell]);
+    expect(frameState.markedActionGroundCells).toEqual([waterCell]);
+
+    const blockedState = resolveGameplayGroundGuidanceFrameState({
+      gameplayOpeningMovementLocked: true,
+      gameplayOpeningHudHidden: true,
+      flowState: {},
+      storyState: { flags: {} },
+      session: {
+        playerCharacter: {
+          getPosition: () => [0, 0, 0]
+        }
+      },
+      getPendingSquirtleWaterGunGroundCells
+    });
+
+    expect(blockedState.canShowGroundGuidance).toBe(false);
+    expect(blockedState.canShowPassiveGroundGuidance).toBe(false);
+    expect(blockedState.pendingWaterGunGroundCells).toEqual([]);
+    expect(getPendingSquirtleWaterGunGroundCells).toHaveBeenCalledTimes(1);
+  });
+
   it("resolves marked guidance cells, pulse phase and active fire cells", () => {
     const sharedCell = { id: "shared" };
     const playerCharacter = {

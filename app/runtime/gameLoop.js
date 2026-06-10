@@ -189,8 +189,8 @@ import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { resolveGameplayTargetFrameState } from "./presentation/gameplayTargetFrameState.js";
 import {
-  resolveGroundCellHighlightFrameState,
-  resolveMarkedGroundCellGuidanceFrameState
+  resolveGameplayGroundGuidanceFrameState,
+  resolveGroundCellHighlightFrameState
 } from "./presentation/groundCellHighlightFrameState.js";
 import { updateGroundCellHighlightFrame } from "./presentation/groundCellHighlightFrame.js";
 import { updateWorldSpeechSnapshotFrame } from "./presentation/worldSpeechSnapshotFrame.js";
@@ -7059,25 +7059,15 @@ if (canProcessDestroyAction && destroyActionRequested) {
     const activeQuest = gameplay.getActiveQuest(controls.storyState);
     const activeTask = gameplay.getActiveTask?.() || null;
     const activeSystemQuest = gameplay.getActiveSystemQuest?.() || null;
-    const canShowGroundGuidance = resolveGroundGuidanceVisibility({
-      gameplayOpeningMovementLocked,
-      gameplayOpeningHudHidden,
-      flowState: currentFlowState
-    });
-    const canShowPassiveGroundGuidance = resolveGroundGuidanceVisibility({
-      gameplayOpeningMovementLocked,
-      gameplayOpeningHudHidden,
-      requireDialogueClosed: true,
-      flowState: currentFlowState
-    });
     const {
       pendingWaterGunGroundCells,
       activeFireGroundCell,
       markedGroundCellPulsePhase,
       markedActionGroundCells
-    } = resolveMarkedGroundCellGuidanceFrameState({
-      canShowGroundGuidance,
-      canShowPassiveGroundGuidance,
+    } = resolveGameplayGroundGuidanceFrameState({
+      gameplayOpeningMovementLocked,
+      gameplayOpeningHudHidden,
+      flowState: currentFlowState,
       activeQuest,
       activeSystemQuest,
       activeTask,

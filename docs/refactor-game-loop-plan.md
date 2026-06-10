@@ -3862,6 +3862,84 @@ Native Tree baseline:
 
 No manual browser validation was run in this cut.
 
+### Gameplay Ground Guidance Frame State Wrapper
+
+Expanded `app/runtime/presentation/groundCellHighlightFrameState.js` with
+`resolveGameplayGroundGuidanceFrameState(...)`.
+
+Module boundary:
+
+- Domain: `presentation/render helpers`.
+- Responsibility: resolve whether ground guidance can be shown for the frame
+  and then build the marked ground-cell guidance state.
+- Removed from `frame(now)`: direct calculation of
+  `canShowGroundGuidance`, direct calculation of
+  `canShowPassiveGroundGuidance` and direct wiring into
+  `resolveMarkedGroundCellGuidanceFrameState(...)`.
+
+Study path:
+
+1. `frame(now)` still resolves active quest/task/system quest before ground
+   guidance, preserving the existing order.
+2. `resolveGameplayGroundGuidanceFrameState(...)` applies the existing
+   `resolveGroundGuidanceVisibility(...)` policy twice: active guidance and
+   passive dialogue-closed guidance.
+3. The wrapper delegates to `resolveMarkedGroundCellGuidanceFrameState(...)`
+   with the same callbacks and frame inputs previously passed by `gameLoop.js`.
+4. `frame(now)` receives the same outputs:
+   `pendingWaterGunGroundCells`, `activeFireGroundCell`,
+   `markedGroundCellPulsePhase` and `markedActionGroundCells`.
+
+Tests expanded:
+
+- `tests/groundCellHighlightFrameState.test.js`
+
+The new test covers:
+
+- active/passive guidance visibility through the wrapper;
+- forwarding pending Water Gun marked cells when guidance is visible;
+- suppressing marked-cell callbacks while opening/HUD state blocks guidance.
+
+Risks reduced:
+
+- Ground-guidance visibility is now tested with the marked-cell assembly instead
+  of being embedded directly in `frame(now)`.
+- `gameLoop.js` no longer owns the first part of ground guidance presentation
+  rules.
+
+Risks remaining:
+
+- `frame(now)` still directly computes direct highlight visibility with
+  `resolveGroundGuidanceVisibility(...)` before calling
+  `resolveGroundCellHighlightFrameState(...)`.
+- Placement preview pruning still happens inline before prompt/highlight
+  presentation state.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/groundCellHighlightFrameState.test.js
+npm test -- --run tests/groundCellHighlightFrameState.test.js tests/groundCellHighlightFrame.test.js tests/gameLoopFramePolicies.test.js tests/gameplayTargetFrameState.test.js tests/gameplayPromptTargetFrameState.test.js
+git diff --check
+npm run build
+npm test
+npm test -- --run tests/actTwoTutorial.integration.test.js
+```
+
+The focused suite passed with `23` tests. `npm run build` passed with the
+existing large chunk warning. `npm test` completed with the existing Leafage
+Native Tree baseline and one transient timeout:
+
+- `1730` passed
+- `3` existing Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`
+- `1` timeout in `tests/actTwoTutorial.integration.test.js`
+
+The timed-out tutorial test passed when rerun in isolation, so it is treated as
+execution-load noise for this cut rather than a behavior change.
+
+No manual browser validation was run in this cut.
+
 ### Gameplay Prompt Frame State Wrapper
 
 Expanded `app/runtime/presentation/gameplayPromptTargetFrameState.js` with

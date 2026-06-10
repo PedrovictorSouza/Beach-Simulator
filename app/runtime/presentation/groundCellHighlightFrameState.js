@@ -1,4 +1,5 @@
 import { buildPlacementPreviewFootprintCells } from "../construction/placementGeometry.js";
+import { resolveGroundGuidanceVisibility } from "../gameLoopFramePolicies.js";
 
 const EMPTY_PLACEMENT_FOOTPRINTS = Object.freeze({
   solarStation: null,
@@ -133,6 +134,80 @@ export function resolveMarkedGroundCellGuidanceFrameState({
     activeFireGroundCell,
     markedGroundCellPulsePhase,
     markedActionGroundCells
+  };
+}
+
+export function resolveGameplayGroundGuidanceFrameState({
+  gameplayOpeningMovementLocked = false,
+  gameplayOpeningHudHidden = false,
+  flowState = {},
+  activeQuest = null,
+  activeSystemQuest = null,
+  activeTask = null,
+  storyState = {},
+  session = {},
+  now = 0,
+  solarStationPlacementPreview = null,
+  campfirePlacementPreview = null,
+  leafDenKitPlacementPreview = null,
+  nearbyHarvestTarget = null,
+  waterGunEquipped = false,
+  leafageEquipped = false,
+  fireEquipped = false,
+  openingLeppaTreeRequestActive = false,
+  getPendingSquirtleWaterGunGroundCells = () => [],
+  getFreeRoamRestorationGroundCells = () => [],
+  getLeppaTreeSurroundingGroundCells = () => [],
+  isLeppaTreeTileHintFlashing = () => false,
+  buildSolarStationFieldMarkedGroundCells = () => [],
+  getBoulderShadedTaskGroundCells = () => [],
+  getGrowFirstHabitatTaskGroundCells = () => [],
+  buildFoundationBuildZoneGroundCells = () => [],
+  getWorldCellPlannerSelectedGroundCell = () => null
+} = {}) {
+  const canShowGroundGuidance = resolveGroundGuidanceVisibility({
+    gameplayOpeningMovementLocked,
+    gameplayOpeningHudHidden,
+    flowState
+  });
+  const canShowPassiveGroundGuidance = resolveGroundGuidanceVisibility({
+    gameplayOpeningMovementLocked,
+    gameplayOpeningHudHidden,
+    requireDialogueClosed: true,
+    flowState
+  });
+  const markedGroundCellGuidanceState = resolveMarkedGroundCellGuidanceFrameState({
+    canShowGroundGuidance,
+    canShowPassiveGroundGuidance,
+    activeQuest,
+    activeSystemQuest,
+    activeTask,
+    storyState,
+    session,
+    now,
+    solarStationPlacementPreview,
+    campfirePlacementPreview,
+    leafDenKitPlacementPreview,
+    nearbyHarvestTarget,
+    waterGunEquipped,
+    leafageEquipped,
+    fireEquipped,
+    openingLeppaTreeRequestActive,
+    getPendingSquirtleWaterGunGroundCells,
+    getFreeRoamRestorationGroundCells,
+    getLeppaTreeSurroundingGroundCells,
+    isLeppaTreeTileHintFlashing,
+    buildSolarStationFieldMarkedGroundCells,
+    getBoulderShadedTaskGroundCells,
+    getGrowFirstHabitatTaskGroundCells,
+    buildFoundationBuildZoneGroundCells,
+    getWorldCellPlannerSelectedGroundCell
+  });
+
+  return {
+    canShowGroundGuidance,
+    canShowPassiveGroundGuidance,
+    ...markedGroundCellGuidanceState
   };
 }
 
