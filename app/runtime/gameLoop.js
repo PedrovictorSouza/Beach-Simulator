@@ -173,6 +173,10 @@ import {
   getCharmanderFireBillboards,
   getSquirtleWaterGunBillboards
 } from "./fieldMoveRuntime/fieldMoveBillboards.js";
+import {
+  getGardenProgressSnapshot,
+  getTreeRevivalSnapshot
+} from "./fieldMoveRuntime/natureProgressSnapshots.js";
 import { getFlowerArrangementBillboards } from "./flowerArrangementBillboards.js";
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
 import { getGrassPlayerBend } from "./grassPlayerBend.js";
@@ -2318,64 +2322,6 @@ export function startGameLoop({
     return null;
   }
 
-  function getGroundCellIdKey(groundCells = []) {
-    return Array.isArray(groundCells) ?
-      groundCells
-        .map((groundCell) => groundCell?.id)
-        .filter((id) => typeof id === "string")
-        .sort()
-        .join("|") :
-      "";
-  }
-
-  function getPatchCellIdKey(patches = []) {
-    return Array.isArray(patches) ?
-      patches
-        .map((patch) => patch?.cellId)
-        .filter((cellId) => typeof cellId === "string")
-        .sort()
-        .join("|") :
-      "";
-  }
-
-  function getAlivePatchCellIdKey(patches = []) {
-    return Array.isArray(patches) ?
-      patches
-        .filter((patch) => patch?.state === "alive")
-        .map((patch) => patch?.cellId)
-        .filter((cellId) => typeof cellId === "string")
-        .sort()
-        .join("|") :
-      "";
-  }
-
-  function getGardenProgressSnapshot() {
-    return [
-      getGroundCellIdKey(session.groundDeadInstances),
-      getGroundCellIdKey(session.iceGroundInstances),
-      getGroundCellIdKey(session.groundPurifiedInstances),
-      getPatchCellIdKey(session.groundGrassPatches),
-      getAlivePatchCellIdKey(session.groundGrassPatches),
-      getAlivePatchCellIdKey(session.groundFlowerPatches),
-      Number(controls.storyState?.flags?.wateredTreeCount || 0)
-    ].join(";");
-  }
-
-  function getTreeRevivalSnapshot() {
-    return {
-      palmAliveById: new Map(
-        (session.palmInstances || []).map((palmInstance) => [
-          palmInstance?.id,
-          Boolean(palmInstance?.alive)
-        ])
-      ),
-      leppaTreeRevived: Boolean(
-        session.leppaTree?.revived ||
-        controls.storyState?.flags?.leppaTreeRevived
-      )
-    };
-  }
-
   function queueTreeRevivalLeafBurstsForNewlyRevivedTrees(snapshot) {
     if (!snapshot) {
       return;
@@ -2418,10 +2364,19 @@ export function startGameLoop({
   }
 
   function performGameplayHarvestAction(options, autosaveContext = {}) {
-    const treeRevivalSnapshot = getTreeRevivalSnapshot();
-    const beforeGardenProgress = getGardenProgressSnapshot();
+    const treeRevivalSnapshot = getTreeRevivalSnapshot({
+      session,
+      storyState: controls.storyState
+    });
+    const beforeGardenProgress = getGardenProgressSnapshot({
+      session,
+      storyState: controls.storyState
+    });
     const result = gameplay.performHarvestAction(options);
-    const afterGardenProgress = getGardenProgressSnapshot();
+    const afterGardenProgress = getGardenProgressSnapshot({
+      session,
+      storyState: controls.storyState
+    });
 
     if (result) {
       queueTreeRevivalLeafBurstsForNewlyRevivedTrees(treeRevivalSnapshot);
@@ -2493,9 +2448,15 @@ export function startGameLoop({
 
   function performGameplayInteractAction(options) {
     const cutEffectPatch = getDestroyableLandscapePatchForInteractOptions(options);
-    const beforeGardenProgress = getGardenProgressSnapshot();
+    const beforeGardenProgress = getGardenProgressSnapshot({
+      session,
+      storyState: controls.storyState
+    });
     const result = gameplay.performInteractAction(options);
-    const afterGardenProgress = getGardenProgressSnapshot();
+    const afterGardenProgress = getGardenProgressSnapshot({
+      session,
+      storyState: controls.storyState
+    });
 
     if (result && cutEffectPatch && afterGardenProgress !== beforeGardenProgress) {
       queueLandscapeCutEffect(cutEffectPatch);

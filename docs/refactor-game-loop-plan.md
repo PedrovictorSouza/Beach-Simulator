@@ -304,10 +304,73 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move follower-call frame handling into the `companions`
   boundary.
+- Completed: move nature progress snapshots into the `fieldMoveRuntime`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### Nature Progress Snapshot Boundary
+
+Moved garden progress and tree revival snapshot helpers from
+`app/runtime/gameLoop.js` into
+`app/runtime/fieldMoveRuntime/natureProgressSnapshots.js`.
+
+Boundary classification: `gameplay action runtime`, focused on producing pure
+before/after signatures used around existing field-move and interaction
+actions.
+
+Module boundary note:
+
+- This is a new file inside the existing `fieldMoveRuntime` domain, not a loose
+  helper under `app/runtime/`.
+- It owns only pure snapshot construction; it does not perform Leafage, Water
+  Gun, Fire or Build Block actions.
+- The local key-building helpers remain private implementation details inside
+  the module.
+
+Study path:
+
+1. `gameLoop.js` still decides when harvest/interact actions run and when
+   autosave progress callbacks fire.
+2. `getGardenProgressSnapshot(...)` now receives `session` and `storyState`
+   explicitly and returns the same sorted signature used for before/after
+   comparison.
+3. `getTreeRevivalSnapshot(...)` now receives `session` and `storyState`
+   explicitly and returns the same palm alive map plus Leppa tree revived state.
+4. No field-move tuning, action dispatch order, visual effect timing or
+   autosave callback shape changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9241` to `9202`.
+- Removed the private garden progress key helpers and tree revival snapshot
+  helper from `startGameLoop()`.
+- Added focused tests for stable terrain signatures, independent revival maps
+  and Leppa tree revived state from session.
+
+Validation:
+
+```sh
+npm test -- --run tests/natureProgressSnapshots.test.js
+npm test -- --run tests/natureProgressSnapshots.test.js tests/treeRevivalLeafBurstRuntime.test.js tests/natureRevivalEffects.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused nature/revival suite passed with `11` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1664` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Companion Follower Call Frame Boundary
 
