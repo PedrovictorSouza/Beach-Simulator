@@ -31,7 +31,10 @@ import {
   findNearbyFreeBlockTarget,
   spawnFreeBlockRemovalDrops as spawnFreeBlockRemovalDropsWithConfig
 } from "./construction/freeBlockRemoval.js";
-import { syncFreeBlockPreviewInstance } from "./construction/freeBlockPreview.js";
+import {
+  buildFreeBlockPreviewDebug,
+  syncFreeBlockPreviewInstance
+} from "./construction/freeBlockPreview.js";
 import {
   getLeafDenConstructionProgress as getLeafDenConstructionProgressFromState,
   isLeafDenBusyCompanionTarget as isLeafDenBusyCompanionTargetFromState,
@@ -4029,40 +4032,32 @@ export function startGameLoop({
     const blockingColliderIds = constructionColliders
       .filter((collider) => isPositionInsideTerrainColliderFootprint(targetPosition, collider))
       .map((collider) => collider.id || collider.kind || "unknown");
-    const playerCell = Array.isArray(playerPosition) ?
-      gridSystem.worldToCell({
-        x: Number(playerPosition[0] || 0),
-        y: Number(playerPosition[1] || 0),
-        z: Number(playerPosition[2] || 0)
-      }) :
-      null;
     const rawTargetBlock = rawTargetCell ? session.freeBlockBuildState?.getBlockAtCell?.(rawTargetCell) : null;
     const targetBlock = session.freeBlockBuildState?.getBlockAtCell?.(resolvedTargetCell) || null;
     const previewValidity = resolveBuildBlockPreviewValidity({
       validation,
       blockingColliderIds
     });
-    const { valid, reason, blockedByConstruction } = previewValidity;
+    const { valid, reason } = previewValidity;
 
     return {
       targetCell: resolvedTargetCell,
       targetPosition,
       valid,
       reason,
-      debug: {
+      debug: buildFreeBlockPreviewDebug({
         rawTargetCell,
         targetCell: resolvedTargetCell,
-        playerCell,
+        playerPosition,
         targetPosition,
-        valid,
-        reason,
-        validationReason: validation.reason || null,
-        blockedByConstruction,
+        validation,
+        previewValidity,
         blockingColliderIds,
-        rawTargetBlockType: rawTargetBlock?.blockType || null,
-        targetBlockType: targetBlock?.blockType || null,
-        wood: controls.inventory?.wood ?? 0
-      }
+        rawTargetBlock,
+        targetBlock,
+        wood: controls.inventory?.wood ?? 0,
+        gridSystem
+      })
     };
   }
 

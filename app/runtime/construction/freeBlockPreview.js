@@ -59,3 +59,40 @@ export function syncFreeBlockPreviewInstance({
   instance.freeBlockPreviewReason = target.reason || null;
   return target;
 }
+
+export function buildFreeBlockPreviewDebug({
+  rawTargetCell = null,
+  targetCell = null,
+  playerPosition = null,
+  targetPosition = null,
+  validation = {},
+  previewValidity = {},
+  blockingColliderIds = [],
+  rawTargetBlock = null,
+  targetBlock = null,
+  wood = 0,
+  gridSystem = null
+} = {}) {
+  const playerCell = Array.isArray(playerPosition) && gridSystem?.worldToCell ?
+    gridSystem.worldToCell({
+      x: Number(playerPosition[0] || 0),
+      y: Number(playerPosition[1] || 0),
+      z: Number(playerPosition[2] || 0)
+    }) :
+    null;
+
+  return {
+    rawTargetCell,
+    targetCell,
+    playerCell,
+    targetPosition,
+    valid: previewValidity.valid,
+    reason: previewValidity.reason,
+    validationReason: validation.reason || null,
+    blockedByConstruction: previewValidity.blockedByConstruction,
+    blockingColliderIds,
+    rawTargetBlockType: rawTargetBlock?.blockType || null,
+    targetBlockType: targetBlock?.blockType || null,
+    wood
+  };
+}

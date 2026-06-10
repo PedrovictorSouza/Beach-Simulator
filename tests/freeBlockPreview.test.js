@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { syncFreeBlockPreviewInstance } from "../app/runtime/construction/freeBlockPreview.js";
+import {
+  buildFreeBlockPreviewDebug,
+  syncFreeBlockPreviewInstance
+} from "../app/runtime/construction/freeBlockPreview.js";
 
 describe("free block preview", () => {
   it("clears the preview when inactive or missing player position", () => {
@@ -100,5 +103,49 @@ describe("free block preview", () => {
     expect(instance.tintStrength).toBeCloseTo(0.58);
     expect(instance.freeBlockPreviewValid).toBe(false);
     expect(instance.freeBlockPreviewReason).toBe("blocked-cell");
+  });
+
+  it("builds the Build Block preview debug payload", () => {
+    const gridSystem = {
+      worldToCell({ x, z }) {
+        return {
+          x: Math.floor(x),
+          y: Math.floor(z)
+        };
+      }
+    };
+
+    expect(buildFreeBlockPreviewDebug({
+      rawTargetCell: { x: 1, y: 2 },
+      targetCell: { x: 3, y: 4 },
+      playerPosition: [2.2, 0, 5.8],
+      targetPosition: [3.5, 0.03, 4.5],
+      validation: {
+        reason: "duplicate-block"
+      },
+      previewValidity: {
+        valid: false,
+        reason: "duplicate-block",
+        blockedByConstruction: true
+      },
+      blockingColliderIds: ["greenhouse-0"],
+      rawTargetBlock: { blockType: "wall" },
+      targetBlock: null,
+      wood: 6,
+      gridSystem
+    })).toEqual({
+      rawTargetCell: { x: 1, y: 2 },
+      targetCell: { x: 3, y: 4 },
+      playerCell: { x: 2, y: 5 },
+      targetPosition: [3.5, 0.03, 4.5],
+      valid: false,
+      reason: "duplicate-block",
+      validationReason: "duplicate-block",
+      blockedByConstruction: true,
+      blockingColliderIds: ["greenhouse-0"],
+      rawTargetBlockType: "wall",
+      targetBlockType: null,
+      wood: 6
+    });
   });
 });
