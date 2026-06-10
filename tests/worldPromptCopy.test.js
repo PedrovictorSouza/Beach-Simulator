@@ -5,7 +5,8 @@ import {
   getPendingPlacementPrompt,
   getPendingPlacementWorldPromptText,
   getPlayerInteractionWorldPromptText,
-  getRunBreadcrumbWorldPromptText
+  getRunBreadcrumbWorldPromptText,
+  resolveWorldPromptVisibility
 } from "../app/runtime/presentation/worldPromptCopy.js";
 import { GAMEPAD_LAYOUT, INPUT_DEVICE } from "../input/inputModality.js";
 
@@ -78,5 +79,85 @@ describe("world prompt copy", () => {
     expect(getPlayerInteractionWorldPromptText(customKeyboard)).toBe("press F");
     expect(getRunBreadcrumbWorldPromptText(customKeyboard)).toBe("press V to run!");
     expect(getFieldToolWorldPromptText(customKeyboard)).toBe("Press Q");
+  });
+
+  it("resolves world prompt visibility from frame prompt state", () => {
+    expect(resolveWorldPromptVisibility({
+      canShowWorldSpaceUi: true,
+      hasPlayerCharacter: true,
+      solarStationPlacementPreview: { snappedPosition: [1, 0, 1] },
+      greenhousePlacementPreview: { snappedPosition: [2, 0, 2] },
+      campfirePlacementPreview: { snappedPosition: [3, 0, 3] },
+      leafDenKitPlacementPreview: { snappedPosition: [4, 0, 4] },
+      pendingPlacementPrompt: "pending",
+      workbenchRotationPrompt: "rotate",
+      destroyableObjectPrompt: { promptCopy: "destroy" },
+      freeBlockBuildCostMarker: { text: "1/2" },
+      transientNoticeRoute: { worldPromptMessage: "notice" },
+      playerCounterPromptText: "+1",
+      fieldMoveSwitchPrompt: { html: "switch" },
+      squirtleWaterCharging: true,
+      squirtleChargingPosition: [0, 0, 0],
+      leafageInvalidTargetVisible: true,
+      fireInvalidTargetVisible: true,
+      nearbyDryGrassWorldPromptTarget: { id: "dry-grass" },
+      runBreadcrumbVisible: true,
+      isPlayerInteractionPromptTarget: true,
+      nearbyRepairBoxPrompt: { name: "Hydro" },
+      waterGunFirstUsePromptVisible: true,
+      leafageFirstUsePromptVisible: true
+    })).toEqual({
+      shouldShowSolarStationPlacementPrompt: true,
+      shouldShowGreenhousePlacementPrompt: true,
+      shouldShowCampfirePlacementPrompt: true,
+      shouldShowLeafDenKitPlacementPrompt: true,
+      shouldShowPendingPlacementPrompt: true,
+      shouldShowWorkbenchRotationPrompt: true,
+      shouldShowDestroyableObjectPrompt: false,
+      shouldShowFreeBlockBuildCostPrompt: true,
+      shouldShowPlayerCounterPrompt: true,
+      shouldShowFieldMoveSwitchPrompt: true,
+      shouldShowSquirtleChargingPrompt: true,
+      shouldShowInvalidLeafageUsePrompt: true,
+      shouldShowInvalidFireUsePrompt: true,
+      shouldShowTransientWorldPrompt: true,
+      shouldShowDryGrassHydroPrompt: true,
+      shouldShowRunBreadcrumbPrompt: true,
+      shouldShowPlayerInteractionPrompt: true,
+      shouldShowRepairBoxPrompt: true,
+      shouldShowLeafageFirstUsePrompt: true,
+      shouldShowWaterGunFirstUsePrompt: true
+    });
+
+    expect(resolveWorldPromptVisibility({
+      canShowWorldSpaceUi: false,
+      hasPlayerCharacter: true,
+      solarStationPlacementPreview: { snappedPosition: [1, 0, 1] },
+      pendingPlacementPrompt: "pending",
+      workbenchRotationPrompt: "rotate",
+      destroyableObjectPrompt: { promptCopy: "destroy" },
+      waterGunFirstUsePromptVisible: true
+    })).toEqual({
+      shouldShowSolarStationPlacementPrompt: false,
+      shouldShowGreenhousePlacementPrompt: false,
+      shouldShowCampfirePlacementPrompt: false,
+      shouldShowLeafDenKitPlacementPrompt: false,
+      shouldShowPendingPlacementPrompt: false,
+      shouldShowWorkbenchRotationPrompt: false,
+      shouldShowDestroyableObjectPrompt: false,
+      shouldShowFreeBlockBuildCostPrompt: false,
+      shouldShowPlayerCounterPrompt: false,
+      shouldShowFieldMoveSwitchPrompt: false,
+      shouldShowSquirtleChargingPrompt: false,
+      shouldShowInvalidLeafageUsePrompt: false,
+      shouldShowInvalidFireUsePrompt: false,
+      shouldShowTransientWorldPrompt: false,
+      shouldShowDryGrassHydroPrompt: false,
+      shouldShowRunBreadcrumbPrompt: false,
+      shouldShowPlayerInteractionPrompt: false,
+      shouldShowRepairBoxPrompt: false,
+      shouldShowLeafageFirstUsePrompt: false,
+      shouldShowWaterGunFirstUsePrompt: false
+    });
   });
 });

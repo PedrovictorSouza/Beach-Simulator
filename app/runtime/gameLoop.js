@@ -217,7 +217,8 @@ import {
   getPendingPlacementPrompt,
   getPendingPlacementWorldPromptText,
   getPlayerInteractionWorldPromptText,
-  getRunBreadcrumbWorldPromptText
+  getRunBreadcrumbWorldPromptText,
+  resolveWorldPromptVisibility
 } from "./presentation/worldPromptCopy.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { updateStatusPopupsFrame } from "./presentation/statusPopupsFrame.js";
@@ -8794,17 +8795,14 @@ if (canProcessDestroyAction && destroyActionRequested) {
       promptDistance: REPAIR_BOX_PROMPT_DISTANCE,
       getEncounterRepairBoxPosition
     });
-    const shouldShowRepairBoxPrompt =
-      canShowWorldSpaceUi &&
-      Boolean(nearbyRepairBoxPrompt);
-    const shouldShowWaterGunFirstUsePrompt =
+    const waterGunFirstUsePromptVisible =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
       controls.playerSkills?.waterGun &&
       activeMoveId === "waterGun" &&
       !controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] &&
       !controls.isPrimaryActionActive?.();
-    const shouldShowLeafageFirstUsePrompt =
+    const leafageFirstUsePromptVisible =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
       controls.playerSkills?.leafage &&
@@ -8812,65 +8810,23 @@ if (canProcessDestroyAction && destroyActionRequested) {
       !controls.storyState.flags.leafageTallGrassHabitatCreated &&
       !controls.isPrimaryActionActive?.();
     const squirtleChargingPosition = getSquirtleWorldPosition();
-    const shouldShowSquirtleChargingPrompt =
+    const squirtleWaterCharging =
       canShowWorldSpaceUi &&
-      isSquirtleWaterCharging() &&
-      Array.isArray(squirtleChargingPosition);
-    const shouldShowInvalidLeafageUsePrompt =
+      isSquirtleWaterCharging();
+    const leafageInvalidTargetVisible =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
       fieldMoveInvalidTargetPromptRuntime.isLeafageVisible(now);
-    const shouldShowInvalidFireUsePrompt =
+    const fireInvalidTargetVisible =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
       fieldMoveInvalidTargetPromptRuntime.isFireVisible(now);
     const fieldMoveSwitchPrompt = controls.getFieldMoveSwitchPrompt?.(now) || null;
-    const shouldShowFieldMoveSwitchPrompt =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      Boolean(fieldMoveSwitchPrompt?.html);
-    const shouldShowSolarStationPlacementPrompt =
-      canShowWorldSpaceUi &&
-      Boolean(solarStationPlacementPreview?.snappedPosition);
-    const shouldShowGreenhousePlacementPrompt =
-      canShowWorldSpaceUi &&
-      Boolean(greenhousePlacementPreview?.snappedPosition);
-    const shouldShowCampfirePlacementPrompt =
-      canShowWorldSpaceUi &&
-      Boolean(campfirePlacementPreview?.snappedPosition);
-    const shouldShowLeafDenKitPlacementPrompt =
-      canShowWorldSpaceUi &&
-      Boolean(leafDenKitPlacementPreview?.snappedPosition);
-    const shouldShowPendingPlacementPrompt =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      Boolean(pendingPlacementPrompt);
-    const shouldShowWorkbenchRotationPrompt =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      Boolean(workbenchRotationPrompt);
-    
-    const shouldShowDestroyableObjectPrompt =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      !shouldShowWorkbenchRotationPrompt &&
-  Boolean(destroyableObjectPrompt?.promptCopy);
     const freeBlockBuildCostMarker =
       canShowWorldSpaceUi && buildBlockEquipped ?
         getFreeBlockBuildCostMarker(freeBlockPreviewTarget) :
         null;
-    const shouldShowFreeBlockBuildCostPrompt =
-      canShowWorldSpaceUi &&
-      Boolean(freeBlockBuildCostMarker);
-    const shouldShowTransientWorldPrompt =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      transientNoticeRoute.worldPromptMessage;
-    const shouldShowPlayerCounterPrompt =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      Boolean(playerCounterPromptText);
-    const shouldShowPlayerInteractionPrompt =
+    const isPlayerInteractionPromptTarget =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
       PLAYER_INTERACTION_WORLD_PROMPT_TARGET_IDS.has(nearbyInteractable?.target?.id);
@@ -8898,14 +8854,56 @@ if (canProcessDestroyAction && destroyActionRequested) {
           getLeppaTreeSurroundingGroundCells
         }) :
         null;
-    const shouldShowDryGrassHydroPrompt =
-      canShowWorldSpaceUi &&
-      session.playerCharacter &&
-      Boolean(nearbyDryGrassWorldPromptTarget);
-    const shouldShowRunBreadcrumbPrompt =
+    const runBreadcrumbVisible =
       canShowWorldSpaceUi &&
       session.playerCharacter &&
       runBreadcrumbPromptRuntime.isVisible(now);
+    const {
+      shouldShowSolarStationPlacementPrompt,
+      shouldShowGreenhousePlacementPrompt,
+      shouldShowCampfirePlacementPrompt,
+      shouldShowLeafDenKitPlacementPrompt,
+      shouldShowPendingPlacementPrompt,
+      shouldShowWorkbenchRotationPrompt,
+      shouldShowDestroyableObjectPrompt,
+      shouldShowFreeBlockBuildCostPrompt,
+      shouldShowPlayerCounterPrompt,
+      shouldShowFieldMoveSwitchPrompt,
+      shouldShowSquirtleChargingPrompt,
+      shouldShowInvalidLeafageUsePrompt,
+      shouldShowInvalidFireUsePrompt,
+      shouldShowTransientWorldPrompt,
+      shouldShowDryGrassHydroPrompt,
+      shouldShowRunBreadcrumbPrompt,
+      shouldShowPlayerInteractionPrompt,
+      shouldShowRepairBoxPrompt,
+      shouldShowLeafageFirstUsePrompt,
+      shouldShowWaterGunFirstUsePrompt
+    } = resolveWorldPromptVisibility({
+      canShowWorldSpaceUi,
+      hasPlayerCharacter: Boolean(session.playerCharacter),
+      nearbyRepairBoxPrompt,
+      waterGunFirstUsePromptVisible,
+      leafageFirstUsePromptVisible,
+      squirtleWaterCharging,
+      squirtleChargingPosition,
+      leafageInvalidTargetVisible,
+      fireInvalidTargetVisible,
+      fieldMoveSwitchPrompt,
+      solarStationPlacementPreview,
+      greenhousePlacementPreview,
+      campfirePlacementPreview,
+      leafDenKitPlacementPreview,
+      pendingPlacementPrompt,
+      workbenchRotationPrompt,
+      destroyableObjectPrompt,
+      freeBlockBuildCostMarker,
+      transientNoticeRoute,
+      playerCounterPromptText,
+      isPlayerInteractionPromptTarget,
+      nearbyDryGrassWorldPromptTarget,
+      runBreadcrumbVisible
+    });
     const playerInteractionPromptText = shouldShowPlayerInteractionPrompt ?
       getPlayerInteractionWorldPromptText(inputModalityState) :
       "";

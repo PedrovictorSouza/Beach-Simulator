@@ -292,10 +292,63 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move frame pending placement intent gating into the
   `construction` boundary.
+- Completed: move world-prompt visibility flags into the `presentation`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
 ## Validation Log
+
+### World Prompt Visibility Boundary
+
+Moved the frame-local world-prompt visibility flag assembly from
+`app/runtime/gameLoop.js` into `app/runtime/presentation/worldPromptCopy.js`.
+
+Boundary classification: `presentation/render helpers`, focused on deciding
+which already-computed world prompt candidates should be visible for the frame.
+
+Study path:
+
+1. `gameLoop.js` still owns world queries and side-effect-prone runtime calls,
+   such as repair-box lookup, dry-grass lookup and prompt runtime visibility
+   checks.
+2. `resolveWorldPromptVisibility(...)` receives those already-computed values
+   and returns the same `shouldShow...Prompt` flags used by
+   `updateWorldPromptSnapshotFrame(...)`.
+3. Workbench rotation still suppresses destroyable-object prompts through the
+   same priority rule.
+4. No prompt copy, render snapshot shape, input mapping or frame order changed.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `9769` to `9767`.
+- Removed the inline boolean assembly for placement, pending placement,
+  workbench rotation, destroyable object, field-move, repair-box, counter,
+  transient and dry-grass world prompt visibility.
+- Added a focused contract test for the presentation policy, including the
+  workbench-over-destroyable priority and global world-UI gating.
+
+Validation:
+
+```sh
+npm test -- --run tests/worldPromptCopy.test.js
+npm test -- --run tests/worldPromptCopy.test.js tests/hudPromptCopy.test.js tests/placementPreviewPrompts.test.js tests/pendingPlacementIntent.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused presentation/prompt suite passed with `21` tests.
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1646` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
 
 ### Frame Pending Placement Intent Boundary
 

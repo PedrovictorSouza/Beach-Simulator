@@ -74,3 +74,98 @@ export function getFieldToolWorldPromptText(inputModalityState = null) {
 
   return inputLabel && inputLabel !== "Unassigned" ? `Press ${inputLabel}` : "Press input";
 }
+
+export function resolveWorldPromptVisibility({
+  canShowWorldSpaceUi = false,
+  hasPlayerCharacter = false,
+  nearbyRepairBoxPrompt = null,
+  waterGunFirstUsePromptVisible = false,
+  leafageFirstUsePromptVisible = false,
+  squirtleWaterCharging = false,
+  squirtleChargingPosition = null,
+  leafageInvalidTargetVisible = false,
+  fireInvalidTargetVisible = false,
+  fieldMoveSwitchPrompt = null,
+  solarStationPlacementPreview = null,
+  greenhousePlacementPreview = null,
+  campfirePlacementPreview = null,
+  leafDenKitPlacementPreview = null,
+  pendingPlacementPrompt = "",
+  workbenchRotationPrompt = "",
+  destroyableObjectPrompt = null,
+  freeBlockBuildCostMarker = null,
+  transientNoticeRoute = null,
+  playerCounterPromptText = "",
+  isPlayerInteractionPromptTarget = false,
+  nearbyDryGrassWorldPromptTarget = null,
+  runBreadcrumbVisible = false
+} = {}) {
+  const canShow = Boolean(canShowWorldSpaceUi);
+  const canShowPlayerPrompt = canShow && Boolean(hasPlayerCharacter);
+  const shouldShowWorkbenchRotationPrompt =
+    canShowPlayerPrompt &&
+    Boolean(workbenchRotationPrompt);
+
+  return {
+    shouldShowSolarStationPlacementPrompt:
+      canShow &&
+      Boolean(solarStationPlacementPreview?.snappedPosition),
+    shouldShowGreenhousePlacementPrompt:
+      canShow &&
+      Boolean(greenhousePlacementPreview?.snappedPosition),
+    shouldShowCampfirePlacementPrompt:
+      canShow &&
+      Boolean(campfirePlacementPreview?.snappedPosition),
+    shouldShowLeafDenKitPlacementPrompt:
+      canShow &&
+      Boolean(leafDenKitPlacementPreview?.snappedPosition),
+    shouldShowPendingPlacementPrompt:
+      canShowPlayerPrompt &&
+      Boolean(pendingPlacementPrompt),
+    shouldShowWorkbenchRotationPrompt,
+    shouldShowDestroyableObjectPrompt:
+      canShowPlayerPrompt &&
+      !shouldShowWorkbenchRotationPrompt &&
+      Boolean(destroyableObjectPrompt?.promptCopy),
+    shouldShowFreeBlockBuildCostPrompt:
+      canShow &&
+      Boolean(freeBlockBuildCostMarker),
+    shouldShowPlayerCounterPrompt:
+      canShowPlayerPrompt &&
+      Boolean(playerCounterPromptText),
+    shouldShowFieldMoveSwitchPrompt:
+      canShowPlayerPrompt &&
+      Boolean(fieldMoveSwitchPrompt?.html),
+    shouldShowSquirtleChargingPrompt:
+      canShow &&
+      squirtleWaterCharging &&
+      Array.isArray(squirtleChargingPosition),
+    shouldShowInvalidLeafageUsePrompt:
+      canShowPlayerPrompt &&
+      Boolean(leafageInvalidTargetVisible),
+    shouldShowInvalidFireUsePrompt:
+      canShowPlayerPrompt &&
+      Boolean(fireInvalidTargetVisible),
+    shouldShowTransientWorldPrompt:
+      canShowPlayerPrompt &&
+      Boolean(transientNoticeRoute?.worldPromptMessage),
+    shouldShowDryGrassHydroPrompt:
+      canShowPlayerPrompt &&
+      Boolean(nearbyDryGrassWorldPromptTarget),
+    shouldShowRunBreadcrumbPrompt:
+      canShowPlayerPrompt &&
+      Boolean(runBreadcrumbVisible),
+    shouldShowPlayerInteractionPrompt:
+      canShowPlayerPrompt &&
+      Boolean(isPlayerInteractionPromptTarget),
+    shouldShowRepairBoxPrompt:
+      canShow &&
+      Boolean(nearbyRepairBoxPrompt),
+    shouldShowLeafageFirstUsePrompt:
+      canShowPlayerPrompt &&
+      Boolean(leafageFirstUsePromptVisible),
+    shouldShowWaterGunFirstUsePrompt:
+      canShowPlayerPrompt &&
+      Boolean(waterGunFirstUsePromptVisible)
+  };
+}
