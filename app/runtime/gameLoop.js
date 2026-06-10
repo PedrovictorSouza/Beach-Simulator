@@ -22,7 +22,9 @@ import {
 import {
   canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
   getFoundationBuildZoneProgressCount as getFoundationBuildZoneProgressCountFromState,
+  getSavedFoundationBuildZoneOriginCell as getSavedFoundationBuildZoneOriginCellFromFlags,
   isFoundationFreeBlockAllowedInZone as isFoundationFreeBlockAllowedInZoneWithState,
+  saveFoundationBuildZoneOriginCell as saveFoundationBuildZoneOriginCellToFlags,
   shouldShowFoundationBuildZone as shouldShowFoundationBuildZoneWithState
 } from "./construction/foundationBuildZone.js";
 import {
@@ -97,7 +99,6 @@ import {
   getSnappedPlacementPreviewPosition,
   hasFinitePlacementBounds,
   isFoundationBuildZoneOriginInsideGrid as isFoundationBuildZoneOriginInsideGridWithConfig,
-  normalizeFoundationBuildZoneOriginCell,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
 import {
@@ -3452,13 +3453,6 @@ export function startGameLoop({
     );
   }
 
-  function normalizeBuilderTutorialFoundationOriginCell(originCell = null) {
-    return normalizeFoundationBuildZoneOriginCell(
-      originCell,
-      BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL
-    );
-  }
-
   function isBuilderTutorialFoundationOriginInsideGrid(originCell) {
     return isFoundationBuildZoneOriginInsideGridWithConfig({
       originCell,
@@ -3469,22 +3463,20 @@ export function startGameLoop({
   }
 
   function getSavedBuilderTutorialFoundationOriginCell() {
-    return normalizeBuilderTutorialFoundationOriginCell(
-      controls.storyState?.flags?.[BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG]
-    );
+    return getSavedFoundationBuildZoneOriginCellFromFlags({
+      flags: controls.storyState?.flags,
+      originFlag: BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG,
+      defaultOriginCell: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL
+    });
   }
 
   function saveBuilderTutorialFoundationOriginCell(originCell) {
-    const flags = controls.storyState?.flags;
-    if (!flags) {
-      return;
-    }
-
-    const normalizedOrigin = normalizeBuilderTutorialFoundationOriginCell(originCell);
-    flags[BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG] = {
-      x: normalizedOrigin.x,
-      y: normalizedOrigin.y
-    };
+    saveFoundationBuildZoneOriginCellToFlags({
+      flags: controls.storyState?.flags,
+      originCell,
+      originFlag: BUILDER_TUTORIAL_FOUNDATION_ORIGIN_FLAG,
+      defaultOriginCell: BUILDER_TUTORIAL_FOUNDATION_DEFAULT_ORIGIN_CELL
+    });
   }
 
   function getFoundationBuildZoneWorldRect(buildZone = null) {

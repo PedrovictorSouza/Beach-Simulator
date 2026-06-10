@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   canStackFreeBlockPlacement,
   getFoundationBuildZoneProgressCount,
+  getSavedFoundationBuildZoneOriginCell,
   hasFoundationWallObjective,
   isFoundationFreeBlockAllowedInZone,
+  saveFoundationBuildZoneOriginCell,
   shouldShowFoundationBuildZone
 } from "../app/runtime/construction/foundationBuildZone.js";
 
@@ -110,5 +112,44 @@ describe("foundation build zone", () => {
       progress: { complete: false }
     })).toBe(false);
     expect(canStackFreeBlockPlacement()).toBe(false);
+  });
+
+  it("reads saved origin cells with fallback normalization", () => {
+    const originFlag = "foundationOrigin";
+    const defaultOriginCell = { x: 10, y: 20 };
+
+    expect(getSavedFoundationBuildZoneOriginCell({
+      flags: {
+        [originFlag]: { x: "12.8", z: "22.4" }
+      },
+      originFlag,
+      defaultOriginCell
+    })).toEqual({ x: 12, y: 22 });
+
+    expect(getSavedFoundationBuildZoneOriginCell({
+      flags: {},
+      originFlag,
+      defaultOriginCell
+    })).toEqual(defaultOriginCell);
+  });
+
+  it("saves normalized origin cells without requiring a story state", () => {
+    const flags = {};
+    const originFlag = "foundationOrigin";
+
+    expect(saveFoundationBuildZoneOriginCell({
+      flags,
+      originCell: { x: "5.9", z: "7.2" },
+      originFlag,
+      defaultOriginCell: { x: 0, y: 0 }
+    })).toEqual({ x: 5, y: 7 });
+    expect(flags[originFlag]).toEqual({ x: 5, y: 7 });
+
+    expect(saveFoundationBuildZoneOriginCell({
+      flags: null,
+      originCell: { x: 1, y: 2 },
+      originFlag,
+      defaultOriginCell: { x: 0, y: 0 }
+    })).toBeNull();
   });
 });

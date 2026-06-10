@@ -260,6 +260,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move free-block removal target/drop helpers into the
   `construction` boundary.
+- Completed: move foundation origin flag persistence into the `construction`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -1810,6 +1812,59 @@ npm test
 The full suite completed with the existing Leafage Native Tree baseline:
 
 - `1608` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+  - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+  - `grows Native tree on a safe nearby cell instead of trapping the player under it`
+  - `drops Wood when a Leafage Native tree is destroyed`
+
+Manual gameplay validation remains pending in this pass.
+
+### Foundation Origin Persistence Boundary
+
+Moved foundation build-zone origin flag read/write helpers from
+`app/runtime/gameLoop.js` into
+`app/runtime/construction/foundationBuildZone.js`.
+
+Boundary classification: `construction`, focused on persisted foundation-zone
+origin state. The live story-state lookup remains in `gameLoop.js`.
+
+Study path:
+
+1. `getSavedFoundationBuildZoneOriginCell(...)` owns reading the configured
+   origin flag and normalizing it with a fallback origin.
+2. `saveFoundationBuildZoneOriginCell(...)` owns writing the normalized
+   `{ x, y }` payload back into the flags object.
+3. `gameLoop.js` still owns selecting `controls.storyState.flags`, the
+   builder-tutorial flag name and the builder-tutorial default origin.
+
+Reduced pressure:
+
+- `gameLoop.js` line count changed from `10038` to `10030`.
+- Removed local builder-tutorial origin normalization and direct flag write
+  implementation from `gameLoop.js`.
+- Added focused tests for saved-origin fallback normalization and normalized
+  flag writes without requiring a story state object.
+
+Validation:
+
+```sh
+npm test -- --run tests/foundationBuildZone.test.js
+npm test -- --run tests/foundationBuildZone.test.js tests/placementGeometry.test.js tests/freeBlockBuildSystem.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+The focused construction policy/geometry/build suite passed with `76` tests.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+The full suite completed with the existing Leafage Native Tree baseline:
+
+- `1615` passed
 - `3` failed in `tests/gameplayInteractions.test.js`
   - `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
   - `grows Native tree on a safe nearby cell instead of trapping the player under it`

@@ -1,4 +1,7 @@
-import { getFoundationBuildZoneCellKeys } from "./placementGeometry.js";
+import {
+  getFoundationBuildZoneCellKeys,
+  normalizeFoundationBuildZoneOriginCell
+} from "./placementGeometry.js";
 
 export function hasFoundationWallObjective(quest = null) {
   return (quest?.objectives || []).some((objective) => {
@@ -54,4 +57,36 @@ export function getFoundationBuildZoneProgressCount({
 
 export function canStackFreeBlockPlacement({ progress = null } = {}) {
   return Boolean(progress?.complete);
+}
+
+export function getSavedFoundationBuildZoneOriginCell({
+  flags = null,
+  originFlag = "builderTutorialFoundationOriginCell",
+  defaultOriginCell = { x: 0, y: 0 }
+} = {}) {
+  return normalizeFoundationBuildZoneOriginCell(
+    flags?.[originFlag],
+    defaultOriginCell
+  );
+}
+
+export function saveFoundationBuildZoneOriginCell({
+  flags = null,
+  originCell = null,
+  originFlag = "builderTutorialFoundationOriginCell",
+  defaultOriginCell = { x: 0, y: 0 }
+} = {}) {
+  if (!flags) {
+    return null;
+  }
+
+  const normalizedOrigin = normalizeFoundationBuildZoneOriginCell(
+    originCell,
+    defaultOriginCell
+  );
+  flags[originFlag] = {
+    x: normalizedOrigin.x,
+    y: normalizedOrigin.y
+  };
+  return flags[originFlag];
 }
