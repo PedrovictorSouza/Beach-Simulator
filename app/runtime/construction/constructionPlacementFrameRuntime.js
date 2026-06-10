@@ -1,3 +1,26 @@
+export function resolveActiveConstructionPlacementPreviews({
+  session = {},
+  solarStationPlacementPreview = null,
+  greenhousePlacementPreview = null,
+  campfirePlacementPreview = null,
+  leafDenKitPlacementPreview = null
+} = {}) {
+  return {
+    solarStationPlacementPreview: session.strawBedPlacementPreview?.active ?
+      solarStationPlacementPreview :
+      null,
+    greenhousePlacementPreview: session.greenhousePlacementPreview?.active ?
+      greenhousePlacementPreview :
+      null,
+    campfirePlacementPreview: session.campfirePlacementPreview?.active ?
+      campfirePlacementPreview :
+      null,
+    leafDenKitPlacementPreview: session.leafDenKitPlacementPreview?.active ?
+      leafDenKitPlacementPreview :
+      null
+  };
+}
+
 export function createConstructionPlacementFrameRuntime({
   controls,
   session,

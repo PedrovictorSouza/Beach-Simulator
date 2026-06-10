@@ -4010,6 +4010,72 @@ the existing Leafage Native Tree baseline:
 
 No manual browser validation was run in this cut.
 
+### Active Construction Placement Preview State
+
+Expanded `app/runtime/construction/constructionPlacementFrameRuntime.js` with
+`resolveActiveConstructionPlacementPreviews(...)`.
+
+Module boundary:
+
+- Domain: `construction`.
+- Responsibility: keep only placement preview frame objects whose backing
+  session preview is still active.
+- Removed from `frame(now)`: four direct checks against
+  `session.*PlacementPreview?.active` used to null stale construction preview
+  frame state.
+
+Study path:
+
+1. `constructionPlacementFrameRuntime.updatePlacementControlsAndPreviews(...)`
+   still creates the raw preview frame objects in the same place.
+2. Ground guidance still receives the raw preview values before this pruning,
+   matching the previous frame order.
+3. `resolveActiveConstructionPlacementPreviews(...)` then applies the same
+   session-backed active gates before prompt/highlight/world prompt presentation.
+4. `frame(now)` receives the same four names afterward:
+   `solarStationPlacementPreview`, `greenhousePlacementPreview`,
+   `campfirePlacementPreview` and `leafDenKitPlacementPreview`.
+
+Tests expanded:
+
+- `tests/constructionPlacementFrameRuntime.test.js`
+
+The new test covers mixed active/inactive session preview state and verifies
+that only inactive previews are nulled.
+
+Risks reduced:
+
+- Construction preview active-state filtering is now owned and tested in the
+  construction runtime boundary.
+- `gameLoop.js` no longer knows the specific active flag names for each
+  construction preview at this point in the frame.
+
+Risks remaining:
+
+- `frame(now)` still carries placement preview variables across presentation
+  systems because prompt, highlight and world prompt state all consume them.
+- A later construction cut should consider returning a named placement preview
+  frame state object instead of four loose variables.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js tests/gameplayPromptTargetFrameState.test.js tests/groundCellHighlightFrameState.test.js tests/worldPromptFrameState.test.js tests/groundCellHighlightFrame.test.js
+git diff --check
+npm run build
+npm test
+```
+
+The focused suite passed with `22` tests. `npm run build` passed with the
+existing large chunk warning. `npm test` completed with the existing Leafage
+Native Tree baseline:
+
+- `1733` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+No manual browser validation was run in this cut.
+
 ### Gameplay Prompt Frame State Wrapper
 
 Expanded `app/runtime/presentation/gameplayPromptTargetFrameState.js` with

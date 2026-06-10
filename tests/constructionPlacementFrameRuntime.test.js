@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createConstructionPlacementFrameRuntime } from "../app/runtime/construction/constructionPlacementFrameRuntime.js";
+import {
+  createConstructionPlacementFrameRuntime,
+  resolveActiveConstructionPlacementPreviews
+} from "../app/runtime/construction/constructionPlacementFrameRuntime.js";
 
 function createRuntime({
   controls = {},
@@ -46,6 +49,26 @@ function createRuntime({
 }
 
 describe("construction placement frame runtime", () => {
+  it("keeps only placement previews whose session preview is still active", () => {
+    expect(resolveActiveConstructionPlacementPreviews({
+      session: {
+        strawBedPlacementPreview: { active: true },
+        greenhousePlacementPreview: { active: false },
+        campfirePlacementPreview: { active: true },
+        leafDenKitPlacementPreview: null
+      },
+      solarStationPlacementPreview: { id: "solar" },
+      greenhousePlacementPreview: { id: "greenhouse" },
+      campfirePlacementPreview: { id: "campfire" },
+      leafDenKitPlacementPreview: { id: "leaf-den" }
+    })).toEqual({
+      solarStationPlacementPreview: { id: "solar" },
+      greenhousePlacementPreview: null,
+      campfirePlacementPreview: { id: "campfire" },
+      leafDenKitPlacementPreview: null
+    });
+  });
+
   it("rotates active placement previews before falling back to workbench rotation", () => {
     const rotateActivePlacementPreview = vi.fn(() => ({ id: "preview" }));
     const rotateNearbyWorkbenchConstruction = vi.fn();

@@ -57,7 +57,10 @@ import {
 import {
   moveConstructionHelperToLeafDen as moveConstructionHelperToLeafDenWithConfig
 } from "./construction/constructionHelperMotion.js";
-import { createConstructionPlacementFrameRuntime } from "./construction/constructionPlacementFrameRuntime.js";
+import {
+  createConstructionPlacementFrameRuntime,
+  resolveActiveConstructionPlacementPreviews
+} from "./construction/constructionPlacementFrameRuntime.js";
 import {
   cancelPendingWorkbenchPlacementIntent,
   hasPendingWorkbenchPlacementIntent
@@ -7091,18 +7094,18 @@ if (canProcessDestroyAction && destroyActionRequested) {
       buildFoundationBuildZoneGroundCells,
       getWorldCellPlannerSelectedGroundCell
     });
-    if (!session.strawBedPlacementPreview?.active) {
-      solarStationPlacementPreview = null;
-    }
-    if (!session.greenhousePlacementPreview?.active) {
-      greenhousePlacementPreview = null;
-    }
-    if (!session.campfirePlacementPreview?.active) {
-      campfirePlacementPreview = null;
-    }
-    if (!session.leafDenKitPlacementPreview?.active) {
-      leafDenKitPlacementPreview = null;
-    }
+    ({
+      solarStationPlacementPreview,
+      greenhousePlacementPreview,
+      campfirePlacementPreview,
+      leafDenKitPlacementPreview
+    } = resolveActiveConstructionPlacementPreviews({
+      session,
+      solarStationPlacementPreview,
+      greenhousePlacementPreview,
+      campfirePlacementPreview,
+      leafDenKitPlacementPreview
+    }));
     const {
       inputModalityState,
       transientNoticeRoute,
