@@ -1140,7 +1140,10 @@ export function startGameLoop({
       repairBoxRustleLift: BULBASAUR_REPAIR_BOX_RUSTLE_LIFT,
       repairBoxRustleRoll: BULBASAUR_REPAIR_BOX_RUSTLE_ROLL,
       repairBoxRustlePitch: BULBASAUR_REPAIR_BOX_RUSTLE_PITCH,
-      repairBoxRustleYaw: BULBASAUR_REPAIR_BOX_RUSTLE_YAW
+      repairBoxRustleYaw: BULBASAUR_REPAIR_BOX_RUSTLE_YAW,
+      activeTint: REPAIR_BOX_ACTIVE_TINT,
+      activeTintStrength: REPAIR_BOX_ACTIVE_TINT_STRENGTH,
+      inactiveAlpha: REPAIR_BOX_INACTIVE_ALPHA
     }
   });
   const squirtleReassemblyRuntime = createSquirtleReassemblyRuntime({
@@ -2804,45 +2807,18 @@ export function startGameLoop({
   }
 
   function syncActiveRepairBoxHighlight() {
-    const repairModuleInstances = [
-      session.actTwoSquirtle?.repairModuleInstance,
-      session.bulbasaurEncounter?.repairModuleInstance,
-      session.charmanderEncounter?.repairModuleInstance,
-      session.timburrEncounter?.repairModuleInstance
-    ];
-    let highlighted = false;
-
-    for (const repairModuleInstance of repairModuleInstances) {
-      if (!repairModuleInstance) {
-        continue;
-      }
-
-      if (
-        (
-          repairModuleInstance === session.bulbasaurEncounter?.repairModuleInstance &&
-          session.bulbasaurEncounter?.revealBoxOpening?.active
-        ) ||
-        (
-          repairModuleInstance === session.charmanderEncounter?.repairModuleInstance &&
-          session.charmanderEncounter?.revealBoxOpening?.active
-        )
-      ) {
-        highlighted = true;
-        continue;
-      }
-
-      if (!highlighted && repairModuleInstance.active) {
-        repairModuleInstance.tint = REPAIR_BOX_ACTIVE_TINT;
-        repairModuleInstance.tintStrength = REPAIR_BOX_ACTIVE_TINT_STRENGTH;
-        repairModuleInstance.alpha = 1;
-        highlighted = true;
-        continue;
-      }
-
-      repairModuleInstance.tint = null;
-      repairModuleInstance.tintStrength = 0;
-      repairModuleInstance.alpha = repairModuleInstance.active ? REPAIR_BOX_INACTIVE_ALPHA : 1;
-    }
+    companionRepairBoxModelRuntime.syncActiveHighlight({
+      repairModuleInstances: [
+        session.actTwoSquirtle?.repairModuleInstance,
+        session.bulbasaurEncounter?.repairModuleInstance,
+        session.charmanderEncounter?.repairModuleInstance,
+        session.timburrEncounter?.repairModuleInstance
+      ],
+      revealEncounters: [
+        session.bulbasaurEncounter,
+        session.charmanderEncounter
+      ]
+    });
   }
 
   function isBulbasaurRepairBoxRustlingActive() {

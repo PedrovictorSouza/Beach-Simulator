@@ -3786,6 +3786,62 @@ baseline:
 Manual gameplay validation remains pending because the in-app browser backend
 was not available during this pass.
 
+### Repair Box Highlight Runtime Integration
+
+Extended `app/runtime/companions/companionRepairBoxModelRuntime.js` instead of
+creating another file.
+
+Boundary:
+
+- Domain: `companions/`.
+- Responsibility: visual highlight policy for active companion repair boxes.
+- Classification: companion/presentation runtime.
+
+Extracted from `gameLoop.js`:
+
+1. Choosing the first active repair box to highlight.
+2. Preserving reveal-opening repair boxes so cinematic tint/alpha is not
+   overwritten.
+3. Resetting non-highlighted repair boxes to inactive tint/alpha state.
+
+Kept in `gameLoop.js`:
+
+1. `syncActiveRepairBoxHighlight()` remains as a small wiring function because
+   `baseRenderSnapshotFrameRuntime` already receives that callback.
+2. `gameLoop.js` only builds the current repair-module and reveal-encounter
+   lists, then delegates to
+   `companionRepairBoxModelRuntime.syncActiveHighlight(...)`.
+3. Shared active-tint constants stay in `gameLoop.js` for now because Bee Field
+   wiring also uses them.
+
+Why this is safe:
+
+- No frame order changed; the same render snapshot callback still runs in the
+  same position.
+- The highlight policy moved into the existing companion repair-box runtime
+  rather than adding file sprawl.
+- Existing tint, tint strength and inactive alpha values are passed through
+  unchanged.
+
+Validation:
+
+```sh
+npm test -- --run tests/companionRepairBoxModelRuntime.test.js
+npm test -- --run tests/companionRepairBoxModelRuntime.test.js tests/baseRenderSnapshotFrame.test.js tests/beeFieldRuntime.test.js
+npm run build
+npm test
+```
+
+Results:
+
+- Focused companion repair-box model runtime test: `6` passed.
+- Neighbor render/Bee Field suite: `12` passed.
+- Production build passed.
+- Full suite completed with the existing Leafage Native Tree baseline:
+  `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Bee Field Runtime Extraction
 
 Created `app/runtime/companions/beeFieldRuntime.js`.

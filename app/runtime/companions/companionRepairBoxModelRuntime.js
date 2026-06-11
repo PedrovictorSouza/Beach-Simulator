@@ -11,7 +11,10 @@ const DEFAULT_CONFIG = Object.freeze({
   repairBoxRustleLift: 0,
   repairBoxRustleRoll: 0,
   repairBoxRustlePitch: 0,
-  repairBoxRustleYaw: 0
+  repairBoxRustleYaw: 0,
+  activeTint: [0.38, 1.72, 0.42],
+  activeTintStrength: 0.68,
+  inactiveAlpha: 0.5
 });
 
 const REVEAL_BOX_TINT = Object.freeze([1.45, 1.72, 0.84]);
@@ -185,10 +188,47 @@ export function createCompanionRepairBoxModelRuntime({
     applyRepairBoxRustle(encounter);
   }
 
+  function syncActiveHighlight({
+    repairModuleInstances = [],
+    revealEncounters = []
+  } = {}) {
+    const revealOpeningInstances = new Set(
+      revealEncounters
+        .filter((encounter) => encounter?.revealBoxOpening?.active)
+        .map((encounter) => encounter?.repairModuleInstance)
+        .filter(Boolean)
+    );
+    let highlighted = false;
+
+    for (const repairModuleInstance of repairModuleInstances) {
+      if (!repairModuleInstance) {
+        continue;
+      }
+
+      if (revealOpeningInstances.has(repairModuleInstance)) {
+        highlighted = true;
+        continue;
+      }
+
+      if (!highlighted && repairModuleInstance.active) {
+        repairModuleInstance.tint = settings.activeTint;
+        repairModuleInstance.tintStrength = settings.activeTintStrength;
+        repairModuleInstance.alpha = 1;
+        highlighted = true;
+        continue;
+      }
+
+      repairModuleInstance.tint = null;
+      repairModuleInstance.tintStrength = 0;
+      repairModuleInstance.alpha = repairModuleInstance.active ? settings.inactiveAlpha : 1;
+    }
+  }
+
   return {
     applyRepairBoxRustle,
     applyRevealBoxCinematic,
     getOpeningProgress,
+    syncActiveHighlight,
     syncDismantledEncounterModule,
     syncRepairBoxInstance
   };

@@ -17,7 +17,10 @@ const CONFIG = Object.freeze({
   repairBoxRustleLift: 0.08,
   repairBoxRustleRoll: 0.11,
   repairBoxRustlePitch: 0.08,
-  repairBoxRustleYaw: 0.12
+  repairBoxRustleYaw: 0.12,
+  activeTint: [0.1, 0.9, 0.2],
+  activeTintStrength: 0.7,
+  inactiveAlpha: 0.4
 });
 
 function createRuntime(overrides = {}) {
@@ -137,5 +140,63 @@ describe("createCompanionRepairBoxModelRuntime", () => {
     expect(instance.alpha).toBe(1);
     expect(instance.scale).toBeGreaterThan(1);
     expect(instance.offset).not.toEqual([0, 1, 0]);
+  });
+
+  it("highlights only the first active repair box and fades the rest", () => {
+    const { runtime } = createRuntime();
+    const inactive = { active: false, alpha: 1 };
+    const firstActive = { active: true };
+    const secondActive = { active: true };
+
+    runtime.syncActiveHighlight({
+      repairModuleInstances: [inactive, firstActive, secondActive],
+      revealEncounters: []
+    });
+
+    expect(inactive).toMatchObject({
+      tint: null,
+      tintStrength: 0,
+      alpha: 1
+    });
+    expect(firstActive).toMatchObject({
+      tint: CONFIG.activeTint,
+      tintStrength: CONFIG.activeTintStrength,
+      alpha: 1
+    });
+    expect(secondActive).toMatchObject({
+      tint: null,
+      tintStrength: 0,
+      alpha: CONFIG.inactiveAlpha
+    });
+  });
+
+  it("keeps reveal-opening repair boxes from being overwritten by highlight state", () => {
+    const { runtime } = createRuntime();
+    const revealModule = {
+      active: true,
+      tint: [1, 1, 1],
+      tintStrength: 0.5,
+      alpha: 0.8
+    };
+    const nextActive = { active: true };
+
+    runtime.syncActiveHighlight({
+      repairModuleInstances: [revealModule, nextActive],
+      revealEncounters: [{
+        repairModuleInstance: revealModule,
+        revealBoxOpening: { active: true }
+      }]
+    });
+
+    expect(revealModule).toMatchObject({
+      tint: [1, 1, 1],
+      tintStrength: 0.5,
+      alpha: 0.8
+    });
+    expect(nextActive).toMatchObject({
+      tint: null,
+      tintStrength: 0,
+      alpha: CONFIG.inactiveAlpha
+    });
   });
 });
