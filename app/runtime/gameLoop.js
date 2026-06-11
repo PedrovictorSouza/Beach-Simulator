@@ -10,6 +10,7 @@ import { createCompanionIdleMotionRuntime } from "./companions/companionIdleMoti
 import { createCompanionRepairBoxModelRuntime } from "./companions/companionRepairBoxModelRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
+import { createSquirtleReassemblyRuntime } from "./companions/squirtleReassemblyRuntime.js";
 import {
   getConstructionCloudBurstBillboards as getConstructionCloudBurstBillboardsWithConfig,
   getLeafDenConstructionBillboards as getLeafDenConstructionBillboardsWithConfig
@@ -1150,6 +1151,14 @@ export function startGameLoop({
       repairBoxRustleYaw: BULBASAUR_REPAIR_BOX_RUSTLE_YAW
     }
   });
+  const squirtleReassemblyRuntime = createSquirtleReassemblyRuntime({
+    session,
+    clamp01,
+    easeOutCubic,
+    lerp,
+    partScale: SQUIRTLE_REASSEMBLY_PART_SCALE,
+    syncSquirtleModelInstance
+  });
   const waterGunSfxBurstRuntime = createWaterGunSfxBurstRuntime();
   const frameRuntime = createGameLoopFrameRuntime({
     frameClock,
@@ -1212,7 +1221,8 @@ export function startGameLoop({
     },
     applyInteractionObjectHighlight,
     getGameplayOpeningShipSceneObjects,
-    getSquirtleAssemblySceneObjects,
+    getSquirtleAssemblySceneObjects: (sceneObjects, squirtle) =>
+      squirtleReassemblyRuntime.getSceneObjects(sceneObjects, squirtle),
     resolvePsxDistanceFogSettings
   });
   const playerModelRuntime = createPlayerModelRuntime({
@@ -1283,7 +1293,7 @@ export function startGameLoop({
       syncCompanionRepairModules,
       syncBeeFieldRepairBox,
       syncBeeFieldBees,
-      updateSquirtleReassembly,
+      updateSquirtleReassembly: (deltaTime) => squirtleReassemblyRuntime.update(deltaTime),
       updateSquirtleWaterStamina,
       updateCharmanderCarbonEnergy,
       updateSquirtleWaterGunAction,
@@ -3045,61 +3055,6 @@ export function startGameLoop({
     }
   }
 
-  function createPrimitiveModel(model, primitive) {
-    return {
-      ...model,
-      primitives: [primitive]
-    };
-  }
-
-  function getSquirtleAssemblyPartPose(index, progress) {
-    const scatterProgress = easeOutCubic(progress);
-    const angle = index * 1.78;
-    const radius = 0.42 + (index % 4) * 0.14;
-    const lifted = 0.04 + (index % 3) * 0.035;
-    const startX = Math.cos(angle) * radius;
-    const startZ = Math.sin(angle) * radius;
-
-    return {
-      offset: [
-        lerp(startX, 0, scatterProgress),
-        lerp(lifted, 0, scatterProgress),
-        lerp(startZ, 0, scatterProgress)
-      ],
-      yaw: lerp(((index % 5) - 2) * 0.62, 0, scatterProgress),
-      pitch: lerp(((index % 3) - 1) * 0.42, 0, scatterProgress),
-      roll: lerp(((index % 4) - 1.5) * 0.54, 0, scatterProgress)
-    };
-  }
-
-  function updateSquirtleReassembly(deltaTime) {
-    const squirtle = session.actTwoSquirtle;
-    const reassembly = squirtle?.reassembly;
-
-    if (!reassembly?.active) {
-      return;
-    }
-
-    const duration = Math.max(0.01, reassembly.duration || 1.25);
-    reassembly.elapsed = Math.min(duration, (reassembly.elapsed || 0) + deltaTime);
-    reassembly.progress = clamp01(reassembly.elapsed / duration);
-
-    if (reassembly.progress < 1) {
-      return;
-    }
-
-    const onComplete = reassembly.onComplete;
-    reassembly.active = false;
-    reassembly.onComplete = null;
-    squirtle.visible = true;
-    squirtle.assemblyState = "assembled";
-    syncSquirtleModelInstance();
-
-    if (typeof onComplete === "function") {
-      onComplete();
-    }
-  }
-
   function getFreeBlockBuildGridConfig() {
     const config = session.buildGridConfig || session.gridPlacement?.gridConfig || FREE_BLOCK_BUILD_GRID_CONFIG;
     return {
@@ -3837,43 +3792,6 @@ export function startGameLoop({
       activeMoveId,
       isFollowing: isCompanionInFollowFormation
     }) ?? 0;
-  }
-
-  function getSquirtleAssemblySceneObjects(sceneObjects, squirtle) {
-    if (
-      !squirtle?.visible ||
-      squirtle.assemblyState === "hidden" ||
-      squirtle.assemblyState === "assembled" ||
-      !squirtle.model?.primitives?.length
-    ) {
-      return sceneObjects;
-    }
-
-    const progress = squirtle.reassembly?.active ?
-      clamp01(squirtle.reassembly.progress || 0) :
-      0;
-    const origin = squirtle.position || squirtle.modelInstance?.offset || [0, 0, 0];
-    const partObjects = squirtle.model.primitives.map((primitive, index) => {
-      const pose = getSquirtleAssemblyPartPose(index, progress);
-      return {
-        model: createPrimitiveModel(squirtle.model, primitive),
-        brightness: 1,
-        instances: [{
-          offset: [
-            origin[0] + pose.offset[0],
-            (origin[1] || 0) + pose.offset[1],
-            origin[2] + pose.offset[2]
-          ],
-          scale: SQUIRTLE_REASSEMBLY_PART_SCALE,
-          yaw: pose.yaw,
-          pitch: pose.pitch,
-          roll: pose.roll,
-          active: true
-        }]
-      };
-    });
-
-    return [...sceneObjects, ...partObjects];
   }
 
   function getSquirtleWaterGunApproachPosition(targetPosition, playerPosition = null) {

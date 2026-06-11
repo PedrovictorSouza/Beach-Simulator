@@ -3786,6 +3786,62 @@ baseline:
 Manual gameplay validation remains pending because the in-app browser backend
 was not available during this pass.
 
+### Squirtle Reassembly Runtime Extraction
+
+Created `app/runtime/companions/squirtleReassemblyRuntime.js`.
+
+Boundary:
+
+- Domain: `companions/`.
+- Responsibility: Squirtle reassembly progression and temporary primitive scene
+  objects while the bot is being assembled.
+- Classification: companion motion/presentation support.
+
+Extracted from `gameLoop.js`:
+
+1. Squirtle reassembly progress update.
+2. Reassembly completion side effects: deactivate reassembly, mark Squirtle
+   visible/assembled, sync the model and call the completion callback.
+3. Primitive model wrapping for temporary scattered assembly pieces.
+4. Per-part assembly pose calculation.
+5. Scene-object appending for Squirtle assembly pieces.
+
+Kept in `gameLoop.js`:
+
+1. `startGameLoop()` wires `createSquirtleReassemblyRuntime(...)` with existing
+   math helpers, part scale and `syncSquirtleModelInstance`.
+2. `companionFrameRuntime` still invokes Squirtle reassembly at the same frame
+   point, now through `squirtleReassemblyRuntime.update(deltaTime)`.
+3. `baseRenderSnapshotFrameRuntime` still receives a
+   `getSquirtleAssemblySceneObjects` callback, now delegated to the runtime.
+
+Why this is safe:
+
+- Frame order is unchanged.
+- The runtime uses the same constants and math helpers as the old local
+  functions.
+- No field move, input, placement, camera or narrative rule changed.
+- The scene-object shape returned to render prep is unchanged.
+
+Validation:
+
+```sh
+npm test -- --run tests/squirtleReassemblyRuntime.test.js
+npm test -- --run tests/squirtleReassemblyRuntime.test.js tests/companionFrameRuntime.test.js tests/baseRenderSnapshotFrame.test.js
+npm run build
+npm test
+```
+
+Results:
+
+- Focused Squirtle reassembly runtime test: `4` passed.
+- Neighbor companion/render snapshot suite: `8` passed.
+- Production build passed.
+- Full suite completed with the existing Leafage Native Tree baseline:
+  `1754` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Companion Repair Box Model Runtime Extraction
 
 Created `app/runtime/companions/companionRepairBoxModelRuntime.js`.
