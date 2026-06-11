@@ -11495,3 +11495,61 @@ baseline:
 
 Manual gameplay validation remains pending because the in-app browser backend
 was not available during this pass.
+
+### Companion Model Sync Runtime Extraction
+
+Created the `companions/model sync` boundary with
+`createCompanionModelSyncRuntime()` in
+`app/runtime/companions/companionModelSyncRuntime.js`.
+
+Study path:
+
+1. `startGameLoop()` still wires the runtime and keeps `frame(now)` as the
+   temporal orchestrator.
+2. `gameLoop.js` now passes the existing companion scale constants into the
+   runtime instead of hardcoding or changing tuning.
+3. Squirtle, Bulbasaur, Charmander and Timburr model-instance synchronization
+   moved out of `gameLoop.js`.
+4. Squirtle repair-box visibility and interactable-position forwarding moved
+   with the Squirtle model sync because they are part of the same visual model
+   synchronization step.
+5. Bulbasaur, Charmander and Timburr dismantled repair-module forwarding now
+   goes through the companion model sync runtime.
+6. Existing action and encounter logic still decides movement, yaw, abilities,
+   impact timing and state transitions in `gameLoop.js`; this cut only changes
+   the owner of model-instance mutation.
+
+Removed from `gameLoop.js`:
+
+- `syncSquirtleModelInstance()`
+- `syncBulbasaurModelInstance()`
+- `syncCharmanderModelInstance()`
+- `syncTimburrModelInstance()`
+- `syncCompanionRepairModules()`
+
+Kept in `gameLoop.js`:
+
+- field move action rules for Water Gun, Leafage and Fire;
+- encounter movement/state transitions;
+- repair-box reveal opening orchestration;
+- `getEncounterRepairBoxPosition(...)`, because multiple composed runtimes
+  still receive it as an explicit dependency.
+
+Tests added:
+
+- `tests/companionModelSyncRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/companionModelSyncRuntime.test.js
+npm test -- --run tests/companionModelSyncRuntime.test.js tests/companionGroundPatrolFrameRuntime.test.js tests/squirtleReassemblyRuntime.test.js tests/companionFrameRuntime.test.js tests/companionRepairBoxModelRuntime.test.js
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `291` test files passed, `1` failed
+- `1772` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.

@@ -8,6 +8,7 @@ import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
 import { createCompanionGroundPatrolFrameRuntime } from "./companions/companionGroundPatrolFrameRuntime.js";
 import { createCompanionIdleMotionRuntime } from "./companions/companionIdleMotionRuntime.js";
+import { createCompanionModelSyncRuntime } from "./companions/companionModelSyncRuntime.js";
 import { createCompanionRepairBoxModelRuntime } from "./companions/companionRepairBoxModelRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
@@ -1029,8 +1030,8 @@ export function startGameLoop({
     isBulbasaurWorkbenchGuideActive,
     resolveFollowFormationIndex: getCompanionFollowFormationIndex,
     resolveFollowDistance: resolveCompanionFollowDistance,
-    syncSquirtleModelInstance,
-    syncBulbasaurModelInstance,
+    syncSquirtleModelInstance: () => companionModelSyncRuntime.syncSquirtle(),
+    syncBulbasaurModelInstance: () => companionModelSyncRuntime.syncBulbasaur(),
     config: {
       squirtleFollowSpeed: SQUIRTLE_FOLLOW_SPEED,
       squirtleFollowDistance: SQUIRTLE_FOLLOW_DISTANCE,
@@ -1147,13 +1148,24 @@ export function startGameLoop({
       inactiveAlpha: REPAIR_BOX_INACTIVE_ALPHA
     }
   });
+  const companionModelSyncRuntime = createCompanionModelSyncRuntime({
+    session,
+    repairBoxModelRuntime: companionRepairBoxModelRuntime,
+    syncInteractablePosition,
+    config: {
+      robotModelScale: ROBOT_MODEL_SCALE,
+      bulbasaurModelScale: BULBASAUR_ROBOT_MODEL_SCALE,
+      charmanderModelScale: CHARMANDER_MODEL_SCALE,
+      timburrModelScale: TIMBURR_MODEL_SCALE
+    }
+  });
   const squirtleReassemblyRuntime = createSquirtleReassemblyRuntime({
     session,
     clamp01,
     easeOutCubic,
     lerp,
     partScale: SQUIRTLE_REASSEMBLY_PART_SCALE,
-    syncSquirtleModelInstance
+    syncSquirtleModelInstance: () => companionModelSyncRuntime.syncSquirtle()
   });
   const beeFieldRuntime = createBeeFieldRuntime({
     session,
@@ -1301,7 +1313,7 @@ export function startGameLoop({
       updateCharmanderFireAction,
       updateTimburrEncounter,
       updateTimburrBuildBlockAction,
-      syncCompanionRepairModules,
+      syncCompanionRepairModules: () => companionModelSyncRuntime.syncRepairModules(),
       syncBeeFieldRepairBox: () => beeFieldRuntime.syncRepairBox(),
       syncBeeFieldBees: (deltaTime) => beeFieldRuntime.syncBees(deltaTime),
       updateSquirtleReassembly: (deltaTime) => squirtleReassemblyRuntime.update(deltaTime),
@@ -2732,84 +2744,8 @@ export function startGameLoop({
     return findGrassPatchForGroundCell(groundCell)?.state === "alive";
   }
 
-  function syncSquirtleModelInstance() {
-    if (!session.actTwoSquirtle?.modelInstance || !Array.isArray(session.actTwoSquirtle.position)) {
-      return;
-    }
-
-    session.actTwoSquirtle.modelInstance.offset = [...session.actTwoSquirtle.position];
-    session.actTwoSquirtle.modelInstance.scale = ROBOT_MODEL_SCALE;
-    if (session.actTwoSquirtle.repairModuleInstance) {
-      companionRepairBoxModelRuntime.syncRepairBoxInstance(
-        session.actTwoSquirtle.repairModuleInstance,
-        session.actTwoSquirtle.position,
-        Boolean(
-          !session.actTwoSquirtle.recovered &&
-          session.actTwoSquirtle.assemblyState !== "assembled" &&
-          !session.actTwoSquirtle.reassembly?.active
-        )
-      );
-    }
-    syncInteractablePosition("squirtle", session.actTwoSquirtle.position);
-  }
-
   function getEncounterRepairBoxPosition(encounter) {
     return encounter?.repairBoxPosition || encounter?.repairPosition || null;
-  }
-
-  function syncBulbasaurModelInstance() {
-    const encounter = session.bulbasaurEncounter;
-
-    if (!encounter?.modelInstance) {
-      companionRepairBoxModelRuntime.syncDismantledEncounterModule(encounter);
-      return;
-    }
-
-    companionRepairBoxModelRuntime.syncDismantledEncounterModule(encounter);
-    encounter.modelInstance.active = Boolean(encounter.visible && Array.isArray(encounter.position));
-    encounter.modelInstance.scale = BULBASAUR_ROBOT_MODEL_SCALE;
-
-    if (Array.isArray(encounter.position)) {
-      encounter.modelInstance.offset = [...encounter.position];
-    }
-  }
-
-  function syncCharmanderModelInstance() {
-    const encounter = session.charmanderEncounter;
-
-    if (!encounter?.modelInstance) {
-      companionRepairBoxModelRuntime.syncDismantledEncounterModule(encounter);
-      return;
-    }
-
-    companionRepairBoxModelRuntime.syncDismantledEncounterModule(encounter);
-    encounter.modelInstance.active = Boolean(encounter.visible && Array.isArray(encounter.position));
-    encounter.modelInstance.scale = CHARMANDER_MODEL_SCALE;
-
-    if (Array.isArray(encounter.position)) {
-      encounter.modelInstance.offset = [...encounter.position];
-    }
-  }
-
-  function syncTimburrModelInstance() {
-    const encounter = session.timburrEncounter;
-
-    if (!encounter?.modelInstance) {
-      return;
-    }
-
-    encounter.modelInstance.active = Boolean(encounter.visible && Array.isArray(encounter.position));
-    encounter.modelInstance.scale = Number(encounter.modelBaseScale || TIMBURR_MODEL_SCALE);
-
-    if (Array.isArray(encounter.position)) {
-      encounter.modelInstance.offset = [...encounter.position];
-    }
-  }
-
-  function syncCompanionRepairModules() {
-    syncCharmanderModelInstance();
-    syncTimburrModelInstance();
-    companionRepairBoxModelRuntime.syncDismantledEncounterModule(session.timburrEncounter);
   }
 
   function syncActiveRepairBoxHighlight() {
@@ -3696,7 +3632,7 @@ export function startGameLoop({
       targetPosition,
       CHARMANDER_MODEL_FACE_YAW_OFFSET
     );
-    syncCharmanderModelInstance();
+    companionModelSyncRuntime.syncCharmander();
 
     return "started";
   }
@@ -3767,14 +3703,14 @@ export function startGameLoop({
         if (!tryMoveCompanionToPosition(charmander, nextPosition)) {
           session.charmanderFireAction = null;
           cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.thermal);
-          syncCharmanderModelInstance();
+          companionModelSyncRuntime.syncCharmander();
           return;
         }
       } else {
         if (isCompanionPositionBlockedByConstruction(action.approachPosition)) {
           session.charmanderFireAction = null;
           cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.thermal);
-          syncCharmanderModelInstance();
+          companionModelSyncRuntime.syncCharmander();
           return;
         }
 
@@ -3788,7 +3724,7 @@ export function startGameLoop({
         action.targetPosition,
         CHARMANDER_MODEL_FACE_YAW_OFFSET
       );
-      syncCharmanderModelInstance();
+      companionModelSyncRuntime.syncCharmander();
       return;
     }
 
@@ -3803,7 +3739,7 @@ export function startGameLoop({
       action.targetPosition,
       CHARMANDER_MODEL_FACE_YAW_OFFSET
     );
-    syncCharmanderModelInstance();
+    companionModelSyncRuntime.syncCharmander();
 
     if (!action.impactApplied && action.sprayElapsed >= CHARMANDER_FIRE_IMPACT_TIME) {
       action.impactApplied = true;
@@ -3857,7 +3793,7 @@ export function startGameLoop({
       targetPosition,
       BULBASAUR_MODEL_FACE_YAW_OFFSET
     );
-    syncBulbasaurModelInstance();
+    companionModelSyncRuntime.syncBulbasaur();
 
     return "started";
   }
@@ -3924,14 +3860,14 @@ export function startGameLoop({
         if (!tryMoveCompanionToPosition(bulbasaur, nextPosition)) {
           session.bulbasaurLeafageAction = null;
           cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.grow);
-          syncBulbasaurModelInstance();
+          companionModelSyncRuntime.syncBulbasaur();
           return;
         }
       } else {
         if (isCompanionPositionBlockedByConstruction(action.approachPosition)) {
           session.bulbasaurLeafageAction = null;
           cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.grow);
-          syncBulbasaurModelInstance();
+          companionModelSyncRuntime.syncBulbasaur();
           return;
         }
 
@@ -3945,7 +3881,7 @@ export function startGameLoop({
         action.targetPosition,
         BULBASAUR_MODEL_FACE_YAW_OFFSET
       );
-      syncBulbasaurModelInstance();
+      companionModelSyncRuntime.syncBulbasaur();
       return;
     }
 
@@ -3960,7 +3896,7 @@ export function startGameLoop({
       action.targetPosition,
       BULBASAUR_MODEL_FACE_YAW_OFFSET
     );
-    syncBulbasaurModelInstance();
+    companionModelSyncRuntime.syncBulbasaur();
 
     if (!action.impactApplied && action.castElapsed >= BULBASAUR_LEAFAGE_IMPACT_TIME) {
       action.impactApplied = true;
@@ -4268,7 +4204,7 @@ export function startGameLoop({
     };
     squirtle.modelInstance.active = true;
     squirtle.modelInstance.yaw = getSquirtleModelYawToward(squirtle.position, targetPosition);
-    syncSquirtleModelInstance();
+    companionModelSyncRuntime.syncSquirtle();
 
     return "started";
   }
@@ -4401,14 +4337,14 @@ export function startGameLoop({
         if (!tryMoveCompanionToPosition(squirtle, nextPosition)) {
           session.squirtleWaterGunAction = null;
           cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.hydro);
-          syncSquirtleModelInstance();
+          companionModelSyncRuntime.syncSquirtle();
           return;
         }
       } else {
         if (isCompanionPositionBlockedByConstruction(action.approachPosition)) {
           session.squirtleWaterGunAction = null;
           cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.hydro);
-          syncSquirtleModelInstance();
+          companionModelSyncRuntime.syncSquirtle();
           return;
         }
 
@@ -4426,7 +4362,7 @@ export function startGameLoop({
         squirtle.position,
         action.targetPosition
       );
-      syncSquirtleModelInstance();
+      companionModelSyncRuntime.syncSquirtle();
       return;
     }
 
@@ -4449,7 +4385,7 @@ export function startGameLoop({
       squirtle.position,
       action.targetPosition
     );
-    syncSquirtleModelInstance();
+    companionModelSyncRuntime.syncSquirtle();
 
     if (!action.impactApplied && action.sprayElapsed >= impactTime) {
       action.impactApplied = true;
@@ -5040,7 +4976,7 @@ export function startGameLoop({
 
     if (
       repairBoxRevealOpeningRuntime.update(deltaTime, encounter, {
-        syncModelInstance: syncBulbasaurModelInstance
+        syncModelInstance: () => companionModelSyncRuntime.syncBulbasaur()
       })
     ) {
       return;
@@ -5064,7 +5000,7 @@ export function startGameLoop({
       encounter
     ) {
       advanceBulbasaurAlongWorkbenchGuide(deltaTime, encounter);
-      syncBulbasaurModelInstance();
+      companionModelSyncRuntime.syncBulbasaur();
       return;
     }
 
@@ -5073,7 +5009,7 @@ export function startGameLoop({
     }
 
     if (!encounter?.visible || !encounter.position) {
-      syncBulbasaurModelInstance();
+      companionModelSyncRuntime.syncBulbasaur();
       return;
     }
 
@@ -5084,7 +5020,7 @@ export function startGameLoop({
         encounter.originPosition = null;
         encounter.landingPosition = null;
       }
-      syncBulbasaurModelInstance();
+      companionModelSyncRuntime.syncBulbasaur();
       return;
     }
 
@@ -5109,7 +5045,7 @@ export function startGameLoop({
         BULBASAUR_MODEL_FACE_YAW_OFFSET
       );
     }
-    syncBulbasaurModelInstance();
+    companionModelSyncRuntime.syncBulbasaur();
   }
 
   function moveConstructionHelperToLeafDen(encounter, {
@@ -5132,7 +5068,7 @@ export function startGameLoop({
 
     if (
       repairBoxRevealOpeningRuntime.update(deltaTime, encounter, {
-        syncModelInstance: syncCharmanderModelInstance
+        syncModelInstance: () => companionModelSyncRuntime.syncCharmander()
       })
     ) {
       return;
@@ -5153,7 +5089,7 @@ export function startGameLoop({
         offset: [-1.08, 0, 0.82],
         modelFaceYawOffset: CHARMANDER_MODEL_FACE_YAW_OFFSET
       });
-      syncCharmanderModelInstance();
+      companionModelSyncRuntime.syncCharmander();
       return;
     }
 
@@ -5201,7 +5137,7 @@ export function startGameLoop({
       }
     }
 
-    syncCharmanderModelInstance();
+    companionModelSyncRuntime.syncCharmander();
   }
 
   function updateTimburrEncounter(deltaTime, { activeMoveId = null } = {}) {
@@ -6690,7 +6626,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         controls.storyState.questIndex >= 1;
       const assembledActTwoSquirtle =
         squirtle.recovered || squirtle.assemblyState === "assembled";
-      syncSquirtleModelInstance();
+      companionModelSyncRuntime.syncSquirtle();
       squirtle.modelInstance.active = Boolean(
         (visibleActTwoSquirtle && assembledActTwoSquirtle) ||
         session.squirtleWaterGunAction ||
