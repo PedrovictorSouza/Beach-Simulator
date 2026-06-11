@@ -146,6 +146,7 @@ export {
   resolveConstructionDisplacementPosition,
   resolveTimburrBuildBlockApproachPosition
 } from "./fieldMoveRuntime/buildBlockRuntime.js";
+import { createCompanionAbilityResourcesRuntime } from "./fieldMoveRuntime/companionAbilityResourcesRuntime.js";
 import {
   resolveBulbasaurLeafageApproachPosition,
   resolveCharmanderFireApproachPosition,
@@ -239,28 +240,14 @@ import {
   BULBASAUR_LEAFAGE_CAST_DURATION,
   BULBASAUR_LEAFAGE_IMPACT_TIME,
   BULBASAUR_LEAFAGE_SPEED,
-  CHARMANDER_CARBON_VISUAL_DECREASE_DURATION,
-  CHARMANDER_CARBON_VISUAL_INCREASE_DURATION,
   CHARMANDER_FIRE_ARRIVE_DISTANCE,
   CHARMANDER_FIRE_IMPACT_TIME,
   CHARMANDER_FIRE_SPEED,
   CHARMANDER_FIRE_SPRAY_DURATION,
   SQUIRTLE_WATER_GUN_ARRIVE_DISTANCE,
-  SQUIRTLE_WATER_GUN_BASE_LEVEL,
-  SQUIRTLE_WATER_GUN_EVOLUTION_MAX_USES,
   SQUIRTLE_WATER_GUN_IMPACT_TIME,
-  SQUIRTLE_WATER_GUN_MAX_SPEED_MULTIPLIER,
-  SQUIRTLE_WATER_GUN_MIN_IMPACT_TIME,
-  SQUIRTLE_WATER_GUN_MIN_SPRAY_DURATION,
   SQUIRTLE_WATER_GUN_SPEED,
   SQUIRTLE_WATER_GUN_SPRAY_DURATION,
-  SQUIRTLE_WATER_GUN_USE_COUNT_FLAG,
-  SQUIRTLE_WATER_GUN_USES_PER_LEVEL,
-  SQUIRTLE_WATER_STAMINA_COST,
-  SQUIRTLE_WATER_STAMINA_MAX,
-  SQUIRTLE_WATER_STAMINA_RECHARGE_DURATION,
-  SQUIRTLE_WATER_STAMINA_VISUAL_DECREASE_DURATION,
-  SQUIRTLE_WATER_STAMINA_VISUAL_INCREASE_DURATION,
   TIMBURR_BUILD_BLOCK_ARRIVE_DISTANCE,
   TIMBURR_BUILD_BLOCK_CAST_DURATION,
   TIMBURR_BUILD_BLOCK_IMPACT_TIME,
@@ -389,11 +376,7 @@ import {
   treeFootprint,
   validateBuildingKitPlacement
 } from "../../world/islandWorld.js";
-import {
-  canUseCharmanderFireWithCarbon,
-  CHARMANDER_FIRE_CARBON_USES_FLAG,
-  CHARMANDER_FIRE_USES_PER_CARBON
-} from "../../world/gameplayInteractions.js";
+import { canUseCharmanderFireWithCarbon } from "../../world/gameplayInteractions.js";
 import {
   BULBASAUR_IDLE_PATROL_RADIUS,
   SQUIRTLE_IDLE_PATROL_RADIUS
@@ -1194,6 +1177,13 @@ export function startGameLoop({
     }
   });
   const waterGunSfxBurstRuntime = createWaterGunSfxBurstRuntime();
+  const companionAbilityResourcesRuntime = createCompanionAbilityResourcesRuntime({
+    session,
+    controls,
+    clamp01,
+    moveValueToward,
+    onSquirtleRechargeComplete: startNextQueuedSquirtleWaterGunAction
+  });
   const frameRuntime = createGameLoopFrameRuntime({
     frameClock,
     frameSnapshotController,
@@ -1333,8 +1323,10 @@ export function startGameLoop({
       syncBeeFieldRepairBox: () => beeFieldRuntime.syncRepairBox(),
       syncBeeFieldBees: (deltaTime) => beeFieldRuntime.syncBees(deltaTime),
       updateSquirtleReassembly: (deltaTime) => squirtleReassemblyRuntime.update(deltaTime),
-      updateSquirtleWaterStamina,
-      updateCharmanderCarbonEnergy,
+      updateSquirtleWaterStamina: (deltaTime) =>
+        companionAbilityResourcesRuntime.updateSquirtleWaterStamina(deltaTime),
+      updateCharmanderCarbonEnergy: (deltaTime) =>
+        companionAbilityResourcesRuntime.updateCharmanderCarbonEnergy(deltaTime),
       updateSquirtleWaterGunAction,
       updateBulbasaurLeafageAction,
       updateSquirtleIdlePatrol: (deltaTime, frameState) =>
@@ -3932,210 +3924,6 @@ export function startGameLoop({
     return session.squirtleWaterGunQueue;
   }
 
-  function getSquirtleWaterGunUseCount() {
-    return Math.max(
-      0,
-      Math.floor(Number(controls.storyState?.flags?.[SQUIRTLE_WATER_GUN_USE_COUNT_FLAG] || 0))
-    );
-  }
-
-  function getSquirtleWaterGunLevel() {
-    return SQUIRTLE_WATER_GUN_BASE_LEVEL +
-      Math.floor(getSquirtleWaterGunUseCount() / SQUIRTLE_WATER_GUN_USES_PER_LEVEL);
-  }
-
-  function getSquirtleWaterStaminaMax() {
-    return SQUIRTLE_WATER_STAMINA_MAX +
-      Math.max(0, getSquirtleWaterGunLevel() - SQUIRTLE_WATER_GUN_BASE_LEVEL);
-  }
-
-  function getSquirtleWaterGunSpeedMultiplier() {
-    const progress = clamp01(getSquirtleWaterGunUseCount() / SQUIRTLE_WATER_GUN_EVOLUTION_MAX_USES);
-    return 1 + (SQUIRTLE_WATER_GUN_MAX_SPEED_MULTIPLIER - 1) * progress;
-  }
-
-  function getSquirtleWaterGunSprayDuration(speedMultiplier = getSquirtleWaterGunSpeedMultiplier()) {
-    return Math.max(
-      SQUIRTLE_WATER_GUN_MIN_SPRAY_DURATION,
-      SQUIRTLE_WATER_GUN_SPRAY_DURATION / Math.max(1, speedMultiplier)
-    );
-  }
-
-  function getSquirtleWaterGunImpactTime(speedMultiplier = getSquirtleWaterGunSpeedMultiplier()) {
-    return Math.max(
-      SQUIRTLE_WATER_GUN_MIN_IMPACT_TIME,
-      SQUIRTLE_WATER_GUN_IMPACT_TIME / Math.max(1, speedMultiplier)
-    );
-  }
-
-  function recordSquirtleWaterGunUse() {
-    if (!controls.storyState) {
-      return;
-    }
-
-    controls.storyState.flags ||= {};
-    controls.storyState.flags[SQUIRTLE_WATER_GUN_USE_COUNT_FLAG] =
-      getSquirtleWaterGunUseCount() + 1;
-  }
-
-  function getSquirtleWaterStaminaState() {
-    const staminaMax = getSquirtleWaterStaminaMax();
-
-    if (!session.squirtleWaterStamina) {
-      session.squirtleWaterStamina = {
-        current: staminaMax,
-        visualCurrent: staminaMax,
-        max: staminaMax,
-        charging: false,
-        chargeElapsed: 0
-      };
-    }
-
-    const previousMax = Math.max(
-      1,
-      Number(session.squirtleWaterStamina.max || staminaMax)
-    );
-    const maxIncrease = Math.max(0, staminaMax - previousMax);
-    session.squirtleWaterStamina.max = staminaMax;
-    session.squirtleWaterStamina.current = Math.min(
-      staminaMax,
-      Math.max(0, Number(session.squirtleWaterStamina.current || 0)) + maxIncrease
-    );
-    session.squirtleWaterStamina.visualCurrent = Math.min(
-      staminaMax,
-      Math.max(
-        0,
-        Number.isFinite(session.squirtleWaterStamina.visualCurrent) ?
-          session.squirtleWaterStamina.visualCurrent :
-          session.squirtleWaterStamina.current
-      ) + maxIncrease
-    );
-    return session.squirtleWaterStamina;
-  }
-
-  function isSquirtleWaterCharging() {
-    return Boolean(getSquirtleWaterStaminaState().charging);
-  }
-
-  function beginSquirtleWaterRecharge() {
-    const stamina = getSquirtleWaterStaminaState();
-    if (stamina.charging) {
-      return;
-    }
-
-    stamina.current = 0;
-    stamina.charging = true;
-    stamina.chargeElapsed = 0;
-  }
-
-  function consumeSquirtleWaterStamina() {
-    const stamina = getSquirtleWaterStaminaState();
-    if (stamina.charging || stamina.current <= 0) {
-      beginSquirtleWaterRecharge();
-      return false;
-    }
-
-    stamina.current = Math.max(0, stamina.current - SQUIRTLE_WATER_STAMINA_COST);
-    return true;
-  }
-
-  function consumeSquirtleWaterStaminaForInstantAction() {
-    if (!consumeSquirtleWaterStamina()) {
-      return false;
-    }
-
-    if (getSquirtleWaterStaminaState().current <= 0) {
-      beginSquirtleWaterRecharge();
-    }
-
-    return true;
-  }
-
-  function updateSquirtleWaterStamina(deltaTime) {
-    const stamina = getSquirtleWaterStaminaState();
-
-    if (stamina.charging) {
-      stamina.chargeElapsed += deltaTime;
-      const progress = clamp01(stamina.chargeElapsed / SQUIRTLE_WATER_STAMINA_RECHARGE_DURATION);
-      stamina.current = stamina.max * progress;
-
-      if (progress >= 1) {
-        stamina.current = stamina.max;
-        stamina.charging = false;
-        stamina.chargeElapsed = 0;
-        startNextQueuedSquirtleWaterGunAction();
-      }
-    }
-
-    const visualDuration =
-      stamina.current < stamina.visualCurrent ?
-        SQUIRTLE_WATER_STAMINA_VISUAL_DECREASE_DURATION :
-        SQUIRTLE_WATER_STAMINA_VISUAL_INCREASE_DURATION;
-    const maxVisualStep = (stamina.max * deltaTime) / Math.max(0.001, visualDuration);
-    stamina.visualCurrent = moveValueToward(
-      stamina.visualCurrent,
-      stamina.current,
-      maxVisualStep
-    );
-  }
-
-  function getCharmanderCarbonUseCount() {
-    const uses = Math.floor(Number(
-      controls.storyState?.flags?.[CHARMANDER_FIRE_CARBON_USES_FLAG] || 0
-    ));
-    return Math.min(
-      CHARMANDER_FIRE_USES_PER_CARBON - 1,
-      Math.max(0, uses)
-    );
-  }
-
-  function getCharmanderCarbonEnergyRatio() {
-    const carbonCount = Math.max(0, Math.floor(Number(controls.inventory?.[CARBON_ITEM_ID] || 0)));
-
-    if (carbonCount <= 0) {
-      return 0;
-    }
-
-    const availableUses = Math.max(
-      0,
-      carbonCount * CHARMANDER_FIRE_USES_PER_CARBON - getCharmanderCarbonUseCount()
-    );
-    return clamp01(availableUses / CHARMANDER_FIRE_USES_PER_CARBON);
-  }
-
-  function getCharmanderCarbonEnergyState() {
-    const current = getCharmanderCarbonEnergyRatio();
-
-    if (!session.charmanderCarbonEnergy) {
-      session.charmanderCarbonEnergy = {
-        current,
-        visualCurrent: current
-      };
-    }
-
-    session.charmanderCarbonEnergy.current = current;
-    session.charmanderCarbonEnergy.visualCurrent = clamp01(
-      Number.isFinite(session.charmanderCarbonEnergy.visualCurrent) ?
-        session.charmanderCarbonEnergy.visualCurrent :
-        current
-    );
-    return session.charmanderCarbonEnergy;
-  }
-
-  function updateCharmanderCarbonEnergy(deltaTime) {
-    const energy = getCharmanderCarbonEnergyState();
-    const visualDuration =
-      energy.current < energy.visualCurrent ?
-        CHARMANDER_CARBON_VISUAL_DECREASE_DURATION :
-        CHARMANDER_CARBON_VISUAL_INCREASE_DURATION;
-    const maxVisualStep = deltaTime / Math.max(0.001, visualDuration);
-    energy.visualCurrent = moveValueToward(
-      energy.visualCurrent,
-      energy.current,
-      maxVisualStep
-    );
-  }
-
   function isSquirtleWaterGunCellPending(groundCell) {
     if (!groundCell?.id) {
       return false;
@@ -4155,7 +3943,7 @@ export function startGameLoop({
       return "unavailable";
     }
 
-    if (isSquirtleWaterCharging()) {
+    if (companionAbilityResourcesRuntime.isSquirtleWaterCharging()) {
       return "charging";
     }
 
@@ -4178,9 +3966,9 @@ export function startGameLoop({
       return "unavailable";
     }
 
-    const stamina = getSquirtleWaterStaminaState();
+    const stamina = companionAbilityResourcesRuntime.getSquirtleWaterStaminaState();
     if (stamina.charging || stamina.current <= 0) {
-      beginSquirtleWaterRecharge();
+      companionAbilityResourcesRuntime.beginSquirtleWaterRecharge();
       return "charging";
     }
 
@@ -4205,7 +3993,7 @@ export function startGameLoop({
       targetPosition,
       playerPosition
     );
-    const speedMultiplier = getSquirtleWaterGunSpeedMultiplier();
+    const speedMultiplier = companionAbilityResourcesRuntime.getSquirtleWaterGunSpeedMultiplier();
 
     session.squirtleWaterGunAction = {
       phase: "approach",
@@ -4213,8 +4001,8 @@ export function startGameLoop({
       targetPosition,
       approachPosition,
       speedMultiplier,
-      sprayDuration: getSquirtleWaterGunSprayDuration(speedMultiplier),
-      impactTime: getSquirtleWaterGunImpactTime(speedMultiplier),
+      sprayDuration: companionAbilityResourcesRuntime.getSquirtleWaterGunSprayDuration(speedMultiplier),
+      impactTime: companionAbilityResourcesRuntime.getSquirtleWaterGunImpactTime(speedMultiplier),
       sprayElapsed: 0,
       impactApplied: false
     };
@@ -4230,13 +4018,13 @@ export function startGameLoop({
       return;
     }
 
-    const stamina = getSquirtleWaterStaminaState();
+    const stamina = companionAbilityResourcesRuntime.getSquirtleWaterStaminaState();
     if (stamina.charging) {
       return;
     }
 
     if (stamina.current <= 0) {
-      beginSquirtleWaterRecharge();
+      companionAbilityResourcesRuntime.beginSquirtleWaterRecharge();
       return;
     }
 
@@ -4317,7 +4105,7 @@ export function startGameLoop({
     }
 
     if (result) {
-      recordSquirtleWaterGunUse();
+      companionAbilityResourcesRuntime.recordSquirtleWaterGunUse();
     }
 
     return result;
@@ -4341,7 +4129,7 @@ export function startGameLoop({
       const distance = Math.hypot(deltaX, deltaZ);
       const speedMultiplier = Number(action.speedMultiplier) > 0 ?
         action.speedMultiplier :
-        getSquirtleWaterGunSpeedMultiplier();
+        companionAbilityResourcesRuntime.getSquirtleWaterGunSpeedMultiplier();
       const travel = Math.min(SQUIRTLE_WATER_GUN_SPEED * speedMultiplier * deltaTime, distance);
 
       if (distance > SQUIRTLE_WATER_GUN_ARRIVE_DISTANCE && travel > 0) {
@@ -4364,7 +4152,7 @@ export function startGameLoop({
           return;
         }
 
-        if (!consumeSquirtleWaterStamina()) {
+        if (!companionAbilityResourcesRuntime.consumeSquirtleWaterStamina()) {
           session.squirtleWaterGunAction = null;
           return;
         }
@@ -4390,13 +4178,13 @@ export function startGameLoop({
     action.sprayElapsed += deltaTime;
     const speedMultiplier = Number(action.speedMultiplier) > 0 ?
       action.speedMultiplier :
-      getSquirtleWaterGunSpeedMultiplier();
+      companionAbilityResourcesRuntime.getSquirtleWaterGunSpeedMultiplier();
     const impactTime = Number(action.impactTime) > 0 ?
       action.impactTime :
-      getSquirtleWaterGunImpactTime(speedMultiplier);
+      companionAbilityResourcesRuntime.getSquirtleWaterGunImpactTime(speedMultiplier);
     const sprayDuration = Number(action.sprayDuration) > 0 ?
       action.sprayDuration :
-      getSquirtleWaterGunSprayDuration(speedMultiplier);
+      companionAbilityResourcesRuntime.getSquirtleWaterGunSprayDuration(speedMultiplier);
     squirtle.modelInstance.yaw = getSquirtleModelYawToward(
       squirtle.position,
       action.targetPosition
@@ -4410,8 +4198,8 @@ export function startGameLoop({
 
     if (action.sprayElapsed >= sprayDuration) {
       session.squirtleWaterGunAction = null;
-      if (getSquirtleWaterStaminaState().current <= 0) {
-        beginSquirtleWaterRecharge();
+      if (companionAbilityResourcesRuntime.getSquirtleWaterStaminaState().current <= 0) {
+        companionAbilityResourcesRuntime.beginSquirtleWaterRecharge();
       } else {
         startNextQueuedSquirtleWaterGunAction();
       }
@@ -5543,7 +5331,7 @@ export function startGameLoop({
       }
 
       if (result && options.useWaterGun) {
-        recordSquirtleWaterGunUse();
+        companionAbilityResourcesRuntime.recordSquirtleWaterGunUse();
       }
 
       if (result && options.useFire && options.forcedHarvestTarget?.fireGroundCell) {
@@ -5903,7 +5691,7 @@ export function startGameLoop({
             });
           }
         } else if (isWaterGunTreeTarget(primaryActionTarget)) {
-          if (consumeSquirtleWaterStaminaForInstantAction()) {
+          if (companionAbilityResourcesRuntime.consumeSquirtleWaterStaminaForInstantAction()) {
             triggerWaterGunSfxBurst();
             performHarvestAction(playerPosition, {
               useWaterGun: true,
@@ -6039,7 +5827,7 @@ export function startGameLoop({
           waterGunTarget?.palm
         )
       ) {
-        if (consumeSquirtleWaterStaminaForInstantAction()) {
+        if (companionAbilityResourcesRuntime.consumeSquirtleWaterStaminaForInstantAction()) {
           triggerWaterGunSfxBurst();
           performHarvestAction(playerPosition, {
             forcedHarvestTarget: waterGunTarget,
@@ -6406,7 +6194,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       getEncounterRepairBoxPosition,
       getLeppaTreeSurroundingGroundCells,
       getSquirtleWorldPosition,
-      isSquirtleWaterCharging,
+      isSquirtleWaterCharging: () => companionAbilityResourcesRuntime.isSquirtleWaterCharging(),
       getFreeBlockBuildCostMarker,
       getPeriodicChopperAttentionCue,
       isLeafageInvalidTargetVisible: (frameNow) =>
@@ -6561,7 +6349,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       squirtle.modelInstance.active = Boolean(
         (visibleActTwoSquirtle && assembledActTwoSquirtle) ||
         session.squirtleWaterGunAction ||
-        isSquirtleWaterCharging()
+        companionAbilityResourcesRuntime.isSquirtleWaterCharging()
       );
     }
     updateCompanionPresentationFrame({
@@ -6577,9 +6365,11 @@ if (canProcessDestroyAction && destroyActionRequested) {
       getSquirtleMouthPosition,
       getCharmanderMouthPosition,
       getBulbasaurGrowEmitterPosition,
-      getSquirtleWaterStaminaState,
-      getCharmanderCarbonEnergyState,
-      isSquirtleWaterCharging,
+      getSquirtleWaterStaminaState: () =>
+        companionAbilityResourcesRuntime.getSquirtleWaterStaminaState(),
+      getCharmanderCarbonEnergyState: () =>
+        companionAbilityResourcesRuntime.getCharmanderCarbonEnergyState(),
+      isSquirtleWaterCharging: () => companionAbilityResourcesRuntime.isSquirtleWaterCharging(),
       interactionRadiusGizmoConfig: BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG
     });
     nextFrame.render.genericBillboards.push(

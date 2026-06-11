@@ -3842,57 +3842,6 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
-### Bulbasaur Workbench Guide Runtime Extraction
-
-Created the `companions/bulbasaur workbench guide` boundary with
-`createBulbasaurWorkbenchGuideRuntime()` in
-`app/runtime/companions/bulbasaurWorkbenchGuideRuntime.js`.
-
-Study path:
-
-1. `startGameLoop()` wires the runtime with the same guide tuning constants
-   that previously lived directly inside `gameLoop.js`.
-2. The runtime owns the guide-active policy:
-   `bulbasaurWorkbenchGuideAvailable`, missing Workbench DIY recipes and the
-   presence of the Bulbasaur encounter.
-3. The runtime owns the ramp-collider path calculation for the guide approach.
-4. The runtime owns the per-frame guide movement, waypoint progression, jump
-   cancellation and model yaw update.
-5. `gameLoop.js` still decides when `updateBulbasaurEncounter(...)` runs and
-   still syncs the model through `companionModelSyncRuntime` after movement.
-
-Removed from `gameLoop.js`:
-
-- `getWorkbenchRampCollider()`
-- `getBulbasaurWorkbenchGuidePath()`
-- `isBulbasaurWorkbenchGuideActive()`
-- `advanceBulbasaurAlongWorkbenchGuide(...)`
-
-Kept in `gameLoop.js`:
-
-- Bulbasaur reveal/encounter lifecycle;
-- the Workbench guide branch inside `updateBulbasaurEncounter(...)`;
-- follow/action blockers that now query `bulbasaurWorkbenchGuideRuntime`.
-
-Tests added:
-
-- `tests/bulbasaurWorkbenchGuideRuntime.test.js`
-
-Passed:
-
-```sh
-npm test -- --run tests/bulbasaurWorkbenchGuideRuntime.test.js
-npm test -- --run tests/bulbasaurWorkbenchGuideRuntime.test.js tests/companionGroundPatrolFrameRuntime.test.js tests/companionFollowMotion.test.js tests/companionFrameRuntime.test.js tests/companionModelSyncRuntime.test.js
-npm run build
-```
-
-`npm test` completed with the existing Leafage Native Tree baseline:
-
-- `292` test files passed, `1` failed
-- `1777` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
-
-Manual gameplay validation remains pending for this cut.
-
 ### Repair Box Investigation Runtime Integration
 
 Extended `app/runtime/companions/companionRepairBoxModelRuntime.js` again
@@ -11602,5 +11551,122 @@ npm run build
 
 - `291` test files passed, `1` failed
 - `1772` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
+### Bulbasaur Workbench Guide Runtime Extraction
+
+Created the `companions/bulbasaur workbench guide` boundary with
+`createBulbasaurWorkbenchGuideRuntime()` in
+`app/runtime/companions/bulbasaurWorkbenchGuideRuntime.js`.
+
+Study path:
+
+1. `startGameLoop()` wires the runtime with the same guide tuning constants
+   that previously lived directly inside `gameLoop.js`.
+2. The runtime owns the guide-active policy:
+   `bulbasaurWorkbenchGuideAvailable`, missing Workbench DIY recipes and the
+   presence of the Bulbasaur encounter.
+3. The runtime owns the ramp-collider path calculation for the guide approach.
+4. The runtime owns the per-frame guide movement, waypoint progression, jump
+   cancellation and model yaw update.
+5. `gameLoop.js` still decides when `updateBulbasaurEncounter(...)` runs and
+   still syncs the model through `companionModelSyncRuntime` after movement.
+
+Removed from `gameLoop.js`:
+
+- `getWorkbenchRampCollider()`
+- `getBulbasaurWorkbenchGuidePath()`
+- `isBulbasaurWorkbenchGuideActive()`
+- `advanceBulbasaurAlongWorkbenchGuide(...)`
+
+Kept in `gameLoop.js`:
+
+- Bulbasaur reveal/encounter lifecycle;
+- the Workbench guide branch inside `updateBulbasaurEncounter(...)`;
+- follow/action blockers that now query `bulbasaurWorkbenchGuideRuntime`.
+
+Tests added:
+
+- `tests/bulbasaurWorkbenchGuideRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/bulbasaurWorkbenchGuideRuntime.test.js
+npm test -- --run tests/bulbasaurWorkbenchGuideRuntime.test.js tests/companionGroundPatrolFrameRuntime.test.js tests/companionFollowMotion.test.js tests/companionFrameRuntime.test.js tests/companionModelSyncRuntime.test.js
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `292` test files passed, `1` failed
+- `1777` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
+### Companion Ability Resources Runtime Extraction
+
+Created the `fieldMoveRuntime/companion ability resources` boundary with
+`createCompanionAbilityResourcesRuntime()` in
+`app/runtime/fieldMoveRuntime/companionAbilityResourcesRuntime.js`.
+
+Study path:
+
+1. `startGameLoop()` wires the runtime with `session`, `controls`,
+   `clamp01`, `moveValueToward` and the existing queued-Water-Gun callback.
+2. The runtime owns Hydro Bot Water Gun use count, derived level, stamina max,
+   stamina consumption, recharge timing, visual easing and speed/duration
+   scaling.
+3. The runtime owns Thermal Bot Carbon use count, inventory-derived energy
+   ratio and visual easing.
+4. `gameLoop.js` still owns Water Gun and Fire action phases, targeting,
+   movement, impact application and field-move dispatch.
+5. Companion presentation still receives the same getter-shaped callbacks, now
+   backed by the resources runtime.
+
+Removed from `gameLoop.js`:
+
+- `getSquirtleWaterGunUseCount()`
+- `getSquirtleWaterGunLevel()`
+- `getSquirtleWaterStaminaMax()`
+- `getSquirtleWaterGunSpeedMultiplier()`
+- `getSquirtleWaterGunSprayDuration(...)`
+- `getSquirtleWaterGunImpactTime(...)`
+- `recordSquirtleWaterGunUse()`
+- `getSquirtleWaterStaminaState()`
+- `isSquirtleWaterCharging()`
+- `beginSquirtleWaterRecharge()`
+- `consumeSquirtleWaterStamina()`
+- `consumeSquirtleWaterStaminaForInstantAction()`
+- `updateSquirtleWaterStamina(...)`
+- `getCharmanderCarbonUseCount()`
+- `getCharmanderCarbonEnergyRatio()`
+- `getCharmanderCarbonEnergyState()`
+- `updateCharmanderCarbonEnergy(...)`
+
+Kept in `gameLoop.js`:
+
+- Water Gun queue/action lifecycle;
+- Water Gun target movement and impact;
+- Fire action lifecycle and impact;
+- render/presentation orchestration.
+
+Tests added:
+
+- `tests/companionAbilityResourcesRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/companionAbilityResourcesRuntime.test.js
+npm test -- --run tests/companionAbilityResourcesRuntime.test.js tests/companionFrameRuntime.test.js tests/companionPresentationFrame.test.js tests/companionStatusBillboards.test.js tests/fieldMoveBillboards.test.js
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `293` test files passed, `1` failed
+- `1783` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
