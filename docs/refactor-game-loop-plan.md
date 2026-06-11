@@ -3786,6 +3786,66 @@ baseline:
 Manual gameplay validation remains pending because the in-app browser backend
 was not available during this pass.
 
+### Bee Field Runtime Extraction
+
+Created `app/runtime/companions/beeFieldRuntime.js`.
+
+Boundary:
+
+- Domain: `companions/`.
+- Responsibility: Bee Field repair-box visual state and Bee Field bee patrol
+  instances.
+- Classification: companion/presentation runtime.
+
+Extracted from `gameLoop.js`:
+
+1. Bee Field restored/opened checks.
+2. Bee Field repair-box sync, including opening progress, alpha, tint and
+   interactable position.
+3. Bee Field center resolution from repair-box offsets or flower patch average.
+4. Bee patrol instance creation.
+5. Bee patrol movement update and cleanup when the Bee Box is not opened.
+6. Bee Field numeric tuning defaults that only belong to this runtime.
+
+Kept in `gameLoop.js`:
+
+1. `startGameLoop()` wires `createBeeFieldRuntime(...)` with `session`,
+   `controls`, the companion repair-box model runtime and the interactable sync
+   callback.
+2. The shared repair-box active tint constants remain in `gameLoop.js` because
+   they are also used by the generic active repair-box highlight path.
+3. `companionFrameRuntime` still calls Bee Field sync at the same frame point,
+   now through `beeFieldRuntime.syncRepairBox()` and
+   `beeFieldRuntime.syncBees(deltaTime)`.
+
+Why this is safe:
+
+- Frame order is unchanged.
+- The Bee Field tuning values were moved as runtime defaults with identical
+  values.
+- No field move, placement, input, camera or dialogue logic changed.
+- The existing session shapes for `beeFieldRepairBox`, `beeInstances` and
+  `beePatrolState` are preserved.
+
+Validation:
+
+```sh
+npm test -- --run tests/beeFieldRuntime.test.js
+npm test -- --run tests/beeFieldRuntime.test.js tests/companionFrameRuntime.test.js tests/companionRepairBoxModelRuntime.test.js
+npm run build
+npm test
+```
+
+Results:
+
+- Focused Bee Field runtime test: `4` passed.
+- Neighbor companion/repair-box suite: `10` passed.
+- Production build passed.
+- Full suite completed with the existing Leafage Native Tree baseline:
+  `1758` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Squirtle Reassembly Runtime Extraction
 
 Created `app/runtime/companions/squirtleReassemblyRuntime.js`.

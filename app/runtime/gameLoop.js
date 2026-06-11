@@ -3,6 +3,7 @@ import { createGameLoopFrameRuntime } from "./gameLoopFrameRuntime.js";
 import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
+import { createBeeFieldRuntime } from "./companions/beeFieldRuntime.js";
 import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
 import { createCompanionGroundPatrolFrameRuntime } from "./companions/companionGroundPatrolFrameRuntime.js";
@@ -485,15 +486,6 @@ const BULBASAUR_WORKBENCH_GUIDE_RAMP_COLLIDER_ID = "workbench-ramp-collider";
 const BULBASAUR_WORKBENCH_GUIDE_RAMP_APPROACH_MARGIN = 0.92;
 const BULBASAUR_WORKBENCH_GUIDE_SIDE_APPROACH_MARGIN = 1.22;
 const CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET = [-1.12, 0, -0.86];
-const BEE_FIELD_FLOWER_GROUP_ID = "water-gun-flower-field-0";
-const BEE_FIELD_REPAIR_BOX_LOCKED_ALPHA = 0.5;
-const BEE_FIELD_BEE_COUNT = 10;
-const BEE_FIELD_BEE_SCALE = 0.15;
-const BEE_FIELD_BEE_PATROL_RADIUS_X = 5.8;
-const BEE_FIELD_BEE_PATROL_RADIUS_Z = 4.3;
-const BEE_FIELD_BEE_BASE_HEIGHT = 1.04;
-const BEE_FIELD_BEE_BOB_HEIGHT = 0.22;
-const BEE_MODEL_FACE_YAW_OFFSET = Math.PI;
 const CHARMANDER_FOLLOW_SPEED = PLAYER_SPEED;
 const CHARMANDER_FOLLOW_DISTANCE = 1.28;
 const CHARMANDER_CAMPFIRE_LIGHT_DISTANCE = 1.9;
@@ -1159,6 +1151,16 @@ export function startGameLoop({
     partScale: SQUIRTLE_REASSEMBLY_PART_SCALE,
     syncSquirtleModelInstance
   });
+  const beeFieldRuntime = createBeeFieldRuntime({
+    session,
+    controls,
+    repairBoxRuntime: companionRepairBoxModelRuntime,
+    syncInteractablePosition,
+    config: {
+      activeTint: REPAIR_BOX_ACTIVE_TINT,
+      activeTintStrength: REPAIR_BOX_ACTIVE_TINT_STRENGTH
+    }
+  });
   const waterGunSfxBurstRuntime = createWaterGunSfxBurstRuntime();
   const frameRuntime = createGameLoopFrameRuntime({
     frameClock,
@@ -1291,8 +1293,8 @@ export function startGameLoop({
       updateTimburrEncounter,
       updateTimburrBuildBlockAction,
       syncCompanionRepairModules,
-      syncBeeFieldRepairBox,
-      syncBeeFieldBees,
+      syncBeeFieldRepairBox: () => beeFieldRuntime.syncRepairBox(),
+      syncBeeFieldBees: (deltaTime) => beeFieldRuntime.syncBees(deltaTime),
       updateSquirtleReassembly: (deltaTime) => squirtleReassemblyRuntime.update(deltaTime),
       updateSquirtleWaterStamina,
       updateCharmanderCarbonEnergy,
@@ -2799,134 +2801,6 @@ export function startGameLoop({
     syncCharmanderModelInstance();
     syncTimburrModelInstance();
     companionRepairBoxModelRuntime.syncDismantledEncounterModule(session.timburrEncounter);
-  }
-
-  function isBeeFieldRestored() {
-    return (controls.storyState?.flags?.restoredFlowerBedHabitatIds || [])
-      .includes(BEE_FIELD_FLOWER_GROUP_ID);
-  }
-
-  function syncBeeFieldRepairBox() {
-    const beeFieldRepairBox = session.beeFieldRepairBox;
-
-    if (!beeFieldRepairBox) {
-      return;
-    }
-
-    const basePosition = beeFieldRepairBox.baseOffset || beeFieldRepairBox.offset;
-    const unlocked = isBeeFieldRestored();
-    const opened = Boolean(controls.storyState?.flags?.beeFieldRepairBoxOpened);
-
-    companionRepairBoxModelRuntime.syncRepairBoxInstance(
-      beeFieldRepairBox,
-      basePosition,
-      true,
-      { openingProgress: opened ? 1 : 0 }
-    );
-    syncInteractablePosition("beeFieldRepairBox", basePosition);
-    beeFieldRepairBox.alpha = unlocked ? 1 : BEE_FIELD_REPAIR_BOX_LOCKED_ALPHA;
-    beeFieldRepairBox.tint = unlocked && !opened ? REPAIR_BOX_ACTIVE_TINT : null;
-    beeFieldRepairBox.tintStrength = unlocked && !opened ? REPAIR_BOX_ACTIVE_TINT_STRENGTH : 0;
-  }
-
-  function getBeeFieldCenterPosition() {
-    const repairBox = session.beeFieldRepairBox;
-
-    if (Array.isArray(repairBox?.baseOffset)) {
-      return repairBox.baseOffset;
-    }
-
-    if (Array.isArray(repairBox?.offset)) {
-      return repairBox.offset;
-    }
-
-    const patches = (session.groundFlowerPatches || [])
-      .filter((patch) => {
-        return patch.habitatGroupId === BEE_FIELD_FLOWER_GROUP_ID &&
-          Array.isArray(patch.position);
-      });
-
-    if (patches.length === 0) {
-      return null;
-    }
-
-    const total = patches.reduce((sum, patch) => {
-      sum[0] += patch.position[0];
-      sum[1] += patch.position[1] || 0;
-      sum[2] += patch.position[2];
-      return sum;
-    }, [0, 0, 0]);
-
-    return [
-      total[0] / patches.length,
-      total[1] / patches.length,
-      total[2] / patches.length
-    ];
-  }
-
-  function createBeeFieldBeeInstance(index) {
-    return {
-      id: `bee-field-bee-${index}`,
-      offset: [0, 0, 0],
-      scale: BEE_FIELD_BEE_SCALE,
-      yaw: BEE_MODEL_FACE_YAW_OFFSET,
-      pitch: 0,
-      roll: 0,
-      active: true,
-      patrolAngle: (index / BEE_FIELD_BEE_COUNT) * Math.PI * 2,
-      patrolRadiusScale: 0.62 + (index % 5) * 0.09,
-      angularSpeed: 0.42 + (index % 4) * 0.055,
-      bobPhase: index * 1.71,
-      bobSpeed: 1.7 + (index % 3) * 0.18
-    };
-  }
-
-  function syncBeeFieldBees(deltaTime) {
-    if (!Array.isArray(session.beeInstances)) {
-      return;
-    }
-
-    const opened = Boolean(controls.storyState?.flags?.beeFieldRepairBoxOpened);
-    const center = getBeeFieldCenterPosition();
-
-    if (!opened || !session.beeModel || !center) {
-      session.beeInstances.length = 0;
-      return;
-    }
-
-    session.beePatrolState ||= { elapsed: 0 };
-    session.beePatrolState.elapsed += Math.max(0, Number(deltaTime) || 0);
-
-    while (session.beeInstances.length < BEE_FIELD_BEE_COUNT) {
-      session.beeInstances.push(createBeeFieldBeeInstance(session.beeInstances.length));
-    }
-
-    if (session.beeInstances.length > BEE_FIELD_BEE_COUNT) {
-      session.beeInstances.length = BEE_FIELD_BEE_COUNT;
-    }
-
-    const elapsed = session.beePatrolState.elapsed;
-
-    session.beeInstances.forEach((bee, index) => {
-      const angle = bee.patrolAngle + elapsed * bee.angularSpeed;
-      const radiusScale = bee.patrolRadiusScale || 1;
-      const wobble = Math.sin(elapsed * 1.3 + bee.bobPhase) * 0.28;
-      const x = center[0] + Math.cos(angle) * BEE_FIELD_BEE_PATROL_RADIUS_X * radiusScale +
-        Math.sin(angle * 2 + bee.bobPhase) * 0.26;
-      const z = center[2] + Math.sin(angle) * BEE_FIELD_BEE_PATROL_RADIUS_Z * radiusScale +
-        Math.cos(angle * 2 + bee.bobPhase) * 0.18;
-      const y = (center[1] || 0) + BEE_FIELD_BEE_BASE_HEIGHT +
-        Math.sin(elapsed * bee.bobSpeed + bee.bobPhase) * BEE_FIELD_BEE_BOB_HEIGHT;
-
-      bee.active = true;
-      bee.offset[0] = x;
-      bee.offset[1] = y;
-      bee.offset[2] = z;
-      bee.scale = BEE_FIELD_BEE_SCALE * (0.9 + (index % 3) * 0.06);
-      bee.yaw = angle + Math.PI * 0.5 + BEE_MODEL_FACE_YAW_OFFSET;
-      bee.pitch = Math.sin(elapsed * 1.8 + bee.bobPhase) * 0.04;
-      bee.roll = wobble * 0.08;
-    });
   }
 
   function syncActiveRepairBoxHighlight() {
