@@ -3786,6 +3786,64 @@ baseline:
 Manual gameplay validation remains pending because the in-app browser backend
 was not available during this pass.
 
+### Companion Repair Box Model Runtime Extraction
+
+Created `app/runtime/companions/companionRepairBoxModelRuntime.js`.
+
+Boundary:
+
+- Domain: `companions/`.
+- Responsibility: repair-box model transform and reveal/rustle presentation for
+  companion encounters.
+- Classification: companion motion/presentation support.
+
+Extracted from `gameLoop.js`:
+
+1. Reveal opening progress calculation for companion repair boxes.
+2. Repair-box instance transform sync: base offset, floating offset, yaw,
+   pitch, roll, scale, opening pose and active flag.
+3. Reveal-box cinematic mutations: shake, spin, tint, alpha and scale pulse.
+4. Repair-box rustle mutations.
+5. Dismantled companion encounter repair-module sync.
+
+Kept in `gameLoop.js`:
+
+1. `getEncounterRepairBoxPosition(...)`, because it is already passed to
+   reveal flash/opening runtimes during `startGameLoop()` wiring before the
+   repair-box motion runtime is created. Moving it now would require a wider
+   constructor-order change for little ownership gain.
+2. High-level calls from Squirtle, Bulbasaur, Charmander, Timburr and Bee Field
+   sync paths into `companionRepairBoxModelRuntime`.
+
+Why this is safe:
+
+- The runtime receives the existing motion runtime, clamp/easing functions,
+  reveal visibility predicate and numeric config explicitly.
+- All tuning values are the same constants that were already used in
+  `gameLoop.js`.
+- The frame order is unchanged; only the implementation owner moved.
+- `gameLoop.js` now wires and calls the companion repair-box runtime instead of
+  implementing the internal model rules.
+
+Validation:
+
+```sh
+npm test -- --run tests/companionRepairBoxModelRuntime.test.js
+npm test -- --run tests/companionRepairBoxModelRuntime.test.js tests/repairBoxMotionRuntime.test.js tests/repairBoxRevealOpeningRuntime.test.js tests/repairBoxRevealFlashRuntime.test.js
+npm run build
+npm test
+```
+
+Results:
+
+- Focused companion repair-box runtime test: `4` passed.
+- Neighbor repair-box/motion suite: `12` passed.
+- Production build passed.
+- Full suite completed with the existing Leafage Native Tree baseline:
+  `1750` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Gameplay Prompt Target Frame State Boundary
 
 Created `app/runtime/presentation/gameplayPromptTargetFrameState.js`.

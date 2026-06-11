@@ -7,6 +7,7 @@ import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
 import { createCompanionGroundPatrolFrameRuntime } from "./companions/companionGroundPatrolFrameRuntime.js";
 import { createCompanionIdleMotionRuntime } from "./companions/companionIdleMotionRuntime.js";
+import { createCompanionRepairBoxModelRuntime } from "./companions/companionRepairBoxModelRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
 import {
@@ -1126,6 +1127,28 @@ export function startGameLoop({
     bobHeight: ROBOT_REPAIR_BOX_BOB_HEIGHT,
     bobSpeed: ROBOT_REPAIR_BOX_BOB_SPEED,
     spinSpeed: ROBOT_REPAIR_BOX_SPIN_SPEED
+  });
+  const companionRepairBoxModelRuntime = createCompanionRepairBoxModelRuntime({
+    motion: repairBoxMotionRuntime,
+    getRepairBoxPosition: getEncounterRepairBoxPosition,
+    clamp01,
+    easeOutCubic,
+    isRevealBoxBotVisible,
+    config: {
+      modelPitchOffset: ROBOT_REPAIR_BOX_MODEL_PITCH_OFFSET,
+      openPitch: ROBOT_REPAIR_BOX_OPEN_PITCH,
+      openRoll: ROBOT_REPAIR_BOX_OPEN_ROLL,
+      openLift: ROBOT_REPAIR_BOX_OPEN_LIFT,
+      openBackstep: ROBOT_REPAIR_BOX_OPEN_BACKSTEP,
+      revealBoxDuration: BULBASAUR_REVEAL_BOX_DURATION,
+      revealBoxOpenStartProgress: BULBASAUR_REVEAL_BOX_OPEN_START_PROGRESS,
+      revealBoxShakeEndProgress: BULBASAUR_REVEAL_BOX_SHAKE_END_PROGRESS,
+      revealBoxSpinAcceleration: BULBASAUR_REVEAL_BOX_SPIN_ACCELERATION,
+      repairBoxRustleLift: BULBASAUR_REPAIR_BOX_RUSTLE_LIFT,
+      repairBoxRustleRoll: BULBASAUR_REPAIR_BOX_RUSTLE_ROLL,
+      repairBoxRustlePitch: BULBASAUR_REPAIR_BOX_RUSTLE_PITCH,
+      repairBoxRustleYaw: BULBASAUR_REPAIR_BOX_RUSTLE_YAW
+    }
   });
   const waterGunSfxBurstRuntime = createWaterGunSfxBurstRuntime();
   const frameRuntime = createGameLoopFrameRuntime({
@@ -2696,7 +2719,7 @@ export function startGameLoop({
     session.actTwoSquirtle.modelInstance.offset = [...session.actTwoSquirtle.position];
     session.actTwoSquirtle.modelInstance.scale = ROBOT_MODEL_SCALE;
     if (session.actTwoSquirtle.repairModuleInstance) {
-      syncRepairBoxInstance(
+      companionRepairBoxModelRuntime.syncRepairBoxInstance(
         session.actTwoSquirtle.repairModuleInstance,
         session.actTwoSquirtle.position,
         Boolean(
@@ -2713,159 +2736,15 @@ export function startGameLoop({
     return encounter?.repairBoxPosition || encounter?.repairPosition || null;
   }
 
-  function getEncounterRepairBoxOpeningProgress(encounter) {
-    const revealBoxOpening = encounter?.revealBoxOpening;
-
-    if (!revealBoxOpening?.active) {
-      return 0;
-    }
-
-    const rawProgress = clamp01(
-      Number(revealBoxOpening.elapsed || 0) / Number(revealBoxOpening.duration || 1)
-    );
-    const openStart = clamp01(
-      Number(revealBoxOpening.openStartProgress ?? BULBASAUR_REVEAL_BOX_OPEN_START_PROGRESS)
-    );
-
-    if (rawProgress <= openStart) {
-      return 0;
-    }
-
-    return clamp01((rawProgress - openStart) / Math.max(0.001, 1 - openStart));
-  }
-
-  function syncRepairBoxInstance(instance, basePosition, active, { openingProgress = 0 } = {}) {
-    if (!instance || !Array.isArray(basePosition)) {
-      return;
-    }
-
-    const opened = easeOutCubic(openingProgress);
-
-    instance.baseOffset = [...basePosition];
-    instance.offset = repairBoxMotionRuntime.getFloatOffset(basePosition);
-    instance.repairBoxBaseYaw ??= Number(instance.yaw || 0);
-    instance.repairBoxBaseScale ??= Number(instance.scale || 1);
-    instance.scale = instance.repairBoxBaseScale;
-    instance.yaw = repairBoxMotionRuntime.getYaw(instance.repairBoxBaseYaw);
-    instance.pitch = ROBOT_REPAIR_BOX_MODEL_PITCH_OFFSET;
-    instance.roll = 0;
-
-    if (opened > 0) {
-      instance.repairBoxOpenYaw ??= instance.yaw;
-      instance.yaw = instance.repairBoxOpenYaw;
-      instance.pitch = ROBOT_REPAIR_BOX_MODEL_PITCH_OFFSET - ROBOT_REPAIR_BOX_OPEN_PITCH * opened;
-      instance.roll = ROBOT_REPAIR_BOX_OPEN_ROLL * opened;
-      instance.offset = [
-        instance.offset[0],
-        instance.offset[1] + ROBOT_REPAIR_BOX_OPEN_LIFT * opened,
-        instance.offset[2] + ROBOT_REPAIR_BOX_OPEN_BACKSTEP * opened
-      ];
-      instance.scale = instance.repairBoxBaseScale * (1 - 0.08 * opened);
-    } else {
-      instance.repairBoxOpenYaw = null;
-    }
-
-    instance.active = Boolean(active);
-  }
-
-  function applyBulbasaurRevealBoxCinematic(encounter) {
-    const instance = encounter?.repairModuleInstance;
-    const opening = encounter?.revealBoxOpening;
-
-    if (!instance || !opening?.active) {
-      return;
-    }
-
-    const duration = Math.max(0.001, Number(opening.duration || BULBASAUR_REVEAL_BOX_DURATION));
-    const elapsed = Math.max(0, Number(opening.elapsed || 0));
-    const progress = clamp01(elapsed / duration);
-    const shakeEnd = clamp01(
-      Number(opening.shakeEndProgress ?? BULBASAUR_REVEAL_BOX_SHAKE_END_PROGRESS)
-    );
-    const openStart = clamp01(
-      Number(opening.openStartProgress ?? BULBASAUR_REVEAL_BOX_OPEN_START_PROGRESS)
-    );
-    const chargeProgress = clamp01(progress / Math.max(0.001, shakeEnd));
-    const charge = chargeProgress * chargeProgress;
-    const isDramaticPause = progress >= shakeEnd && progress < openStart;
-    const shakeEnvelope = isDramaticPause ? 0 : Math.sin(chargeProgress * Math.PI * 0.5);
-    const shake = shakeEnvelope * (0.018 + charge * 0.12);
-    const light = clamp01(progress / Math.max(0.001, openStart));
-
-    if (progress < openStart) {
-      instance.yaw += elapsed * BULBASAUR_REVEAL_BOX_SPIN_ACCELERATION * charge;
-      instance.pitch += Math.sin(elapsed * (24 + charge * 38)) * shake;
-      instance.roll += Math.cos(elapsed * (28 + charge * 42)) * shake;
-      instance.offset = [
-        instance.offset[0] + Math.sin(elapsed * (31 + charge * 28)) * shake,
-        instance.offset[1] + Math.abs(Math.sin(elapsed * (18 + charge * 30))) * shake * 1.8,
-        instance.offset[2] + Math.cos(elapsed * (29 + charge * 26)) * shake
-      ];
-    }
-
-    instance.tint = [1.45, 1.72, 0.84];
-    instance.tintStrength = Math.max(Number(instance.tintStrength || 0), 0.32 + light * 0.58);
-    instance.alpha = 1;
-    instance.scale *= 1 + Math.sin(progress * Math.PI) * 0.045;
-  }
-
-  function applyBulbasaurRepairBoxRustle(encounter) {
-    const instance = encounter?.repairModuleInstance;
-    const rustle = encounter?.repairBoxRustle;
-
-    if (!instance || !rustle?.active) {
-      return;
-    }
-
-    const duration = Math.max(0.001, Number(rustle.duration || 1));
-    const elapsed = Math.max(0, Number(rustle.elapsed || 0));
-    const progress = clamp01(elapsed / duration);
-    const envelope = Math.sin(progress * Math.PI);
-    const bounce = Math.abs(Math.sin(elapsed * 32));
-    const twist = Math.sin(elapsed * 46);
-    const counterTwist = Math.sin(elapsed * 39 + Math.PI * 0.35);
-
-    instance.offset = [
-      instance.offset[0] + twist * envelope * 0.055,
-      instance.offset[1] + bounce * envelope * BULBASAUR_REPAIR_BOX_RUSTLE_LIFT,
-      instance.offset[2] + counterTwist * envelope * 0.045
-    ];
-    instance.roll += twist * envelope * BULBASAUR_REPAIR_BOX_RUSTLE_ROLL;
-    instance.pitch += counterTwist * envelope * BULBASAUR_REPAIR_BOX_RUSTLE_PITCH;
-    instance.yaw += Math.sin(elapsed * 52) * envelope * BULBASAUR_REPAIR_BOX_RUSTLE_YAW;
-  }
-
-  function syncDismantledEncounterModule(encounter) {
-    if (!encounter?.repairModuleInstance) {
-      return;
-    }
-
-    const openingProgress = getEncounterRepairBoxOpeningProgress(encounter);
-    const revealBoxOpening = encounter.revealBoxOpening;
-    const hideBoxAfterReveal = Boolean(
-      revealBoxOpening?.hideBoxWhenVisible &&
-      isRevealBoxBotVisible(revealBoxOpening)
-    );
-
-    syncRepairBoxInstance(
-      encounter.repairModuleInstance,
-      getEncounterRepairBoxPosition(encounter),
-      !hideBoxAfterReveal && (openingProgress > 0 || !encounter.visible),
-      { openingProgress }
-    );
-    applyBulbasaurRevealBoxCinematic(encounter);
-    applyBulbasaurRepairBoxRustle(encounter);
-  }
-
   function syncBulbasaurModelInstance() {
     const encounter = session.bulbasaurEncounter;
 
     if (!encounter?.modelInstance) {
-      syncDismantledEncounterModule(encounter);
+      companionRepairBoxModelRuntime.syncDismantledEncounterModule(encounter);
       return;
     }
 
-    syncDismantledEncounterModule(encounter);
+    companionRepairBoxModelRuntime.syncDismantledEncounterModule(encounter);
     encounter.modelInstance.active = Boolean(encounter.visible && Array.isArray(encounter.position));
     encounter.modelInstance.scale = BULBASAUR_ROBOT_MODEL_SCALE;
 
@@ -2878,11 +2757,11 @@ export function startGameLoop({
     const encounter = session.charmanderEncounter;
 
     if (!encounter?.modelInstance) {
-      syncDismantledEncounterModule(encounter);
+      companionRepairBoxModelRuntime.syncDismantledEncounterModule(encounter);
       return;
     }
 
-    syncDismantledEncounterModule(encounter);
+    companionRepairBoxModelRuntime.syncDismantledEncounterModule(encounter);
     encounter.modelInstance.active = Boolean(encounter.visible && Array.isArray(encounter.position));
     encounter.modelInstance.scale = CHARMANDER_MODEL_SCALE;
 
@@ -2909,7 +2788,7 @@ export function startGameLoop({
   function syncCompanionRepairModules() {
     syncCharmanderModelInstance();
     syncTimburrModelInstance();
-    syncDismantledEncounterModule(session.timburrEncounter);
+    companionRepairBoxModelRuntime.syncDismantledEncounterModule(session.timburrEncounter);
   }
 
   function isBeeFieldRestored() {
@@ -2928,7 +2807,7 @@ export function startGameLoop({
     const unlocked = isBeeFieldRestored();
     const opened = Boolean(controls.storyState?.flags?.beeFieldRepairBoxOpened);
 
-    syncRepairBoxInstance(
+    companionRepairBoxModelRuntime.syncRepairBoxInstance(
       beeFieldRepairBox,
       basePosition,
       true,
