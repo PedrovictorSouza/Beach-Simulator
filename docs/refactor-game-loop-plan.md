@@ -4438,6 +4438,77 @@ existing Leafage Native Tree baseline:
 
 No manual browser validation was run in this cut.
 
+### Companion Ground Patrol Frame Runtime
+
+Created `app/runtime/companions/companionGroundPatrolFrameRuntime.js`.
+
+Module boundary:
+
+- Domain: `companions`.
+- Responsibility: own the per-frame follow/idle/patrol policy for ground
+  companions currently handled by Squirtle and Bulbasaur.
+- Removed from `gameLoop.js`: local `updateSquirtleIdlePatrol(...)` and
+  `updateBulbasaurIdlePatrol(...)`.
+
+Study path:
+
+1. `startGameLoop()` composes `createCompanionGroundPatrolFrameRuntime(...)`
+   with session, controls, follow movement runtime, idle motion runtime,
+   existing queue/blocker callbacks and current tuning constants.
+2. `companionFrameRuntime` still owns frame order; its callbacks now delegate
+   Squirtle/Bulbasaur idle updates to the ground patrol runtime.
+3. The runtime preserves the previous decision order: blocked clears patrol
+   and syncs, following moves toward formation, otherwise face nearby player or
+   idle patrol.
+4. Formation membership remains outside this runtime because it still crosses
+   current action queues and workbench guide state.
+5. No follow speeds, distances, patrol radii, face-yaw offsets, action blockers
+   or sync timing changed intentionally.
+
+Tests added:
+
+- `tests/companionGroundPatrolFrameRuntime.test.js`
+
+The test covers:
+
+- following Squirtle moving toward a formation slot;
+- Bulbasaur idle patrol fallback when not following and not facing the player;
+- blocked movement clearing patrol and syncing without moving.
+
+Risks reduced:
+
+- `gameLoop.js` no longer owns Squirtle/Bulbasaur ground companion idle-frame
+  policy.
+- Companion frame runtime now delegates ground patrol behavior to a cohesive
+  companions module.
+
+Risks remaining:
+
+- Charmander and Timburr follow branches still live in their encounter update
+  functions. They can move after their encounter-specific construction/action
+  behavior is separated.
+- Follow formation membership wiring remains local until action queue state is
+  grouped under a cleaner companion action boundary.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/companionGroundPatrolFrameRuntime.test.js
+npm test -- --run tests/companionGroundPatrolFrameRuntime.test.js tests/companionIdleMotionRuntime.test.js tests/companionFollowMovementRuntime.test.js tests/companionFrameRuntime.test.js
+npm test -- --run tests/companionGroundPatrolFrameRuntime.test.js tests/companionIdleMotionRuntime.test.js tests/companionFollowMovementRuntime.test.js tests/companionFrameRuntime.test.js tests/companionFollowMotion.test.js
+npm run build
+npm test
+```
+
+The focused companion ground patrol suite passed with `21` tests.
+`npm run build` passed with the existing large chunk warning. `npm test`
+completed with the existing Leafage Native Tree baseline:
+
+- `1746` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+No manual browser validation was run in this cut.
+
 ### Gameplay Prompt Frame State Wrapper
 
 Expanded `app/runtime/presentation/gameplayPromptTargetFrameState.js` with

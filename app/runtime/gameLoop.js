@@ -5,6 +5,7 @@ import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
+import { createCompanionGroundPatrolFrameRuntime } from "./companions/companionGroundPatrolFrameRuntime.js";
 import { createCompanionIdleMotionRuntime } from "./companions/companionIdleMotionRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
@@ -1025,6 +1026,28 @@ export function startGameLoop({
     patrolPauseDuration: ROBOT_IDLE_PATROL_PAUSE_DURATION,
     patrolArriveDistance: ROBOT_IDLE_PATROL_ARRIVE_DISTANCE
   });
+  const companionGroundPatrolFrameRuntime = createCompanionGroundPatrolFrameRuntime({
+    session,
+    controls,
+    followMovement: companionFollowMovementRuntime,
+    idleMotion: companionIdleMotionRuntime,
+    getSquirtleWaterGunQueue,
+    isBulbasaurWorkbenchGuideActive,
+    resolveFollowFormationIndex: getCompanionFollowFormationIndex,
+    resolveFollowDistance: resolveCompanionFollowDistance,
+    syncSquirtleModelInstance,
+    syncBulbasaurModelInstance,
+    config: {
+      squirtleFollowSpeed: SQUIRTLE_FOLLOW_SPEED,
+      squirtleFollowDistance: SQUIRTLE_FOLLOW_DISTANCE,
+      squirtleModelFaceYawOffset: SQUIRTLE_MODEL_FACE_YAW_OFFSET,
+      squirtleIdlePatrolRadius: SQUIRTLE_IDLE_PATROL_RADIUS,
+      bulbasaurFollowSpeed: BULBASAUR_FOLLOW_SPEED,
+      bulbasaurFollowDistance: BULBASAUR_FOLLOW_DISTANCE,
+      bulbasaurModelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET,
+      bulbasaurIdlePatrolRadius: BULBASAUR_IDLE_PATROL_RADIUS
+    }
+  });
   const runBreadcrumbPromptRuntime = createRunBreadcrumbPromptRuntime({
     durationMs: RUN_BREADCRUMB_PROMPT_DURATION_MS
   });
@@ -1242,8 +1265,10 @@ export function startGameLoop({
       updateCharmanderCarbonEnergy,
       updateSquirtleWaterGunAction,
       updateBulbasaurLeafageAction,
-      updateSquirtleIdlePatrol,
-      updateBulbasaurIdlePatrol
+      updateSquirtleIdlePatrol: (deltaTime, frameState) =>
+        companionGroundPatrolFrameRuntime.updateSquirtle(deltaTime, frameState),
+      updateBulbasaurIdlePatrol: (deltaTime, frameState) =>
+        companionGroundPatrolFrameRuntime.updateBulbasaur(deltaTime, frameState)
     }
   });
   const playerResourceCollectionFrameRuntime = createPlayerResourceCollectionFrameRuntime({
@@ -3933,107 +3958,6 @@ export function startGameLoop({
       activeMoveId,
       isFollowing: isCompanionInFollowFormation
     }) ?? 0;
-  }
-
-  function updateSquirtleIdlePatrol(deltaTime, { active, activeMoveId = null }) {
-    const squirtle = session.actTwoSquirtle;
-    const canMove = Boolean(
-      active &&
-      squirtle?.recovered &&
-      squirtle.assemblyState === "assembled" &&
-      !session.squirtleWaterGunAction &&
-      getSquirtleWaterGunQueue().length === 0
-    );
-
-    if (!canMove) {
-      if (squirtle) {
-        squirtle.patrol = null;
-      }
-      syncSquirtleModelInstance();
-      return;
-    }
-
-    if (controls.storyState?.flags?.squirtleFollowing) {
-      const formationIndex = getCompanionFollowFormationIndex("squirtle", activeMoveId);
-      companionFollowMovementRuntime.moveTowardPlayer(squirtle, {
-        deltaTime,
-        speed: SQUIRTLE_FOLLOW_SPEED,
-        followDistance: resolveCompanionFollowDistance({
-          companionId: "squirtle",
-          activeMoveId,
-          defaultDistance: SQUIRTLE_FOLLOW_DISTANCE,
-          formationIndex
-        }),
-        modelFaceYawOffset: SQUIRTLE_MODEL_FACE_YAW_OFFSET
-      });
-      syncSquirtleModelInstance();
-      return;
-    }
-
-    if (!companionIdleMotionRuntime.faceTowardPlayer(squirtle, {
-      modelFaceYawOffset: SQUIRTLE_MODEL_FACE_YAW_OFFSET
-    })) {
-      companionIdleMotionRuntime.updatePatrol(squirtle, {
-        deltaTime,
-        radius: SQUIRTLE_IDLE_PATROL_RADIUS,
-        modelFaceYawOffset: SQUIRTLE_MODEL_FACE_YAW_OFFSET
-      });
-    }
-    syncSquirtleModelInstance();
-  }
-
-  function updateBulbasaurIdlePatrol(deltaTime, { active, activeMoveId = null }) {
-    const encounter = session.bulbasaurEncounter;
-    const jumpActive = Boolean(
-      encounter?.jumpTimer > 0 &&
-      encounter.originPosition &&
-      encounter.landingPosition
-    );
-    const canPatrol = Boolean(
-      active &&
-      encounter?.visible &&
-      Array.isArray(encounter.position) &&
-      !session.bulbasaurLeafageAction &&
-      !encounter.revealBoxOpening?.active &&
-      !isBulbasaurWorkbenchGuideActive() &&
-      !jumpActive
-    );
-
-    if (!canPatrol) {
-      if (encounter) {
-        encounter.patrol = null;
-      }
-      syncBulbasaurModelInstance();
-      return;
-    }
-
-    if (controls.storyState?.flags?.bulbasaurFollowing) {
-      const formationIndex = getCompanionFollowFormationIndex("bulbasaur", activeMoveId);
-      companionFollowMovementRuntime.moveTowardPlayer(encounter, {
-        deltaTime,
-        speed: BULBASAUR_FOLLOW_SPEED,
-        followDistance: resolveCompanionFollowDistance({
-          companionId: "bulbasaur",
-          activeMoveId,
-          defaultDistance: BULBASAUR_FOLLOW_DISTANCE,
-          formationIndex
-        }),
-        modelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET
-      });
-      syncBulbasaurModelInstance();
-      return;
-    }
-
-    if (!companionIdleMotionRuntime.faceTowardPlayer(encounter, {
-      modelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET
-    })) {
-      companionIdleMotionRuntime.updatePatrol(encounter, {
-        deltaTime,
-        radius: BULBASAUR_IDLE_PATROL_RADIUS,
-        modelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET
-      });
-    }
-    syncBulbasaurModelInstance();
   }
 
   function getSquirtleAssemblySceneObjects(sceneObjects, squirtle) {
