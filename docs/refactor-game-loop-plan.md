@@ -3842,6 +3842,62 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Repair Box Investigation Runtime Integration
+
+Extended `app/runtime/companions/companionRepairBoxModelRuntime.js` again
+instead of creating a new file.
+
+Boundary:
+
+- Domain: `companions/`.
+- Responsibility: repair-box rustle timing and Chopper investigation target
+  resolution for the Bulbasaur repair-box intro.
+- Classification: companion/presentation runtime.
+
+Extracted from `gameLoop.js`:
+
+1. Rustling repair-box active check based on story flags, alive grass patch and
+   active repair module.
+2. Chopper investigation target calculation around the Bulbasaur repair box.
+3. Repair-box rustle elapsed/duration update and deactivation.
+
+Kept in `gameLoop.js`:
+
+1. The existing frame order in `companionFrameRuntime`.
+2. A wiring callback that passes the current Bulbasaur encounter, story flags
+   and grass patches into `companionRepairBoxModelRuntime.getInvestigationTarget(...)`.
+3. A wiring callback that passes `deltaTime` into
+   `companionRepairBoxModelRuntime.updateRepairBoxRustle(...)`.
+4. `CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET`, passed as explicit
+   config to keep tuning unchanged.
+
+Why this is safe:
+
+- No new module was created; the existing repair-box runtime now owns more of
+  the same repair-box rule set.
+- The frame call order is unchanged.
+- The target object shape stays `{ position, lookAtPosition }`.
+- Rustle timing still clamps to duration and deactivates at the same threshold.
+
+Validation:
+
+```sh
+npm test -- --run tests/companionRepairBoxModelRuntime.test.js
+npm test -- --run tests/companionRepairBoxModelRuntime.test.js tests/companionFrameRuntime.test.js tests/worldSpeechFrameState.test.js
+npm run build
+npm test
+```
+
+Results:
+
+- Focused companion repair-box model runtime test: `8` passed.
+- Neighbor companion/world-speech suite: `13` passed.
+- Production build passed.
+- Full suite completed with the existing Leafage Native Tree baseline:
+  `1765` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Bee Field Runtime Extraction
 
 Created `app/runtime/companions/beeFieldRuntime.js`.

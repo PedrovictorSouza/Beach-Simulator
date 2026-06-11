@@ -18,6 +18,7 @@ const CONFIG = Object.freeze({
   repairBoxRustleRoll: 0.11,
   repairBoxRustlePitch: 0.08,
   repairBoxRustleYaw: 0.12,
+  investigationOffset: [-1, 0, -0.5],
   activeTint: [0.1, 0.9, 0.2],
   activeTintStrength: 0.7,
   inactiveAlpha: 0.4
@@ -197,6 +198,74 @@ describe("createCompanionRepairBoxModelRuntime", () => {
       tint: null,
       tintStrength: 0,
       alpha: CONFIG.inactiveAlpha
+    });
+  });
+
+  it("resolves a repair-box investigation target only while the rustling grass is alive", () => {
+    const { runtime } = createRuntime();
+    const encounter = {
+      repairBoxPosition: [3, 0.2, 7],
+      repairModuleInstance: {
+        active: true
+      }
+    };
+    const flags = {
+      rustlingGrassCellId: "grass-1",
+      chopperBulbasaurRepairBoxIntroComplete: true,
+      bulbasaurRevealed: false
+    };
+    const groundGrassPatches = [
+      { cellId: "grass-1", state: "alive" }
+    ];
+
+    expect(runtime.getInvestigationTarget({
+      encounter,
+      flags,
+      groundGrassPatches
+    })).toEqual({
+      position: [2, 0.2, 6.5],
+      lookAtPosition: [3, 0.2, 7]
+    });
+
+    expect(runtime.getInvestigationTarget({
+      encounter,
+      flags: {
+        ...flags,
+        bulbasaurRevealed: true
+      },
+      groundGrassPatches
+    })).toBeNull();
+    expect(runtime.getInvestigationTarget({
+      encounter,
+      flags,
+      groundGrassPatches: [
+        { cellId: "grass-1", state: "cut" }
+      ]
+    })).toBeNull();
+  });
+
+  it("advances repair-box rustle timing and deactivates it at duration", () => {
+    const { runtime } = createRuntime();
+    const encounter = {
+      repairBoxRustle: {
+        active: true,
+        elapsed: 0.25,
+        duration: 1
+      }
+    };
+
+    runtime.updateRepairBoxRustle(encounter, 0.5);
+
+    expect(encounter.repairBoxRustle).toMatchObject({
+      active: true,
+      elapsed: 0.75
+    });
+
+    runtime.updateRepairBoxRustle(encounter, 0.5);
+
+    expect(encounter.repairBoxRustle).toMatchObject({
+      active: false,
+      elapsed: 1
     });
   });
 });

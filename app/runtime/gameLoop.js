@@ -1141,6 +1141,7 @@ export function startGameLoop({
       repairBoxRustleRoll: BULBASAUR_REPAIR_BOX_RUSTLE_ROLL,
       repairBoxRustlePitch: BULBASAUR_REPAIR_BOX_RUSTLE_PITCH,
       repairBoxRustleYaw: BULBASAUR_REPAIR_BOX_RUSTLE_YAW,
+      investigationOffset: CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET,
       activeTint: REPAIR_BOX_ACTIVE_TINT,
       activeTintStrength: REPAIR_BOX_ACTIVE_TINT_STRENGTH,
       inactiveAlpha: REPAIR_BOX_INACTIVE_ALPHA
@@ -1287,9 +1288,14 @@ export function startGameLoop({
     callbacks: {
       isDialogueActive: () => gameplayDialogue.isActive(),
       isGameplayActive: () => isGameFlow(gameFlowValues.GAMEPLAY),
-      getRepairBoxInvestigationTarget: getBulbasaurRepairBoxInvestigationTarget,
+      getRepairBoxInvestigationTarget: () => companionRepairBoxModelRuntime.getInvestigationTarget({
+        encounter: session.bulbasaurEncounter,
+        flags: controls.storyState?.flags,
+        groundGrassPatches: session.groundGrassPatches
+      }),
       isWaterGunSfxBurstActive: (nowSeconds) => waterGunSfxBurstRuntime.isActive(nowSeconds),
-      updateBulbasaurRepairBoxRustle,
+      updateBulbasaurRepairBoxRustle: (deltaTime) =>
+        companionRepairBoxModelRuntime.updateRepairBoxRustle(session.bulbasaurEncounter, deltaTime),
       updateBulbasaurEncounter,
       updateCharmanderEncounter,
       updateCharmanderFireAction,
@@ -2819,46 +2825,6 @@ export function startGameLoop({
         session.charmanderEncounter
       ]
     });
-  }
-
-  function isBulbasaurRepairBoxRustlingActive() {
-    const flags = controls.storyState?.flags || {};
-    const rustlingGrassCellId = flags.rustlingGrassCellId;
-
-    if (
-      !rustlingGrassCellId ||
-      !flags.chopperBulbasaurRepairBoxIntroComplete ||
-      flags.bulbasaurRevealed ||
-      !session.bulbasaurEncounter?.repairModuleInstance?.active
-    ) {
-      return false;
-    }
-
-    return (session.groundGrassPatches || []).some((groundGrassPatch) => {
-      return groundGrassPatch?.cellId === rustlingGrassCellId &&
-        groundGrassPatch.state === "alive";
-    });
-  }
-
-  function getBulbasaurRepairBoxInvestigationTarget() {
-    if (!isBulbasaurRepairBoxRustlingActive()) {
-      return null;
-    }
-
-    const repairBoxPosition = getEncounterRepairBoxPosition(session.bulbasaurEncounter);
-
-    if (!Array.isArray(repairBoxPosition)) {
-      return null;
-    }
-
-    return {
-      position: [
-        repairBoxPosition[0] + CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET[0],
-        repairBoxPosition[1] + CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET[1],
-        repairBoxPosition[2] + CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET[2]
-      ],
-      lookAtPosition: [...repairBoxPosition]
-    };
   }
 
   function isPlayerNearWorldPosition(worldPosition, distance) {
@@ -5066,21 +5032,6 @@ export function startGameLoop({
         targetPosition,
         BULBASAUR_MODEL_FACE_YAW_OFFSET
       );
-    }
-  }
-
-  function updateBulbasaurRepairBoxRustle(deltaTime) {
-    const rustle = session.bulbasaurEncounter?.repairBoxRustle;
-
-    if (!rustle?.active) {
-      return;
-    }
-
-    const duration = Math.max(0.001, Number(rustle.duration || 1));
-    rustle.elapsed = Math.min(duration, Number(rustle.elapsed || 0) + deltaTime);
-
-    if (rustle.elapsed >= duration) {
-      rustle.active = false;
     }
   }
 

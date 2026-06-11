@@ -12,6 +12,7 @@ const DEFAULT_CONFIG = Object.freeze({
   repairBoxRustleRoll: 0,
   repairBoxRustlePitch: 0,
   repairBoxRustleYaw: 0,
+  investigationOffset: [0, 0, 0],
   activeTint: [0.38, 1.72, 0.42],
   activeTintStrength: 0.68,
   inactiveAlpha: 0.5
@@ -224,12 +225,77 @@ export function createCompanionRepairBoxModelRuntime({
     }
   }
 
+  function isRustlingInvestigationActive({
+    encounter = null,
+    flags = {},
+    groundGrassPatches = []
+  } = {}) {
+    const rustlingGrassCellId = flags.rustlingGrassCellId;
+
+    if (
+      !rustlingGrassCellId ||
+      !flags.chopperBulbasaurRepairBoxIntroComplete ||
+      flags.bulbasaurRevealed ||
+      !encounter?.repairModuleInstance?.active
+    ) {
+      return false;
+    }
+
+    return (groundGrassPatches || []).some((groundGrassPatch) => {
+      return groundGrassPatch?.cellId === rustlingGrassCellId &&
+        groundGrassPatch.state === "alive";
+    });
+  }
+
+  function getInvestigationTarget({
+    encounter = null,
+    flags = {},
+    groundGrassPatches = []
+  } = {}) {
+    if (!isRustlingInvestigationActive({ encounter, flags, groundGrassPatches })) {
+      return null;
+    }
+
+    const repairBoxPosition = getRepairBoxPosition(encounter);
+
+    if (!Array.isArray(repairBoxPosition)) {
+      return null;
+    }
+
+    return {
+      position: [
+        repairBoxPosition[0] + settings.investigationOffset[0],
+        repairBoxPosition[1] + settings.investigationOffset[1],
+        repairBoxPosition[2] + settings.investigationOffset[2]
+      ],
+      lookAtPosition: [...repairBoxPosition]
+    };
+  }
+
+  function updateRepairBoxRustle(encounter, deltaTime) {
+    const rustle = encounter?.repairBoxRustle;
+
+    if (!rustle?.active) {
+      return;
+    }
+
+    const duration = Math.max(0.001, Number(rustle.duration || 1));
+    rustle.elapsed = Math.min(duration, Number(rustle.elapsed || 0) + deltaTime);
+
+    if (rustle.elapsed >= duration) {
+      rustle.active = false;
+    }
+  }
+
   return {
     applyRepairBoxRustle,
     applyRevealBoxCinematic,
+    getInvestigationTarget,
     getOpeningProgress,
+    isRustlingInvestigationActive,
     syncActiveHighlight,
     syncDismantledEncounterModule,
-    syncRepairBoxInstance
+    syncRepairBoxInstance,
+    updateRepairBoxRustle
   };
 }
