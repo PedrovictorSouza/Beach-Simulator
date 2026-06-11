@@ -4,6 +4,7 @@ import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { createBeeFieldRuntime } from "./companions/beeFieldRuntime.js";
+import { createBulbasaurWorkbenchGuideRuntime } from "./companions/bulbasaurWorkbenchGuideRuntime.js";
 import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
 import { createCompanionGroundPatrolFrameRuntime } from "./companions/companionGroundPatrolFrameRuntime.js";
@@ -1021,13 +1022,28 @@ export function startGameLoop({
     patrolPauseDuration: ROBOT_IDLE_PATROL_PAUSE_DURATION,
     patrolArriveDistance: ROBOT_IDLE_PATROL_ARRIVE_DISTANCE
   });
+  const bulbasaurWorkbenchGuideRuntime = createBulbasaurWorkbenchGuideRuntime({
+    session,
+    controls,
+    workbenchPosition: WORKBENCH_POSITION,
+    getYawToward: getRobotModelYawToward,
+    config: {
+      start: BULBASAUR_WORKBENCH_GUIDE_START,
+      speed: BULBASAUR_WORKBENCH_GUIDE_SPEED,
+      waypointDistance: BULBASAUR_WORKBENCH_GUIDE_WAYPOINT_DISTANCE,
+      rampColliderId: BULBASAUR_WORKBENCH_GUIDE_RAMP_COLLIDER_ID,
+      rampApproachMargin: BULBASAUR_WORKBENCH_GUIDE_RAMP_APPROACH_MARGIN,
+      sideApproachMargin: BULBASAUR_WORKBENCH_GUIDE_SIDE_APPROACH_MARGIN,
+      modelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET
+    }
+  });
   const companionGroundPatrolFrameRuntime = createCompanionGroundPatrolFrameRuntime({
     session,
     controls,
     followMovement: companionFollowMovementRuntime,
     idleMotion: companionIdleMotionRuntime,
     getSquirtleWaterGunQueue,
-    isBulbasaurWorkbenchGuideActive,
+    isBulbasaurWorkbenchGuideActive: () => bulbasaurWorkbenchGuideRuntime.isActive(),
     resolveFollowFormationIndex: getCompanionFollowFormationIndex,
     resolveFollowDistance: resolveCompanionFollowDistance,
     syncSquirtleModelInstance: () => companionModelSyncRuntime.syncSquirtle(),
@@ -3533,7 +3549,7 @@ export function startGameLoop({
       },
       blockers: {
         squirtleWaterGunQueueActive: getSquirtleWaterGunQueue().length > 0,
-        bulbasaurWorkbenchGuideActive: isBulbasaurWorkbenchGuideActive()
+        bulbasaurWorkbenchGuideActive: bulbasaurWorkbenchGuideRuntime.isActive()
       }
     });
   }
@@ -3757,7 +3773,7 @@ export function startGameLoop({
       return "unavailable";
     }
 
-    if (isBulbasaurWorkbenchGuideActive()) {
+    if (bulbasaurWorkbenchGuideRuntime.isActive()) {
       return "busy";
     }
 
@@ -4890,87 +4906,6 @@ export function startGameLoop({
     }
   }
 
-  function getWorkbenchRampCollider() {
-    return (session.elevatedTerrainColliders || [])
-      .find((collider) => collider?.id === BULBASAUR_WORKBENCH_GUIDE_RAMP_COLLIDER_ID) || null;
-  }
-
-  function getBulbasaurWorkbenchGuidePath() {
-    const rampCollider = getWorkbenchRampCollider();
-
-    if (!rampCollider?.position || !rampCollider?.size) {
-      return [[...WORKBENCH_POSITION]];
-    }
-
-    const padding = rampCollider.padding ?? 0;
-    const halfX = (rampCollider.size[0] || 0) * 0.5 + padding;
-    const halfZ = (rampCollider.size[2] || 0) * 0.5 + padding;
-    const groundY = WORKBENCH_POSITION[1];
-    const approachX =
-      rampCollider.position[0] - halfX - BULBASAUR_WORKBENCH_GUIDE_SIDE_APPROACH_MARGIN;
-    const approachZ =
-      rampCollider.position[2] - halfZ - BULBASAUR_WORKBENCH_GUIDE_RAMP_APPROACH_MARGIN;
-
-    return [
-      [approachX, groundY, approachZ],
-      [rampCollider.position[0], groundY, approachZ]
-    ];
-  }
-
-  function isBulbasaurWorkbenchGuideActive() {
-    const flags = controls.storyState?.flags || {};
-    return Boolean(
-      flags.bulbasaurWorkbenchGuideAvailable &&
-      !flags.workbenchDiyRecipesReceived &&
-      session.bulbasaurEncounter
-    );
-  }
-
-  function advanceBulbasaurAlongWorkbenchGuide(deltaTime, encounter) {
-    const path = getBulbasaurWorkbenchGuidePath();
-    const waypointIndex = Math.min(
-      Math.max(0, encounter.workbenchGuideWaypointIndex || 0),
-      path.length - 1
-    );
-    const currentPosition =
-      encounter.position ||
-      encounter.landingPosition ||
-      BULBASAUR_WORKBENCH_GUIDE_START;
-    const targetPosition = path[waypointIndex];
-    const deltaX = targetPosition[0] - currentPosition[0];
-    const deltaZ = targetPosition[2] - currentPosition[2];
-    const distance = Math.hypot(deltaX, deltaZ);
-    const step = BULBASAUR_WORKBENCH_GUIDE_SPEED * deltaTime;
-
-    encounter.visible = true;
-    encounter.jumpTimer = 0;
-    encounter.originPosition = null;
-    encounter.landingPosition = null;
-
-    if (distance <= step || distance <= BULBASAUR_WORKBENCH_GUIDE_WAYPOINT_DISTANCE) {
-      encounter.position = [...targetPosition];
-      if (waypointIndex < path.length - 1) {
-        encounter.workbenchGuideWaypointIndex = waypointIndex + 1;
-      }
-    } else {
-      const progress = step / distance;
-      encounter.position = [
-        currentPosition[0] + deltaX * progress,
-        currentPosition[1] + (targetPosition[1] - currentPosition[1]) * progress,
-        currentPosition[2] + deltaZ * progress
-      ];
-      encounter.workbenchGuideWaypointIndex = waypointIndex;
-    }
-
-    if (encounter.modelInstance && distance > 0.001) {
-      encounter.modelInstance.yaw = getRobotModelYawToward(
-        currentPosition,
-        targetPosition,
-        BULBASAUR_MODEL_FACE_YAW_OFFSET
-      );
-    }
-  }
-
   function updateBulbasaurEncounter(deltaTime) {
     const encounter = session.bulbasaurEncounter;
 
@@ -4994,12 +4929,8 @@ export function startGameLoop({
       }
     }
 
-    if (
-      controls.storyState?.flags?.bulbasaurWorkbenchGuideAvailable &&
-      !controls.storyState?.flags?.workbenchDiyRecipesReceived &&
-      encounter
-    ) {
-      advanceBulbasaurAlongWorkbenchGuide(deltaTime, encounter);
+    if (bulbasaurWorkbenchGuideRuntime.isActive()) {
+      bulbasaurWorkbenchGuideRuntime.advance(deltaTime, encounter);
       companionModelSyncRuntime.syncBulbasaur();
       return;
     }
@@ -5520,7 +5451,7 @@ export function startGameLoop({
       controls.playerSkills?.waterGun &&
       activeMoveId === "waterGun"
     );
-    const bulbasaurWorkbenchGuideActive = isBulbasaurWorkbenchGuideActive();
+    const bulbasaurWorkbenchGuideActive = bulbasaurWorkbenchGuideRuntime.isActive();
     const leafageEquipped = Boolean(
       controls.playerSkills?.leafage &&
       activeMoveId === "leafage" &&
