@@ -4298,6 +4298,76 @@ Leafage Native Tree baseline:
 
 No manual browser validation was run in this cut.
 
+### Companion Follow Movement Runtime
+
+Created `app/runtime/companions/companionFollowMovementRuntime.js`.
+
+Module boundary:
+
+- Domain: `companions`.
+- Responsibility: resolve a ground companion follow target behind the player
+  and move the companion toward that slot, including patrol clearing,
+  collision-aware movement callback and model yaw update.
+- Removed from `gameLoop.js`: local `getCompanionFollowTargetPosition(...)`
+  and `moveGroundCompanionTowardPlayer(...)`.
+
+Study path:
+
+1. `startGameLoop()` composes `createCompanionFollowMovementRuntime(...)`
+   with explicit dependencies: player position, player yaw, follow direction,
+   collision-aware move callback, model yaw callback and arrival distance.
+2. Formation membership and formation index still stay in `gameLoop.js` for
+   this cut because they depend on current action queues and guide state.
+3. Squirtle, Bulbasaur, Charmander and Timburr follow branches now call
+   `companionFollowMovementRuntime.moveTowardPlayer(...)` with their existing
+   speeds, distances and model face-yaw offsets.
+4. No companion follow distance, speed, arrival distance, y-position,
+   collision behavior or model yaw calculation changed intentionally.
+
+Tests added:
+
+- `tests/companionFollowMovementRuntime.test.js`
+
+The test covers:
+
+- target position behind the player from follow direction;
+- movement toward the follow slot with unchanged travel calculation;
+- patrol clearing;
+- model yaw update through the injected yaw callback;
+- no movement when player or companion position is missing.
+
+Risks reduced:
+
+- `gameLoop.js` no longer owns the low-level movement mechanics for companion
+  follow slots.
+- Companion follow target calculation is now independently testable.
+
+Risks remaining:
+
+- `updateSquirtleIdlePatrol(...)` and `updateBulbasaurIdlePatrol(...)` still
+  live in `gameLoop.js`; moving them should be a separate companion patrol cut.
+- Formation membership is still locally wired because it crosses action
+  queues, reveal state and workbench guide state.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/companionFollowMovementRuntime.test.js
+npm test -- --run tests/companionFollowMovementRuntime.test.js tests/companionFollowMotion.test.js
+npm test -- --run tests/companionFollowMovementRuntime.test.js tests/companionFollowMotion.test.js tests/companionFrameRuntime.test.js tests/companionFollowDirectionRuntime.test.js
+npm run build
+npm test
+```
+
+The focused companion movement suite passed with `20` tests. `npm run build`
+passed with the existing large chunk warning. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1740` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+No manual browser validation was run in this cut.
+
 ### Gameplay Prompt Frame State Wrapper
 
 Expanded `app/runtime/presentation/gameplayPromptTargetFrameState.js` with

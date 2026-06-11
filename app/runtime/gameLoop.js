@@ -107,6 +107,7 @@ import {
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
 import { createCompanionFollowDirectionRuntime } from "./companions/companionFollowDirectionRuntime.js";
+import { createCompanionFollowMovementRuntime } from "./companions/companionFollowMovementRuntime.js";
 import {
   isCompanionFollowFormationMember,
   resolveCompanionFollowFormationIndex,
@@ -1008,6 +1009,14 @@ export function startGameLoop({
     durationMs: CHOPPER_ATTENTION_CUE_DURATION_MS
   });
   const companionFollowDirectionRuntime = createCompanionFollowDirectionRuntime();
+  const companionFollowMovementRuntime = createCompanionFollowMovementRuntime({
+    getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
+    getPlayerYaw: () => session.playerModelInstance?.yaw,
+    getFollowDirection: (yaw) => companionFollowDirectionRuntime.get(yaw),
+    tryMoveCompanionToPosition,
+    getModelYawToward: getRobotModelYawToward,
+    arriveDistance: COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE
+  });
   const runBreadcrumbPromptRuntime = createRunBreadcrumbPromptRuntime({
     durationMs: RUN_BREADCRUMB_PROMPT_DURATION_MS
   });
@@ -3964,22 +3973,6 @@ export function startGameLoop({
     return true;
   }
 
-  function getCompanionFollowTargetPosition(followDistance) {
-    const playerPosition = session.playerCharacter?.getPosition?.();
-    if (!Array.isArray(playerPosition)) {
-      return null;
-    }
-
-    const [directionX, directionZ] = companionFollowDirectionRuntime.get(
-      session.playerModelInstance?.yaw
-    );
-    return [
-      playerPosition[0] - directionX * followDistance,
-      0.04,
-      playerPosition[2] - directionZ * followDistance
-    ];
-  }
-
   function isCompanionInFollowFormation(companionId) {
     const flags = controls.storyState?.flags || {};
     return isCompanionFollowFormationMember({
@@ -4012,58 +4005,6 @@ export function startGameLoop({
     }) ?? 0;
   }
 
-  function moveGroundCompanionTowardPlayer(companion, {
-    deltaTime,
-    speed,
-    followDistance,
-    modelFaceYawOffset = null
-  }) {
-    if (
-      !companion ||
-      !session.playerCharacter ||
-      !Array.isArray(companion.position)
-    ) {
-      return false;
-    }
-
-    const targetPosition = getCompanionFollowTargetPosition(followDistance);
-    if (!targetPosition) {
-      return false;
-    }
-
-    const deltaX = targetPosition[0] - companion.position[0];
-    const deltaZ = targetPosition[2] - companion.position[2];
-    const distance = Math.hypot(deltaX, deltaZ);
-
-    companion.patrol = null;
-
-    if (distance <= COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE || distance <= 0.001) {
-      return true;
-    }
-
-    const travel = Math.min(speed * deltaTime, distance);
-    const previousPosition = [...companion.position];
-    const nextPosition = [
-      companion.position[0] + (deltaX / distance) * travel,
-      0.04,
-      companion.position[2] + (deltaZ / distance) * travel
-    ];
-
-    if (!tryMoveCompanionToPosition(companion, nextPosition)) {
-      return false;
-    }
-
-    if (companion.modelInstance && modelFaceYawOffset !== null) {
-      companion.modelInstance.yaw = getRobotModelYawToward(
-        previousPosition,
-        companion.position,
-        modelFaceYawOffset
-      );
-    }
-
-    return true;
-  }
-
   function updateSquirtleIdlePatrol(deltaTime, { active, activeMoveId = null }) {
     const squirtle = session.actTwoSquirtle;
     const canMove = Boolean(
@@ -4084,7 +4025,7 @@ export function startGameLoop({
 
     if (controls.storyState?.flags?.squirtleFollowing) {
       const formationIndex = getCompanionFollowFormationIndex("squirtle", activeMoveId);
-      moveGroundCompanionTowardPlayer(squirtle, {
+      companionFollowMovementRuntime.moveTowardPlayer(squirtle, {
         deltaTime,
         speed: SQUIRTLE_FOLLOW_SPEED,
         followDistance: resolveCompanionFollowDistance({
@@ -4138,7 +4079,7 @@ export function startGameLoop({
 
     if (controls.storyState?.flags?.bulbasaurFollowing) {
       const formationIndex = getCompanionFollowFormationIndex("bulbasaur", activeMoveId);
-      moveGroundCompanionTowardPlayer(encounter, {
+      companionFollowMovementRuntime.moveTowardPlayer(encounter, {
         deltaTime,
         speed: BULBASAUR_FOLLOW_SPEED,
         followDistance: resolveCompanionFollowDistance({
@@ -5771,7 +5712,7 @@ export function startGameLoop({
       !isLeafDenConstructionActive()
     ) {
       const formationIndex = getCompanionFollowFormationIndex("charmander", activeMoveId);
-      moveGroundCompanionTowardPlayer(encounter, {
+      companionFollowMovementRuntime.moveTowardPlayer(encounter, {
         deltaTime,
         speed: CHARMANDER_FOLLOW_SPEED,
         followDistance: resolveCompanionFollowDistance({
@@ -5842,7 +5783,7 @@ export function startGameLoop({
       !isLeafDenConstructionActive()
     ) {
       const formationIndex = getCompanionFollowFormationIndex("timburr", activeMoveId);
-      moveGroundCompanionTowardPlayer(encounter, {
+      companionFollowMovementRuntime.moveTowardPlayer(encounter, {
         deltaTime,
         speed: TIMBURR_FOLLOW_SPEED,
         followDistance: resolveCompanionFollowDistance({
