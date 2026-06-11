@@ -5,6 +5,7 @@ import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
+import { createCompanionIdleMotionRuntime } from "./companions/companionIdleMotionRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
 import {
@@ -391,7 +392,6 @@ import {
   BULBASAUR_IDLE_PATROL_RADIUS,
   SQUIRTLE_IDLE_PATROL_RADIUS
 } from "./robotPatrolConfig.js";
-import { resolveBotAttentionFacing } from "./botAttentionFacing.js";
 import {
   applyInteractionObjectHighlight,
   clearInteractionObjectHighlights
@@ -1016,6 +1016,14 @@ export function startGameLoop({
     tryMoveCompanionToPosition,
     getModelYawToward: getRobotModelYawToward,
     arriveDistance: COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE
+  });
+  const companionIdleMotionRuntime = createCompanionIdleMotionRuntime({
+    getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
+    getModelYawToward: getRobotModelYawToward,
+    attentionDistance: BOT_PLAYER_ATTENTION_DISTANCE,
+    patrolSpeed: ROBOT_IDLE_PATROL_SPEED,
+    patrolPauseDuration: ROBOT_IDLE_PATROL_PAUSE_DURATION,
+    patrolArriveDistance: ROBOT_IDLE_PATROL_ARRIVE_DISTANCE
   });
   const runBreadcrumbPromptRuntime = createRunBreadcrumbPromptRuntime({
     durationMs: RUN_BREADCRUMB_PROMPT_DURATION_MS
@@ -3188,84 +3196,6 @@ export function startGameLoop({
     }
   }
 
-  function createRobotPatrolState(origin, radius) {
-    return {
-      origin: [...origin],
-      waypointIndex: 0,
-      pauseTimer: ROBOT_IDLE_PATROL_PAUSE_DURATION,
-      points: [
-        [origin[0] - radius * 0.72, origin[1], origin[2] - radius * 0.34],
-        [origin[0] + radius * 0.66, origin[1], origin[2] - radius * 0.48],
-        [origin[0] + radius * 0.58, origin[1], origin[2] + radius * 0.42],
-        [origin[0] - radius * 0.64, origin[1], origin[2] + radius * 0.52]
-      ]
-    };
-  }
-
-  function updateRobotIdlePatrol(robot, {
-    deltaTime,
-    radius,
-    modelFaceYawOffset
-  }) {
-    if (!robot?.modelInstance || !Array.isArray(robot.position)) {
-      return;
-    }
-
-    if (
-      !robot.patrol ||
-      Math.hypot(
-        robot.position[0] - robot.patrol.origin[0],
-        robot.position[2] - robot.patrol.origin[2]
-      ) > radius * 1.8
-    ) {
-      robot.patrol = createRobotPatrolState(robot.position, radius);
-    }
-
-    if (robot.patrol.pauseTimer > 0) {
-      robot.patrol.pauseTimer = Math.max(0, robot.patrol.pauseTimer - deltaTime);
-      return;
-    }
-
-    const targetPosition = robot.patrol.points[robot.patrol.waypointIndex];
-    const deltaX = targetPosition[0] - robot.position[0];
-    const deltaZ = targetPosition[2] - robot.position[2];
-    const distance = Math.hypot(deltaX, deltaZ);
-
-    if (distance <= ROBOT_IDLE_PATROL_ARRIVE_DISTANCE) {
-      robot.patrol.waypointIndex = (robot.patrol.waypointIndex + 1) % robot.patrol.points.length;
-      robot.patrol.pauseTimer = ROBOT_IDLE_PATROL_PAUSE_DURATION;
-      return;
-    }
-
-    const step = Math.min(distance, ROBOT_IDLE_PATROL_SPEED * deltaTime);
-    robot.position = [
-      robot.position[0] + (deltaX / distance) * step,
-      targetPosition[1],
-      robot.position[2] + (deltaZ / distance) * step
-    ];
-    robot.modelInstance.yaw = getRobotModelYawToward(
-      robot.position,
-      targetPosition,
-      modelFaceYawOffset
-    );
-  }
-
-  function faceIdleBotTowardPlayer(robot, { modelFaceYawOffset = 0 } = {}) {
-    const attentionFacing = resolveBotAttentionFacing({
-      botPosition: robot?.position,
-      playerPosition: session.playerCharacter?.getPosition?.(),
-      attentionDistance: BOT_PLAYER_ATTENTION_DISTANCE,
-      modelFaceYawOffset
-    });
-
-    if (!attentionFacing || !robot?.modelInstance) {
-      return false;
-    }
-
-    robot.modelInstance.yaw = attentionFacing.yaw;
-    return true;
-  }
-
   function getFreeBlockBuildGridConfig() {
     const config = session.buildGridConfig || session.gridPlacement?.gridConfig || FREE_BLOCK_BUILD_GRID_CONFIG;
     return {
@@ -4040,10 +3970,10 @@ export function startGameLoop({
       return;
     }
 
-    if (!faceIdleBotTowardPlayer(squirtle, {
+    if (!companionIdleMotionRuntime.faceTowardPlayer(squirtle, {
       modelFaceYawOffset: SQUIRTLE_MODEL_FACE_YAW_OFFSET
     })) {
-      updateRobotIdlePatrol(squirtle, {
+      companionIdleMotionRuntime.updatePatrol(squirtle, {
         deltaTime,
         radius: SQUIRTLE_IDLE_PATROL_RADIUS,
         modelFaceYawOffset: SQUIRTLE_MODEL_FACE_YAW_OFFSET
@@ -4094,10 +4024,10 @@ export function startGameLoop({
       return;
     }
 
-    if (!faceIdleBotTowardPlayer(encounter, {
+    if (!companionIdleMotionRuntime.faceTowardPlayer(encounter, {
       modelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET
     })) {
-      updateRobotIdlePatrol(encounter, {
+      companionIdleMotionRuntime.updatePatrol(encounter, {
         deltaTime,
         radius: BULBASAUR_IDLE_PATROL_RADIUS,
         modelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET
@@ -5724,7 +5654,7 @@ export function startGameLoop({
         modelFaceYawOffset: CHARMANDER_MODEL_FACE_YAW_OFFSET
       });
     } else if (!session.charmanderFireAction) {
-      faceIdleBotTowardPlayer(encounter, {
+      companionIdleMotionRuntime.faceTowardPlayer(encounter, {
         modelFaceYawOffset: CHARMANDER_MODEL_FACE_YAW_OFFSET
       });
     }

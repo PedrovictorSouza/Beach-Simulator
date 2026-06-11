@@ -4368,6 +4368,76 @@ existing Leafage Native Tree baseline:
 
 No manual browser validation was run in this cut.
 
+### Companion Idle Motion Runtime
+
+Created `app/runtime/companions/companionIdleMotionRuntime.js`.
+
+Module boundary:
+
+- Domain: `companions`.
+- Responsibility: face idle companions toward a nearby player and update
+  non-following ground companion patrol motion.
+- Removed from `gameLoop.js`: local `createRobotPatrolState(...)`,
+  `updateRobotIdlePatrol(...)` and `faceIdleBotTowardPlayer(...)`.
+
+Study path:
+
+1. `startGameLoop()` composes `createCompanionIdleMotionRuntime(...)` with
+   player position, model yaw callback and existing idle tuning constants.
+2. Squirtle and Bulbasaur idle branches still decide whether patrol is allowed;
+   the runtime only owns what happens after that decision.
+3. Charmander's idle branch now uses the same `faceTowardPlayer(...)` entry
+   point for nearby-player attention facing.
+4. The runtime delegates attention-facing math to the existing
+   `botAttentionFacing.js` helper.
+5. No attention distance, patrol radius, patrol speed, pause duration, arrival
+   distance or model yaw offset changed intentionally.
+
+Tests added:
+
+- `tests/companionIdleMotionRuntime.test.js`
+
+The test covers:
+
+- facing a nearby player;
+- creating the paused patrol state around the current robot position;
+- moving toward a patrol waypoint;
+- preserving model yaw updates through the injected yaw callback.
+
+Risks reduced:
+
+- `gameLoop.js` no longer owns low-level idle patrol path construction or
+  attention-facing application.
+- Idle movement behavior is now independently testable under the companions
+  domain.
+
+Risks remaining:
+
+- `updateSquirtleIdlePatrol(...)` and `updateBulbasaurIdlePatrol(...)` still
+  decide when to follow, face or patrol. That policy can move later after the
+  remaining blockers are grouped.
+- `robotPatrolConfig.js` and `botAttentionFacing.js` still live at the runtime
+  root for compatibility; a later domain move should use re-exports.
+
+Validation for this cut:
+
+```sh
+npm test -- --run tests/companionIdleMotionRuntime.test.js
+npm test -- --run tests/companionIdleMotionRuntime.test.js tests/botAttentionFacing.test.js tests/robotPatrolConfig.test.js
+npm test -- --run tests/companionIdleMotionRuntime.test.js tests/botAttentionFacing.test.js tests/robotPatrolConfig.test.js tests/companionFollowMovementRuntime.test.js tests/companionFrameRuntime.test.js
+npm run build
+npm test
+```
+
+The focused companion idle suite passed with `12` tests. `npm run build`
+passed with the existing large chunk warning. `npm test` completed with the
+existing Leafage Native Tree baseline:
+
+- `1743` passed
+- `3` failed in `tests/gameplayInteractions.test.js`
+
+No manual browser validation was run in this cut.
+
 ### Gameplay Prompt Frame State Wrapper
 
 Expanded `app/runtime/presentation/gameplayPromptTargetFrameState.js` with
