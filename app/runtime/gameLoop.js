@@ -148,6 +148,7 @@ export {
 } from "./fieldMoveRuntime/buildBlockRuntime.js";
 import { createCompanionAbilityResourcesRuntime } from "./fieldMoveRuntime/companionAbilityResourcesRuntime.js";
 import { createFireRuntime } from "./fieldMoveRuntime/fireRuntime.js";
+import { createLeafageRuntime } from "./fieldMoveRuntime/leafageRuntime.js";
 import { createWaterGunRuntime } from "./fieldMoveRuntime/waterGunRuntime.js";
 import {
   resolveBulbasaurLeafageApproachPosition,
@@ -238,10 +239,6 @@ export {
 } from "./companions/companionFollowMotion.js";
 
 import {
-  BULBASAUR_LEAFAGE_ARRIVE_DISTANCE,
-  BULBASAUR_LEAFAGE_CAST_DURATION,
-  BULBASAUR_LEAFAGE_IMPACT_TIME,
-  BULBASAUR_LEAFAGE_SPEED,
   SQUIRTLE_WATER_GUN_SPRAY_DURATION,
   TIMBURR_BUILD_BLOCK_ARRIVE_DISTANCE,
   TIMBURR_BUILD_BLOCK_CAST_DURATION,
@@ -1215,6 +1212,25 @@ export function startGameLoop({
     applyImpact: applyCharmanderFireImpact,
     onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.thermal)
   });
+  const leafageRuntime = createLeafageRuntime({
+    session,
+    getBulbasaur: () => session.bulbasaurEncounter,
+    isBusy: () => bulbasaurWorkbenchGuideRuntime.isActive(),
+    getGroundCellCenterPosition,
+    getApproachPosition: ({ targetPosition, playerPosition }) =>
+      getBulbasaurLeafageApproachPosition(targetPosition, playerPosition),
+    getModelYawToward: (fromPosition, toPosition) =>
+      getRobotModelYawToward(
+        fromPosition,
+        toPosition,
+        BULBASAUR_MODEL_FACE_YAW_OFFSET
+      ),
+    tryMoveCompanionToPosition,
+    isPositionBlocked: isCompanionPositionBlockedByConstruction,
+    syncBulbasaur: () => companionModelSyncRuntime.syncBulbasaur(),
+    applyImpact: applyBulbasaurLeafageImpact,
+    onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.grow)
+  });
   const frameRuntime = createGameLoopFrameRuntime({
     frameClock,
     frameSnapshotController,
@@ -1359,7 +1375,7 @@ export function startGameLoop({
       updateCharmanderCarbonEnergy: (deltaTime) =>
         companionAbilityResourcesRuntime.updateCharmanderCarbonEnergy(deltaTime),
       updateSquirtleWaterGunAction: (deltaTime) => waterGunRuntime.updateAction(deltaTime),
-      updateBulbasaurLeafageAction,
+      updateBulbasaurLeafageAction: (deltaTime) => leafageRuntime.updateAction(deltaTime),
       updateSquirtleIdlePatrol: (deltaTime, frameState) =>
         companionGroundPatrolFrameRuntime.updateSquirtle(deltaTime, frameState),
       updateBulbasaurIdlePatrol: (deltaTime, frameState) =>
@@ -3663,53 +3679,6 @@ export function startGameLoop({
     return result;
   }
 
-  function startBulbasaurLeafageAction({ groundCell, playerPosition }) {
-    const bulbasaur = session.bulbasaurEncounter;
-    if (!groundCell) {
-      return "unavailable";
-    }
-
-    if (bulbasaurWorkbenchGuideRuntime.isActive()) {
-      return "busy";
-    }
-
-    if (session.bulbasaurLeafageAction) {
-      return "busy";
-    }
-
-    if (
-      !bulbasaur?.modelInstance ||
-      !bulbasaur.visible ||
-      !Array.isArray(bulbasaur.position)
-    ) {
-      return "unavailable";
-    }
-
-    const targetPosition = getGroundCellCenterPosition(groundCell);
-    const approachPosition = getBulbasaurLeafageApproachPosition(
-      targetPosition,
-      playerPosition
-    );
-
-    session.bulbasaurLeafageAction = {
-      phase: "approach",
-      groundCell,
-      targetPosition,
-      approachPosition,
-      castElapsed: 0,
-      impactApplied: false
-    };
-    bulbasaur.modelInstance.active = true;
-    bulbasaur.modelInstance.yaw = getRobotModelYawToward(
-      bulbasaur.position,
-      targetPosition,
-      BULBASAUR_MODEL_FACE_YAW_OFFSET
-    );
-    companionModelSyncRuntime.syncBulbasaur();
-
-    return "started";
-  }
-
   function applyBulbasaurLeafageImpact(action) {
     const hadLeafagePatch = hasGroundPatchForCellId(action.groundCell?.id);
     const result = performGameplayHarvestAction({
@@ -3743,81 +3712,6 @@ export function startGameLoop({
     }
 
     return result;
-  }
-
-  function updateBulbasaurLeafageAction(deltaTime) {
-    const action = session.bulbasaurLeafageAction;
-    const bulbasaur = session.bulbasaurEncounter;
-
-    if (!action || !bulbasaur?.modelInstance) {
-      return;
-    }
-
-    if (!Array.isArray(bulbasaur.position)) {
-      bulbasaur.position = [...(bulbasaur.modelInstance.offset || action.approachPosition)];
-    }
-
-    if (action.phase === "approach") {
-      const deltaX = action.approachPosition[0] - bulbasaur.position[0];
-      const deltaZ = action.approachPosition[2] - bulbasaur.position[2];
-      const distance = Math.hypot(deltaX, deltaZ);
-      const travel = Math.min(BULBASAUR_LEAFAGE_SPEED * deltaTime, distance);
-
-      if (distance > BULBASAUR_LEAFAGE_ARRIVE_DISTANCE && travel > 0) {
-        const nextPosition = [
-          bulbasaur.position[0] + (deltaX / distance) * travel,
-          0.04,
-          bulbasaur.position[2] + (deltaZ / distance) * travel
-        ];
-        if (!tryMoveCompanionToPosition(bulbasaur, nextPosition)) {
-          session.bulbasaurLeafageAction = null;
-          cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.grow);
-          companionModelSyncRuntime.syncBulbasaur();
-          return;
-        }
-      } else {
-        if (isCompanionPositionBlockedByConstruction(action.approachPosition)) {
-          session.bulbasaurLeafageAction = null;
-          cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.grow);
-          companionModelSyncRuntime.syncBulbasaur();
-          return;
-        }
-
-        bulbasaur.position = [...action.approachPosition];
-        action.phase = "cast";
-        action.castElapsed = 0;
-      }
-
-      bulbasaur.modelInstance.yaw = getRobotModelYawToward(
-        bulbasaur.position,
-        action.targetPosition,
-        BULBASAUR_MODEL_FACE_YAW_OFFSET
-      );
-      companionModelSyncRuntime.syncBulbasaur();
-      return;
-    }
-
-    if (action.phase !== "cast") {
-      session.bulbasaurLeafageAction = null;
-      return;
-    }
-
-    action.castElapsed += deltaTime;
-    bulbasaur.modelInstance.yaw = getRobotModelYawToward(
-      bulbasaur.position,
-      action.targetPosition,
-      BULBASAUR_MODEL_FACE_YAW_OFFSET
-    );
-    companionModelSyncRuntime.syncBulbasaur();
-
-    if (!action.impactApplied && action.castElapsed >= BULBASAUR_LEAFAGE_IMPACT_TIME) {
-      action.impactApplied = true;
-      applyBulbasaurLeafageImpact(action);
-    }
-
-    if (action.castElapsed >= BULBASAUR_LEAFAGE_CAST_DURATION) {
-      session.bulbasaurLeafageAction = null;
-    }
   }
 
   function startNextQueuedSquirtleWaterGunAction() {
@@ -5282,7 +5176,7 @@ export function startGameLoop({
       } else if (leafageAutoGrowTarget?.leafageGroundCell) {
         fieldMoveInvalidTargetPromptRuntime.resetLeafage();
         controls.setActiveMoveId?.("leafage");
-        const bulbasaurLeafageResult = startBulbasaurLeafageAction({
+        const bulbasaurLeafageResult = leafageRuntime.startAction({
           groundCell: leafageAutoGrowTarget.leafageGroundCell,
           playerPosition
         });
@@ -5360,7 +5254,7 @@ export function startGameLoop({
           }
         } else if (leafageEquipped && leafagePrimaryMoveRequested && primaryActionTarget?.leafageGroundCell) {
           fieldMoveInvalidTargetPromptRuntime.resetLeafage();
-          const bulbasaurLeafageResult = startBulbasaurLeafageAction({
+          const bulbasaurLeafageResult = leafageRuntime.startAction({
             groundCell: primaryActionTarget.leafageGroundCell,
             playerPosition
           });

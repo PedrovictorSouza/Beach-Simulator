@@ -11778,3 +11778,56 @@ npm run build
 - `1791` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Leafage Runtime Extraction
+
+Created the `fieldMoveRuntime/leafage` boundary with
+`createLeafageRuntime()` in
+`app/runtime/fieldMoveRuntime/leafageRuntime.js`.
+
+Study path:
+
+1. `startGameLoop()` wires the runtime with the existing Bulbasaur encounter,
+   Workbench-guide busy policy, approach-position resolver, model yaw resolver,
+   movement blocker and model sync callback.
+2. The Leafage runtime owns Grow Bot Leafage action start, action shape,
+   approach movement, blocked-path cancellation, cast timing, impact timing
+   and action cleanup.
+3. `gameLoop.js` still owns `applyBulbasaurLeafageImpact(...)`, because the
+   impact path touches harvest, habitat state, ground patches, drops and
+   instance-object SFX.
+4. Companion frame update now delegates the Leafage action update to the
+   runtime.
+
+Removed from `gameLoop.js`:
+
+- `startBulbasaurLeafageAction(...)`
+- `updateBulbasaurLeafageAction(...)`
+- direct use of `BULBASAUR_LEAFAGE_SPEED`
+- direct use of `BULBASAUR_LEAFAGE_ARRIVE_DISTANCE`
+- direct use of `BULBASAUR_LEAFAGE_IMPACT_TIME`
+- direct use of `BULBASAUR_LEAFAGE_CAST_DURATION`
+
+Kept in `gameLoop.js`:
+
+- `applyBulbasaurLeafageImpact(...)`;
+- Leafage fallback harvest behavior when Grow Bot is unavailable.
+
+Tests added:
+
+- `tests/leafageRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/leafageRuntime.test.js
+npm test -- --run tests/leafageRuntime.test.js tests/fireRuntime.test.js tests/waterGunRuntime.test.js tests/companionFrameRuntime.test.js tests/companionPresentationFrame.test.js tests/fieldMoveBillboards.test.js tests/companionAbilityResourcesRuntime.test.js
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `296` test files passed, `1` failed
+- `1795` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
