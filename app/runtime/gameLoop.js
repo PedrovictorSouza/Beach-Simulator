@@ -15,15 +15,6 @@ import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
 import { createSquirtleReassemblyRuntime } from "./companions/squirtleReassemblyRuntime.js";
 import {
-  getConstructionCloudBurstBillboards as getConstructionCloudBurstBillboardsWithConfig,
-  getLeafDenConstructionBillboards as getLeafDenConstructionBillboardsWithConfig
-} from "./construction/constructionBillboards.js";
-import {
-  getActiveConstructionCloudBursts as getActiveConstructionCloudBurstsWithSession,
-  syncConstructionCloudBurstEffects as syncConstructionCloudBurstEffectsWithSession,
-  syncLeafDenConstructionClouds as syncLeafDenConstructionCloudsWithSession
-} from "./construction/constructionCloudEffects.js";
-import {
   buildFoundationBuildZoneBlockers as buildFoundationBuildZoneBlockersWithSources,
   canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
   applyFoundationBuildZoneCompleteEffects,
@@ -47,11 +38,7 @@ import {
   buildFreeBlockPreviewDebug,
   syncFreeBlockPreviewInstance
 } from "./construction/freeBlockPreview.js";
-import {
-  getLeafDenConstructionProgress as getLeafDenConstructionProgressFromState,
-  isLeafDenBusyCompanionTarget as isLeafDenBusyCompanionTargetFromState,
-  isLeafDenConstructionActive as isLeafDenConstructionActiveFromState
-} from "./construction/leafDenConstructionState.js";
+import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
 import {
   ensurePlayerHouseModelInstances as ensurePlayerHouseModelInstancesWithSession,
   syncCampfireTrainHouseModelInstance as syncCampfireTrainHouseModelInstanceWithSession,
@@ -1179,6 +1166,10 @@ export function startGameLoop({
     clamp01,
     moveValueToward,
     onSquirtleRechargeComplete: startNextQueuedSquirtleWaterGunAction
+  });
+  const leafDenConstructionPresentationRuntime = createLeafDenConstructionPresentationRuntime({
+    session,
+    getStoryState: () => controls.storyState
   });
   const waterGunRuntime = createWaterGunRuntime({
     session,
@@ -3311,72 +3302,28 @@ export function startGameLoop({
     });
   }
 
-  function getLeafDenConstructionNowMs() {
-    return Date.now();
-  }
-
   function isLeafDenConstructionActive() {
-    return isLeafDenConstructionActiveFromState({
-      storyState: controls.storyState,
-      leafDen: session.leafDen
-    });
+    return leafDenConstructionPresentationRuntime.isActive();
   }
 
   function isLeafDenBusyCompanionTarget(target) {
-    return isLeafDenBusyCompanionTargetFromState({
-      active: isLeafDenConstructionActive(),
-      target
-    });
-  }
-
-  function getLeafDenConstructionProgress(nowMs = getLeafDenConstructionNowMs()) {
-    return getLeafDenConstructionProgressFromState({
-      storyState: controls.storyState,
-      nowMs
-    });
-  }
-
-  function getActiveConstructionCloudBursts(nowMs = getLeafDenConstructionNowMs()) {
-    return getActiveConstructionCloudBurstsWithSession(session, nowMs);
+    return leafDenConstructionPresentationRuntime.isBusyCompanionTarget(target);
   }
 
   function syncConstructionCloudBurstEffects(nowSeconds = getRuntimeNowSeconds()) {
-    return syncConstructionCloudBurstEffectsWithSession({
-      session,
-      nowMs: getLeafDenConstructionNowMs(),
-      nowSeconds
-    });
+    return leafDenConstructionPresentationRuntime.syncCloudBurstEffects(nowSeconds);
   }
 
   function syncLeafDenConstructionClouds(nowSeconds = getRuntimeNowSeconds()) {
-    return syncLeafDenConstructionCloudsWithSession({
-      session,
-      active: isLeafDenConstructionActive(),
-      position: session.leafDen?.position,
-      nowSeconds
-    });
+    return leafDenConstructionPresentationRuntime.syncConstructionClouds(nowSeconds);
   }
 
   function getLeafDenConstructionBillboards(uvRect, nowSeconds = getRuntimeNowSeconds()) {
-    return getLeafDenConstructionBillboardsWithConfig({
-      active: isLeafDenConstructionActive(),
-      leafDen: session.leafDen,
-      progress: getLeafDenConstructionProgress(),
-      barBackTexture: session.squirtleWaterStaminaBackTexture,
-      barFillTexture: session.charmanderCarbonFillTexture || session.squirtleWaterStaminaBackTexture,
-      starTexture: session.logChairStarTexture || session.natureRevivalSparkTexture,
-      uvRect,
-      nowSeconds
-    });
+    return leafDenConstructionPresentationRuntime.getConstructionBillboards(uvRect, nowSeconds);
   }
 
   function getConstructionCloudBurstBillboards(uvRect, nowSeconds = getRuntimeNowSeconds()) {
-    return getConstructionCloudBurstBillboardsWithConfig({
-      bursts: getActiveConstructionCloudBursts(),
-      starTexture: session.logChairStarTexture || session.natureRevivalSparkTexture,
-      uvRect,
-      nowSeconds
-    });
+    return leafDenConstructionPresentationRuntime.getCloudBurstBillboards(uvRect, nowSeconds);
   }
 
   function syncLeafDenModelInstance(deltaTime = 0) {

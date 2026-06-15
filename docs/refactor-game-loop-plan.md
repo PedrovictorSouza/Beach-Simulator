@@ -3842,6 +3842,55 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Leaf Den Construction Presentation Runtime Extraction
+
+Created the `construction/leaf-den-construction-presentation` boundary with
+`app/runtime/construction/leafDenConstructionPresentationRuntime.js`.
+
+Study path:
+
+1. `leafDenConstructionState.js` still owns pure construction activity,
+   progress and busy companion checks.
+2. `constructionCloudEffects.js` still owns cloud instance motion and burst
+   effect state.
+3. `constructionBillboards.js` still owns billboard geometry.
+4. The new runtime owns the session/story/texture/timing composition for the
+   Leaf Den construction presentation and exposes the methods that `gameLoop`
+   needs.
+
+Removed from `gameLoop.js`:
+
+- direct imports of Leaf Den construction state helpers;
+- direct imports of construction cloud effect helpers;
+- direct imports of construction billboard helpers;
+- local progress/timing/cloud/billboard composition for Leaf Den construction.
+
+Kept in `gameLoop.js`:
+
+- wrapper names used by field move runtimes, companion movement and render
+  snapshot preparation;
+- frame-order call sites for construction cloud sync and billboard collection.
+
+Tests added:
+
+- `tests/leafDenConstructionPresentationRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/leafDenConstructionPresentationRuntime.test.js
+npm test -- --run tests/leafDenConstructionPresentationRuntime.test.js tests/leafDenConstructionState.test.js tests/constructionCloudEffects.test.js tests/constructionBillboards.test.js tests/baseRenderSnapshotFrame.test.js tests/worldObjectBillboardFrame.test.js
+npm run build
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `303` test files passed, `1` failed
+- `1828` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Construction Model Instance Sync Extraction
 
 Expanded the existing `construction/model-instances` boundary in
