@@ -54,6 +54,8 @@ import {
 } from "./construction/leafDenConstructionState.js";
 import {
   ensurePlayerHouseModelInstances as ensurePlayerHouseModelInstancesWithSession,
+  syncCampfireTrainHouseModelInstance as syncCampfireTrainHouseModelInstanceWithSession,
+  syncGreenhouseModelInstances as syncGreenhouseModelInstancesWithSession,
   syncLeafDenModelInstance as syncLeafDenModelInstanceWithSession,
   syncPlayerHouseModelInstances as syncPlayerHouseModelInstancesWithSession
 } from "./construction/constructionHouseModelInstances.js";
@@ -3289,85 +3291,23 @@ export function startGameLoop({
   );
 
   function syncCampfireTrainHouseModelInstance(nowSeconds = getRuntimeNowSeconds(), deltaTime = 0) {
-    const instance = session.campfireTrainHouseModelInstance;
-    if (!instance) {
-      return;
-    }
-
-    if (session.campfirePlacementPreview?.active) {
-      return;
-    }
-
-    if (!session.campfire?.position || !controls.storyState.flags.campfireSpatOut) {
-      instance.active = false;
-      return;
-    }
-
-    applyTrainHouseDance(
-      instance,
-      session.campfire.position,
+    return syncCampfireTrainHouseModelInstanceWithSession({
+      session,
+      storyState: controls.storyState,
       nowSeconds,
-      getWorkbenchRotationPreviewYaw({
-        kind: "trainHouse",
-        placement: session.campfire
-      })
-    );
-    const spawnApplied = applyPlayerPlacementSpawnToModelInstance(session.campfire, instance, {
-      baseScale: instance.trainHouseBaseScale,
-      groundY: instance.trainHouseGroundY,
-      deltaTime
+      deltaTime,
+      getWorkbenchRotationPreviewYaw,
+      applyTrainHouseDance,
+      applyPlacementSpawn: applyPlayerPlacementSpawnToModelInstance,
+      applyRotationTint: applyWorkbenchRotationSelectionTint
     });
-    if (!spawnApplied) {
-      instance.alpha = 1;
-      instance.tintStrength = 0;
-    }
-    applyWorkbenchRotationSelectionTint("trainHouse", instance, nowSeconds);
   }
 
   function syncGreenhouseModelInstance(deltaTime = 0) {
-    const placements = Array.isArray(session.greenhouses) && session.greenhouses.length > 0 ?
-      session.greenhouses :
-      (session.greenhouse ? [session.greenhouse] : []);
-    const instances = Array.isArray(session.greenhouseModelInstances) ?
-      session.greenhouseModelInstances :
-      [];
-
-    if (!instances.length) {
-      return;
-    }
-
-    if (!placements.length) {
-      for (const instance of instances) {
-        instance.active = false;
-      }
-      return;
-    }
-
-    placements.forEach((placement, index) => {
-      const instance = instances[index];
-      if (!instance || !Array.isArray(placement?.position)) {
-        return;
-      }
-
-      instance.active = true;
-      const spawnApplied = applyPlayerPlacementSpawnToModelInstance(placement, instance, {
-        baseScale: instance.greenhouseBaseScale,
-        groundY: instance.greenhouseGroundY,
-        deltaTime
-      });
-
-      if (!spawnApplied) {
-        const baseYaw = instance.greenhouseBaseYaw ?? 0;
-        instance.offset = [
-          placement.position[0],
-          instance.greenhouseGroundY || 0.02,
-          placement.position[2]
-        ];
-        instance.scale = instance.greenhouseBaseScale || instance.scale || 1.725;
-        instance.yaw = baseYaw + Number(placement.yaw || 0);
-        instance.alpha = 1;
-        instance.tintStrength = 0;
-      }
+    return syncGreenhouseModelInstancesWithSession({
+      session,
+      deltaTime,
+      applyPlacementSpawn: applyPlayerPlacementSpawnToModelInstance
     });
   }
 

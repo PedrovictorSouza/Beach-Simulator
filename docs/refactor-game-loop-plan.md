@@ -3842,6 +3842,52 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Construction Model Instance Sync Extraction
+
+Expanded the existing `construction/model-instances` boundary in
+`app/runtime/construction/constructionHouseModelInstances.js`.
+
+Study path:
+
+1. `constructionHouseModelInstances.js` now owns the model-state rules for
+   Campfire Train House, Greenhouse, Leaf Den and player houses.
+2. `gameLoop.js` still supplies session state and gameplay callbacks for spawn,
+   rotation preview, Train House dance and rotation tint.
+3. The render snapshot frame still receives the same callback names, so the
+   frame order and render preparation contract are unchanged.
+
+Removed from `gameLoop.js`:
+
+- Campfire Train House model visibility/sync internals;
+- Greenhouse model placement/spawn sync internals.
+
+Kept in `gameLoop.js`:
+
+- `syncCampfireTrainHouseModelInstance(...)` and
+  `syncGreenhouseModelInstance(...)` as thin dependency-injection wrappers for
+  `baseRenderSnapshotFrame`;
+- construction model sync order inside render snapshot preparation.
+
+Tests adjusted:
+
+- `tests/constructionHouseModelInstances.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionHouseModelInstances.test.js
+npm test -- --run tests/constructionHouseModelInstances.test.js tests/baseRenderSnapshotFrame.test.js tests/renderFrameController.test.js
+npm run build
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `302` test files passed, `1` failed
+- `1824` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### World Cell Planner Interaction Runtime Extraction
 
 Created the `world/world-cell-planner` boundary with

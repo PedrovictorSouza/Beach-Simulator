@@ -2,11 +2,143 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   ensurePlayerHouseModelInstances,
+  syncCampfireTrainHouseModelInstance,
+  syncGreenhouseModelInstances,
   syncLeafDenModelInstance,
   syncPlayerHouseModelInstances
 } from "../app/runtime/construction/constructionHouseModelInstances.js";
 
 describe("construction house model instances", () => {
+  it("syncs the Campfire Train House model with dance, spawn and rotation tint callbacks", () => {
+    const campfire = {
+      position: [3, 0.02, 5],
+      yaw: 0.5
+    };
+    const instance = {
+      trainHouseBaseScale: 1.4,
+      trainHouseGroundY: 0.03,
+      active: false,
+      alpha: 0.5,
+      tintStrength: 0.8
+    };
+    const applyTrainHouseDance = vi.fn();
+    const applyPlacementSpawn = vi.fn(() => false);
+    const applyRotationTint = vi.fn();
+
+    syncCampfireTrainHouseModelInstance({
+      session: {
+        campfire,
+        campfireTrainHouseModelInstance: instance
+      },
+      storyState: {
+        flags: {
+          campfireSpatOut: true
+        }
+      },
+      nowSeconds: 2.5,
+      deltaTime: 0.2,
+      getWorkbenchRotationPreviewYaw: () => 1.25,
+      applyTrainHouseDance,
+      applyPlacementSpawn,
+      applyRotationTint
+    });
+
+    expect(applyTrainHouseDance).toHaveBeenCalledWith(
+      instance,
+      campfire.position,
+      2.5,
+      1.25
+    );
+    expect(applyPlacementSpawn).toHaveBeenCalledWith(campfire, instance, {
+      baseScale: 1.4,
+      groundY: 0.03,
+      deltaTime: 0.2
+    });
+    expect(instance).toMatchObject({
+      alpha: 1,
+      tintStrength: 0
+    });
+    expect(applyRotationTint).toHaveBeenCalledWith("trainHouse", instance, 2.5);
+  });
+
+  it("hides the Campfire Train House model until the campfire has spat out", () => {
+    const instance = {
+      active: true
+    };
+
+    syncCampfireTrainHouseModelInstance({
+      session: {
+        campfire: {
+          position: [3, 0.02, 5]
+        },
+        campfireTrainHouseModelInstance: instance
+      },
+      storyState: {
+        flags: {
+          campfireSpatOut: false
+        }
+      }
+    });
+
+    expect(instance.active).toBe(false);
+  });
+
+  it("syncs Greenhouse model instances from placements", () => {
+    const placement = {
+      position: [7, 0.02, 9],
+      yaw: 0.5
+    };
+    const instance = {
+      greenhouseBaseScale: 1.8,
+      greenhouseGroundY: 0.04,
+      greenhouseBaseYaw: 0.25,
+      active: false
+    };
+    const applyPlacementSpawn = vi.fn(() => false);
+
+    syncGreenhouseModelInstances({
+      session: {
+        greenhouses: [placement],
+        greenhouseModelInstances: [instance]
+      },
+      deltaTime: 0.1,
+      applyPlacementSpawn
+    });
+
+    expect(applyPlacementSpawn).toHaveBeenCalledWith(placement, instance, {
+      baseScale: 1.8,
+      groundY: 0.04,
+      deltaTime: 0.1
+    });
+    expect(instance).toMatchObject({
+      active: true,
+      offset: [7, 0.04, 9],
+      scale: 1.8,
+      yaw: 0.75,
+      alpha: 1,
+      tintStrength: 0
+    });
+  });
+
+  it("hides Greenhouse model instances when no placements exist", () => {
+    const first = {
+      active: true
+    };
+    const second = {
+      active: true
+    };
+
+    syncGreenhouseModelInstances({
+      session: {
+        greenhouses: [],
+        greenhouseModelInstances: [first, second]
+      }
+    });
+
+    expect(first.active).toBe(false);
+    expect(second.active).toBe(false);
+  });
+
   it("syncs the Leaf Den model and applies spawn and rotation tint callbacks", () => {
     const leafDen = {
       id: "leafDen",
