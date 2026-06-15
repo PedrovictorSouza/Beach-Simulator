@@ -11831,3 +11831,59 @@ npm run build
 - `1795` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Build Block Runtime Extraction
+
+Extended the existing `fieldMoveRuntime/buildBlock` boundary with
+`createBuildBlockRuntime()` in
+`app/runtime/fieldMoveRuntime/buildBlockRuntime.js`.
+
+Study path:
+
+1. `startGameLoop()` wires the runtime with the existing Timburr encounter,
+   skill/story-state checks, free-block target resolver, approach-position
+   resolver, construction blockers, blocked-approach policy, movement helper,
+   yaw resolver and impact callback.
+2. The Build Block runtime owns Builder Bot action start, validation outcome
+   forwarding, action shape, approach movement, blocked-path cancellation,
+   cast-from-blocked-approach transition, cast timing, impact timing and action
+   cleanup.
+3. `gameLoop.js` still owns `applyTimburrBuildBlockImpact(...)`, because the
+   impact path touches construction controllers, inventory, build-zone state,
+   player displacement, feedback and sound.
+4. `constructionPlacementFrameRuntime` keeps the same callback name
+   `startTimburrBuildBlockAction`, now backed by the runtime.
+
+Removed from `gameLoop.js`:
+
+- `startTimburrBuildBlockAction(...)`
+- `updateTimburrBuildBlockAction(...)`
+- direct use of `TIMBURR_BUILD_BLOCK_SPEED`
+- direct use of `TIMBURR_BUILD_BLOCK_ARRIVE_DISTANCE`
+- direct use of `TIMBURR_BUILD_BLOCK_IMPACT_TIME`
+- direct use of `TIMBURR_BUILD_BLOCK_CAST_DURATION`
+
+Kept in `gameLoop.js`:
+
+- `applyTimburrBuildBlockImpact(...)`;
+- free-block target resolution and preview state;
+- construction placement side effects and notices.
+
+Tests added:
+
+- `tests/buildBlockRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/buildBlockRuntime.test.js
+npm test -- --run tests/buildBlockRuntime.test.js tests/constructionPlacementFrameRuntime.test.js tests/companionFrameRuntime.test.js tests/placementBlockers.test.js tests/fieldMoveBillboards.test.js tests/leafageRuntime.test.js tests/fireRuntime.test.js tests/waterGunRuntime.test.js
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `297` test files passed, `1` failed
+- `1800` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.

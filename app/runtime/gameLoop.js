@@ -139,6 +139,7 @@ import {
 } from "./gameLoopFramePolicies.js";
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
 import {
+  createBuildBlockRuntime,
   resolveConstructionDisplacementPosition,
   resolveTimburrBuildBlockApproachPosition
 } from "./fieldMoveRuntime/buildBlockRuntime.js";
@@ -239,11 +240,7 @@ export {
 } from "./companions/companionFollowMotion.js";
 
 import {
-  SQUIRTLE_WATER_GUN_SPRAY_DURATION,
-  TIMBURR_BUILD_BLOCK_ARRIVE_DISTANCE,
-  TIMBURR_BUILD_BLOCK_CAST_DURATION,
-  TIMBURR_BUILD_BLOCK_IMPACT_TIME,
-  TIMBURR_BUILD_BLOCK_SPEED
+  SQUIRTLE_WATER_GUN_SPRAY_DURATION
 } from "./fieldMoveRuntime/fieldMoveTuning.js";
 
 import {
@@ -1246,6 +1243,23 @@ export function startGameLoop({
   const playSoundEvent = (eventId, options) => {
     gameplay?.playSoundEvent?.(eventId, options);
   };
+  const buildBlockRuntime = createBuildBlockRuntime({
+    session,
+    controls,
+    getTimburr: () => session.timburrEncounter,
+    resolveTarget: resolveFreeBlockBuildTarget,
+    getApproachPosition: ({ targetPosition, playerPosition }) =>
+      getTimburrBuildBlockApproachPosition(targetPosition, playerPosition),
+    getApproachBlockers: getCompanionPositionConstructionBlockers,
+    shouldCastFromBlockedApproach: shouldTimburrBuildBlockCastFromBlockedApproach,
+    tryMoveCompanionToPosition,
+    getModelYawToward: getRobotModelYawToward,
+    applyImpact: applyTimburrBuildBlockImpact,
+    onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.builder),
+    config: {
+      modelFaceYawOffset: TIMBURR_MODEL_FACE_YAW_OFFSET
+    }
+  });
   const constructionPlacementFrameRuntime = createConstructionPlacementFrameRuntime({
     controls,
     session,
@@ -1260,7 +1274,7 @@ export function startGameLoop({
       cancelActivePlacementPreviews,
       cancelPendingWorkbenchPlacementIntentWithNotice,
       isBuildBlockFieldMoveEquipped,
-      startTimburrBuildBlockAction,
+      startTimburrBuildBlockAction: (options) => buildBlockRuntime.startAction(options),
       playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
       pushNotice: (message) => hud?.pushNotice?.(message),
       getFreeBlockInvalidPlacementNotice,
@@ -1365,7 +1379,8 @@ export function startGameLoop({
       updateCharmanderEncounter,
       updateCharmanderFireAction: (deltaTime) => fireRuntime.updateAction(deltaTime),
       updateTimburrEncounter,
-      updateTimburrBuildBlockAction,
+      updateTimburrBuildBlockAction: (deltaTime, now) =>
+        buildBlockRuntime.updateAction(deltaTime, now),
       syncCompanionRepairModules: () => companionModelSyncRuntime.syncRepairModules(),
       syncBeeFieldRepairBox: () => beeFieldRuntime.syncRepairBox(),
       syncBeeFieldBees: (deltaTime) => beeFieldRuntime.syncBees(deltaTime),
@@ -3370,55 +3385,6 @@ export function startGameLoop({
     });
   }
 
-  function startTimburrBuildBlockAction({ playerPosition }) {
-    const timburr = session.timburrEncounter;
-
-    if (session.timburrBuildBlockAction) {
-      return "busy";
-    }
-
-    if (!controls.playerSkills?.buildBlock || !controls.storyState?.flags?.timburrRevealed) {
-      return "locked";
-    }
-
-    if (
-      !timburr ||
-      !timburr.visible ||
-      !Array.isArray(timburr.position)
-    ) {
-      return "unavailable";
-    }
-
-    const target = resolveFreeBlockBuildTarget(playerPosition);
-    if (!target) {
-      return "unavailable";
-    }
-    if (!target.valid) {
-      session.lastTimburrBuildBlockInvalidReason = target.reason || "invalid";
-      return target.reason === "missing-material" ? "missing-material" : "invalid";
-    }
-
-    session.lastTimburrBuildBlockInvalidReason = null;
-    const approachPosition = getTimburrBuildBlockApproachPosition(
-      target.targetPosition,
-      playerPosition
-    );
-    const approachBlockers = getCompanionPositionConstructionBlockers(approachPosition);
-    const castFromBlockedApproach = shouldTimburrBuildBlockCastFromBlockedApproach(approachBlockers);
-
-    session.timburrBuildBlockAction = {
-      phase: castFromBlockedApproach ? "cast" : "approach",
-      targetCell: target.targetCell,
-      targetPosition: target.targetPosition,
-      approachPosition,
-      castElapsed: 0,
-      impactApplied: false,
-      castFromBlockedApproach
-    };
-
-    return "started";
-  }
-
   function applyTimburrBuildBlockImpact(action, now) {
     const controller = getFreeBlockBuildController();
     if (!controller) {
@@ -3442,89 +3408,6 @@ export function startGameLoop({
     }
     handleFreeBlockPlacementResult(result, now);
     return result;
-  }
-
-  function updateTimburrBuildBlockAction(deltaTime, now) {
-    const action = session.timburrBuildBlockAction;
-    const timburr = session.timburrEncounter;
-
-    if (!action || !timburr) {
-      return;
-    }
-
-    if (!Array.isArray(timburr.position)) {
-      timburr.position = [...action.approachPosition];
-    }
-
-    if (action.phase === "approach") {
-      const deltaX = action.approachPosition[0] - timburr.position[0];
-      const deltaZ = action.approachPosition[2] - timburr.position[2];
-      const distance = Math.hypot(deltaX, deltaZ);
-      const travel = Math.min(TIMBURR_BUILD_BLOCK_SPEED * deltaTime, distance);
-
-      if (distance > TIMBURR_BUILD_BLOCK_ARRIVE_DISTANCE && travel > 0) {
-        const previousPosition = [...timburr.position];
-        const nextPosition = [
-          timburr.position[0] + (deltaX / distance) * travel,
-          0.04,
-          timburr.position[2] + (deltaZ / distance) * travel
-        ];
-        if (!tryMoveCompanionToPosition(timburr, nextPosition)) {
-          const nextPositionBlockers = getCompanionPositionConstructionBlockers(nextPosition);
-          if (shouldTimburrBuildBlockCastFromBlockedApproach(nextPositionBlockers)) {
-            action.phase = "cast";
-            action.castElapsed = 0;
-            action.castFromBlockedApproach = true;
-            return;
-          }
-          session.timburrBuildBlockAction = null;
-          cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.builder);
-          return;
-        }
-        if (timburr.modelInstance) {
-          timburr.modelInstance.yaw = getRobotModelYawToward(
-            previousPosition,
-            timburr.position,
-            Number(timburr.modelFaceYawOffset ?? TIMBURR_MODEL_FACE_YAW_OFFSET)
-          );
-        }
-      } else {
-        const approachBlockers = getCompanionPositionConstructionBlockers(action.approachPosition);
-        if (approachBlockers.length > 0) {
-          if (shouldTimburrBuildBlockCastFromBlockedApproach(approachBlockers)) {
-            action.phase = "cast";
-            action.castElapsed = 0;
-            action.castFromBlockedApproach = true;
-            return;
-          }
-          session.timburrBuildBlockAction = null;
-          cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.builder);
-          return;
-        }
-
-        timburr.position = [...action.approachPosition];
-        action.phase = "cast";
-        action.castElapsed = 0;
-      }
-
-      return;
-    }
-
-    if (action.phase !== "cast") {
-      session.timburrBuildBlockAction = null;
-      return;
-    }
-
-    action.castElapsed += deltaTime;
-
-    if (!action.impactApplied && action.castElapsed >= TIMBURR_BUILD_BLOCK_IMPACT_TIME) {
-      action.impactApplied = true;
-      applyTimburrBuildBlockImpact(action, now);
-    }
-
-    if (action.castElapsed >= TIMBURR_BUILD_BLOCK_CAST_DURATION) {
-      session.timburrBuildBlockAction = null;
-    }
   }
 
   function tryRemoveNearbyFreeBlock(playerPosition, now) {
@@ -5212,7 +5095,7 @@ export function startGameLoop({
         });
       } else if (primaryActionIsMove && !dialogueActive) {
         if (buildBlockEquipped && primaryActionWantsFieldMove) {
-          const timburrBuildBlockResult = startTimburrBuildBlockAction({
+          const timburrBuildBlockResult = buildBlockRuntime.startAction({
             playerPosition
           });
 
