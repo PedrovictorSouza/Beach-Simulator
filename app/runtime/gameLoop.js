@@ -148,6 +148,7 @@ export {
   resolveTimburrBuildBlockApproachPosition
 } from "./fieldMoveRuntime/buildBlockRuntime.js";
 import { createCompanionAbilityResourcesRuntime } from "./fieldMoveRuntime/companionAbilityResourcesRuntime.js";
+import { createFieldMoveImpactRuntime } from "./fieldMoveRuntime/fieldMoveImpactRuntime.js";
 import { createFireRuntime } from "./fieldMoveRuntime/fireRuntime.js";
 import { createLeafageRuntime } from "./fieldMoveRuntime/leafageRuntime.js";
 import { createWaterGunRuntime } from "./fieldMoveRuntime/waterGunRuntime.js";
@@ -1185,7 +1186,7 @@ export function startGameLoop({
     tryMoveCompanionToPosition,
     isPositionBlocked: isCompanionPositionBlockedByConstruction,
     syncSquirtle: () => companionModelSyncRuntime.syncSquirtle(),
-    applyImpact: applySquirtleWaterGunImpact,
+    applyImpact: (action) => fieldMoveImpactRuntime.applySquirtleWaterGunImpact(action),
     onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.hydro)
   });
   const fireRuntime = createFireRuntime({
@@ -1206,7 +1207,7 @@ export function startGameLoop({
     tryMoveCompanionToPosition,
     isPositionBlocked: isCompanionPositionBlockedByConstruction,
     syncCharmander: () => companionModelSyncRuntime.syncCharmander(),
-    applyImpact: applyCharmanderFireImpact,
+    applyImpact: (action) => fieldMoveImpactRuntime.applyCharmanderFireImpact(action),
     onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.thermal)
   });
   const leafageRuntime = createLeafageRuntime({
@@ -1225,7 +1226,7 @@ export function startGameLoop({
     tryMoveCompanionToPosition,
     isPositionBlocked: isCompanionPositionBlockedByConstruction,
     syncBulbasaur: () => companionModelSyncRuntime.syncBulbasaur(),
-    applyImpact: applyBulbasaurLeafageImpact,
+    applyImpact: (action) => fieldMoveImpactRuntime.applyBulbasaurLeafageImpact(action),
     onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.grow)
   });
   const frameRuntime = createGameLoopFrameRuntime({
@@ -1490,6 +1491,12 @@ export function startGameLoop({
     return nowMs * 0.001;
   }
 
+  function getRuntimeNowMs() {
+    return typeof performance !== "undefined" && typeof performance.now === "function" ?
+      performance.now() :
+      Date.now();
+  }
+
   function playInstanceObjectSfx() {
     audio.playInstanceObject();
   }
@@ -1505,6 +1512,18 @@ export function startGameLoop({
     fieldToolTargetPulseDurationMs: FIELD_TOOL_TARGET_PULSE_DURATION_MS,
     fieldToolTargetPulseMinScale: FIELD_TOOL_TARGET_PULSE_MIN_SCALE,
     fieldToolTargetPulseFlashBrightness: FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS
+  });
+  const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
+    session,
+    controls,
+    carbonItemId: CARBON_ITEM_ID,
+    companionAbilityResourcesRuntime,
+    getNowMs: getRuntimeNowMs,
+    groundActionFeedbackRuntime,
+    hud,
+    performGameplayHarvestAction,
+    playInstanceObjectSfx,
+    supplyCounterPromptController
   });
 
   function playTreeBirthSfx() {
@@ -2802,18 +2821,6 @@ export function startGameLoop({
     });
   }
 
-  function findGrassPatchForGroundCell(groundCell) {
-    if (!groundCell?.id || !Array.isArray(session.groundGrassPatches)) {
-      return null;
-    }
-
-    return session.groundGrassPatches.find((patch) => patch?.cellId === groundCell.id) || null;
-  }
-
-  function isAliveGrassPatchForGroundCell(groundCell) {
-    return findGrassPatchForGroundCell(groundCell)?.state === "alive";
-  }
-
   function getEncounterRepairBoxPosition(encounter) {
     return encounter?.repairBoxPosition || encounter?.repairPosition || null;
   }
@@ -3523,124 +3530,8 @@ export function startGameLoop({
     });
   }
 
-  function applyCharmanderFireImpact(action) {
-    const result = performGameplayHarvestAction({
-      playerPosition: action.approachPosition,
-      palmModel: session.palmModel,
-      palmInstances: session.palmInstances,
-      resourceNodes: session.resourceNodes,
-      leppaTree: session.leppaTree,
-      inventory: controls.inventory,
-      canPurifyGround: false,
-      groundDeadInstances: session.groundDeadInstances,
-      iceGroundInstances: session.iceGroundInstances,
-      groundFlowerPatches: session.groundFlowerPatches,
-      groundGrassPatches: session.groundGrassPatches,
-      groundPurifiedInstances: session.groundPurifiedInstances,
-      storyState: controls.storyState,
-      leafDen: session.leafDen,
-      woodDrops: session.woodDrops,
-      leppaBerryDrops: session.leppaBerryDrops,
-      canUseLeafage: false,
-      canUseFire: true,
-      useFire: true,
-      forcedHarvestTarget: {
-        fireGroundCell: action.groundCell,
-        distance: 0
-      }
-    }, {
-      actionType: "fire",
-      groundCell: action.groundCell
-    });
-
-    if (result) {
-      hud.syncInventoryUi(controls.inventory);
-      supplyCounterPromptController.trigger(CARBON_ITEM_ID, controls.inventory, performance.now());
-      groundActionFeedbackRuntime.triggerFeedback(action.groundCell, "fire", performance.now());
-    }
-
-    return result;
-  }
-
-  function applyBulbasaurLeafageImpact(action) {
-    const hadLeafagePatch = hasGroundPatchForCellId(action.groundCell?.id);
-    const result = performGameplayHarvestAction({
-      playerPosition: action.approachPosition,
-      palmModel: session.palmModel,
-      palmInstances: session.palmInstances,
-      resourceNodes: session.resourceNodes,
-      leppaTree: session.leppaTree,
-      inventory: controls.inventory,
-      canPurifyGround: false,
-      groundDeadInstances: session.groundDeadInstances,
-      groundFlowerPatches: session.groundFlowerPatches,
-      groundGrassPatches: session.groundGrassPatches,
-      groundPurifiedInstances: session.groundPurifiedInstances,
-      storyState: controls.storyState,
-      leafDen: session.leafDen,
-      woodDrops: session.woodDrops,
-      leppaBerryDrops: session.leppaBerryDrops,
-      canUseLeafage: true,
-      forcedHarvestTarget: {
-        leafageGroundCell: action.groundCell,
-        distance: 0
-      }
-    }, {
-      actionType: "leafage",
-      groundCell: action.groundCell
-    });
-
-    if (result && !hadLeafagePatch && hasGroundPatchForCellId(action.groundCell?.id)) {
-      playInstanceObjectSfx();
-    }
-
-    return result;
-  }
-
   function startNextQueuedSquirtleWaterGunAction() {
     waterGunRuntime.startNextQueued();
-  }
-
-  function applySquirtleWaterGunImpact(action) {
-    const grassPatchWasDry =
-      Boolean(findGrassPatchForGroundCell(action.groundCell)) &&
-      !isAliveGrassPatchForGroundCell(action.groundCell);
-    const result = performGameplayHarvestAction({
-      playerPosition: action.approachPosition,
-      palmModel: session.palmModel,
-      palmInstances: session.palmInstances,
-      resourceNodes: session.resourceNodes,
-      leppaTree: session.leppaTree,
-      inventory: controls.inventory,
-      canPurifyGround: true,
-      groundDeadInstances: session.groundDeadInstances,
-      groundFlowerPatches: session.groundFlowerPatches,
-      groundGrassPatches: session.groundGrassPatches,
-      groundPurifiedInstances: session.groundPurifiedInstances,
-      storyState: controls.storyState,
-      leafDen: session.leafDen,
-      woodDrops: session.woodDrops,
-      leppaBerryDrops: session.leppaBerryDrops,
-      canUseLeafage: false,
-      useWaterGun: true,
-      forcedHarvestTarget: {
-        groundCell: action.groundCell,
-        distance: 0
-      }
-    }, {
-      actionType: "waterGun",
-      groundCell: action.groundCell
-    });
-
-    if (result && grassPatchWasDry && isAliveGrassPatchForGroundCell(action.groundCell)) {
-      playInstanceObjectSfx();
-    }
-
-    if (result) {
-      companionAbilityResourcesRuntime.recordSquirtleWaterGunUse();
-    }
-
-    return result;
   }
 
   function getSquirtleMouthPosition() {

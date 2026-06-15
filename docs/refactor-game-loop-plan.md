@@ -11887,3 +11887,56 @@ npm run build
 - `1800` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Field Move Impact Runtime Extraction
+
+Created the `fieldMoveRuntime/impact` boundary with
+`createFieldMoveImpactRuntime()` in
+`app/runtime/fieldMoveRuntime/fieldMoveImpactRuntime.js`.
+
+Study path:
+
+1. `startGameLoop()` still wires the Water Gun, Fire and Leafage runtimes.
+2. Those runtimes now call impact callbacks owned by
+   `createFieldMoveImpactRuntime()`.
+3. The impact runtime owns the repeated domain side effects for Water Gun,
+   Leafage and Fire impact resolution: harvest call shape, patch transition SFX,
+   Fire inventory sync, Carbon counter prompt, Fire ground feedback and Squirtle
+   stamina-use recording.
+4. `gameLoop.js` still owns `performGameplayHarvestAction(...)`, because it is
+   also used by primary interaction handling and remains coupled to inventory,
+   quest counters and pickup prompts.
+
+Removed from `gameLoop.js`:
+
+- `applySquirtleWaterGunImpact(...)`
+- `applyBulbasaurLeafageImpact(...)`
+- `applyCharmanderFireImpact(...)`
+- `findGrassPatchForGroundCell(...)`
+- `isAliveGrassPatchForGroundCell(...)`
+
+Kept in `gameLoop.js`:
+
+- `performGameplayHarvestAction(...)`;
+- `hasGroundPatchForCellId(...)`, because target resolution still uses it;
+- primary action routing and fallback harvest behavior.
+
+Tests added:
+
+- `tests/fieldMoveImpactRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/fieldMoveImpactRuntime.test.js
+npm test -- --run tests/fieldMoveImpactRuntime.test.js tests/waterGunRuntime.test.js tests/fireRuntime.test.js tests/leafageRuntime.test.js tests/buildBlockRuntime.test.js
+npm run build
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `298` test files passed, `1` failed
+- `1803` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
