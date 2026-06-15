@@ -11726,3 +11726,55 @@ npm run build
 - `1787` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Fire Runtime Extraction
+
+Created the `fieldMoveRuntime/fire` boundary with `createFireRuntime()` in
+`app/runtime/fieldMoveRuntime/fireRuntime.js`.
+
+Study path:
+
+1. `startGameLoop()` wires the runtime with the existing Charmander encounter,
+   busy-state policy, Carbon availability check, approach-position resolver,
+   model yaw resolver, movement blocker and model sync callback.
+2. The Fire runtime owns Thermal Bot Fire action start, action shape,
+   approach movement, blocked-path cancellation, spray timing, impact timing
+   and action cleanup.
+3. `gameLoop.js` still owns `applyCharmanderFireImpact(...)`, because the
+   impact path touches harvest, inventory, HUD, Carbon counters and ground
+   feedback.
+4. Companion frame update now delegates the Fire action update to the runtime.
+
+Removed from `gameLoop.js`:
+
+- `startCharmanderFireAction(...)`
+- `updateCharmanderFireAction(...)`
+- direct use of `CHARMANDER_FIRE_SPEED`
+- direct use of `CHARMANDER_FIRE_ARRIVE_DISTANCE`
+- direct use of `CHARMANDER_FIRE_IMPACT_TIME`
+- direct use of `CHARMANDER_FIRE_SPRAY_DURATION`
+
+Kept in `gameLoop.js`:
+
+- `applyCharmanderFireImpact(...)`;
+- `hasCharmanderFireCarbon()`, because it owns the existing HUD notice;
+- Fire fallback harvest behavior when Thermal Bot is unavailable.
+
+Tests added:
+
+- `tests/fireRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/fireRuntime.test.js
+npm test -- --run tests/fireRuntime.test.js tests/companionFrameRuntime.test.js tests/companionPresentationFrame.test.js tests/fieldMoveBillboards.test.js tests/companionAbilityResourcesRuntime.test.js tests/waterGunRuntime.test.js
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `295` test files passed, `1` failed
+- `1791` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.

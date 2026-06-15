@@ -147,6 +147,7 @@ export {
   resolveTimburrBuildBlockApproachPosition
 } from "./fieldMoveRuntime/buildBlockRuntime.js";
 import { createCompanionAbilityResourcesRuntime } from "./fieldMoveRuntime/companionAbilityResourcesRuntime.js";
+import { createFireRuntime } from "./fieldMoveRuntime/fireRuntime.js";
 import { createWaterGunRuntime } from "./fieldMoveRuntime/waterGunRuntime.js";
 import {
   resolveBulbasaurLeafageApproachPosition,
@@ -241,10 +242,6 @@ import {
   BULBASAUR_LEAFAGE_CAST_DURATION,
   BULBASAUR_LEAFAGE_IMPACT_TIME,
   BULBASAUR_LEAFAGE_SPEED,
-  CHARMANDER_FIRE_ARRIVE_DISTANCE,
-  CHARMANDER_FIRE_IMPACT_TIME,
-  CHARMANDER_FIRE_SPEED,
-  CHARMANDER_FIRE_SPRAY_DURATION,
   SQUIRTLE_WATER_GUN_SPRAY_DURATION,
   TIMBURR_BUILD_BLOCK_ARRIVE_DISTANCE,
   TIMBURR_BUILD_BLOCK_CAST_DURATION,
@@ -1197,6 +1194,27 @@ export function startGameLoop({
     applyImpact: applySquirtleWaterGunImpact,
     onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.hydro)
   });
+  const fireRuntime = createFireRuntime({
+    session,
+    getCharmander: () => session.charmanderEncounter,
+    isBusy: isLeafDenConstructionActive,
+    onBusy: () => hud?.pushNotice?.(LEAF_DEN_BUSY_NOTICE),
+    hasFireCarbon: hasCharmanderFireCarbon,
+    getGroundCellCenterPosition,
+    getApproachPosition: ({ targetPosition, playerPosition }) =>
+      getCharmanderFireApproachPosition(targetPosition, playerPosition),
+    getModelYawToward: (fromPosition, toPosition) =>
+      getRobotModelYawToward(
+        fromPosition,
+        toPosition,
+        CHARMANDER_MODEL_FACE_YAW_OFFSET
+      ),
+    tryMoveCompanionToPosition,
+    isPositionBlocked: isCompanionPositionBlockedByConstruction,
+    syncCharmander: () => companionModelSyncRuntime.syncCharmander(),
+    applyImpact: applyCharmanderFireImpact,
+    onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.thermal)
+  });
   const frameRuntime = createGameLoopFrameRuntime({
     frameClock,
     frameSnapshotController,
@@ -1329,7 +1347,7 @@ export function startGameLoop({
         companionRepairBoxModelRuntime.updateRepairBoxRustle(session.bulbasaurEncounter, deltaTime),
       updateBulbasaurEncounter,
       updateCharmanderEncounter,
-      updateCharmanderFireAction,
+      updateCharmanderFireAction: (deltaTime) => fireRuntime.updateAction(deltaTime),
       updateTimburrEncounter,
       updateTimburrBuildBlockAction,
       syncCompanionRepairModules: () => companionModelSyncRuntime.syncRepairModules(),
@@ -3606,58 +3624,6 @@ export function startGameLoop({
     });
   }
 
-  function startCharmanderFireAction({ groundCell, playerPosition }) {
-    const charmander = session.charmanderEncounter;
-    if (!groundCell) {
-      return "unavailable";
-    }
-
-    if (isLeafDenConstructionActive()) {
-      hud?.pushNotice?.(LEAF_DEN_BUSY_NOTICE);
-      return "busy";
-    }
-
-    if (session.charmanderFireAction) {
-      return "busy";
-    }
-
-    if (
-      !charmander?.modelInstance ||
-      !charmander.visible ||
-      !Array.isArray(charmander.position)
-    ) {
-      return "unavailable";
-    }
-
-    if (!hasCharmanderFireCarbon()) {
-      return "no-carbon";
-    }
-
-    const targetPosition = getGroundCellCenterPosition(groundCell);
-    const approachPosition = getCharmanderFireApproachPosition(
-      targetPosition,
-      playerPosition
-    );
-
-    session.charmanderFireAction = {
-      phase: "approach",
-      groundCell,
-      targetPosition,
-      approachPosition,
-      sprayElapsed: 0,
-      impactApplied: false
-    };
-    charmander.modelInstance.active = true;
-    charmander.modelInstance.yaw = getRobotModelYawToward(
-      charmander.position,
-      targetPosition,
-      CHARMANDER_MODEL_FACE_YAW_OFFSET
-    );
-    companionModelSyncRuntime.syncCharmander();
-
-    return "started";
-  }
-
   function applyCharmanderFireImpact(action) {
     const result = performGameplayHarvestAction({
       playerPosition: action.approachPosition,
@@ -3695,81 +3661,6 @@ export function startGameLoop({
     }
 
     return result;
-  }
-
-  function updateCharmanderFireAction(deltaTime) {
-    const action = session.charmanderFireAction;
-    const charmander = session.charmanderEncounter;
-
-    if (!action || !charmander?.modelInstance) {
-      return;
-    }
-
-    if (!Array.isArray(charmander.position)) {
-      charmander.position = [...(charmander.modelInstance.offset || action.approachPosition)];
-    }
-
-    if (action.phase === "approach") {
-      const deltaX = action.approachPosition[0] - charmander.position[0];
-      const deltaZ = action.approachPosition[2] - charmander.position[2];
-      const distance = Math.hypot(deltaX, deltaZ);
-      const travel = Math.min(CHARMANDER_FIRE_SPEED * deltaTime, distance);
-
-      if (distance > CHARMANDER_FIRE_ARRIVE_DISTANCE && travel > 0) {
-        const nextPosition = [
-          charmander.position[0] + (deltaX / distance) * travel,
-          0.04,
-          charmander.position[2] + (deltaZ / distance) * travel
-        ];
-        if (!tryMoveCompanionToPosition(charmander, nextPosition)) {
-          session.charmanderFireAction = null;
-          cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.thermal);
-          companionModelSyncRuntime.syncCharmander();
-          return;
-        }
-      } else {
-        if (isCompanionPositionBlockedByConstruction(action.approachPosition)) {
-          session.charmanderFireAction = null;
-          cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.thermal);
-          companionModelSyncRuntime.syncCharmander();
-          return;
-        }
-
-        charmander.position = [...action.approachPosition];
-        action.phase = "spray";
-        action.sprayElapsed = 0;
-      }
-
-      charmander.modelInstance.yaw = getRobotModelYawToward(
-        charmander.position,
-        action.targetPosition,
-        CHARMANDER_MODEL_FACE_YAW_OFFSET
-      );
-      companionModelSyncRuntime.syncCharmander();
-      return;
-    }
-
-    if (action.phase !== "spray") {
-      session.charmanderFireAction = null;
-      return;
-    }
-
-    action.sprayElapsed += deltaTime;
-    charmander.modelInstance.yaw = getRobotModelYawToward(
-      charmander.position,
-      action.targetPosition,
-      CHARMANDER_MODEL_FACE_YAW_OFFSET
-    );
-    companionModelSyncRuntime.syncCharmander();
-
-    if (!action.impactApplied && action.sprayElapsed >= CHARMANDER_FIRE_IMPACT_TIME) {
-      action.impactApplied = true;
-      applyCharmanderFireImpact(action);
-    }
-
-    if (action.sprayElapsed >= CHARMANDER_FIRE_SPRAY_DURATION) {
-      session.charmanderFireAction = null;
-    }
   }
 
   function startBulbasaurLeafageAction({ groundCell, playerPosition }) {
@@ -5482,7 +5373,7 @@ export function startGameLoop({
           }
         } else if (fireEquipped && primaryActionTarget?.fireGroundCell) {
           fieldMoveInvalidTargetPromptRuntime.resetFire();
-          const charmanderFireResult = startCharmanderFireAction({
+          const charmanderFireResult = fireRuntime.startAction({
             groundCell: primaryActionTarget.fireGroundCell,
             playerPosition
           });
