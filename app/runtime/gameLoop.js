@@ -210,6 +210,7 @@ import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
 import { createBaseRenderSnapshotFrameRuntime } from "./presentation/baseRenderSnapshotFrame.js";
 import { prepareRenderSnapshotContext as prepareRenderSnapshotContextWithSources } from "./presentation/renderSnapshotContext.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
+import { createSupplyPickupFeedbackRuntime } from "./presentation/supplyPickupFeedbackRuntime.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { resolveGameplayTargetFrameState } from "./presentation/gameplayTargetFrameState.js";
 import {
@@ -232,7 +233,6 @@ import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime
 import { appendRebirthOfNatureGhostTree } from "./rebirthOfNatureGhostTree.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
-import { resolveSupplyPickupViewportOrigin } from "./supplyPickupViewportOrigin.js";
 import {
   getTallGrassInstanceScale,
   getTallGrassYaw
@@ -904,6 +904,21 @@ export function startGameLoop({
       playerCounterPromptRuntime.trigger(text, now);
     }
   });
+  const supplyPickupFeedbackRuntime = createSupplyPickupFeedbackRuntime({
+    audio,
+    camera,
+    controls,
+    getNowMs: getRuntimeNowMs,
+    hud,
+    itemIds: SUPPLY_PICKUP_FLY_ITEM_IDS,
+    session,
+    supplyCounterPromptController,
+    worldCanvas
+  });
+  const queueSupplyPickupFlyItems = supplyPickupFeedbackRuntime.queueFlyItems;
+  const queueChangedSupplyPickupFlyItems = supplyPickupFeedbackRuntime.queueChangedFlyItems;
+  const pushSupplyResourceCollectFeedback =
+    supplyPickupFeedbackRuntime.pushResourceCollectFeedback;
   const fieldMoveInvalidTargetPromptRuntime = createFieldMoveInvalidTargetPromptRuntime({
     leafageDurationMs: LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS,
     fireDurationMs: FIRE_INVALID_TARGET_PROMPT_DURATION_MS
@@ -3359,65 +3374,6 @@ export function startGameLoop({
   }
 
   mount?.addEventListener?.("pointerdown", handleWorldCellPlannerPointerDown, { capture: true });
-
-  function queueSupplyPickupFlyItems(itemId, sourcePositions = []) {
-    if (typeof hud.queueSupplyPickupFlyToSlot !== "function") {
-      return;
-    }
-
-    const projectedOrigins = sourcePositions
-      .map((sourcePosition) => resolveSupplyPickupViewportOrigin({
-        sourcePosition,
-        getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
-        camera,
-        worldCanvas
-      }))
-      .filter(Boolean)
-      .slice(0, 3);
-
-    for (const origin of projectedOrigins) {
-      hud.queueSupplyPickupFlyToSlot({ itemId, origin });
-    }
-  }
-
-  function queueChangedSupplyPickupFlyItems(previousCounts, inventory = {}) {
-    let queuedAny = false;
-
-    for (const itemId of SUPPLY_PICKUP_FLY_ITEM_IDS) {
-      const previousCount = Number(previousCounts?.[itemId] || 0);
-      const nextCount = Number(inventory?.[itemId] || 0);
-      const gainedCount = Math.max(0, Math.floor(nextCount - previousCount));
-
-      if (gainedCount <= 0) {
-        continue;
-      }
-
-      queueSupplyPickupFlyItems(itemId, Array.from({ length: gainedCount }));
-      queuedAny = true;
-    }
-
-    return queuedAny;
-  }
-
-  function pushSupplyResourceCollectFeedback({
-    itemId,
-    count,
-    sourcePositions = [],
-    label = supplyCounterPromptController.getLabel(itemId),
-    now = performance.now()
-  } = {}) {
-    if (count <= 0 || !itemId) {
-      return;
-    }
-
-    for (let index = 0; index < count; index += 1) {
-      audio.playWoodGrab();
-    }
-    hud.syncInventoryUi(controls.inventory);
-    queueSupplyPickupFlyItems(itemId, sourcePositions);
-    hud.pushNotice(`+${count} ${label}`);
-    supplyCounterPromptController.trigger(itemId, controls.inventory, now);
-  }
 
   function syncCampfireTrainHouseModelInstance(nowSeconds = getRuntimeNowSeconds(), deltaTime = 0) {
     const instance = session.campfireTrainHouseModelInstance;

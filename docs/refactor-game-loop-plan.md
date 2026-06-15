@@ -12055,3 +12055,55 @@ npm test
 - `1812` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Supply Pickup Feedback Runtime Extraction
+
+Created the `presentation/supply-pickup-feedback` boundary with
+`app/runtime/presentation/supplyPickupFeedbackRuntime.js`.
+
+Study path:
+
+1. `gameLoop.js` still owns inventory collection orchestration and delegates
+   passive resource collection through `createPlayerResourceCollectionFrameRuntime()`.
+2. The new presentation runtime owns HUD-side feedback for supply pickups:
+   projecting source positions to viewport origins, queueing fly-to-slot
+   animations, detecting gained supply counts, playing pickup SFX for counted
+   feedback, syncing inventory UI, pushing notices and triggering supply
+   counter prompts.
+3. The runtime depends explicitly on `hud`, `audio`, `controls`, `session`,
+   `camera`, `worldCanvas` and `supplyCounterPromptController`; it does not
+   import or mutate `gameLoop` state.
+
+Removed from `gameLoop.js`:
+
+- `queueSupplyPickupFlyItems(...)`
+- `queueChangedSupplyPickupFlyItems(...)`
+- `pushSupplyResourceCollectFeedback(...)`
+- direct import of `resolveSupplyPickupViewportOrigin(...)`
+
+Kept in `gameLoop.js`:
+
+- resource collection timing;
+- previous/next inventory snapshot logic;
+- calls to `supplyCounterPromptController.triggerChanged(...)`;
+- wiring of resource feedback callbacks into player collection.
+
+Tests added:
+
+- `tests/supplyPickupFeedbackRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/supplyPickupFeedbackRuntime.test.js
+npm test -- --run tests/supplyPickupFeedbackRuntime.test.js tests/playerResourceCollectionFrame.test.js tests/supplyPickupViewportOrigin.test.js tests/gameHudController.test.js
+npm run build
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `301` test files passed, `1` failed
+- `1816` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
