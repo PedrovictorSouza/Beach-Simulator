@@ -12002,3 +12002,56 @@ npm test
 - `1808` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Workbench Rotation Targets Extraction
+
+Created the `construction/workbench-rotation-targets` boundary with
+`app/runtime/construction/workbenchRotationTargets.js`.
+
+Study path:
+
+1. `gameLoop.js` still owns user-facing side effects for Workbench rotation:
+   selection notices, confirmation/cancel sounds, Solar Station visual sync and
+   calls into `createWorkbenchRotationRuntime()`.
+2. The new construction module owns pure candidate and distance policy:
+   which placed Workbench constructions are rotatable, how target size is
+   resolved, how edge distance is calculated, how trigger distance uses build
+   grid cell size and which candidate is nearest.
+3. Existing callbacks keep their names for construction placement,
+   prompt frame state and ground-cell highlight frame state.
+
+Removed from `gameLoop.js`:
+
+- candidate construction rules for Solar Station, Thermal Cabin, House and
+  player houses;
+- target-size override resolution;
+- edge-distance math;
+- trigger-distance tile margin math;
+- nearest-candidate reduction.
+
+Kept in `gameLoop.js`:
+
+- small wrapper functions that wire `session`, footprints and labels;
+- rotation selection/confirm/cancel side effects;
+- Solar Station rotation visual sync;
+- `createWorkbenchRotationRuntime()` state management.
+
+Tests added:
+
+- `tests/workbenchRotationTargets.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/workbenchRotationTargets.test.js
+npm test -- --run tests/workbenchRotationTargets.test.js tests/workbenchRotationRuntime.test.js tests/constructionPlacementFrameRuntime.test.js tests/constructionHouseModelInstances.test.js tests/gameplayPromptTargetFrameState.test.js tests/groundCellHighlightFrameState.test.js
+npm run build
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `300` test files passed, `1` failed
+- `1812` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.

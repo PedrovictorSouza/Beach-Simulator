@@ -65,6 +65,13 @@ import {
   resolveActiveConstructionPlacementPreviews
 } from "./construction/constructionPlacementFrameRuntime.js";
 import {
+  getNearestRotatableWorkbenchPlacement as getNearestRotatableWorkbenchPlacementFromTargets,
+  getRotatableWorkbenchPlacementCandidates as getRotatableWorkbenchPlacementCandidatesFromTargets,
+  getWorkbenchRotationTargetDistance as getWorkbenchRotationTargetDistanceFromTargets,
+  getWorkbenchRotationTargetSize as getWorkbenchRotationTargetSizeFromTargets,
+  getWorkbenchRotationTriggerDistance as getWorkbenchRotationTriggerDistanceFromTargets
+} from "./construction/workbenchRotationTargets.js";
+import {
   cancelPendingWorkbenchPlacementIntent,
   hasPendingWorkbenchPlacementIntent
 } from "./construction/pendingPlacementIntent.js";
@@ -1721,113 +1728,47 @@ export function startGameLoop({
   }
 
   function getRotatableWorkbenchPlacementCandidates() {
-    const flags = controls.storyState?.flags || {};
-    const candidates = [];
-
-    if (session.strawBed?.position && flags.strawBedPlacedInBulbasaurHabitat) {
-      candidates.push({
-        kind: "solarStation",
-        label: "Solar Station",
-        placement: session.strawBed,
-        fallbackSize: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-        rotateSize: false
-      });
-    }
-
-    if (session.campfire?.position && flags.campfireSpatOut) {
-      candidates.push({
-        kind: "trainHouse",
-        label: SANDBOTS_ITEM_NAMES.thermalCabin,
-        placement: session.campfire,
-        fallbackSize: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-        rotateSize: true
-      });
-    }
-
-    if (session.leafDen?.position && (flags.leafDenKitPlaced || flags.leafDenBuilt)) {
-      const houseSize = flags.leafDenBuilt ?
-        LEAF_DEN_BUILT_ROTATION_FOOTPRINT :
-        LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT;
-      candidates.push({
-        kind: "house",
-        label: "House",
-        placement: session.leafDen,
-        fallbackSize: houseSize,
-        sizeOverride: houseSize,
-        rotateSize: true
-      });
-    }
-
-    for (const playerHouse of session.playerHouses || []) {
-      if (!Array.isArray(playerHouse?.position)) {
-        continue;
-      }
-
-      candidates.push({
-        kind: `playerHouse:${playerHouse.id}`,
-        label: "House",
-        placement: playerHouse,
-        fallbackSize: LEAF_DEN_BUILT_ROTATION_FOOTPRINT,
-        sizeOverride: LEAF_DEN_BUILT_ROTATION_FOOTPRINT,
-        rotateSize: true
-      });
-    }
-
-    return candidates;
+    return getRotatableWorkbenchPlacementCandidatesFromTargets({
+      flags: controls.storyState?.flags || {},
+      footprints: {
+        houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT,
+        houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
+        solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
+        trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT
+      },
+      session,
+      thermalCabinLabel: SANDBOTS_ITEM_NAMES.thermalCabin
+    });
   }
 
   function getWorkbenchRotationTargetSize(target) {
-    if (Array.isArray(target?.sizeOverride)) {
-      return [...target.sizeOverride];
-    }
-
-    return getPlacementCollisionSize(target?.placement, target?.fallbackSize || [1, 1]);
+    return getWorkbenchRotationTargetSizeFromTargets(target, {
+      getPlacementCollisionSize
+    });
   }
 
   function getWorkbenchRotationTargetDistance(playerPosition, target) {
-    const position = target?.placement?.position;
-    if (!Array.isArray(playerPosition) || !Array.isArray(position)) {
-      return Number.POSITIVE_INFINITY;
-    }
-
-    const size = getWorkbenchRotationTargetSize(target);
-    const halfX = Math.max(0.01, Number(size[0]) || 1) * 0.5;
-    const halfZ = Math.max(0.01, Number(size[1]) || 1) * 0.5;
-    const dx = Math.max(0, Math.abs(playerPosition[0] - position[0]) - halfX);
-    const dz = Math.max(0, Math.abs(playerPosition[2] - position[2]) - halfZ);
-    return Math.hypot(dx, dz);
+    return getWorkbenchRotationTargetDistanceFromTargets(playerPosition, target, {
+      getTargetSize: getWorkbenchRotationTargetSize
+    });
   }
 
   function getWorkbenchRotationTriggerDistance() {
-    const cellSize = Number(session.buildGridConfig?.cellSize);
-    const tileMargin = Number.isFinite(cellSize) && cellSize > 0 ?
-      cellSize :
-      WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN;
-    return WORKBENCH_OBJECT_ROTATE_DISTANCE + tileMargin;
+    return getWorkbenchRotationTriggerDistanceFromTargets({
+      buildGridConfig: session.buildGridConfig,
+      rotateDistance: WORKBENCH_OBJECT_ROTATE_DISTANCE,
+      triggerTileMargin: WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN
+    });
   }
 
   function getNearestRotatableWorkbenchPlacement() {
     const playerPosition = session.playerCharacter?.getPosition?.();
-    if (!Array.isArray(playerPosition)) {
-      return null;
-    }
-
-    const candidates = getRotatableWorkbenchPlacementCandidates();
-    return candidates.reduce((nearest, candidate) => {
-      const position = candidate.placement?.position;
-      if (!Array.isArray(position)) {
-        return nearest;
-      }
-
-      const distance = getWorkbenchRotationTargetDistance(playerPosition, candidate);
-      if (!Number.isFinite(distance) || distance > getWorkbenchRotationTriggerDistance()) {
-        return nearest;
-      }
-      if (!nearest || distance < nearest.distance) {
-        return { ...candidate, distance };
-      }
-      return nearest;
-    }, null);
+    return getNearestRotatableWorkbenchPlacementFromTargets({
+      candidates: getRotatableWorkbenchPlacementCandidates(),
+      getTargetDistance: getWorkbenchRotationTargetDistance,
+      playerPosition,
+      triggerDistance: getWorkbenchRotationTriggerDistance()
+    });
   }
 
   function getSelectedRotatableWorkbenchPlacement() {
