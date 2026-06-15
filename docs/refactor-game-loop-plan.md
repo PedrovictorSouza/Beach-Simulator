@@ -11670,3 +11670,59 @@ npm run build
 - `1783` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Water Gun Runtime Extraction
+
+Created the `fieldMoveRuntime/water gun` boundary with
+`createWaterGunRuntime()` in
+`app/runtime/fieldMoveRuntime/waterGunRuntime.js`.
+
+Study path:
+
+1. `startGameLoop()` still wires all dependencies and keeps frame order.
+2. The Water Gun runtime owns Hydro Bot Water Gun queue initialization,
+   duplicate-target detection, action start, queued-action advancement,
+   pending ground-cell reporting, approach movement, spray timing, impact
+   timing, blocked-path cancellation and action cleanup.
+3. `gameLoop.js` still owns the Water Gun impact side effect through
+   `applySquirtleWaterGunImpact(...)`, because that path touches harvest,
+   inventory, story flags, drops, sound and grass state.
+4. Companion patrol, companion frame update and ground-cell highlight now ask
+   the runtime for queue/update/pending state instead of reading queue rules
+   implemented inside `gameLoop.js`.
+
+Removed from `gameLoop.js`:
+
+- `getSquirtleWaterGunQueue()`
+- `isSquirtleWaterGunCellPending(...)`
+- `enqueueSquirtleWaterGunAction(...)`
+- `startSquirtleWaterGunAction(...)`
+- local queued-Water-Gun advancement logic
+- `getPendingSquirtleWaterGunGroundCells()`
+- `updateSquirtleWaterGunAction(...)`
+
+Kept in `gameLoop.js`:
+
+- `applySquirtleWaterGunImpact(...)`;
+- direct fallback harvesting when Hydro Bot is unavailable;
+- instant Water Gun actions against trees/palms;
+- Water Gun SFX burst orchestration.
+
+Tests added:
+
+- `tests/waterGunRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/waterGunRuntime.test.js
+npm test -- --run tests/waterGunRuntime.test.js tests/companionFrameRuntime.test.js tests/companionGroundPatrolFrameRuntime.test.js tests/companionPresentationFrame.test.js tests/groundCellHighlightFrameState.test.js tests/companionAbilityResourcesRuntime.test.js
+npm run build
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `294` test files passed, `1` failed
+- `1787` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
