@@ -188,6 +188,7 @@ import {
   getYawToward
 } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
+import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
@@ -1170,6 +1171,14 @@ export function startGameLoop({
   const leafDenConstructionPresentationRuntime = createLeafDenConstructionPresentationRuntime({
     session,
     getStoryState: () => controls.storyState
+  });
+  const npcConversationFocusRuntime = createNpcConversationFocusRuntime({
+    controls,
+    dialogueCamera,
+    gameplayDialogue,
+    getSquirtle: () => session.actTwoSquirtle,
+    getSquirtleModelYawToward,
+    getYawToward
   });
   const waterGunRuntime = createWaterGunRuntime({
     session,
@@ -3376,64 +3385,6 @@ export function startGameLoop({
     });
   }
 
-  function faceInteractionTargetTowardPlayer({
-    targetId,
-    playerPosition,
-    npcActors = [],
-    interactables = []
-  } = {}) {
-    const npcActor = npcActors.find((actor) => actor.id === targetId);
-    if (npcActor?.character?.faceToward) {
-      const npcPosition = npcActor.character.getPosition();
-      npcActor.character.faceToward(playerPosition);
-      npcActor.faceYaw = getYawToward(npcPosition, playerPosition);
-      return;
-    }
-
-    const interactable = interactables.find((entry) => entry.id === targetId);
-    if (
-      interactable?.id === "squirtle" &&
-      session.actTwoSquirtle?.modelInstance &&
-      playerPosition
-    ) {
-      session.actTwoSquirtle.modelInstance.yaw = getSquirtleModelYawToward(
-        session.actTwoSquirtle.position,
-        playerPosition
-      );
-    }
-  }
-
-  function focusNpcConversationWhenDialogueOpens({
-    targetId,
-    playerPosition,
-    npcActors,
-    interactables,
-    targetPosition
-  }) {
-    const focusIfDialogueOpened = () => {
-      if (
-        !gameplayDialogue.isActive?.() ||
-        controls.isScriptedInteractionActive?.()
-      ) {
-        return;
-      }
-
-      dialogueCamera?.focusNpcConversation({
-        targetId,
-        playerPosition,
-        npcActors,
-        interactables,
-        targetPosition
-      });
-    };
-
-    if (typeof queueMicrotask === "function") {
-      queueMicrotask(focusIfDialogueOpened);
-    } else {
-      Promise.resolve().then(focusIfDialogueOpened);
-    }
-  }
-
   function updateBulbasaurEncounter(deltaTime) {
     const encounter = session.bulbasaurEncounter;
 
@@ -4489,30 +4440,7 @@ export function startGameLoop({
           timburrEncounter: session.timburrEncounter,
           charmanderEncounter: session.charmanderEncounter,
           bulbasaurEncounter: session.bulbasaurEncounter,
-          onNpcInteractionStart({
-            targetId,
-            playerPosition,
-            npcActors,
-            interactables,
-            targetPosition
-          }) {
-            faceInteractionTargetTowardPlayer({
-              targetId,
-              playerPosition,
-              npcActors,
-              interactables
-            });
-            if (controls.isScriptedInteractionActive?.()) {
-              return;
-            }
-            focusNpcConversationWhenDialogueOpens({
-              targetId,
-              playerPosition,
-              npcActors,
-              interactables,
-              targetPosition
-            });
-          }
+          onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart
         });
       } else if (!dialogueActive && !primaryActionWantsFieldMove) {
         performHarvestAction(playerPosition, {
@@ -4638,30 +4566,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         timburrEncounter: session.timburrEncounter,
         charmanderEncounter: session.charmanderEncounter,
         bulbasaurEncounter: session.bulbasaurEncounter,
-        onNpcInteractionStart({
-          targetId,
-          playerPosition,
-          npcActors,
-          interactables,
-          targetPosition
-        }) {
-          faceInteractionTargetTowardPlayer({
-            targetId,
-            playerPosition,
-            npcActors,
-            interactables
-          });
-          if (controls.isScriptedInteractionActive?.()) {
-            return;
-          }
-          focusNpcConversationWhenDialogueOpens({
-            targetId,
-            playerPosition,
-            npcActors,
-            interactables,
-            targetPosition
-          });
-        }
+        onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart
       });
     }
 

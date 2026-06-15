@@ -12255,3 +12255,56 @@ npm test
 - `1816` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### NPC Conversation Focus Runtime Extraction
+
+Created the `npcs/conversation-focus` boundary with
+`app/runtime/npcs/npcConversationFocusRuntime.js`.
+
+Study path:
+
+1. The runtime owns conversation-facing behavior for NPC actors and Squirtle's
+   interactable model.
+2. The runtime also owns the deferred dialogue camera focus gate, including the
+   checks for active dialogue and scripted interactions.
+3. `gameLoop.js` still wires dependencies and passes the runtime handler into
+   gameplay interactions; it no longer implements the conversation-facing rule.
+
+Removed from `gameLoop.js`:
+
+- `faceInteractionTargetTowardPlayer(...)`
+- `focusNpcConversationWhenDialogueOpens(...)`
+- duplicated `onNpcInteractionStart` handler bodies in the two gameplay
+  interaction calls.
+
+Kept in `gameLoop.js`:
+
+- dependency wiring for dialogue camera, dialogue state, controls and Squirtle
+  yaw helpers;
+- the same `onNpcInteractionStart` integration points.
+
+Tests added:
+
+- `tests/npcConversationFocusRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/npcConversationFocusRuntime.test.js
+npm test -- --run tests/npcConversationFocusRuntime.test.js tests/companionFrameRuntime.test.js tests/gameplayInteractions.test.js
+npm run build
+npm test
+```
+
+The focused `gameplayInteractions` run completed with the existing Leafage
+Native Tree baseline:
+
+- `2` test files passed, `1` failed
+- `120` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `304` test files passed, `1` failed
+- `1833` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
