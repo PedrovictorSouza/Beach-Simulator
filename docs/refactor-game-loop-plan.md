@@ -11940,3 +11940,65 @@ npm test
 - `1803` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Field Move Ground Targets Extraction
+
+Created the `fieldMoveRuntime/ground-targets` boundary with
+`app/runtime/fieldMoveRuntime/fieldMoveGroundTargets.js`.
+
+Study path:
+
+1. The module owns pure target-selection policies for field-move ground cells:
+   free-roam restoration cells, already-resolved feedback cells, Grow First
+   Habitat guidance cells, Boulder-Shaded Tall Grass guidance cells and the
+   dry-grass Hydro mission visibility policy.
+2. `gameLoop.js` now wires session arrays into those helpers but no longer owns
+   the filtering, distance sorting, task-state checks or highlight state
+   decoration.
+3. Presentation modules keep receiving the same callback names through
+   `resolveGameplayGroundGuidanceFrameState(...)`; only the implementation
+   behind the callbacks moved.
+
+Removed from `gameLoop.js`:
+
+- `isDryGrassHydroMissionActive(...)`
+- `findNearbyFeedbackGroundCell(...)`
+- `isFreeRoamRestorationGroundCellCandidate(...)`
+- `buildFreeRoamRestorationGroundCells(...)`
+- `getFreeRoamRestorationGroundCells(...)`
+- `hasGrowFirstHabitatObjective(...)`
+- `isGrowFirstHabitatTaskActive(...)`
+- `getGrowFirstHabitatMarkedCellCount(...)`
+- `getGrowFirstHabitatReferencePosition(...)`
+- `getGrowFirstHabitatTaskGroundCells(...)`
+- `isBoulderShadedTallGrassTaskActive(...)`
+- `getBoulderShadedGroundCellDistanceEntries(...)`
+- `getBoulderShadedTaskGroundCells(...)`
+- `hasGroundPatchForCellId(...)`
+- `findAlreadyResolvedFieldMoveGroundCell(...)`
+
+Kept in `gameLoop.js`:
+
+- session wiring for ground-cell arrays and patch arrays;
+- primary action routing;
+- presentation-frame orchestration.
+
+Tests added:
+
+- `tests/fieldMoveGroundTargets.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/fieldMoveGroundTargets.test.js
+npm test -- --run tests/fieldMoveGroundTargets.test.js tests/groundCellHighlightFrameState.test.js tests/worldSpacePresentationFrameState.test.js tests/fieldMoveImpactRuntime.test.js tests/waterGunRuntime.test.js tests/fireRuntime.test.js tests/leafageRuntime.test.js
+npm run build
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `299` test files passed, `1` failed
+- `1808` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.

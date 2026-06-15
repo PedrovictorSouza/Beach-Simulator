@@ -148,6 +148,14 @@ export {
   resolveTimburrBuildBlockApproachPosition
 } from "./fieldMoveRuntime/buildBlockRuntime.js";
 import { createCompanionAbilityResourcesRuntime } from "./fieldMoveRuntime/companionAbilityResourcesRuntime.js";
+import {
+  BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
+  findAlreadyResolvedFieldMoveGroundCell,
+  getBoulderShadedTaskGroundCells,
+  getFreeRoamRestorationGroundCells,
+  getGrowFirstHabitatTaskGroundCells,
+  isDryGrassHydroMissionActive
+} from "./fieldMoveRuntime/fieldMoveGroundTargets.js";
 import { createFieldMoveImpactRuntime } from "./fieldMoveRuntime/fieldMoveImpactRuntime.js";
 import { createFireRuntime } from "./fieldMoveRuntime/fireRuntime.js";
 import { createLeafageRuntime } from "./fieldMoveRuntime/leafageRuntime.js";
@@ -268,7 +276,6 @@ export {
 } from "./construction/pendingPlacementIntent.js";
 
 import {
-  FIELD_MOVE_INVALID_GROUND_CELL_RADIUS_FACTOR,
   LANDSCAPE_CUT_EFFECT_DURATION,
   LANDSCAPE_CUT_EFFECT_LERP_PORTION,
   LANDSCAPE_CUT_EFFECT_LIFT,
@@ -347,8 +354,6 @@ import {
   getGameplayOpeningShipSceneObjects
 } from "../session/gameplayOpeningShip.js";
 import {
-  BOULDER_SHADED_TALL_GRASS_BOULDER_POSITION,
-  BOULDER_SHADED_TALL_GRASS_RADIUS,
   CARBON_ITEM_ID,
   GEAR_ITEM_ID,
   LEAVES_ITEM_ID,
@@ -414,11 +419,6 @@ import {
 } from "./input/createGameplayInputRuntime.js";
 
 
-const BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT = 10;
-const BOULDER_SHADED_TALL_GRASS_TASK_ID = "boulder-shaded-tall-grass";
-const GROW_FIRST_HABITAT_TASK_ID = "grow-first-habitat";
-const GROW_FIRST_HABITAT_OBJECTIVE_ID = "grow-four-plants";
-const GROW_FIRST_HABITAT_MARKED_CELL_COUNT = 4;
 const SUPPLY_PICKUP_FLY_ITEM_IDS = Object.freeze(["wood", GEAR_ITEM_ID, LEAVES_ITEM_ID, CARBON_ITEM_ID]);
 const GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT = [2.85, 1.7];
 const WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX = 72;
@@ -490,8 +490,6 @@ const GROUND_ACTION_FEEDBACK_DURATION_MS = 1000;
 const FIELD_TOOL_TARGET_PULSE_DURATION_MS = 500;
 const FIELD_TOOL_TARGET_PULSE_MIN_SCALE = 0.7;
 const FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS = 0.4;
-const FREE_ROAM_RESTORATION_GRID_RADIUS_FACTOR = 3.2;
-const FREE_ROAM_RESTORATION_GRID_MAX_CELLS = 24;
 const TREE_REVIVAL_LEAF_BURST_COUNT = 18;
 const TREE_REVIVAL_LEAF_BURST_DURATION = 1.65;
 const FREE_BLOCK_DROP_SIZE = Object.freeze([0.78, 0.78]);
@@ -671,24 +669,6 @@ function getRotatedPlacementSize(size = [1, 1], yaw = 0) {
   return getRotatedPlacementSizeWithConfig(size, yaw, {
     placementRotationStep: PLACEMENT_ROTATION_STEP
   });
-}
-
-function isDryGrassHydroMissionActive(activeQuest, storyState = {}, playerSkills = {}) {
-  const flags = storyState?.flags || {};
-  const restoredGrassCount = Number(flags.restoredGrassCount || 0);
-  const activeDryGrassQuest = activeQuest?.id === "water-dry-grass";
-  const activeBulbasaurDryGrassRequest =
-    flags.bulbasaurDryGrassMissionAccepted &&
-    !flags.bulbasaurDryGrassMissionComplete &&
-    restoredGrassCount < BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT;
-
-  return Boolean(
-    playerSkills?.waterGun &&
-    (
-      activeDryGrassQuest ||
-      activeBulbasaurDryGrassRequest
-    )
-  );
 }
 
 function buildSolarStationFieldMarkedGroundCells(placementTarget) {
@@ -2298,271 +2278,6 @@ export function startGameLoop({
       (offset[1] || 0) + 0.04,
       offset[2] || 0
     ];
-  }
-
-  function findNearbyFeedbackGroundCell(playerPosition, groundCells = []) {
-    if (!Array.isArray(playerPosition) || !Array.isArray(groundCells)) {
-      return null;
-    }
-
-    let nearestGroundCell = null;
-    let nearestDistance = Infinity;
-
-    for (const groundCell of groundCells) {
-      if (
-        !groundCell ||
-        groundCell.active === false ||
-        !Array.isArray(groundCell.offset)
-      ) {
-        continue;
-      }
-
-      const deltaX = playerPosition[0] - groundCell.offset[0];
-      const deltaZ = playerPosition[2] - groundCell.offset[2];
-      const distance = Math.hypot(deltaX, deltaZ);
-      const interactDistance =
-        (groundCell.tileSpan || groundCell.size?.[0] || 1) *
-        FIELD_MOVE_INVALID_GROUND_CELL_RADIUS_FACTOR;
-
-      if (distance <= interactDistance && distance < nearestDistance) {
-        nearestGroundCell = groundCell;
-        nearestDistance = distance;
-      }
-    }
-
-    return nearestGroundCell;
-  }
-
-  function isFreeRoamRestorationGroundCellCandidate(groundCell) {
-    return Boolean(
-      groundCell &&
-      groundCell.active !== false &&
-      Array.isArray(groundCell.offset) &&
-      !groundCell.terrainLayer &&
-      !groundCell.terrainStackHeight
-    );
-  }
-
-  function buildFreeRoamRestorationGroundCells(playerPosition, groundCells = [], abilityId = null) {
-    if (!Array.isArray(playerPosition) || !Array.isArray(groundCells) || !abilityId) {
-      return [];
-    }
-
-    return groundCells
-      .filter(isFreeRoamRestorationGroundCellCandidate)
-      .map((groundCell) => {
-        const tileSpan = groundCell.tileSpan || groundCell.size?.[0] || 1;
-        const maxDistance = tileSpan * FREE_ROAM_RESTORATION_GRID_RADIUS_FACTOR;
-        const deltaX = playerPosition[0] - groundCell.offset[0];
-        const deltaZ = playerPosition[2] - groundCell.offset[2];
-        const distance = Math.hypot(deltaX, deltaZ);
-        return {
-          distance,
-          groundCell,
-          maxDistance
-        };
-      })
-      .filter(({ distance, maxDistance }) => distance <= maxDistance)
-      .sort((left, right) => left.distance - right.distance)
-      .slice(0, FREE_ROAM_RESTORATION_GRID_MAX_CELLS)
-      .map(({ groundCell }) => ({
-        ...groundCell,
-        highlightTargetState: "valid",
-        highlightAbilityId: abilityId
-      }));
-  }
-
-  function getFreeRoamRestorationGroundCells({
-    playerPosition,
-    waterGunEquipped = false,
-    leafageEquipped = false,
-    fireEquipped = false
-  } = {}) {
-    if (fireEquipped) {
-      return buildFreeRoamRestorationGroundCells(playerPosition, session.iceGroundInstances, "fire");
-    }
-
-    if (leafageEquipped) {
-      return buildFreeRoamRestorationGroundCells(
-        playerPosition,
-        (session.groundPurifiedInstances || []).filter((groundCell) => {
-          return hasGroundPatchForCellId(groundCell?.id);
-        }),
-        "leafage"
-      );
-    }
-
-    if (waterGunEquipped) {
-      return buildFreeRoamRestorationGroundCells(playerPosition, session.groundDeadInstances, "waterGun");
-    }
-
-    return [];
-  }
-
-  function hasGrowFirstHabitatObjective(task = null) {
-    return (task?.objectives || []).some((objective) => {
-      return objective?.id === GROW_FIRST_HABITAT_OBJECTIVE_ID;
-    });
-  }
-
-  function isGrowFirstHabitatTaskActive(...tasks) {
-    return tasks.some((task) => {
-      return task?.id === GROW_FIRST_HABITAT_TASK_ID ||
-        hasGrowFirstHabitatObjective(task);
-    });
-  }
-
-  function getGrowFirstHabitatMarkedCellCount(storyState = {}) {
-    const grownCount = Math.max(0, Math.trunc(Number(storyState?.flags?.leafageTallGrassCount || 0)));
-    return Math.max(0, GROW_FIRST_HABITAT_MARKED_CELL_COUNT - grownCount);
-  }
-
-  function getGrowFirstHabitatReferencePosition() {
-    return session.bulbasaurEncounter?.position ||
-      session.bulbasaurEncounter?.repairPosition ||
-      session.playerCharacter?.getPosition?.() ||
-      null;
-  }
-
-  function getGrowFirstHabitatTaskGroundCells({
-    activeQuest = null,
-    activeSystemQuest = null,
-    activeTask = null,
-    storyState = controls.storyState
-  } = {}) {
-    if (!isGrowFirstHabitatTaskActive(activeQuest, activeSystemQuest, activeTask)) {
-      return [];
-    }
-
-    const remainingCellCount = getGrowFirstHabitatMarkedCellCount(storyState);
-    const referencePosition = getGrowFirstHabitatReferencePosition();
-    if (remainingCellCount <= 0 || !Array.isArray(referencePosition)) {
-      return [];
-    }
-
-    return (session.groundPurifiedInstances || [])
-      .filter(isFreeRoamRestorationGroundCellCandidate)
-      .filter((groundCell) => !hasGroundPatchForCellId(groundCell?.id))
-      .map((groundCell) => {
-        const deltaX = groundCell.offset[0] - referencePosition[0];
-        const deltaZ = groundCell.offset[2] - referencePosition[2];
-        return {
-          distance: Math.hypot(deltaX, deltaZ),
-          groundCell
-        };
-      })
-      .sort((left, right) => left.distance - right.distance)
-      .slice(0, remainingCellCount)
-      .map(({ groundCell }) => ({
-        ...groundCell,
-        highlightTargetState: "leafage",
-        highlightAbilityId: "leafage"
-      }));
-  }
-
-  function isBoulderShadedTallGrassTaskActive(storyState = {}) {
-    const flags = storyState.flags || {};
-    const trackedTaskIds = Array.isArray(flags.trackedTaskIds) ? flags.trackedTaskIds : [];
-    const taskTracked =
-      !Array.isArray(flags.trackedTaskIds) ||
-      trackedTaskIds.includes(BOULDER_SHADED_TALL_GRASS_TASK_ID);
-
-    return Boolean(
-      taskTracked &&
-      flags.boulderChallengeAvailable &&
-      !flags.boulderShadedTallGrassHabitatCreated &&
-      !flags.boulderChallengeRewardClaimed
-    );
-  }
-
-  function getBoulderShadedGroundCellDistanceEntries(groundCells = [], boulderPosition) {
-    return (groundCells || [])
-      .filter(isFreeRoamRestorationGroundCellCandidate)
-      .filter((groundCell) => !hasGroundPatchForCellId(groundCell?.id))
-      .map((groundCell) => {
-        const deltaX = groundCell.offset[0] - boulderPosition[0];
-        const deltaZ = groundCell.offset[2] - boulderPosition[2];
-        return {
-          distance: Math.hypot(deltaX, deltaZ),
-          groundCell
-        };
-      })
-      .filter(({ distance }) => distance <= BOULDER_SHADED_TALL_GRASS_RADIUS)
-      .sort((left, right) => left.distance - right.distance);
-  }
-
-  function getBoulderShadedTaskGroundCells(storyState = {}) {
-    if (!isBoulderShadedTallGrassTaskActive(storyState)) {
-      return [];
-    }
-
-    const boulderPosition =
-      session.challengeBoulder?.position ||
-      BOULDER_SHADED_TALL_GRASS_BOULDER_POSITION;
-
-    const waterGunGroundCells = getBoulderShadedGroundCellDistanceEntries(
-      session.groundDeadInstances,
-      boulderPosition
-    ).map(({ groundCell }) => ({
-      ...groundCell,
-      highlightTargetState: "valid",
-      highlightAbilityId: "waterGun"
-    }));
-    const leafageGroundCells = getBoulderShadedGroundCellDistanceEntries(
-      session.groundPurifiedInstances,
-      boulderPosition
-    ).map(({ groundCell }) => ({
-      ...groundCell,
-      highlightTargetState: "valid",
-      highlightAbilityId: "leafage"
-    }));
-
-    return [
-      ...waterGunGroundCells,
-      ...leafageGroundCells
-    ];
-  }
-
-  function hasGroundPatchForCellId(cellId) {
-    if (typeof cellId !== "string") {
-      return false;
-    }
-
-    return [
-      ...(session.groundGrassPatches || []),
-      ...(session.groundFlowerPatches || [])
-    ].some((patch) => patch?.cellId === cellId);
-  }
-
-  function findAlreadyResolvedFieldMoveGroundCell(playerPosition, {
-    waterGunEquipped = false,
-    leafageEquipped = false,
-    fireEquipped = false
-  } = {}) {
-    if (waterGunEquipped) {
-      return findNearbyFeedbackGroundCell(
-        playerPosition,
-        session.groundPurifiedInstances
-      );
-    }
-
-    if (leafageEquipped) {
-      return findNearbyFeedbackGroundCell(
-        playerPosition,
-        (session.groundPurifiedInstances || []).filter((groundCell) => {
-          return hasGroundPatchForCellId(groundCell?.id);
-        })
-      );
-    }
-
-    if (fireEquipped) {
-      return findNearbyFeedbackGroundCell(
-        playerPosition,
-        session.groundDeadInstances
-      );
-    }
-
-    return null;
   }
 
   function queueTreeRevivalLeafBurstsForNewlyRevivedTrees(snapshot) {
@@ -4831,7 +4546,11 @@ export function startGameLoop({
           findAlreadyResolvedFieldMoveGroundCell(playerPosition, {
             waterGunEquipped,
             leafageEquipped: leafageEquipped && leafagePrimaryMoveRequested,
-            fireEquipped
+            fireEquipped,
+            groundDeadInstances: session.groundDeadInstances,
+            groundFlowerPatches: session.groundFlowerPatches,
+            groundGrassPatches: session.groundGrassPatches,
+            groundPurifiedInstances: session.groundPurifiedInstances
           }) :
           null;
       const primaryActionRepeatedFieldMove = Boolean(primaryActionAlreadyResolvedGroundCell);
@@ -5359,12 +5078,36 @@ if (canProcessDestroyAction && destroyActionRequested) {
       fireEquipped,
       openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState),
       getPendingSquirtleWaterGunGroundCells: () => waterGunRuntime.getPendingGroundCells(),
-      getFreeRoamRestorationGroundCells,
+      getFreeRoamRestorationGroundCells: (options) => getFreeRoamRestorationGroundCells({
+        ...options,
+        groundDeadInstances: session.groundDeadInstances,
+        groundFlowerPatches: session.groundFlowerPatches,
+        groundGrassPatches: session.groundGrassPatches,
+        groundPurifiedInstances: session.groundPurifiedInstances,
+        iceGroundInstances: session.iceGroundInstances
+      }),
       getLeppaTreeSurroundingGroundCells,
       isLeppaTreeTileHintFlashing: () => gameplay.isLeppaTreeTileHintFlashing?.(),
       buildSolarStationFieldMarkedGroundCells,
-      getBoulderShadedTaskGroundCells,
-      getGrowFirstHabitatTaskGroundCells,
+      getBoulderShadedTaskGroundCells: (storyState) => getBoulderShadedTaskGroundCells({
+        storyState,
+        challengeBoulder: session.challengeBoulder,
+        groundDeadInstances: session.groundDeadInstances,
+        groundFlowerPatches: session.groundFlowerPatches,
+        groundGrassPatches: session.groundGrassPatches,
+        groundPurifiedInstances: session.groundPurifiedInstances
+      }),
+      getGrowFirstHabitatTaskGroundCells: (options) => getGrowFirstHabitatTaskGroundCells({
+        ...options,
+        referencePosition:
+          session.bulbasaurEncounter?.position ||
+          session.bulbasaurEncounter?.repairPosition ||
+          session.playerCharacter?.getPosition?.() ||
+          null,
+        groundFlowerPatches: session.groundFlowerPatches,
+        groundGrassPatches: session.groundGrassPatches,
+        groundPurifiedInstances: session.groundPurifiedInstances
+      }),
       buildFoundationBuildZoneGroundCells,
       getWorldCellPlannerSelectedGroundCell
     });
