@@ -242,13 +242,7 @@ import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createWorkbenchRotationRuntime } from "./workbenchRotationRuntime.js";
 import { createWoodCollectPopRuntime } from "./woodCollectPopRuntime.js";
-import { createWorldCellPlannerClickRuntime } from "./worldCellPlannerClickRuntime.js";
-import {
-  createWorldCellPlannerSelection,
-  getWorldCellPlannerGroundCells,
-  projectWorldCellPlannerGroundCell,
-  resolveWorldCellPlannerPick as resolveWorldCellPlannerPickFromCandidates
-} from "./worldCellPlannerPicking.js";
+import { createWorldCellPlannerInteractionRuntime } from "./world/worldCellPlannerInteractionRuntime.js";
 
 export {
   resolveCompanionFollowDistance,
@@ -923,7 +917,15 @@ export function startGameLoop({
     leafageDurationMs: LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS,
     fireDurationMs: FIRE_INVALID_TARGET_PROMPT_DURATION_MS
   });
-  const worldCellPlannerClickRuntime = createWorldCellPlannerClickRuntime();
+  const worldCellPlannerInteractionRuntime = createWorldCellPlannerInteractionRuntime({
+    camera,
+    getGridConfig: () => getFreeBlockBuildGridConfig(),
+    hud,
+    maxDistancePx: WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX,
+    rendering,
+    session,
+    worldCanvas
+  });
   const movementQuestRuntime = createMovementQuestRuntime({
     minimumMovementDistance: 0.0005,
     reportDistance: 0.04
@@ -3276,104 +3278,15 @@ export function startGameLoop({
     return companionLostHintRuntime.get(hint, now);
   }
 
-  function isWorldCellPlannerActive() {
-    return Boolean(rendering?.debugWorldCellPlanner);
-  }
+  const processWorldCellPlannerClick = worldCellPlannerInteractionRuntime.processClick;
+  const getWorldCellPlannerSelectedGroundCell =
+    worldCellPlannerInteractionRuntime.getSelectedGroundCell;
 
-  function getWorldCellPlannerGridCell(groundCell) {
-    const idMatch = /^ground-(\d+)-(\d+)$/.exec(String(groundCell?.id || ""));
-    if (idMatch) {
-      return {
-        x: Number(idMatch[1]),
-        y: Number(idMatch[2])
-      };
-    }
-
-    if (!Array.isArray(groundCell?.offset)) {
-      return null;
-    }
-
-    const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
-    return gridSystem.worldToCell({
-      x: groundCell.offset[0],
-      y: groundCell.surfaceY || 0,
-      z: groundCell.offset[2]
-    });
-  }
-
-  function resolveWorldCellPlannerPick({ clientX, clientY } = {}) {
-    return resolveWorldCellPlannerPickFromCandidates({
-      request: { clientX, clientY },
-      groundCells: getWorldCellPlannerGroundCells({
-        groundDeadInstances: session.groundDeadInstances,
-        groundPurifiedInstances: session.groundPurifiedInstances,
-        iceGroundInstances: session.iceGroundInstances
-      }),
-      projectGroundCell: (groundCell) => projectWorldCellPlannerGroundCell({
-        groundCell,
-        camera,
-        worldCanvas
-      }),
-      createSelection: (groundCell) => createWorldCellPlannerSelection({
-        groundCell,
-        getGridCell: getWorldCellPlannerGridCell,
-        isColdGroundCell: (cell) => session.iceGroundInstances?.includes(cell)
-      }),
-      maxDistancePx: WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX
-    });
-  }
-
-  function handleWorldCellPlannerPointerDown(event) {
-    if (!isWorldCellPlannerActive() || (event.button ?? 0) !== 0) {
-      return;
-    }
-
-    if (event.target?.closest?.("button, input, textarea, select, [contenteditable='true']")) {
-      return;
-    }
-
-    event.preventDefault?.();
-    event.stopPropagation?.();
-    worldCellPlannerClickRuntime.queue({
-      clientX: event.clientX,
-      clientY: event.clientY
-    });
-  }
-
-  function processWorldCellPlannerClick() {
-    const request = worldCellPlannerClickRuntime.consume();
-    if (!request) {
-      return;
-    }
-
-    if (!isWorldCellPlannerActive()) {
-      return;
-    }
-
-    const pick = resolveWorldCellPlannerPick(request);
-    if (!pick) {
-      hud?.pushNotice?.("No world cell found there.");
-      return;
-    }
-
-    session.worldCellPlannerSelectedGroundCell = pick.groundCell;
-    rendering?.onWorldCellPlannerPick?.(pick.selection);
-    hud?.pushNotice?.(`Cell ${pick.selection.cellId} selected.`);
-  }
-
-  function getWorldCellPlannerSelectedGroundCell() {
-    if (!isWorldCellPlannerActive() || !session.worldCellPlannerSelectedGroundCell?.offset) {
-      return null;
-    }
-
-    return {
-      ...session.worldCellPlannerSelectedGroundCell,
-      highlightTargetState: "powerRadius",
-      highlightAbilityId: "debug"
-    };
-  }
-
-  mount?.addEventListener?.("pointerdown", handleWorldCellPlannerPointerDown, { capture: true });
+  mount?.addEventListener?.(
+    "pointerdown",
+    worldCellPlannerInteractionRuntime.handlePointerDown,
+    { capture: true }
+  );
 
   function syncCampfireTrainHouseModelInstance(nowSeconds = getRuntimeNowSeconds(), deltaTime = 0) {
     const instance = session.campfireTrainHouseModelInstance;

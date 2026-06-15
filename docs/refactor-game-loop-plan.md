@@ -3842,6 +3842,59 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### World Cell Planner Interaction Runtime Extraction
+
+Created the `world/world-cell-planner` boundary with
+`app/runtime/world/worldCellPlannerInteractionRuntime.js`.
+
+Study path:
+
+1. The existing picking helpers still own pure candidate selection and viewport
+   projection.
+2. The new interaction runtime owns planner activation checks, pointer event
+   filtering, click mailbox consumption, grid-cell resolution, selected-cell
+   session state, HUD notices and the highlighted selected-cell frame object.
+3. `gameLoop.js` now wires the runtime, registers the pointer listener and
+   calls `processWorldCellPlannerClick()` at the same frame point as before.
+
+Removed from `gameLoop.js`:
+
+- `isWorldCellPlannerActive(...)`
+- `getWorldCellPlannerGridCell(...)`
+- `resolveWorldCellPlannerPick(...)`
+- `handleWorldCellPlannerPointerDown(...)`
+- `processWorldCellPlannerClick(...)`
+- `getWorldCellPlannerSelectedGroundCell(...)`
+- direct imports of `worldCellPlannerClickRuntime.js` and
+  `worldCellPlannerPicking.js`
+
+Kept in `gameLoop.js`:
+
+- runtime creation with explicit dependencies;
+- `mount.addEventListener("pointerdown", ...)` registration;
+- the same frame-order call site for planner click processing;
+- the same selected-ground-cell callback passed into highlight frame state.
+
+Tests added:
+
+- `tests/worldCellPlannerInteractionRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/worldCellPlannerInteractionRuntime.test.js
+npm test -- --run tests/worldCellPlannerInteractionRuntime.test.js tests/worldCellPlannerPicking.test.js tests/worldCellPlannerClickRuntime.test.js tests/groundCellHighlightFrameState.test.js
+npm run build
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `302` test files passed, `1` failed
+- `1820` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Repair Box Investigation Runtime Integration
 
 Extended `app/runtime/companions/companionRepairBoxModelRuntime.js` again
