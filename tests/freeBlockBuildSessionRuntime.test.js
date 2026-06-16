@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { FREE_BLOCK_TYPES } from "../app/gameplay/freeBlockBuildSystem.js";
+import {
+  createRectangularFreeBlockBuildZone,
+  FREE_BLOCK_TYPES
+} from "../app/gameplay/freeBlockBuildSystem.js";
 import {
   createFreeBlockBuildSessionRuntime,
   normalizeFreeBlockBuildGridConfig
@@ -95,5 +98,85 @@ describe("free block build session runtime", () => {
         blockType: FREE_BLOCK_TYPES.WALL
       }
     ]);
+  });
+
+  it("counts foundation progress from restored floor blocks when no wall progress exists", () => {
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 0, y: 0 },
+      width: 4,
+      height: 4
+    });
+    const session = {
+      freeBlockBuildSnapshot: {
+        floorBlocks: [
+          { cell: buildZone.borderCells[0] },
+          { cell: { x: 99, y: 99 } }
+        ]
+      }
+    };
+    const runtime = createFreeBlockBuildSessionRuntime({
+      session,
+      defaultGridConfig: {
+        ...DEFAULT_GRID_CONFIG,
+        width: 8,
+        height: 8
+      }
+    });
+
+    runtime.getController();
+
+    expect(runtime.getFoundationBuildZoneProgressCount({ buildZone })).toBe(1);
+  });
+
+  it("allows stacking only after the active foundation border is complete", () => {
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 0, y: 0 },
+      width: 3,
+      height: 3
+    });
+    const session = {};
+    const runtime = createFreeBlockBuildSessionRuntime({
+      session,
+      defaultGridConfig: {
+        ...DEFAULT_GRID_CONFIG,
+        width: 8,
+        height: 8
+      }
+    });
+
+    runtime.getController();
+    expect(runtime.canStackFreeBlockPlacement({ buildZone })).toBe(false);
+
+    for (const cell of buildZone.borderCells) {
+      session.freeBlockBuildState.placeBlock(cell, {
+        blockType: FREE_BLOCK_TYPES.WALL
+      });
+    }
+
+    expect(runtime.canStackFreeBlockPlacement({ buildZone })).toBe(true);
+  });
+
+  it("syncs the active foundation build zone into session state", () => {
+    const session = {};
+    const flags = {
+      builderTutorialFoundationOriginCell: { x: 1, y: 2 }
+    };
+    const runtime = createFreeBlockBuildSessionRuntime({
+      session,
+      defaultGridConfig: DEFAULT_GRID_CONFIG
+    });
+
+    const buildZone = runtime.syncActiveBuildZone({
+      flags,
+      getFoundationProgressCount: () => 0,
+      isBuildZoneBlocked: () => false,
+      findAvailableBuildZone: () => {
+        throw new Error("saved zone should be reused");
+      }
+    });
+
+    expect(session.activeFreeBlockBuildZone).toBe(buildZone);
+    expect(session.freeBlockBuildZoneUnavailable).toBe(false);
+    expect(flags.builderTutorialFoundationOriginCell).toEqual(buildZone.originCell);
   });
 });

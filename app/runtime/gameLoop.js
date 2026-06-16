@@ -16,17 +16,12 @@ import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevea
 import { createSquirtleReassemblyRuntime } from "./companions/squirtleReassemblyRuntime.js";
 import {
   buildFoundationBuildZoneBlockers as buildFoundationBuildZoneBlockersWithSources,
-  canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
   applyFoundationBuildZoneCompleteEffects,
   createUnavailableFoundationBuildZoneValidation,
   findAvailableBuilderTutorialFoundationBuildZone as findAvailableBuilderTutorialFoundationBuildZoneWithConfig,
   getBuilderTutorialFoundationZoneSignature,
-  getFoundationBuildZoneProgressCount as getFoundationBuildZoneProgressCountFromState,
-  getSavedBuilderTutorialFoundationOriginCell as getSavedBuilderTutorialFoundationOriginCellFromFlags,
   isBuilderTutorialFoundationBuildZoneBlocked as isBuilderTutorialFoundationBuildZoneBlockedWithBlockers,
   isFoundationFreeBlockAllowedInZone as isFoundationFreeBlockAllowedInZoneWithState,
-  resolveActiveBuilderTutorialFoundationBuildZone,
-  saveBuilderTutorialFoundationOriginCell as saveBuilderTutorialFoundationOriginCellToFlags,
   shouldShowFoundationBuildZone as shouldShowFoundationBuildZoneWithState
 } from "./construction/foundationBuildZone.js";
 import {
@@ -390,7 +385,6 @@ import {
 import { createGridSystem } from "../gameplay/gridBuildingSystem.js";
 import {
   FREE_BLOCK_TYPES,
-  getFreeBlockBuildZoneProgress,
   resolveFreeBlockTargetCell
 } from "../gameplay/freeBlockBuildSystem.js";
 import { evaluateHabitatSiteChoice } from "../gameplay/habitatSiteChoiceContract.js";
@@ -2103,19 +2097,6 @@ export function startGameLoop({
     );
   }
 
-  function getSavedBuilderTutorialFoundationOriginCell() {
-    return getSavedBuilderTutorialFoundationOriginCellFromFlags({
-      flags: controls.storyState?.flags
-    });
-  }
-
-  function saveBuilderTutorialFoundationOriginCell(originCell) {
-    saveBuilderTutorialFoundationOriginCellToFlags({
-      flags: controls.storyState?.flags,
-      originCell
-    });
-  }
-
   function getFoundationBuildZoneWorldRect(buildZone = null) {
     return getFoundationBuildZoneWorldRectWithGrid(buildZone, getFreeBlockBuildGridConfig());
   }
@@ -2129,15 +2110,9 @@ export function startGameLoop({
   }
 
   function getFoundationBuildZoneProgressCount(buildZone = null) {
-    const progress = getFreeBlockBuildZoneProgress({
-      buildState: session.freeBlockBuildState,
+    return freeBlockBuildSessionRuntime.getFoundationBuildZoneProgressCount({
       buildZone,
       blockType: FREE_BLOCK_TYPES.WALL
-    });
-    return getFoundationBuildZoneProgressCountFromState({
-      progress,
-      buildZone,
-      floorBlocks: session.freeBlockBuildSnapshot?.floorBlocks || []
     });
   }
 
@@ -2189,21 +2164,12 @@ export function startGameLoop({
   }
 
   function syncActiveFreeBlockBuildZone() {
-    const savedOrigin = getSavedBuilderTutorialFoundationOriginCell();
-    const resolution = resolveActiveBuilderTutorialFoundationBuildZone({
-      savedOriginCell: savedOrigin,
+    return freeBlockBuildSessionRuntime.syncActiveBuildZone({
+      flags: controls.storyState?.flags,
       getFoundationProgressCount: getFoundationBuildZoneProgressCount,
       isBuildZoneBlocked: isBuilderTutorialFoundationBuildZoneBlocked,
       findAvailableBuildZone: findAvailableBuilderTutorialFoundationBuildZone
     });
-
-    if (resolution.originCellToSave) {
-      saveBuilderTutorialFoundationOriginCell(resolution.originCellToSave);
-    }
-
-    session.freeBlockBuildZoneUnavailable = resolution.unavailable;
-    session.activeFreeBlockBuildZone = resolution.buildZone;
-    return resolution.buildZone;
   }
 
   function getActiveFreeBlockBuildZone() {
@@ -2211,7 +2177,7 @@ export function startGameLoop({
   }
 
   function isFoundationBuildZoneUnavailable() {
-    return Boolean(session.freeBlockBuildZoneUnavailable);
+    return freeBlockBuildSessionRuntime.isBuildZoneUnavailable();
   }
 
   function getFreeBlockBuildZoneCenterPosition(buildZone = getActiveFreeBlockBuildZone()) {
@@ -2307,8 +2273,7 @@ export function startGameLoop({
   }
 
   function syncFoundationBuildZoneCompletionEffects(now = performance.now()) {
-    const progress = getFreeBlockBuildZoneProgress({
-      buildState: session.freeBlockBuildState,
+    const progress = freeBlockBuildSessionRuntime.getBuildZoneProgress({
       buildZone: getActiveFreeBlockBuildZone(),
       blockType: FREE_BLOCK_TYPES.WALL
     });
@@ -2321,12 +2286,10 @@ export function startGameLoop({
   }
 
   function canStackFreeBlockPlacement() {
-    const progress = getFreeBlockBuildZoneProgress({
-      buildState: session.freeBlockBuildState,
+    return freeBlockBuildSessionRuntime.canStackFreeBlockPlacement({
       buildZone: getActiveFreeBlockBuildZone(),
       blockType: FREE_BLOCK_TYPES.WALL
     });
-    return canStackFreeBlockPlacementFromProgress({ progress });
   }
 
   function getFreeBlockCellWorldPosition(cell, gridSystem = createGridSystem(getFreeBlockBuildGridConfig())) {

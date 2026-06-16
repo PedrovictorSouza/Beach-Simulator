@@ -220,6 +220,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move Free Block preview target/sync flow into the `construction`
   boundary.
+- Completed: move Free Block foundation progress/active-zone session policy into
+  the `construction` boundary.
 - Completed: move status popup frame writes into the `presentation` boundary.
 - Completed: move HUD snapshot frame writes into the `presentation` boundary.
 - Completed: move companion status billboard builders into the `companions`
@@ -4303,6 +4305,77 @@ npm test
 
 - `308` test files passed, `1` failed
 - `1872` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
+### Free Block Build Zone Session Policy Extraction
+
+Expanded `app/runtime/construction/freeBlockBuildSessionRuntime.js`.
+
+Classification: `construction`, focused on Free Block foundation-zone session
+state, progress counting and stacking permission.
+
+Study path:
+
+1. `gameLoop.js` still owned session policy for the active Free Block foundation
+   zone: reading/saving the builder tutorial origin flag, resolving the active
+   build zone, storing unavailable state and counting progress.
+2. `createFreeBlockBuildSessionRuntime(...)` already owned the Free Block
+   controller, grid config and serialized build snapshot, so it was the right
+   owner for foundation progress and active-zone session writes.
+3. The runtime now exposes explicit methods:
+   `getBuildZoneProgress(...)`, `getFoundationBuildZoneProgressCount(...)`,
+   `canStackFreeBlockPlacement(...)`, `syncActiveBuildZone(...)` and
+   `isBuildZoneUnavailable()`.
+4. `gameLoop.js` keeps only composition callbacks for blocker checks, available
+   zone lookup, story flags and when the frame asks for the active zone.
+
+Removed from `gameLoop.js`:
+
+- direct builder tutorial foundation origin flag read/write;
+- direct active Free Block build-zone resolution and session assignment;
+- direct foundation progress count assembly from wall progress plus restored
+  floor snapshot;
+- direct stacking permission derivation from Free Block zone progress.
+
+Kept in `gameLoop.js`:
+
+- foundation build-zone blocker collection;
+- foundation ground-cell rendering helpers;
+- completion effects, feedback and construction cloud side effects;
+- frame order and all tuning values.
+
+Tests updated:
+
+- `tests/freeBlockBuildSessionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js
+```
+
+The first run failed because the new runtime methods were not exported yet.
+After adding them, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js tests/foundationBuildZone.test.js tests/freeBlockBuildSystem.test.js tests/freeBlockPreview.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1875` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
 

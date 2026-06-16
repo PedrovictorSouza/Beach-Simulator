@@ -1,9 +1,17 @@
 import {
   createFreeBlockBuildController,
   createFreeBlockBuildState,
-  FREE_BLOCK_TYPES
+  FREE_BLOCK_TYPES,
+  getFreeBlockBuildZoneProgress
 } from "../../gameplay/freeBlockBuildSystem.js";
 import { createGridSystem } from "../../gameplay/gridBuildingSystem.js";
+import {
+  canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
+  getFoundationBuildZoneProgressCount as getFoundationBuildZoneProgressCountFromState,
+  getSavedBuilderTutorialFoundationOriginCell,
+  resolveActiveBuilderTutorialFoundationBuildZone,
+  saveBuilderTutorialFoundationOriginCell
+} from "./foundationBuildZone.js";
 
 export function normalizeFreeBlockBuildGridConfig({
   sourceConfig = null,
@@ -86,9 +94,81 @@ export function createFreeBlockBuildSessionRuntime({
     return targetSession.freeBlockBuildSnapshot;
   }
 
+  function getBuildZoneProgress({
+    buildZone = null,
+    blockType = initialBlockType
+  } = {}) {
+    return getFreeBlockBuildZoneProgress({
+      buildState: targetSession.freeBlockBuildState,
+      buildZone,
+      blockType
+    });
+  }
+
+  function getFoundationBuildZoneProgressCount({
+    buildZone = null,
+    blockType = initialBlockType
+  } = {}) {
+    const progress = getBuildZoneProgress({
+      buildZone,
+      blockType
+    });
+    return getFoundationBuildZoneProgressCountFromState({
+      progress,
+      buildZone,
+      floorBlocks: targetSession.freeBlockBuildSnapshot?.floorBlocks || []
+    });
+  }
+
+  function canStackFreeBlockPlacement({
+    buildZone = null,
+    blockType = initialBlockType
+  } = {}) {
+    const progress = getBuildZoneProgress({
+      buildZone,
+      blockType
+    });
+    return canStackFreeBlockPlacementFromProgress({ progress });
+  }
+
+  function syncActiveBuildZone({
+    flags = null,
+    getFoundationProgressCount = getFoundationBuildZoneProgressCount,
+    isBuildZoneBlocked = () => true,
+    findAvailableBuildZone = () => null
+  } = {}) {
+    const savedOrigin = getSavedBuilderTutorialFoundationOriginCell({ flags });
+    const resolution = resolveActiveBuilderTutorialFoundationBuildZone({
+      savedOriginCell: savedOrigin,
+      getFoundationProgressCount,
+      isBuildZoneBlocked,
+      findAvailableBuildZone
+    });
+
+    if (resolution.originCellToSave) {
+      saveBuilderTutorialFoundationOriginCell({
+        flags,
+        originCell: resolution.originCellToSave
+      });
+    }
+
+    targetSession.freeBlockBuildZoneUnavailable = resolution.unavailable;
+    targetSession.activeFreeBlockBuildZone = resolution.buildZone;
+    return resolution.buildZone;
+  }
+
+  function isBuildZoneUnavailable() {
+    return Boolean(targetSession.freeBlockBuildZoneUnavailable);
+  }
+
   return {
     getGridConfig,
     getController,
-    syncSnapshot
+    syncSnapshot,
+    getBuildZoneProgress,
+    getFoundationBuildZoneProgressCount,
+    canStackFreeBlockPlacement,
+    syncActiveBuildZone,
+    isBuildZoneUnavailable
   };
 }
