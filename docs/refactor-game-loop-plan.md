@@ -3842,6 +3842,74 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Leaf Den Kit Placement Preview Frame Extraction
+
+Expanded the existing `constructionPlacementFrameRuntime` boundary in
+`app/runtime/construction/constructionPlacementFrameRuntime.js`.
+
+Classification: `construction`, focused on the powered House Kit / Leaf Den Kit
+placement-preview frame rule.
+
+Study path:
+
+1. Leaf Den Kit preview still owned placement snap, collision footprint,
+   building-kit validation, solar-station-radius gating, habitat `siteChoice`
+   and preview model-instance visual mutation directly in `gameLoop.js`.
+2. `updateLeafDenKitConstructionPlacementPreview(...)` now owns that sequence.
+3. `gameLoop.js` keeps composition-only dependencies: session preview, model
+   instance, footprints, blocker lookup, placement validation, power-radius
+   checks, habitat site-choice evaluator and workbench position.
+
+Removed from `gameLoop.js`:
+
+- direct Leaf Den Kit preview validation state mutation;
+- direct solar-station-radius invalid reason assignment;
+- direct `siteChoice` construction for the Leaf Den Kit preview frame;
+- direct `leafDen*` preview model-instance visual sync.
+
+Kept in `gameLoop.js`:
+
+- the `updateLeafDenKitPlacementPreview(...)` wrapper as composition glue;
+- tuning constants and domain callbacks;
+- Solar Station preview logic, because it still owns separate power-radius
+  preview behavior;
+- frame order and placement control flow.
+
+Tests updated:
+
+- `tests/constructionPlacementFrameRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+```
+
+The first run failed because
+`updateLeafDenKitConstructionPlacementPreview(...)` did not exist yet. After
+adding the helper, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js tests/placementGeometry.test.js tests/placementPreviewVisual.test.js tests/placementPreviewPrompts.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1851` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Leaf Den Construction Presentation Runtime Extraction
 
 Created the `construction/leaf-den-construction-presentation` boundary with

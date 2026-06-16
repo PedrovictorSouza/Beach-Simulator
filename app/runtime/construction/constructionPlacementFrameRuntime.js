@@ -10,6 +10,48 @@ function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+function syncPlacementPreviewModelInstance({
+  instance = null,
+  snappedPosition = [0, 0.02, 0],
+  preview = null,
+  timeSeconds = 0,
+  modelStateKeys = {},
+  resetSwayStrength = false
+} = {}) {
+  if (!instance) {
+    return null;
+  }
+
+  const previewVisual = resolveWorkbenchPlacementPreviewVisual({
+    valid: preview?.valid,
+    timeSeconds
+  });
+  const groundYKey = modelStateKeys.groundY || "placementGroundY";
+  const baseScaleKey = modelStateKeys.baseScale || "placementBaseScale";
+  const baseYawKey = modelStateKeys.baseYaw || "placementBaseYaw";
+  const groundY = instance[groundYKey] ?? Number(instance.offset?.[1] ?? snappedPosition[1] ?? 0.02);
+  const baseScale = instance[baseScaleKey] ?? Number(instance.scale || 1);
+  const baseYaw = instance[baseYawKey] ?? Number(instance.yaw || 0);
+  instance[groundYKey] = groundY;
+  instance[baseScaleKey] = baseScale;
+  instance[baseYawKey] = baseYaw;
+  instance.offset = [
+    snappedPosition[0],
+    groundY,
+    snappedPosition[2]
+  ];
+  instance.scale = baseScale;
+  instance.yaw = baseYaw + Number(preview?.yaw || 0);
+  if (resetSwayStrength) {
+    instance.swayStrength = 0;
+  }
+  instance.alpha = previewVisual.alpha;
+  instance.tint = previewVisual.tint;
+  instance.tintStrength = previewVisual.tintStrength;
+  instance.active = true;
+  return instance;
+}
+
 export function syncPlacementPreviewPositionToPlayer({
   preview = null,
   playerPosition = null,
@@ -110,35 +152,90 @@ export function updateRectangularConstructionPlacementPreview({
   preview.invalidReason = validation.valid ? null : validation.reason;
   preview.readyForConfirm = true;
 
-  if (instance) {
-    const previewVisual = resolveWorkbenchPlacementPreviewVisual({
-      valid: preview.valid,
-      timeSeconds
-    });
-    const groundYKey = modelStateKeys.groundY || "placementGroundY";
-    const baseScaleKey = modelStateKeys.baseScale || "placementBaseScale";
-    const baseYawKey = modelStateKeys.baseYaw || "placementBaseYaw";
-    const groundY = instance[groundYKey] ?? Number(instance.offset?.[1] ?? snappedPosition[1] ?? 0.02);
-    const baseScale = instance[baseScaleKey] ?? Number(instance.scale || 1);
-    const baseYaw = instance[baseYawKey] ?? Number(instance.yaw || 0);
-    instance[groundYKey] = groundY;
-    instance[baseScaleKey] = baseScale;
-    instance[baseYawKey] = baseYaw;
-    instance.offset = [
-      snappedPosition[0],
-      groundY,
-      snappedPosition[2]
-    ];
-    instance.scale = baseScale;
-    instance.yaw = baseYaw + Number(preview.yaw || 0);
-    if (resetSwayStrength) {
-      instance.swayStrength = 0;
-    }
-    instance.alpha = previewVisual.alpha;
-    instance.tint = previewVisual.tint;
-    instance.tintStrength = previewVisual.tintStrength;
-    instance.active = true;
+  syncPlacementPreviewModelInstance({
+    instance,
+    snappedPosition,
+    preview,
+    timeSeconds,
+    modelStateKeys,
+    resetSwayStrength
+  });
+
+  return preview;
+}
+
+export function updateLeafDenKitConstructionPlacementPreview({
+  preview = null,
+  instance = null,
+  timeSeconds = 0,
+  fallbackFootprint = [1, 1],
+  gridFootprint = { width: 1, height: 1 },
+  getBlockers = () => [],
+  validatePlacement = () => ({ valid: true, reason: null }),
+  syncPlacementPreview = () => {},
+  isInsidePowerRadius = () => true,
+  evaluateSiteChoice = () => null,
+  getSolarStationPowerPosition = () => null,
+  workbenchPosition = null,
+  getSolarStationPowerRadius = () => 0
+} = {}) {
+  if (!preview?.active) {
+    return null;
   }
+
+  syncPlacementPreview(preview);
+
+  const snappedPosition = getSnappedPlacementPreviewPosition(preview);
+  const previewCollisionSize = getPlacementPreviewFootprintWorldSize(
+    preview,
+    gridFootprint
+  );
+  const blockers = getBlockers();
+  const validation = validatePlacement({
+    position: snappedPosition,
+    size: previewCollisionSize,
+    blockers
+  });
+  const insidePowerRadius = validation.valid ?
+    isInsidePowerRadius(snappedPosition) :
+    false;
+
+  preview.snappedPosition = snappedPosition;
+  preview.effectiveSize = getRotatedPlacementSize(
+    Array.isArray(preview.size) ?
+      preview.size :
+      fallbackFootprint,
+    preview.yaw
+  );
+  preview.valid = validation.valid && insidePowerRadius;
+  preview.invalidReason = preview.valid ?
+    null :
+    validation.valid ? "outside-solar-station-radius" : validation.reason;
+  preview.siteChoice = evaluateSiteChoice({
+    position: snappedPosition,
+    footprint: previewCollisionSize,
+    blockers,
+    groundState: validation.valid || validation.reason !== "invalid-terrain" ? "stable" : "dry",
+    requiresPower: true,
+    solarStationPosition: getSolarStationPowerPosition(),
+    workbenchPosition,
+    thresholds: {
+      solarStationRadius: getSolarStationPowerRadius()
+    }
+  });
+  preview.readyForConfirm = true;
+
+  syncPlacementPreviewModelInstance({
+    instance,
+    snappedPosition,
+    preview,
+    timeSeconds,
+    modelStateKeys: {
+      groundY: "leafDenGroundY",
+      baseScale: "leafDenBaseScale",
+      baseYaw: "leafDenBaseYaw"
+    }
+  });
 
   return preview;
 }

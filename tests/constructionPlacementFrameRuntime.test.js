@@ -4,6 +4,7 @@ import {
   createConstructionPlacementFrameRuntime,
   resolveActiveConstructionPlacementPreviews,
   syncPlacementPreviewPositionToPlayer,
+  updateLeafDenKitConstructionPlacementPreview,
   updateRectangularConstructionPlacementPreview
 } from "../app/runtime/construction/constructionPlacementFrameRuntime.js";
 
@@ -197,6 +198,86 @@ describe("construction placement frame runtime", () => {
       shouldHideInactiveInstance: () => false
     })).toBeNull();
     expect(keptInstance.active).toBe(true);
+  });
+
+  it("updates Leaf Den Kit previews with power radius and site choice state", () => {
+    const blockers = [{ id: "blocking-object" }];
+    const siteChoice = { id: "site-choice" };
+    const validatePlacement = vi.fn(() => ({
+      valid: true,
+      reason: null
+    }));
+    const isInsidePowerRadius = vi.fn(() => false);
+    const evaluateSiteChoice = vi.fn(() => siteChoice);
+    const preview = {
+      active: true,
+      position: [1, 0.02, 2],
+      size: [1.95, 1.45],
+      gridStep: 1,
+      yaw: Math.PI * 0.5
+    };
+    const instance = {
+      offset: [0, 0.12, 0],
+      scale: 1.4,
+      yaw: 0.3
+    };
+
+    expect(updateLeafDenKitConstructionPlacementPreview({
+      preview,
+      instance,
+      timeSeconds: 0,
+      fallbackFootprint: [1.95, 1.45],
+      gridFootprint: { width: 3, height: 3 },
+      getBlockers: () => blockers,
+      validatePlacement,
+      syncPlacementPreview: (activePreview) => {
+        activePreview.position = [4, 0.02, 6];
+      },
+      isInsidePowerRadius,
+      evaluateSiteChoice,
+      getSolarStationPowerPosition: () => [8, 0.02, 8],
+      workbenchPosition: [2, 0.02, 2],
+      getSolarStationPowerRadius: () => 7
+    })).toBe(preview);
+
+    expect(validatePlacement).toHaveBeenCalledWith({
+      position: [4, 0.02, 6],
+      size: [3, 3],
+      blockers
+    });
+    expect(isInsidePowerRadius).toHaveBeenCalledWith([4, 0.02, 6]);
+    expect(evaluateSiteChoice).toHaveBeenCalledWith({
+      position: [4, 0.02, 6],
+      footprint: [3, 3],
+      blockers,
+      groundState: "stable",
+      requiresPower: true,
+      solarStationPosition: [8, 0.02, 8],
+      workbenchPosition: [2, 0.02, 2],
+      thresholds: {
+        solarStationRadius: 7
+      }
+    });
+    expect(preview).toMatchObject({
+      snappedPosition: [4, 0.02, 6],
+      effectiveSize: [1.45, 1.95],
+      valid: false,
+      invalidReason: "outside-solar-station-radius",
+      siteChoice,
+      readyForConfirm: true
+    });
+    expect(instance).toMatchObject({
+      leafDenGroundY: 0.12,
+      leafDenBaseScale: 1.4,
+      leafDenBaseYaw: 0.3,
+      offset: [4, 0.12, 6],
+      scale: 1.4,
+      yaw: 0.3 + Math.PI * 0.5,
+      active: true,
+      tint: [1, 0.04, 0.02]
+    });
+    expect(instance.alpha).toBeCloseTo(0.46);
+    expect(instance.tintStrength).toBeCloseTo(0.79);
   });
 
   it("keeps only placement previews whose session preview is still active", () => {

@@ -52,6 +52,7 @@ import {
 import {
   createConstructionPlacementFrameRuntime,
   resolveActiveConstructionPlacementPreviews,
+  updateLeafDenKitConstructionPlacementPreview,
   updateRectangularConstructionPlacementPreview
 } from "./construction/constructionPlacementFrameRuntime.js";
 import {
@@ -1855,81 +1856,24 @@ export function startGameLoop({
   }
 
   function updateLeafDenKitPlacementPreview(timeSeconds = 0) {
-    const preview = session.leafDenKitPlacementPreview;
-    if (!preview?.active) {
-      return null;
-    }
-
-    constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview);
-
-    const snappedPosition = getSnappedSolarStationPreviewPosition(preview);
-    const previewSize = getRotatedPlacementSize(
-      Array.isArray(preview.size) ?
-        preview.size :
-        LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
-      preview.yaw
-    );
-    const previewCollisionSize = getPlacementPreviewFootprintWorldSize(
-      preview,
-      LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT
-    );
-    const blockers = getSolarStationPlacementBlockers(session, controls.storyState);
-    const validation = validateBuildingKitPlacement({
-      position: snappedPosition,
-      size: previewCollisionSize,
-      blockers
-    });
-    const insideSolarStationPowerRadius = validation.valid ?
-      isInsideSolarStationPowerRadius(session, controls.storyState, snappedPosition) :
-      false;
-    const siteChoice = evaluateHabitatSiteChoice({
-      position: snappedPosition,
-      footprint: previewCollisionSize,
-      blockers,
-      groundState: validation.valid || validation.reason !== "invalid-terrain" ? "stable" : "dry",
-      requiresPower: true,
-      solarStationPosition: getSolarStationPowerPosition(session, controls.storyState),
+    return updateLeafDenKitConstructionPlacementPreview({
+      preview: session.leafDenKitPlacementPreview,
+      instance: session.leafDenPlacementPreviewModelInstance,
+      timeSeconds,
+      fallbackFootprint: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
+      gridFootprint: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT,
+      getBlockers: () => getSolarStationPlacementBlockers(session, controls.storyState),
+      validatePlacement: validateBuildingKitPlacement,
+      syncPlacementPreview: (preview) =>
+        constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview),
+      isInsidePowerRadius: (position) =>
+        isInsideSolarStationPowerRadius(session, controls.storyState, position),
+      evaluateSiteChoice: evaluateHabitatSiteChoice,
+      getSolarStationPowerPosition: () =>
+        getSolarStationPowerPosition(session, controls.storyState),
       workbenchPosition: WORKBENCH_POSITION,
-      thresholds: {
-        solarStationRadius: getSolarStationPowerRadius(session)
-      }
+      getSolarStationPowerRadius: () => getSolarStationPowerRadius(session)
     });
-
-    preview.snappedPosition = snappedPosition;
-    preview.effectiveSize = previewSize;
-    preview.valid = validation.valid && insideSolarStationPowerRadius;
-    preview.invalidReason = preview.valid ?
-      null :
-      validation.valid ? "outside-solar-station-radius" : validation.reason;
-    preview.siteChoice = siteChoice;
-    preview.readyForConfirm = true;
-
-    if (session.leafDenPlacementPreviewModelInstance) {
-      const instance = session.leafDenPlacementPreviewModelInstance;
-      const previewVisual = resolveWorkbenchPlacementPreviewVisual({
-        valid: preview.valid,
-        timeSeconds
-      });
-      const groundY = instance.leafDenGroundY ?? Number(instance.offset?.[1] ?? snappedPosition[1] ?? 0.02);
-      const baseScale = instance.leafDenBaseScale ?? Number(instance.scale || 1);
-      const baseYaw = instance.leafDenBaseYaw ?? Number(instance.yaw || 0);
-      instance.leafDenGroundY = groundY;
-      instance.leafDenBaseScale = baseScale;
-      instance.leafDenBaseYaw = baseYaw;
-      instance.offset = [
-        snappedPosition[0],
-        groundY,
-        snappedPosition[2]
-      ];
-      instance.scale = baseScale;
-      instance.yaw = baseYaw + Number(preview.yaw || 0);
-      instance.alpha = previewVisual.alpha;
-      instance.tint = previewVisual.tint;
-      instance.tintStrength = previewVisual.tintStrength;
-      instance.active = true;
-    }
-
-    return preview;
   }
 
   function updateCampfirePlacementPreview(timeSeconds = 0) {
