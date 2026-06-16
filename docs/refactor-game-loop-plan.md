@@ -376,6 +376,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move Free Block build/preview/remove wiring into the
   `construction` boundary.
+- Completed: move construction placement preview wiring into the
+  `construction` boundary.
 - Completed: move player harvest/interact/destroy action side effects into the
   `player` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
@@ -3874,6 +3876,70 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Construction Placement Preview Runtime Wiring
+
+Created `app/runtime/construction/constructionPlacementPreviewRuntime.js` so
+the construction boundary owns the wiring for Solar Station, Leaf Den Kit,
+Campfire/Train House and Greenhouse placement previews.
+
+Boundary classification: `construction`, focused on placement preview update
+wiring. The runtime delegates to the existing preview update helpers and keeps
+the same validation, blocker, solar-radius and model-state behavior.
+
+Removed from `gameLoop.js`:
+
+- local Solar Station placement preview wrapper;
+- local Leaf Den Kit placement preview wrapper;
+- local Campfire/Train House rectangular preview wrapper;
+- local Greenhouse rectangular preview wrapper;
+- direct imports of preview update internals from
+  `constructionPlacementFrameRuntime.js`.
+
+Kept in `gameLoop.js`:
+
+- `startGameLoop()` composition wiring;
+- construction placement frame ordering;
+- placement cancel/rotate controls;
+- placement tuning constants passed into the construction runtime.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `3510` lines.
+- After this cut, `app/runtime/gameLoop.js` is `3457` lines.
+
+Tests added:
+
+- `tests/constructionPlacementPreviewRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPlacementPreviewRuntime.test.js
+```
+
+The first run failed because `createConstructionPlacementPreviewRuntime(...)`
+did not exist yet. After adding the runtime under the existing
+`app/runtime/construction` boundary, the focused runtime test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementPreviewRuntime.test.js tests/constructionPlacementFrameRuntime.test.js tests/solarStationPlacementBlockers.test.js tests/solarStationPowerRadius.test.js
+npm run build
+```
+
+Focused result:
+
+- `4` test files passed
+- `32` tests passed
+
+Full-suite validation was not repeated for this cut. The known baseline still
+has failures outside this boundary: the existing Leafage Native Tree failures
+and the isolated scene-flow failure tied to dirty `startScreen.js` / bootstrap
+work.
 
 Manual gameplay validation remains pending for this cut.
 

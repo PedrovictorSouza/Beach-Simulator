@@ -23,13 +23,11 @@ import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuil
 import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
 import { createConstructionHouseModelInstanceRuntime } from "./construction/constructionHouseModelInstances.js";
 import { createConstructionHelperMotionRuntime } from "./construction/constructionHelperMotion.js";
+import { createConstructionPlacementPreviewRuntime } from "./construction/constructionPlacementPreviewRuntime.js";
 import {
   createConstructionPlacementFrameRuntime,
   resolveActiveConstructionPlacementPreviews,
-  rotateActiveConstructionPlacementPreviews,
-  updateLeafDenKitConstructionPlacementPreview,
-  updateRectangularConstructionPlacementPreview,
-  updateSolarStationConstructionPlacementPreview
+  rotateActiveConstructionPlacementPreviews
 } from "./construction/constructionPlacementFrameRuntime.js";
 import {
   cancelPendingWorkbenchPlacementIntent,
@@ -1152,6 +1150,29 @@ export function startGameLoop({
     getPlacementCollisionSize,
     getPlacementPreviewFootprintWorldSize
   });
+  const constructionPlacementPreviewRuntime = createConstructionPlacementPreviewRuntime({
+    session,
+    controls,
+    solarStationPlacementBlockerRuntime,
+    solarStationPowerRadiusRuntime,
+    validatePlacement: validateBuildingKitPlacement,
+    evaluateSiteChoice: evaluateHabitatSiteChoice,
+    config: {
+      solarStationGridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
+      solarStationFollowDistance: SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE,
+      leafDenKitFallbackFootprint: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
+      leafDenKitGridFootprint: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT,
+      trainHouseFallbackFootprint: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+      trainHouseGridFootprint: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
+      greenhouseFallbackFootprint: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+      greenhouseGridFootprint: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
+      workbenchPosition: WORKBENCH_POSITION
+    },
+    callbacks: {
+      syncPlacementPreviewPositionToPlayer: (...args) =>
+        constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(...args)
+    }
+  });
   const constructionPlacementFrameRuntime = createConstructionPlacementFrameRuntime({
     controls,
     getMovementAxes: () => camera.getMovementAxes(),
@@ -1172,10 +1193,14 @@ export function startGameLoop({
       playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
       pushNotice: (message) => hud?.pushNotice?.(message),
       getFreeBlockInvalidPlacementNotice,
-      updateSolarStationPlacementPreview,
-      updateGreenhousePlacementPreview,
-      updateCampfirePlacementPreview,
-      updateLeafDenKitPlacementPreview,
+      updateSolarStationPlacementPreview: (...args) =>
+        constructionPlacementPreviewRuntime.updateSolarStation(...args),
+      updateGreenhousePlacementPreview: (...args) =>
+        constructionPlacementPreviewRuntime.updateGreenhouse(...args),
+      updateCampfirePlacementPreview: (...args) =>
+        constructionPlacementPreviewRuntime.updateCampfire(...args),
+      updateLeafDenKitPlacementPreview: (...args) =>
+        constructionPlacementPreviewRuntime.updateLeafDenKit(...args),
       updateSolarStationSpawnEffect,
       syncSolarStationWorkbenchRotationVisual: workbenchRotationRuntime.syncSolarStationWorkbenchRotationVisualFromSources,
       syncFreeBlockBuildPreview: (...args) => freeBlockBuildRuntime.syncPreview(...args),
@@ -1517,24 +1542,6 @@ export function startGameLoop({
     });
   }
 
-  function updateSolarStationPlacementPreview(timeSeconds = 0) {
-    return updateSolarStationConstructionPlacementPreview({
-      preview: session.strawBedPlacementPreview,
-      instance: session.strawBedModelInstance,
-      timeSeconds,
-      gridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
-      syncPlacementPreview: (preview) =>
-        constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(
-          preview,
-          SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE
-        ),
-      isPlacementBlocked: (previewRect) =>
-        solarStationPlacementBlockerRuntime.isBlocked(previewRect),
-      shouldHideInactiveInstance: () =>
-        !controls.storyState.flags.strawBedPlacedInBulbasaurHabitat
-    });
-  }
-
   function cancelPendingWorkbenchPlacementIntentWithNotice() {
     const canceledIntent = cancelPendingWorkbenchPlacementIntent(session);
     if (!canceledIntent) {
@@ -1559,66 +1566,6 @@ export function startGameLoop({
       normalizePlacementYaw,
       playRotateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE),
       pushNotice: (notice) => hud?.pushNotice?.(notice)
-    });
-  }
-
-  function updateLeafDenKitPlacementPreview(timeSeconds = 0) {
-    return updateLeafDenKitConstructionPlacementPreview({
-      preview: session.leafDenKitPlacementPreview,
-      instance: session.leafDenPlacementPreviewModelInstance,
-      timeSeconds,
-      fallbackFootprint: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
-      gridFootprint: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT,
-      getBlockers: solarStationPlacementBlockerRuntime.getBlockers,
-      validatePlacement: validateBuildingKitPlacement,
-      syncPlacementPreview: (preview) =>
-        constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview),
-      isInsidePowerRadius: (position) =>
-        solarStationPowerRadiusRuntime.isInsidePowerRadius(position),
-      evaluateSiteChoice: evaluateHabitatSiteChoice,
-      getSolarStationPowerPosition: solarStationPowerRadiusRuntime.getPowerPosition,
-      workbenchPosition: WORKBENCH_POSITION,
-      getSolarStationPowerRadius: solarStationPowerRadiusRuntime.getPowerRadius
-    });
-  }
-
-  function updateCampfirePlacementPreview(timeSeconds = 0) {
-    return updateRectangularConstructionPlacementPreview({
-      preview: session.campfirePlacementPreview,
-      instance: session.campfireTrainHouseModelInstance,
-      timeSeconds,
-      fallbackFootprint: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      gridFootprint: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
-      getBlockers: solarStationPlacementBlockerRuntime.getBlockers,
-      validatePlacement: validateBuildingKitPlacement,
-      syncPlacementPreview: (preview) =>
-        constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview),
-      modelStateKeys: {
-        groundY: "trainHouseGroundY",
-        baseScale: "trainHouseBaseScale",
-        baseYaw: "trainHouseBaseYaw"
-      },
-      shouldHideInactiveInstance: () => !controls.storyState.flags.campfireSpatOut,
-      resetSwayStrength: true
-    });
-  }
-
-  function updateGreenhousePlacementPreview(timeSeconds = 0) {
-    return updateRectangularConstructionPlacementPreview({
-      preview: session.greenhousePlacementPreview,
-      instance: session.greenhouseModelInstance,
-      timeSeconds,
-      fallbackFootprint: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      gridFootprint: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
-      getBlockers: solarStationPlacementBlockerRuntime.getBlockers,
-      validatePlacement: validateBuildingKitPlacement,
-      syncPlacementPreview: (preview) =>
-        constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview),
-      modelStateKeys: {
-        groundY: "greenhouseGroundY",
-        baseScale: "greenhouseBaseScale",
-        baseYaw: "greenhouseBaseYaw"
-      }
     });
   }
 
