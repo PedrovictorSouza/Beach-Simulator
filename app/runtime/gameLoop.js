@@ -110,6 +110,7 @@ import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
 import { createPlayerActionContext } from "../player/playerActionContext.js";
+import { createPlayerActionTargetContext } from "../player/playerActionTargetContext.js";
 import { createPlayerActionRuntime } from "../player/playerActionRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
@@ -1522,6 +1523,10 @@ export function startGameLoop({
     session,
     controls
   });
+  const playerActionTargetContext = createPlayerActionTargetContext({
+    session,
+    controls
+  });
   const playerActionRuntime = createPlayerActionRuntime({
     session,
     controls,
@@ -2177,25 +2182,15 @@ export function startGameLoop({
     ) {
       playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM);
       const playerPosition = session.playerCharacter.getPosition();
-      const primaryActionTarget = gameplay.findNearbyActionTarget({
-        playerPosition,
-        palmModel: session.palmModel,
-        palmInstances: session.palmInstances,
-        resourceNodes: session.resourceNodes,
-        leppaTree: session.leppaTree,
-        leafDen: session.leafDen,
-        storyState: controls.storyState,
-        inventory: controls.inventory,
-        groundDeadInstances: session.groundDeadInstances,
-        iceGroundInstances: session.iceGroundInstances,
-        groundPurifiedInstances: session.groundPurifiedInstances,
-        groundGrassPatches: session.groundGrassPatches,
-        groundFlowerPatches: session.groundFlowerPatches,
-        canPurifyGround: waterGunEquipped,
-        canUseLeafage: leafageEquipped && leafagePrimaryMoveRequested,
-        canUseFire: fireEquipped,
-        allowPlacement: !gamepadPrimaryMoveRequested && !buildBlockEquipped
-      });
+      const primaryActionTarget = gameplay.findNearbyActionTarget(
+        playerActionTargetContext.getNearbyActionTargetOptions({
+          playerPosition,
+          canPurifyGround: waterGunEquipped,
+          canUseLeafage: leafageEquipped && leafagePrimaryMoveRequested,
+          canUseFire: fireEquipped,
+          allowPlacement: !gamepadPrimaryMoveRequested && !buildBlockEquipped
+        })
+      );
       const primaryActionPlacementTarget = Boolean(
         primaryActionTarget?.logChairPlacement ||
         primaryActionTarget?.greenhousePlacement ||
@@ -2246,25 +2241,15 @@ export function startGameLoop({
         controls.playerSkills?.waterGun &&
         !primaryActionPlacementTarget &&
         !primaryActionTarget?.leafageGroundCell ?
-          gameplay.findNearbyActionTarget({
-            playerPosition,
-            palmModel: session.palmModel,
-            palmInstances: session.palmInstances,
-            resourceNodes: session.resourceNodes,
-            leppaTree: session.leppaTree,
-            leafDen: session.leafDen,
-            storyState: controls.storyState,
-            inventory: controls.inventory,
-            groundDeadInstances: session.groundDeadInstances,
-            iceGroundInstances: session.iceGroundInstances,
-            groundPurifiedInstances: session.groundPurifiedInstances,
-            groundGrassPatches: session.groundGrassPatches,
-            groundFlowerPatches: session.groundFlowerPatches,
-            canPurifyGround: true,
-            canUseLeafage: false,
-            canUseFire: false,
-            allowPlacement: false
-          }) :
+          gameplay.findNearbyActionTarget(
+            playerActionTargetContext.getNearbyActionTargetOptions({
+              playerPosition,
+              canPurifyGround: true,
+              canUseLeafage: false,
+              canUseFire: false,
+              allowPlacement: false
+            })
+          ) :
           null;
       const leafageAutoGrowTarget =
         waterGunEquipped &&
@@ -2276,25 +2261,15 @@ export function startGameLoop({
         !primaryActionTarget?.leppaTree &&
         !primaryActionTarget?.groundCell &&
         !primaryActionTarget?.leafageGroundCell ?
-          gameplay.findNearbyActionTarget({
-            playerPosition,
-            palmModel: session.palmModel,
-            palmInstances: session.palmInstances,
-            resourceNodes: session.resourceNodes,
-            leppaTree: session.leppaTree,
-            leafDen: session.leafDen,
-            storyState: controls.storyState,
-            inventory: controls.inventory,
-            groundDeadInstances: session.groundDeadInstances,
-            iceGroundInstances: session.iceGroundInstances,
-            groundPurifiedInstances: session.groundPurifiedInstances,
-            groundGrassPatches: session.groundGrassPatches,
-            groundFlowerPatches: session.groundFlowerPatches,
-            canPurifyGround: false,
-            canUseLeafage: true,
-            canUseFire: false,
-            allowPlacement: false
-          }) :
+          gameplay.findNearbyActionTarget(
+            playerActionTargetContext.getNearbyActionTargetOptions({
+              playerPosition,
+              canPurifyGround: false,
+              canUseLeafage: true,
+              canUseFire: false,
+              allowPlacement: false
+            })
+          ) :
           null;
       const primaryActionInvalidLeafageUse = Boolean(
         leafageEquipped &&
@@ -2553,23 +2528,15 @@ export function startGameLoop({
       !dialogueActive
     ) {
       const playerPosition = session.playerCharacter.getPosition();
-      const waterGunTarget = gameplay.findNearbyActionTarget({
-        playerPosition,
-        palmModel: session.palmModel,
-        palmInstances: session.palmInstances,
-        resourceNodes: session.resourceNodes,
-        leppaTree: session.leppaTree,
-        storyState: controls.storyState,
-        inventory: controls.inventory,
-        leafDen: session.leafDen,
-        groundDeadInstances: session.groundDeadInstances,
-        groundPurifiedInstances: session.groundPurifiedInstances,
-        groundGrassPatches: session.groundGrassPatches,
-        groundFlowerPatches: session.groundFlowerPatches,
-        canPurifyGround: true,
-        canUseLeafage: false,
-        allowPlacement: false
-      });
+      const waterGunTarget = gameplay.findNearbyActionTarget(
+        playerActionTargetContext.getNearbyActionTargetOptions({
+          playerPosition,
+          canPurifyGround: true,
+          canUseLeafage: false,
+          allowPlacement: false,
+          includeIceGroundInstances: false
+        })
+      );
 
       if (waterGunTarget?.groundCell) {
         const squirtleWaterGunResult = waterGunRuntime.startAction({
