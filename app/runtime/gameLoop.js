@@ -1736,43 +1736,20 @@ export function startGameLoop({
   }
 
   function syncSolarStationPlacementYaw(placement) {
-    const instance = session.strawBedModelInstance;
-    if (!instance || !Array.isArray(placement?.position)) {
-      return;
-    }
-
-    const baseYaw =
-      instance.solarStationBaseYaw ??
-      Number(instance.yaw || 0);
-    instance.solarStationBaseYaw = baseYaw;
-    instance.yaw = baseYaw + Number(placement.yaw || 0);
+    workbenchRotationRuntime.syncSolarStationPlacementYaw({
+      instance: session.strawBedModelInstance,
+      placement
+    });
   }
 
   function syncSolarStationWorkbenchRotationVisual(nowSeconds = getRuntimeNowSeconds()) {
-    const instance = session.strawBedModelInstance;
-    if (
-      !instance ||
-      session.strawBedPlacementPreview?.active ||
-      !session.strawBed?.position ||
-      !controls.storyState.flags.strawBedPlacedInBulbasaurHabitat
-    ) {
-      return;
-    }
-
-    const target = {
-      kind: "solarStation",
-      placement: session.strawBed
-    };
-    const baseYaw =
-      instance.solarStationBaseYaw ??
-      Number(instance.yaw || 0);
-    instance.solarStationBaseYaw = baseYaw;
-    instance.yaw = baseYaw + getWorkbenchRotationPreviewYaw(target);
-
-    if (!applyWorkbenchRotationSelectionTint("solarStation", instance, nowSeconds) && !instance.solarStationSpawnEffect) {
-      instance.alpha = 1;
-      instance.tintStrength = 0;
-    }
+    workbenchRotationRuntime.syncSolarStationWorkbenchRotationVisual({
+      instance: session.strawBedModelInstance,
+      placement: session.strawBed,
+      placementPreviewActive: session.strawBedPlacementPreview?.active,
+      placed: controls.storyState.flags.strawBedPlacedInBulbasaurHabitat,
+      nowSeconds
+    });
   }
 
   function rotateNearbyWorkbenchConstruction(direction) {

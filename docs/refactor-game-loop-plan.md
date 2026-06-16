@@ -3842,6 +3842,77 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Solar Station Workbench Rotation Visual Extraction
+
+Expanded the existing `createWorkbenchRotationRuntime(...)` boundary in
+`app/runtime/workbenchRotationRuntime.js`.
+
+Classification: `construction`, focused on Workbench rotation visual/yaw sync.
+
+Study path:
+
+1. `gameLoop.js` still owned Solar Station-specific Workbench rotation sync:
+   confirmed yaw application, preview yaw display, selection tint, and tint
+   reset when no rotation selection/spawn effect is active.
+2. `syncSolarStationPlacementYaw(...)` and
+   `syncSolarStationWorkbenchRotationVisual(...)` now live inside the
+   Workbench rotation runtime.
+3. `gameLoop.js` keeps only composition data: the Solar Station model instance,
+   placement object, placement-preview-active flag, placed flag and frame time.
+
+Removed from `gameLoop.js`:
+
+- direct Solar Station base-yaw capture during Workbench rotation confirm;
+- direct Solar Station visual yaw preview update;
+- direct Workbench selection tint/reset policy for Solar Station rotation.
+
+Kept in `gameLoop.js`:
+
+- thin wrappers used by existing callbacks;
+- target selection and prompt/audio orchestration;
+- Workbench rotation runtime wiring.
+
+Known structural follow-up:
+
+- `app/runtime/workbenchRotationRuntime.js` is still a pre-existing root runtime
+  file. It should move under `app/runtime/construction/` in a separate file-move
+  only cut, because mixing a move with behavior extraction would make review
+  noisier.
+
+Tests updated:
+
+- `tests/workbenchRotationRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+```
+
+The first run failed because the new runtime methods did not exist yet. After
+adding them, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+npm test -- --run tests/workbenchRotationRuntime.test.js tests/workbenchRotationTargets.test.js tests/constructionPlacementFrameRuntime.test.js tests/constructionHouseModelInstances.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1857` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Construction Placement Preview Rotation Extraction
 
 Expanded the existing `constructionPlacementFrameRuntime` boundary in

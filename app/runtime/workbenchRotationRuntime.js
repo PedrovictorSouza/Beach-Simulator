@@ -120,6 +120,52 @@ export function createWorkbenchRotationRuntime({
     return true;
   }
 
+  function syncSolarStationPlacementYaw({ instance = null, placement = null } = {}) {
+    if (!instance || !Array.isArray(placement?.position)) {
+      return false;
+    }
+
+    const baseYaw =
+      instance.solarStationBaseYaw ??
+      Number(instance.yaw || 0);
+    instance.solarStationBaseYaw = baseYaw;
+    instance.yaw = baseYaw + Number(placement.yaw || 0);
+    return true;
+  }
+
+  function syncSolarStationWorkbenchRotationVisual({
+    instance = null,
+    placement = null,
+    placementPreviewActive = false,
+    placed = false,
+    nowSeconds = 0
+  } = {}) {
+    if (
+      !instance ||
+      placementPreviewActive ||
+      !Array.isArray(placement?.position) ||
+      !placed
+    ) {
+      return false;
+    }
+
+    const target = {
+      kind: "solarStation",
+      placement
+    };
+    const baseYaw =
+      instance.solarStationBaseYaw ??
+      Number(instance.yaw || 0);
+    instance.solarStationBaseYaw = baseYaw;
+    instance.yaw = baseYaw + getPreviewYaw(target);
+
+    if (!applySelectionTint("solarStation", instance, nowSeconds) && !instance.solarStationSpawnEffect) {
+      instance.alpha = 1;
+      instance.tintStrength = 0;
+    }
+    return true;
+  }
+
   function getGroundCell(target) {
     const placement = target?.placement;
     const position = placement?.position;
@@ -149,6 +195,8 @@ export function createWorkbenchRotationRuntime({
     rotate,
     confirm,
     applySelectionTint,
+    syncSolarStationPlacementYaw,
+    syncSolarStationWorkbenchRotationVisual,
     getGroundCell
   };
 }

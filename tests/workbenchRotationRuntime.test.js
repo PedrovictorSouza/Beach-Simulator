@@ -118,4 +118,89 @@ describe("createWorkbenchRotationRuntime", () => {
       highlightAbilityId: "leafage"
     });
   });
+
+  it("syncs Solar Station placement yaw and workbench rotation visual state", () => {
+    const runtime = createRuntime();
+    const placement = {
+      position: [1, 0.02, 2],
+      yaw: Math.PI * 0.5
+    };
+    const instance = {
+      yaw: 0.25
+    };
+
+    expect(runtime.syncSolarStationPlacementYaw({
+      instance,
+      placement
+    })).toBe(true);
+    expect(instance).toMatchObject({
+      solarStationBaseYaw: 0.25,
+      yaw: 0.25 + Math.PI * 0.5
+    });
+
+    const selectedPlacement = {
+      position: [2, 0.02, 3],
+      yaw: 0
+    };
+    const selectedTarget = createTarget({
+      kind: "solarStation",
+      placement: selectedPlacement,
+      rotateSize: false
+    });
+    const selectedInstance = {
+      yaw: 0.1
+    };
+
+    runtime.select(selectedTarget);
+    runtime.rotate(selectedTarget, 1);
+
+    expect(runtime.syncSolarStationWorkbenchRotationVisual({
+      instance: selectedInstance,
+      placement: selectedPlacement,
+      placed: true,
+      nowSeconds: 0
+    })).toBe(true);
+    expect(selectedInstance).toMatchObject({
+      solarStationBaseYaw: 0.1,
+      yaw: 0.1 + Math.PI * 0.5,
+      tint: [0.35, 1.2, 0.35],
+      tintStrength: 0.5,
+      alpha: 1
+    });
+  });
+
+  it("guards Solar Station workbench rotation visual sync and resets inactive tint", () => {
+    const runtime = createRuntime();
+    const placement = {
+      position: [1, 0.02, 2],
+      yaw: Math.PI
+    };
+    const previewActiveInstance = { yaw: 0.2 };
+    const instance = {
+      yaw: 0.25,
+      alpha: 0.5,
+      tintStrength: 0.3
+    };
+
+    expect(runtime.syncSolarStationWorkbenchRotationVisual({
+      instance: previewActiveInstance,
+      placement,
+      placementPreviewActive: true,
+      placed: true
+    })).toBe(false);
+    expect(previewActiveInstance).toEqual({ yaw: 0.2 });
+
+    expect(runtime.syncSolarStationWorkbenchRotationVisual({
+      instance,
+      placement,
+      placed: true,
+      nowSeconds: 0
+    })).toBe(true);
+    expect(instance).toMatchObject({
+      solarStationBaseYaw: 0.25,
+      yaw: 0.25 + Math.PI,
+      alpha: 1,
+      tintStrength: 0
+    });
+  });
 });
