@@ -376,6 +376,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move Free Block build/preview/remove wiring into the
   `construction` boundary.
+- Completed: move player harvest/interact/destroy action side effects into the
+  `player` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -3872,6 +3874,71 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Action Runtime Wiring
+
+Created `app/player/playerActionRuntime.js` so the player domain owns the
+existing `harvest`, `interact` and `destroy` action side effects that were
+previously implemented as local `gameLoop.js` functions.
+
+Boundary classification: `player`, focused on player-triggered gameplay
+actions. The runtime still delegates actual gameplay rules to the existing
+`gameplay.performHarvestAction(...)`, `gameplay.performInteractAction(...)`,
+Free Block construction runtime and existing pure target/snapshot helpers.
+
+Removed from `gameLoop.js`:
+
+- local harvest action progress/effect wrapper;
+- local destroyable landscape patch lookup wrapper;
+- local interact action landscape-cut wrapper;
+- local destroy action Free Block/landscape/audio wrapper;
+- direct imports of nature progress snapshots and destroyable landscape patch
+  target lookup.
+
+Kept in `gameLoop.js`:
+
+- input branch ordering;
+- construction and field-move action selection;
+- all option payloads passed to player actions;
+- sound IDs, notice text and callback wiring.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `3592` lines.
+- After this cut, `app/runtime/gameLoop.js` is `3510` lines.
+
+Tests added:
+
+- `tests/playerActionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+```
+
+The first run failed because `createPlayerActionRuntime(...)` did not exist
+yet. After adding the runtime under the existing `app/player` boundary, the
+focused runtime test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js tests/fieldMoveImpactRuntime.test.js tests/natureProgressSnapshots.test.js tests/destroyableLandscapePatchTarget.test.js
+npm run build
+```
+
+Focused result:
+
+- `4` test files passed
+- `13` tests passed
+
+Full-suite validation was not repeated for this cut. The known baseline still
+has failures outside this boundary: the existing Leafage Native Tree failures
+and the isolated scene-flow failure tied to dirty `startScreen.js` / bootstrap
+work.
 
 Manual gameplay validation remains pending for this cut.
 

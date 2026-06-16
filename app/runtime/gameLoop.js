@@ -98,11 +98,6 @@ import { createLeafageRuntime } from "./fieldMoveRuntime/leafageRuntime.js";
 import { createWaterGunRuntime } from "./fieldMoveRuntime/waterGunRuntime.js";
 import { createFieldMoveApproachPositionRuntime } from "./fieldMoveRuntime/fieldMoveApproachPositions.js";
 import { createFieldMoveActorPositionRuntime } from "./fieldMoveRuntime/fieldMoveActorPositions.js";
-import {
-  getGardenProgressSnapshot,
-  getTreeRevivalSnapshot
-} from "./fieldMoveRuntime/natureProgressSnapshots.js";
-import { getDestroyableLandscapePatchForInteractOptions as getDestroyableLandscapePatchForInteractOptionsWithSources } from "./fieldMoveRuntime/destroyableLandscapePatchTarget.js";
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import {
@@ -119,6 +114,7 @@ import {
 } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
+import { createPlayerActionRuntime } from "../player/playerActionRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
@@ -1445,6 +1441,26 @@ export function startGameLoop({
       pushNotice: (notice) => hud?.pushNotice?.(notice)
     }
   });
+  const playerActionRuntime = createPlayerActionRuntime({
+    session,
+    controls,
+    gameplay,
+    freeBlockBuildRuntime,
+    callbacks: {
+      debugInteractionFlow,
+      findNearbyDestroyableInstantiatedObject,
+      getNowMs: getRuntimeNowMs,
+      playSoundEvent,
+      pushNotice: (notice) => hud?.pushNotice?.(notice),
+      queueLandscapeCutEffect: (patch) => landscapeCutEffectRuntime.queue(patch),
+      queueTreeRevivalLeafBurst: (snapshot) =>
+        treeRevivalLeafBurstFrameRuntime.queueForNewlyRevivedTrees(snapshot)
+    },
+    soundEventIds: SOUND_EVENT_IDS,
+    notices: {
+      noRemovablePatch: "No removable patch here. Move closer to planted grass or flowers."
+    }
+  });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
     controls,
@@ -1453,7 +1469,7 @@ export function startGameLoop({
     getNowMs: getRuntimeNowMs,
     groundActionFeedbackRuntime,
     hud,
-    performGameplayHarvestAction,
+    performGameplayHarvestAction: (...args) => playerActionRuntime.performHarvest(...args),
     playInstanceObjectSfx,
     supplyCounterPromptController
   });
@@ -1712,104 +1728,6 @@ export function startGameLoop({
       (offset[1] || 0) + 0.04,
       offset[2] || 0
     ];
-  }
-
-  function performGameplayHarvestAction(options, autosaveContext = {}) {
-    const treeRevivalSnapshot = getTreeRevivalSnapshot({
-      session,
-      storyState: controls.storyState
-    });
-    const beforeGardenProgress = getGardenProgressSnapshot({
-      session,
-      storyState: controls.storyState
-    });
-    const result = gameplay.performHarvestAction(options);
-    const afterGardenProgress = getGardenProgressSnapshot({
-      session,
-      storyState: controls.storyState
-    });
-
-    if (result) {
-      treeRevivalLeafBurstFrameRuntime.queueForNewlyRevivedTrees(treeRevivalSnapshot);
-    }
-
-    if (result && afterGardenProgress !== beforeGardenProgress) {
-      const groundCell =
-        autosaveContext.groundCell ||
-        options?.forcedHarvestTarget?.groundCell ||
-        options?.forcedHarvestTarget?.leafageGroundCell ||
-        options?.forcedHarvestTarget?.fireGroundCell ||
-        null;
-
-      controls.onGardenProgressChanged?.({
-        actionType: autosaveContext.actionType || null,
-        groundCellId: typeof groundCell?.id === "string" ? groundCell.id : null
-      });
-    }
-
-    return result;
-  }
-
-  function getDestroyableLandscapePatchForInteractOptions(options = {}) {
-    return getDestroyableLandscapePatchForInteractOptionsWithSources({
-      findNearbyDestroyableInstantiatedObject,
-      playerPosition: options.playerPosition,
-      session: {
-        groundGrassPatches: options.groundGrassPatches || [],
-        groundFlowerPatches: options.groundFlowerPatches || []
-      },
-      storyState: options.storyState
-    });
-  }
-
-  function performGameplayInteractAction(options) {
-    const cutEffectPatch = getDestroyableLandscapePatchForInteractOptions(options);
-    const beforeGardenProgress = getGardenProgressSnapshot({
-      session,
-      storyState: controls.storyState
-    });
-    const result = gameplay.performInteractAction(options);
-    const afterGardenProgress = getGardenProgressSnapshot({
-      session,
-      storyState: controls.storyState
-    });
-
-    if (result && cutEffectPatch && afterGardenProgress !== beforeGardenProgress) {
-      landscapeCutEffectRuntime.queue(cutEffectPatch);
-      controls.onGardenProgressChanged?.({
-        actionType: "destroyLandscape",
-        groundCellId: typeof cutEffectPatch.cellId === "string" ? cutEffectPatch.cellId : null
-      });
-    }
-
-    return result;
-  }
-
-  function performGameplayDestroyAction(options) {
-     debugInteractionFlow("gameLoop.destroyAction.start", {
-      playerPosition: options?.playerPosition
-    });
-    const nowMs =
-      typeof performance !== "undefined" && typeof performance.now === "function" ?
-        performance.now() :
-        Date.now();
-    if (freeBlockBuildRuntime.tryRemoveNearby(options?.playerPosition, nowMs)) {
-      return true;
-    }
-
-    const cutEffectPatch = getDestroyableLandscapePatchForInteractOptions(options);
-    if (!cutEffectPatch) {
-      playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-      hud?.pushNotice?.("No removable patch here. Move closer to planted grass or flowers.");
-      return false;
-    }
-
-    const result = performGameplayInteractAction({
-      ...options,
-      allowDestroyInstantiatedObject: true
-    });
-    playSoundEvent(result ? SOUND_EVENT_IDS.GAMEPLAY_IMPACT : SOUND_EVENT_IDS.UI_CANCEL);
-    return result;
   }
 
   function getEncounterRepairBoxPosition(encounter) {
@@ -2460,7 +2378,7 @@ export function startGameLoop({
       const previousWateredTreeCount = Number(controls.storyState.flags.wateredTreeCount || 0);
       const previousRestoredGrassCount = Number(controls.storyState.flags.restoredGrassCount || 0);
       const previousSupplyCounts = supplyCounterPromptController.snapshot(controls.inventory);
-      const result = performGameplayHarvestAction({
+      const result = playerActionRuntime.performHarvest({
         playerPosition,
         palmModel: session.palmModel,
         palmInstances: session.palmInstances,
@@ -2776,7 +2694,7 @@ export function startGameLoop({
       } else if (primaryActionRotationTarget) {
         workbenchRotationRuntime.selectTargetWithFeedback(primaryActionRotationTarget);
       } else if (primaryActionBagDestroyTarget?.target) {
-        performGameplayDestroyAction({
+        playerActionRuntime.performDestroy({
           playerPosition,
           npcActors: session.npcActors,
           interactables: session.interactables,
@@ -2919,7 +2837,7 @@ export function startGameLoop({
       } else if (isLeafDenBusyCompanionTarget(primaryInteractTarget?.target)) {
         hud?.pushNotice?.(LEAF_DEN_BUSY_NOTICE);
       } else if (primaryInteractTarget?.target) {
-        performGameplayInteractAction({
+        playerActionRuntime.performInteract({
           playerPosition,
           npcActors: session.npcActors,
           interactables: session.interactables,
@@ -3020,7 +2938,7 @@ debugInteractionFlow("gameLoop.destroyAction.input", {
 });
 
 if (canProcessDestroyAction && destroyActionRequested) {
-  performGameplayDestroyAction({
+  playerActionRuntime.performDestroy({
     playerPosition: session.playerCharacter.getPosition(),
     npcActors: session.npcActors,
     interactables: session.interactables,
@@ -3045,7 +2963,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       canProcessGameplayAction
     ) {
       playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM);
-      performGameplayInteractAction({
+      playerActionRuntime.performInteract({
         playerPosition: session.playerCharacter.getPosition(),
         npcActors: session.npcActors,
         interactables: session.interactables,
