@@ -3842,6 +3842,66 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Workbench Rotation Runtime Domain Move
+
+Moved the pre-existing Workbench rotation runtime from
+`app/runtime/workbenchRotationRuntime.js` to
+`app/runtime/construction/workbenchRotationRuntime.js`.
+
+Classification: `construction`, focused on domain navigation and reducing root
+runtime sprawl.
+
+Study path:
+
+1. The runtime already owned Workbench construction rotation state and behavior:
+   selection, pending yaw, pending size, confirm/cancel, ground-cell highlight
+   and Solar Station rotation visual sync.
+2. Keeping it directly under `app/runtime/` made it harder to see that it is a
+   construction subsystem, while the related target resolver already lived in
+   `app/runtime/construction/workbenchRotationTargets.js`.
+3. This cut only moved the module and adjusted import paths; no runtime behavior
+   changed.
+
+Changed:
+
+- `app/runtime/workbenchRotationRuntime.js` moved to
+  `app/runtime/construction/workbenchRotationRuntime.js`;
+- `gameLoop.js` imports `createWorkbenchRotationRuntime` from the construction
+  boundary;
+- `tests/workbenchRotationRuntime.test.js` imports the runtime from the new
+  boundary path.
+
+Kept in `gameLoop.js`:
+
+- Workbench rotation composition and frame ordering;
+- wrapper callbacks used by placement and presentation code;
+- audio/HUD orchestration around selection, cancellation, confirmation and
+  preview rotation.
+
+Tests updated:
+
+- `tests/workbenchRotationRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js tests/workbenchRotationTargets.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1857` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Solar Station Workbench Rotation Visual Extraction
 
 Expanded the existing `createWorkbenchRotationRuntime(...)` boundary in

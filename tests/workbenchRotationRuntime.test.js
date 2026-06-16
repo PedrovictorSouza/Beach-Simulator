@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createWorkbenchRotationRuntime } from "../app/runtime/workbenchRotationRuntime.js";
+import { createWorkbenchRotationRuntime } from "../app/runtime/construction/workbenchRotationRuntime.js";
 
 const PLACEMENT_ROTATION_STEP = Math.PI * 0.5;
 

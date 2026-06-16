@@ -233,8 +233,8 @@ import {
 import { applyTrainHouseDance } from "./trainHouseDance.js";
 import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
-import { createWorkbenchRotationRuntime } from "./workbenchRotationRuntime.js";
 import { createWoodCollectPopRuntime } from "./woodCollectPopRuntime.js";
+import { createWorkbenchRotationRuntime } from "./construction/workbenchRotationRuntime.js";
 import { createRustlingGrassEventRuntime } from "./world/rustlingGrassEventRuntime.js";
 import { createWorldCellPlannerInteractionRuntime } from "./world/worldCellPlannerInteractionRuntime.js";
 
