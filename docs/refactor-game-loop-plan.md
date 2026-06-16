@@ -224,6 +224,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   the `construction` boundary.
 - Completed: move Free Block foundation presentation builders into the
   `construction` boundary.
+- Completed: move Free Block post-placement player displacement into the
+  `construction` boundary.
 - Completed: move status popup frame writes into the `presentation` boundary.
 - Completed: move HUD snapshot frame writes into the `presentation` boundary.
 - Completed: move companion status billboard builders into the `companions`
@@ -4450,6 +4452,76 @@ npm test
 
 - `308` test files passed, `1` failed
 - `1877` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
+### Free Block Placement Displacement Extraction
+
+Expanded `app/runtime/construction/freeBlockPlacementResult.js`.
+
+Classification: `construction`, focused on Free Block post-placement player
+displacement.
+
+Study path:
+
+1. `gameLoop.js` still implemented the rule that moves the player away when a
+   newly placed Free Block lands under the current player cell.
+2. That rule is part of the Free Block placement result flow because it only
+   runs after a successful placement and is already invoked from
+   `tryPlaceFreeBlockFromBuildInput(...)` and `applyTimburrBuildBlockImpact(...)`.
+3. `movePlayerAwayFromPlacedFreeBlock(...)` now owns the cell check, target
+   position lookup, displacement resolution call, `setPosition` and model-sync
+   callback.
+4. `gameLoop.js` keeps only composition dependencies: player character, grid
+   config, construction displacement resolver, blocker callback and player
+   model sync.
+
+Removed from `gameLoop.js`:
+
+- direct check for whether the player is standing on the placed Free Block cell;
+- direct Free Block target-position lookup for player displacement;
+- direct displacement resolution call after Free Block placement;
+- direct `playerCharacter.setPosition(...)` and `playerModelRuntime.sync(...)`
+  sequence for this placement-specific case.
+
+Kept in `gameLoop.js`:
+
+- when displacement is invoked as part of placement effects;
+- session/player model dependencies through explicit callbacks;
+- grid creation from the current Free Block build config;
+- frame order and all tuning values.
+
+Tests updated:
+
+- `tests/freeBlockPlacementResult.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/freeBlockPlacementResult.test.js
+```
+
+The first run failed because `movePlayerAwayFromPlacedFreeBlock(...)` was not
+exported yet. After adding it, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/freeBlockPlacementResult.test.js
+npm test -- --run tests/freeBlockPlacementResult.test.js tests/freeBlockBuildSessionRuntime.test.js tests/freeBlockBuildSystem.test.js tests/buildBlockRuntime.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1879` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
 

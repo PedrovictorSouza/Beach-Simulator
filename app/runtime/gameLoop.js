@@ -35,6 +35,7 @@ import {
 import {
   applyFreeBlockPlacementResult,
   applyTimburrBuildBlockImpact as applyTimburrBuildBlockImpactWithRuntime,
+  movePlayerAwayFromPlacedFreeBlock as movePlayerAwayFromPlacedFreeBlockWithRuntime,
   tryPlaceFreeBlockFromBuildInput as tryPlaceFreeBlockFromBuildInputWithRuntime
 } from "./construction/freeBlockPlacementResult.js";
 import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
@@ -103,7 +104,6 @@ import {
   getPlacementCollisionSize,
   getPlacementRect,
   getRotatedPlacementSize as getRotatedPlacementSizeWithConfig,
-  isWorldPositionOnFreeBlockCell,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
 import { createCompanionFollowDirectionRuntime } from "./companions/companionFollowDirectionRuntime.js";
@@ -2290,34 +2290,15 @@ export function startGameLoop({
   }
 
   function movePlayerAwayFromPlacedFreeBlock(targetCell, playerPosition = null) {
-    if (!session.playerCharacter || !Array.isArray(playerPosition) || !targetCell) {
-      return null;
-    }
-
-    const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
-    if (!isWorldPositionOnFreeBlockCell({
+    return movePlayerAwayFromPlacedFreeBlockWithRuntime({
+      playerCharacter: session.playerCharacter,
       targetCell,
-      worldPosition: playerPosition,
-      gridSystem
-    })) {
-      return null;
-    }
-
-    const targetPosition = getFreeBlockCellWorldPosition(targetCell, gridSystem);
-    const nextPlayerPosition = resolveConstructionDisplacementPosition({
-      targetPosition,
       playerPosition,
-      cellSize: gridSystem.cellSize,
-      isBlocked: companionConstructionBlockerRuntime.isBlocked
+      gridSystem: createGridSystem(getFreeBlockBuildGridConfig()),
+      resolveDisplacementPosition: resolveConstructionDisplacementPosition,
+      isBlocked: companionConstructionBlockerRuntime.isBlocked,
+      syncPlayerModel: () => playerModelRuntime.sync(session, 0)
     });
-
-    if (!nextPlayerPosition) {
-      return null;
-    }
-
-    session.playerCharacter.setPosition(nextPlayerPosition);
-    playerModelRuntime.sync(session, 0);
-    return nextPlayerPosition;
   }
 
   function handleFreeBlockPlacementResult(result, now) {

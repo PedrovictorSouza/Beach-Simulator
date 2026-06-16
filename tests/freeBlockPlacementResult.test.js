@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   applyFreeBlockPlacementResult,
   applyTimburrBuildBlockImpact,
+  movePlayerAwayFromPlacedFreeBlock,
   tryPlaceFreeBlockFromBuildInput
 } from "../app/runtime/construction/freeBlockPlacementResult.js";
 
@@ -205,5 +206,58 @@ describe("free block placement result", () => {
     });
     expect(effects.movePlayerAway).toHaveBeenCalledWith(result.targetCell, [0, 0, 0]);
     expect(effects.handlePlacementResult).toHaveBeenCalledWith(result, 456);
+  });
+
+  it("moves the player away when placement happens under the player", () => {
+    const playerCharacter = {
+      setPosition: vi.fn()
+    };
+    const gridSystem = {
+      cellSize: 2,
+      worldToCell: vi.fn(() => ({ x: 3, y: 4 })),
+      cellToWorld: vi.fn(() => ({ x: 7, y: 0.03, z: 9 }))
+    };
+    const nextPlayerPosition = [8, 0, 9];
+    const resolveDisplacementPosition = vi.fn(() => nextPlayerPosition);
+    const syncPlayerModel = vi.fn();
+
+    expect(movePlayerAwayFromPlacedFreeBlock({
+      playerCharacter,
+      targetCell: { x: 3, y: 4 },
+      playerPosition: [7, 0, 9],
+      gridSystem,
+      resolveDisplacementPosition,
+      isBlocked: () => false,
+      syncPlayerModel
+    })).toBe(nextPlayerPosition);
+
+    expect(resolveDisplacementPosition).toHaveBeenCalledWith({
+      targetPosition: [7, 0.03, 9],
+      playerPosition: [7, 0, 9],
+      cellSize: 2,
+      isBlocked: expect.any(Function)
+    });
+    expect(playerCharacter.setPosition).toHaveBeenCalledWith(nextPlayerPosition);
+    expect(syncPlayerModel).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not move the player when they are outside the placed cell", () => {
+    const playerCharacter = {
+      setPosition: vi.fn()
+    };
+    const resolveDisplacementPosition = vi.fn();
+
+    expect(movePlayerAwayFromPlacedFreeBlock({
+      playerCharacter,
+      targetCell: { x: 3, y: 4 },
+      playerPosition: [7, 0, 9],
+      gridSystem: {
+        worldToCell: () => ({ x: 9, y: 9 })
+      },
+      resolveDisplacementPosition
+    })).toBe(null);
+
+    expect(resolveDisplacementPosition).not.toHaveBeenCalled();
+    expect(playerCharacter.setPosition).not.toHaveBeenCalled();
   });
 });

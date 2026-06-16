@@ -1,4 +1,8 @@
 import { createUnavailableFoundationBuildZonePlacementResult } from "./foundationBuildZone.js";
+import {
+  getFreeBlockCellWorldPosition,
+  isWorldPositionOnFreeBlockCell
+} from "./placementGeometry.js";
 import { getFreeBlockPlacementNotice } from "./placementPreviewPrompts.js";
 
 function applyPlacedFreeBlockSideEffects({
@@ -146,4 +150,45 @@ export function applyTimburrBuildBlockImpact({
   });
 
   return result;
+}
+
+export function movePlayerAwayFromPlacedFreeBlock({
+  playerCharacter = null,
+  targetCell = null,
+  playerPosition = null,
+  gridSystem = null,
+  resolveDisplacementPosition = null,
+  isBlocked = () => false,
+  syncPlayerModel = null
+} = {}) {
+  if (!playerCharacter || !Array.isArray(playerPosition) || !targetCell || !gridSystem) {
+    return null;
+  }
+
+  if (!isWorldPositionOnFreeBlockCell({
+    targetCell,
+    worldPosition: playerPosition,
+    gridSystem
+  })) {
+    return null;
+  }
+
+  const targetPosition = getFreeBlockCellWorldPosition({
+    cell: targetCell,
+    gridSystem
+  });
+  const nextPlayerPosition = resolveDisplacementPosition?.({
+    targetPosition,
+    playerPosition,
+    cellSize: gridSystem.cellSize,
+    isBlocked
+  });
+
+  if (!nextPlayerPosition) {
+    return null;
+  }
+
+  playerCharacter.setPosition?.(nextPlayerPosition);
+  syncPlayerModel?.();
+  return nextPlayerPosition;
 }
