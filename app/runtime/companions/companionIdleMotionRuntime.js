@@ -86,8 +86,51 @@ export function createCompanionIdleMotionRuntime({
     return true;
   }
 
+  function updateJumpArc(robot, {
+    deltaTime,
+    modelFaceYawOffset = 0
+  } = {}) {
+    if (!robot) {
+      return false;
+    }
+
+    if (robot.jumpTimer <= 0 || !robot.originPosition || !robot.landingPosition) {
+      robot.jumpTimer = 0;
+      if (robot.originPosition && robot.landingPosition) {
+        robot.position = [...robot.landingPosition];
+        robot.originPosition = null;
+        robot.landingPosition = null;
+      }
+      return false;
+    }
+
+    robot.jumpTimer = Math.max(0, robot.jumpTimer - deltaTime);
+    const progress = 1 - robot.jumpTimer / robot.jumpDuration;
+    const easedProgress = 1 - Math.pow(1 - progress, 3);
+    const arcHeight = Math.sin(progress * Math.PI) * 0.92;
+
+    robot.position = [
+      robot.originPosition[0] +
+        (robot.landingPosition[0] - robot.originPosition[0]) * easedProgress,
+      robot.originPosition[1] +
+        (robot.landingPosition[1] - robot.originPosition[1]) * progress +
+        arcHeight,
+      robot.originPosition[2] +
+        (robot.landingPosition[2] - robot.originPosition[2]) * easedProgress
+    ];
+    if (robot.modelInstance) {
+      robot.modelInstance.yaw = getModelYawToward(
+        robot.position,
+        robot.landingPosition,
+        modelFaceYawOffset
+      );
+    }
+    return true;
+  }
+
   return {
     faceTowardPlayer,
+    updateJumpArc,
     updatePatrol
   };
 }

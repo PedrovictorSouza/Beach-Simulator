@@ -353,6 +353,7 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move companion simulation frame coordination into the `companions`
   boundary.
+- Completed: move Bulbasaur jump arc motion into the `companions` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -5895,6 +5896,72 @@ existing Leafage Native Tree baseline:
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 No manual browser validation was run in this cut.
+
+### Bulbasaur Jump Arc Motion Extraction
+
+Expanded the existing `app/runtime/companions/companionIdleMotionRuntime.js`
+boundary.
+
+Classification: `companions`, specifically encounter jump motion.
+
+Study path:
+
+1. `updateBulbasaurEncounter(...)` still owns the encounter lifecycle gates:
+   repair-box reveal opening, already-revealed fallback, Workbench guide branch,
+   visibility checks and model sync timing.
+2. Once the encounter is visible and has a position, `gameLoop.js` now delegates
+   the jump arc mutation to `companionIdleMotionRuntime.updateJumpArc(...)`.
+3. The runtime owns the previous low-level motion details: `jumpTimer`
+   decrementing, landing cleanup, eased X/Z interpolation, vertical sine arc and
+   model yaw toward the landing position.
+4. The numeric tuning was preserved: cubic ease-out and the `0.92` arc height
+   remain unchanged.
+
+Removed from `gameLoop.js`:
+
+- direct Bulbasaur jump timer settlement logic;
+- direct Bulbasaur jump arc interpolation math;
+- direct Bulbasaur jump yaw assignment.
+
+Kept in `gameLoop.js`:
+
+- the high-level Bulbasaur encounter lifecycle;
+- reveal opening and Workbench guide branches;
+- the `companionModelSyncRuntime.syncBulbasaur()` call order.
+
+Tests updated:
+
+- `tests/companionIdleMotionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionIdleMotionRuntime.test.js
+```
+
+The first run failed because `updateJumpArc(...)` did not exist yet. After
+adding the runtime method, the focused suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionIdleMotionRuntime.test.js
+npm test -- --run tests/companionIdleMotionRuntime.test.js tests/companionFrameRuntime.test.js tests/companionGroundPatrolFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1882` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
 
 ### Companion Ground Patrol Frame Runtime
 

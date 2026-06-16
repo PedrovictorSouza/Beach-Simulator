@@ -79,4 +79,55 @@ describe("createCompanionIdleMotionRuntime", () => {
     expect(getModelYawToward).toHaveBeenCalledWith([0.5, 0.04, 0], [2, 0.04, 0], Math.PI);
     expect(robot.modelInstance.yaw).toBe(2.25);
   });
+
+  it("updates a jumping companion along its arc and yaw", () => {
+    const getModelYawToward = vi.fn(() => 1.25);
+    const runtime = createRuntime({ getModelYawToward });
+    const robot = {
+      jumpTimer: 0.5,
+      jumpDuration: 1,
+      originPosition: [0, 0.02, 0],
+      landingPosition: [2, 0.02, 0],
+      position: [0, 0.02, 0],
+      modelInstance: {
+        yaw: 0
+      }
+    };
+
+    runtime.updateJumpArc(robot, {
+      deltaTime: 0.25,
+      modelFaceYawOffset: Math.PI
+    });
+
+    expect(robot.jumpTimer).toBe(0.25);
+    expect(robot.position[0]).toBeCloseTo(1.96875);
+    expect(robot.position[1]).toBeCloseTo(0.670538);
+    expect(robot.position[2]).toBeCloseTo(0);
+    expect(getModelYawToward).toHaveBeenCalledWith(robot.position, [2, 0.02, 0], Math.PI);
+    expect(robot.modelInstance.yaw).toBe(1.25);
+  });
+
+  it("settles a completed jump at the landing position and clears jump targets", () => {
+    const runtime = createRuntime();
+    const robot = {
+      jumpTimer: 0,
+      jumpDuration: 1,
+      originPosition: [0, 0.02, 0],
+      landingPosition: [2, 0.02, 1],
+      position: [1, 0.5, 0.5],
+      modelInstance: {
+        yaw: 0
+      }
+    };
+
+    runtime.updateJumpArc(robot, {
+      deltaTime: 0.25,
+      modelFaceYawOffset: Math.PI
+    });
+
+    expect(robot.jumpTimer).toBe(0);
+    expect(robot.position).toEqual([2, 0.02, 1]);
+    expect(robot.originPosition).toBeNull();
+    expect(robot.landingPosition).toBeNull();
+  });
 });

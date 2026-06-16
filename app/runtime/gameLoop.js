@@ -2693,38 +2693,10 @@ export function startGameLoop({
       return;
     }
 
-    if (encounter.jumpTimer <= 0 || !encounter.originPosition || !encounter.landingPosition) {
-      encounter.jumpTimer = 0;
-      if (encounter.originPosition && encounter.landingPosition) {
-        encounter.position = [...encounter.landingPosition];
-        encounter.originPosition = null;
-        encounter.landingPosition = null;
-      }
-      companionModelSyncRuntime.syncBulbasaur();
-      return;
-    }
-
-    encounter.jumpTimer = Math.max(0, encounter.jumpTimer - deltaTime);
-    const progress = 1 - encounter.jumpTimer / encounter.jumpDuration;
-    const easedProgress = 1 - Math.pow(1 - progress, 3);
-    const arcHeight = Math.sin(progress * Math.PI) * 0.92;
-
-    encounter.position = [
-      encounter.originPosition[0] +
-        (encounter.landingPosition[0] - encounter.originPosition[0]) * easedProgress,
-      encounter.originPosition[1] +
-        (encounter.landingPosition[1] - encounter.originPosition[1]) * progress +
-        arcHeight,
-      encounter.originPosition[2] +
-        (encounter.landingPosition[2] - encounter.originPosition[2]) * easedProgress
-    ];
-    if (encounter.modelInstance) {
-      encounter.modelInstance.yaw = getRobotModelYawToward(
-        encounter.position,
-        encounter.landingPosition,
-        BULBASAUR_MODEL_FACE_YAW_OFFSET
-      );
-    }
+    companionIdleMotionRuntime.updateJumpArc(encounter, {
+      deltaTime,
+      modelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET
+    });
     companionModelSyncRuntime.syncBulbasaur();
   }
 
