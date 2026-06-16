@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createConstructionPlacementFrameRuntime,
   resolveActiveConstructionPlacementPreviews,
+  rotateActiveConstructionPlacementPreviews,
   syncPlacementPreviewPositionToPlayer,
   updateLeafDenKitConstructionPlacementPreview,
   updateRectangularConstructionPlacementPreview,
@@ -177,6 +178,65 @@ describe("construction placement frame runtime", () => {
       shouldHideInactiveInstance: () => false
     })).toBeNull();
     expect(keptInstance.active).toBe(true);
+  });
+
+  it("rotates active construction placement previews with the existing feedback policy", () => {
+    const playRotateSound = vi.fn();
+    const pushNotice = vi.fn();
+    const activePreview = {
+      active: true,
+      yaw: 0.25,
+      readyForConfirm: true
+    };
+    const inactivePreview = {
+      active: false,
+      yaw: 3,
+      readyForConfirm: true
+    };
+
+    expect(rotateActiveConstructionPlacementPreviews({
+      direction: 1.9,
+      previews: [
+        activePreview,
+        inactivePreview,
+        null
+      ],
+      rotationStep: 0.5,
+      normalizePlacementYaw: (yaw) => Number(yaw.toFixed(2)),
+      playRotateSound,
+      pushNotice
+    })).toBe(true);
+
+    expect(activePreview).toMatchObject({
+      yaw: 0.75,
+      readyForConfirm: false
+    });
+    expect(inactivePreview).toMatchObject({
+      yaw: 3,
+      readyForConfirm: true
+    });
+    expect(playRotateSound).toHaveBeenCalledTimes(1);
+    expect(pushNotice).toHaveBeenCalledWith("Preview rotated.");
+  });
+
+  it("does not emit placement rotation feedback when no preview rotates", () => {
+    const playRotateSound = vi.fn();
+    const pushNotice = vi.fn();
+
+    expect(rotateActiveConstructionPlacementPreviews({
+      direction: 1,
+      previews: [{ active: false, yaw: 0 }],
+      playRotateSound,
+      pushNotice
+    })).toBe(false);
+    expect(rotateActiveConstructionPlacementPreviews({
+      direction: 0,
+      previews: [{ active: true, yaw: 0 }],
+      playRotateSound,
+      pushNotice
+    })).toBe(false);
+    expect(playRotateSound).not.toHaveBeenCalled();
+    expect(pushNotice).not.toHaveBeenCalled();
   });
 
   it("updates rectangular construction previews and their model instances", () => {

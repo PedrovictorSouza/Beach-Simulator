@@ -3842,6 +3842,73 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Construction Placement Preview Rotation Extraction
+
+Expanded the existing `constructionPlacementFrameRuntime` boundary in
+`app/runtime/construction/constructionPlacementFrameRuntime.js`.
+
+Classification: `construction`, focused on active placement-preview rotation.
+
+Study path:
+
+1. `gameLoop.js` still owned the rule that consumes a rotation direction,
+   truncates it into steps, rotates every active construction placement preview,
+   clears `readyForConfirm` and emits one feedback sound/notice.
+2. `rotateActiveConstructionPlacementPreviews(...)` now owns that isolated
+   mutation and feedback policy.
+3. `gameLoop.js` keeps only composition data: the four session previews,
+   `PLACEMENT_ROTATION_STEP`, `normalizePlacementYaw`, the UI sound event and
+   HUD notice callback.
+
+Removed from `gameLoop.js`:
+
+- direct per-preview rotation mutation for Solar Station, Greenhouse, Thermal
+  Cabin and Leaf Den Kit previews;
+- direct `readyForConfirm = false` rule for active placement previews;
+- direct rotation feedback gating after active preview rotation.
+
+Kept in `gameLoop.js`:
+
+- the `rotateActivePlacementPreview(...)` wrapper as composition glue;
+- rotation tuning and feedback dependencies;
+- fallback to nearby Workbench construction rotation in the existing frame
+  runtime flow.
+
+Tests updated:
+
+- `tests/constructionPlacementFrameRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+```
+
+The first run failed because
+`rotateActiveConstructionPlacementPreviews(...)` did not exist yet. After
+adding the helper, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js tests/placementGeometry.test.js tests/placementPreviewVisual.test.js tests/workbenchRotationRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1855` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Solar Station Placement Preview Frame Extraction
 
 Expanded the existing `constructionPlacementFrameRuntime` boundary in

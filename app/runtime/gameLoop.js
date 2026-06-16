@@ -52,6 +52,7 @@ import {
 import {
   createConstructionPlacementFrameRuntime,
   resolveActiveConstructionPlacementPreviews,
+  rotateActiveConstructionPlacementPreviews,
   updateLeafDenKitConstructionPlacementPreview,
   updateRectangularConstructionPlacementPreview,
   updateSolarStationConstructionPlacementPreview
@@ -1600,33 +1601,19 @@ export function startGameLoop({
   }
 
   function rotateActivePlacementPreview(direction) {
-    const steps = Math.trunc(Number(direction || 0));
-    if (steps === 0) {
-      return false;
-    }
-
-    let rotated = false;
-    const rotatePreview = (preview) => {
-      if (!preview?.active) {
-        return;
-      }
-
-      preview.yaw = normalizePlacementYaw(Number(preview.yaw || 0) + steps * PLACEMENT_ROTATION_STEP);
-      preview.readyForConfirm = false;
-      rotated = true;
-    };
-
-    rotatePreview(session.strawBedPlacementPreview);
-    rotatePreview(session.greenhousePlacementPreview);
-    rotatePreview(session.campfirePlacementPreview);
-    rotatePreview(session.leafDenKitPlacementPreview);
-
-    if (rotated) {
-      playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE);
-      hud?.pushNotice?.("Preview rotated.");
-    }
-
-    return rotated;
+    return rotateActiveConstructionPlacementPreviews({
+      direction,
+      previews: [
+        session.strawBedPlacementPreview,
+        session.greenhousePlacementPreview,
+        session.campfirePlacementPreview,
+        session.leafDenKitPlacementPreview
+      ],
+      rotationStep: PLACEMENT_ROTATION_STEP,
+      normalizePlacementYaw,
+      playRotateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE),
+      pushNotice: (notice) => hud?.pushNotice?.(notice)
+    });
   }
 
   function getRotatableWorkbenchPlacementCandidates() {

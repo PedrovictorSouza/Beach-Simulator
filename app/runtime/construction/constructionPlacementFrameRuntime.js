@@ -159,6 +159,39 @@ export function updateSolarStationConstructionPlacementPreview({
   return preview;
 }
 
+export function rotateActiveConstructionPlacementPreviews({
+  direction = 0,
+  previews = [],
+  rotationStep = Math.PI * 0.5,
+  normalizePlacementYaw = (yaw) => yaw,
+  playRotateSound = () => {},
+  pushNotice = () => {},
+  notice = "Preview rotated."
+} = {}) {
+  const steps = Math.trunc(Number(direction || 0));
+  if (steps === 0) {
+    return false;
+  }
+
+  let rotated = false;
+  for (const preview of previews) {
+    if (!preview?.active) {
+      continue;
+    }
+
+    preview.yaw = normalizePlacementYaw(Number(preview.yaw || 0) + steps * rotationStep);
+    preview.readyForConfirm = false;
+    rotated = true;
+  }
+
+  if (rotated) {
+    playRotateSound();
+    pushNotice(notice);
+  }
+
+  return rotated;
+}
+
 export function updateRectangularConstructionPlacementPreview({
   preview = null,
   instance = null,
