@@ -3,6 +3,7 @@ import {
   isCompanionFollowFormationMember,
   resolveCompanionFollowFormationIds,
   resolveCompanionFollowFormationIndex,
+  resolveCompanionFollowFormationIndexFromState,
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
 } from "../app/runtime/companions/companionFollowMotion.js";
@@ -194,5 +195,48 @@ describe("companion follow motion", () => {
       flags: { ...flags, leafDenConstructionStarted: true },
       companions
     })).toBe(false);
+  });
+
+  it("resolves formation index directly from companion state", () => {
+    const flags = {
+      squirtleFollowing: true,
+      bulbasaurFollowing: true,
+      charmanderFollowing: true,
+      charmanderRevealed: true,
+      leafDenConstructionStarted: false
+    };
+    const companions = {
+      squirtle: { recovered: true, assemblyState: "assembled" },
+      bulbasaur: {
+        visible: true,
+        position: [0, 0.04, 0],
+        revealBoxOpening: { active: false }
+      },
+      charmander: { visible: true }
+    };
+
+    expect(resolveCompanionFollowFormationIndexFromState({
+      companionId: "bulbasaur",
+      activeMoveId: "leafage",
+      flags,
+      companions,
+      actions: {},
+      blockers: {
+        squirtleWaterGunQueueActive: false,
+        bulbasaurWorkbenchGuideActive: false
+      }
+    })).toBe(0);
+
+    expect(resolveCompanionFollowFormationIndexFromState({
+      companionId: "squirtle",
+      activeMoveId: "leafage",
+      flags,
+      companions,
+      actions: {},
+      blockers: {
+        squirtleWaterGunQueueActive: true,
+        bulbasaurWorkbenchGuideActive: false
+      }
+    })).toBeNull();
   });
 });

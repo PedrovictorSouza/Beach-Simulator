@@ -226,6 +226,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move Free Block post-placement player displacement into the
   `construction` boundary.
+- Completed: move companion follow formation index resolution into the
+  `companions` boundary.
 - Completed: move status popup frame writes into the `presentation` boundary.
 - Completed: move HUD snapshot frame writes into the `presentation` boundary.
 - Completed: move companion status billboard builders into the `companions`
@@ -4522,6 +4524,70 @@ npm test
 
 - `308` test files passed, `1` failed
 - `1879` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
+### Companion Follow Formation State Extraction
+
+Expanded `app/runtime/companions/companionFollowMotion.js`.
+
+Classification: `companions`, focused on follow-formation membership/index
+resolution from companion state.
+
+Study path:
+
+1. `gameLoop.js` still owned the composition of follow formation state:
+   flags, companion runtime objects, active field-move actions and blockers.
+2. `companionFollowMotion.js` already owned formation order, membership rules,
+   active-move priority and follow distance, so it was the right module to own
+   the state-backed index resolver.
+3. `resolveCompanionFollowFormationIndexFromState(...)` now wraps the existing
+   membership/index functions without changing the underlying rules.
+4. `gameLoop.js` keeps only the current state snapshot from session/runtimes.
+
+Removed from `gameLoop.js`:
+
+- local `isCompanionInFollowFormation(...)`;
+- direct call chain from local membership callback into formation index;
+- local ownership of the membership-to-index composition rule.
+
+Kept in `gameLoop.js`:
+
+- session/flags/action/blocker snapshot construction;
+- fallback from missing formation index to `0`;
+- all companion movement timing and follow-update order.
+
+Tests updated:
+
+- `tests/companionFollowMotion.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionFollowMotion.test.js
+```
+
+The first run failed because `resolveCompanionFollowFormationIndexFromState(...)`
+was not exported yet. After adding it, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionFollowMotion.test.js
+npm test -- --run tests/companionFollowMotion.test.js tests/companionFollowMovementRuntime.test.js tests/companionGroundPatrolFrameRuntime.test.js tests/companionFollowDirectionRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1880` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
 

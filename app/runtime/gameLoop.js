@@ -109,8 +109,7 @@ import {
 import { createCompanionFollowDirectionRuntime } from "./companions/companionFollowDirectionRuntime.js";
 import { createCompanionFollowMovementRuntime } from "./companions/companionFollowMovementRuntime.js";
 import {
-  isCompanionFollowFormationMember,
-  resolveCompanionFollowFormationIndex,
+  resolveCompanionFollowFormationIndexFromState,
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
 } from "./companions/companionFollowMotion.js";
@@ -2434,11 +2433,11 @@ export function startGameLoop({
     });
   }
 
-  function isCompanionInFollowFormation(companionId) {
-    const flags = controls.storyState?.flags || {};
-    return isCompanionFollowFormationMember({
+  function getCompanionFollowFormationIndex(companionId, activeMoveId = null) {
+    return resolveCompanionFollowFormationIndexFromState({
       companionId,
-      flags,
+      activeMoveId,
+      flags: controls.storyState?.flags || {},
       companions: {
         squirtle: session.actTwoSquirtle,
         bulbasaur: session.bulbasaurEncounter,
@@ -2455,14 +2454,6 @@ export function startGameLoop({
         squirtleWaterGunQueueActive: waterGunRuntime.getQueue().length > 0,
         bulbasaurWorkbenchGuideActive: bulbasaurWorkbenchGuideRuntime.isActive()
       }
-    });
-  }
-
-  function getCompanionFollowFormationIndex(companionId, activeMoveId = null) {
-    return resolveCompanionFollowFormationIndex({
-      companionId,
-      activeMoveId,
-      isFollowing: isCompanionInFollowFormation
     }) ?? 0;
   }
 

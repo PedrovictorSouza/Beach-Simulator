@@ -90,6 +90,27 @@ export function resolveCompanionFollowFormationIndex({
   return index >= 0 ? index : null;
 }
 
+export function resolveCompanionFollowFormationIndexFromState({
+  companionId,
+  activeMoveId = null,
+  flags = {},
+  companions = {},
+  actions = {},
+  blockers = {}
+} = {}) {
+  return resolveCompanionFollowFormationIndex({
+    companionId,
+    activeMoveId,
+    isFollowing: (candidateId) => isCompanionFollowFormationMember({
+      companionId: candidateId,
+      flags,
+      companions,
+      actions,
+      blockers
+    })
+  });
+}
+
 export function resolveCompanionFollowDistance({
   companionId,
   activeMoveId,
