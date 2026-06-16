@@ -1,10 +1,31 @@
+import {
+  getNearestRotatableWorkbenchPlacement,
+  getRotatableWorkbenchPlacementCandidates,
+  getWorkbenchRotationTargetDistance,
+  getWorkbenchRotationTargetSize,
+  getWorkbenchRotationTriggerDistance
+} from "./workbenchRotationTargets.js";
+
 export function createWorkbenchRotationRuntime({
   normalizePlacementYaw,
   getRotatedPlacementSize,
   getTargetSize,
-  placementRotationStep
-}) {
+  placementRotationStep,
+  targetSources = {},
+  feedback = {},
+  solarStation = {}
+} = {}) {
   let selection = null;
+
+  function resolveTargetSize(target) {
+    if (typeof getTargetSize === "function") {
+      return getTargetSize(target);
+    }
+
+    return getWorkbenchRotationTargetSize(target, {
+      getPlacementCollisionSize: targetSources.getPlacementCollisionSize
+    });
+  }
 
   function getSelection() {
     return selection;
@@ -40,7 +61,7 @@ export function createWorkbenchRotationRuntime({
       return targetSelection.pendingSize;
     }
 
-    return getTargetSize(target);
+    return resolveTargetSize(target);
   }
 
   function select(target) {
@@ -48,7 +69,7 @@ export function createWorkbenchRotationRuntime({
       return false;
     }
 
-    const targetSize = getTargetSize(target);
+    const targetSize = resolveTargetSize(target);
     selection = {
       kind: target.kind,
       originalYaw: Number(target.placement?.yaw || 0),
@@ -82,7 +103,7 @@ export function createWorkbenchRotationRuntime({
     if (target.rotateSize !== false) {
       const currentSize = Array.isArray(selection.pendingSize) ?
         selection.pendingSize :
-        getTargetSize(target);
+        resolveTargetSize(target);
       selection.pendingSize = getRotatedPlacementSize(
         currentSize,
         steps * placementRotationStep
@@ -193,6 +214,100 @@ export function createWorkbenchRotationRuntime({
     return true;
   }
 
+  function getCandidates() {
+    return getRotatableWorkbenchPlacementCandidates({
+      flags: targetSources.getStoryFlags?.() || {},
+      footprints: targetSources.footprints,
+      session: targetSources.session || {},
+      thermalCabinLabel: targetSources.thermalCabinLabel
+    });
+  }
+
+  function getTargetDistance(playerPosition, target) {
+    return getWorkbenchRotationTargetDistance(playerPosition, target, {
+      getTargetSize: resolveTargetSize
+    });
+  }
+
+  function getTriggerDistance() {
+    return getWorkbenchRotationTriggerDistance({
+      buildGridConfig:
+        targetSources.getBuildGridConfig?.() ||
+        targetSources.session?.buildGridConfig ||
+        null,
+      rotateDistance: targetSources.rotateDistance,
+      triggerTileMargin: targetSources.triggerTileMargin
+    });
+  }
+
+  function getNearestTarget() {
+    return getNearestRotatableWorkbenchPlacement({
+      candidates: getCandidates(),
+      getTargetDistance,
+      playerPosition: targetSources.getPlayerPosition?.(),
+      triggerDistance: getTriggerDistance()
+    });
+  }
+
+  function getSelectedTargetFromSources() {
+    return getSelectedTarget(getCandidates(), {
+      isTargetValid: (target) => {
+        const playerPosition = targetSources.getPlayerPosition?.();
+        const position = target?.placement?.position;
+        if (!Array.isArray(playerPosition) || !Array.isArray(position)) {
+          return true;
+        }
+
+        const distance = getTargetDistance(playerPosition, target);
+        return !(
+          Number.isFinite(distance) &&
+          distance > getTriggerDistance() * 1.6
+        );
+      }
+    });
+  }
+
+  function selectTargetWithFeedback(target) {
+    return selectWithFeedback(target, {
+      promptText: feedback.getPromptText?.() || "",
+      playConfirmSound: feedback.playConfirmSound,
+      pushNotice: feedback.pushNotice
+    });
+  }
+
+  function clearSelectionWithFeedback() {
+    return clearWithFeedback({
+      playCancelSound: feedback.playCancelSound,
+      pushNotice: feedback.pushNotice
+    });
+  }
+
+  function confirmSelectedTargetWithFeedback() {
+    let selectedRotationTarget = null;
+    return confirmWithFeedback({
+      getSelectedTarget: () => {
+        selectedRotationTarget = getSelectedTargetFromSources();
+        return selectedRotationTarget;
+      },
+      syncPlacementYaw: (placement) => {
+        if (selectedRotationTarget?.kind === "solarStation") {
+          syncSolarStationPlacementYawFromSources(placement);
+        }
+      },
+      playConfirmSound: feedback.playConfirmSound,
+      pushNotice: feedback.pushNotice
+    });
+  }
+
+  function rotateNearbyTargetWithFeedback(direction) {
+    return rotateNearbyWithFeedback({
+      direction,
+      getSelectedTarget: getSelectedTargetFromSources,
+      playNavigateSound: feedback.playNavigateSound,
+      pushNotice: feedback.pushNotice
+    });
+  }
+
   function syncSolarStationPlacementYaw({ instance = null, placement = null } = {}) {
     if (!instance || !Array.isArray(placement?.position)) {
       return false;
@@ -204,6 +319,13 @@ export function createWorkbenchRotationRuntime({
     instance.solarStationBaseYaw = baseYaw;
     instance.yaw = baseYaw + Number(placement.yaw || 0);
     return true;
+  }
+
+  function syncSolarStationPlacementYawFromSources(placement = solarStation.getPlacement?.()) {
+    return syncSolarStationPlacementYaw({
+      instance: solarStation.getInstance?.(),
+      placement
+    });
   }
 
   function syncSolarStationWorkbenchRotationVisual({
@@ -239,6 +361,18 @@ export function createWorkbenchRotationRuntime({
     return true;
   }
 
+  function syncSolarStationWorkbenchRotationVisualFromSources(
+    nowSeconds = solarStation.getNowSeconds?.() || 0
+  ) {
+    return syncSolarStationWorkbenchRotationVisual({
+      instance: solarStation.getInstance?.(),
+      placement: solarStation.getPlacement?.(),
+      placementPreviewActive: Boolean(solarStation.isPlacementPreviewActive?.()),
+      placed: Boolean(solarStation.isPlaced?.()),
+      nowSeconds
+    });
+  }
+
   function getGroundCell(target) {
     const placement = target?.placement;
     const position = placement?.position;
@@ -261,6 +395,11 @@ export function createWorkbenchRotationRuntime({
     getSelection,
     getSelectionForKind,
     getSelectedTarget,
+    getCandidates,
+    getNearestTarget,
+    getSelectedTargetFromSources,
+    getTargetDistance,
+    getTriggerDistance,
     getPreviewYaw,
     getPreviewSize,
     select,
@@ -272,8 +411,14 @@ export function createWorkbenchRotationRuntime({
     clearWithFeedback,
     confirmWithFeedback,
     rotateNearbyWithFeedback,
+    selectTargetWithFeedback,
+    clearSelectionWithFeedback,
+    confirmSelectedTargetWithFeedback,
+    rotateNearbyTargetWithFeedback,
     syncSolarStationPlacementYaw,
+    syncSolarStationPlacementYawFromSources,
     syncSolarStationWorkbenchRotationVisual,
+    syncSolarStationWorkbenchRotationVisualFromSources,
     getGroundCell
   };
 }

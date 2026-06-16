@@ -372,6 +372,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move foundation build-zone runtime wiring into the `construction`
   boundary.
+- Completed: move Workbench rotation target/feedback wiring into the
+  `construction` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -14507,5 +14509,76 @@ That failure is outside this `construction` cut. The working tree already had
 unrelated dirty changes in `startScreen.js` and
 `app/bootstrap/createApplicationRuntime.js`, which are the relevant scene-flow
 files for that isolated failure.
+
+Manual gameplay validation remains pending for this cut.
+
+### Workbench Rotation Runtime Wiring
+
+Expanded the existing
+`app/runtime/construction/workbenchRotationRuntime.js` module so Workbench
+rotation target lookup, selected-target validation, feedback actions and Solar
+Station visual/yaw sync can be wired through the construction runtime instead
+of local wrappers in `gameLoop.js`.
+
+Boundary classification: `construction`, focused on Workbench rotation for
+constructed objects.
+
+Removed from `gameLoop.js`:
+
+- local rotatable Workbench placement candidate wrapper;
+- local Workbench rotation target size/distance/trigger-distance wrappers;
+- local nearest-target lookup wrapper;
+- local selected-target validation wrapper;
+- local preview yaw/size wrappers;
+- local tint wrapper;
+- local select/clear/confirm feedback wrappers;
+- local Solar Station placement yaw wrapper;
+- local Solar Station Workbench rotation visual wrapper;
+- local nearby-rotation feedback wrapper;
+- local Workbench rotation ground-cell wrapper.
+
+Kept in `gameLoop.js`:
+
+- `startGameLoop()` dependency wiring;
+- primary-action ordering and branching;
+- construction placement frame orchestration;
+- input mapping, sounds, HUD text and tuning constants.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `3871` lines.
+- After this cut, `app/runtime/gameLoop.js` is `3754` lines.
+
+Tests updated:
+
+- `tests/workbenchRotationRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+```
+
+The first run failed because the new source-wiring methods did not exist yet.
+After extending `createWorkbenchRotationRuntime(...)`, the focused runtime test
+passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+npm test -- --run tests/workbenchRotationRuntime.test.js tests/workbenchRotationTargets.test.js tests/constructionHouseModelInstances.test.js tests/constructionPlacementFrameRuntime.test.js tests/gameplayPromptTargetFrameState.test.js tests/groundCellHighlightFrameState.test.js
+npm run build
+```
+
+Focused result:
+
+- `6` test files passed
+- `50` tests passed
+
+Full-suite validation was not repeated for this cut. The immediately previous
+full run already had known failures outside this boundary: the existing `3`
+Leafage Native Tree failures and `1` isolated scene-flow failure tied to dirty
+`startScreen.js` / bootstrap work.
 
 Manual gameplay validation remains pending for this cut.

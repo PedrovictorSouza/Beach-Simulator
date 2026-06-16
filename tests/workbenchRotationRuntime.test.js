@@ -281,4 +281,97 @@ describe("createWorkbenchRotationRuntime", () => {
       tintStrength: 0
     });
   });
+
+  it("wires Workbench rotation targets and feedback through runtime sources", () => {
+    const notices = [];
+    const playConfirmSound = vi.fn();
+    const playCancelSound = vi.fn();
+    const playNavigateSound = vi.fn();
+    const session = {
+      buildGridConfig: {
+        cellSize: 2
+      },
+      playerCharacter: {
+        getPosition: () => [1, 0, 1]
+      },
+      strawBed: {
+        position: [1, 0.02, 1],
+        yaw: 0,
+        size: [2, 2]
+      },
+      strawBedModelInstance: {
+        yaw: 0.25
+      },
+      strawBedPlacementPreview: {
+        active: false
+      }
+    };
+    const runtime = createWorkbenchRotationRuntime({
+      normalizePlacementYaw,
+      getRotatedPlacementSize,
+      placementRotationStep: PLACEMENT_ROTATION_STEP,
+      targetSources: {
+        session,
+        getStoryFlags: () => ({
+          strawBedPlacedInBulbasaurHabitat: true
+        }),
+        footprints: {
+          solarStation: [2, 2],
+          trainHouse: [3, 2],
+          houseKit: [2, 2],
+          houseBuilt: [4, 3]
+        },
+        thermalCabinLabel: "Thermal Cabin",
+        getPlacementCollisionSize: (placement, fallbackSize = [1, 1]) =>
+          placement?.size || fallbackSize,
+        getPlayerPosition: () => session.playerCharacter.getPosition(),
+        rotateDistance: 2,
+        triggerTileMargin: 0.5
+      },
+      feedback: {
+        getPromptText: () => "Press X",
+        playConfirmSound,
+        playCancelSound,
+        playNavigateSound,
+        pushNotice: (notice) => notices.push(notice)
+      },
+      solarStation: {
+        getInstance: () => session.strawBedModelInstance,
+        getPlacement: () => session.strawBed,
+        isPlacementPreviewActive: () => session.strawBedPlacementPreview.active,
+        isPlaced: () => true,
+        getNowSeconds: () => 0
+      }
+    });
+
+    expect(runtime.getCandidates().map((target) => target.kind)).toEqual([
+      "solarStation"
+    ]);
+    expect(runtime.getNearestTarget()).toMatchObject({
+      kind: "solarStation",
+      distance: 0
+    });
+
+    expect(runtime.selectTargetWithFeedback(runtime.getNearestTarget())).toBe(true);
+    expect(runtime.rotateNearbyTargetWithFeedback(1)).toBe(true);
+    expect(runtime.confirmSelectedTargetWithFeedback()).toBe(true);
+
+    expect(session.strawBed.yaw).toBe(Math.PI * 0.5);
+    expect(session.strawBedModelInstance).toMatchObject({
+      solarStationBaseYaw: 0.25,
+      yaw: 0.25 + Math.PI * 0.5
+    });
+    expect(playConfirmSound).toHaveBeenCalledTimes(2);
+    expect(playNavigateSound).toHaveBeenCalledTimes(1);
+    expect(playCancelSound).not.toHaveBeenCalled();
+    expect(notices).toEqual([
+      "Solar Station selected. Press X.",
+      "Solar Station preview rotated. X confirm.",
+      "Solar Station rotation set."
+    ]);
+
+    runtime.selectTargetWithFeedback(runtime.getNearestTarget());
+    expect(runtime.clearSelectionWithFeedback()).toBe(true);
+    expect(playCancelSound).toHaveBeenCalledTimes(1);
+  });
 });

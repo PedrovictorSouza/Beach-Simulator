@@ -46,13 +46,6 @@ import {
   updateSolarStationConstructionPlacementPreview
 } from "./construction/constructionPlacementFrameRuntime.js";
 import {
-  getNearestRotatableWorkbenchPlacement as getNearestRotatableWorkbenchPlacementFromTargets,
-  getRotatableWorkbenchPlacementCandidates as getRotatableWorkbenchPlacementCandidatesFromTargets,
-  getWorkbenchRotationTargetDistance as getWorkbenchRotationTargetDistanceFromTargets,
-  getWorkbenchRotationTargetSize as getWorkbenchRotationTargetSizeFromTargets,
-  getWorkbenchRotationTriggerDistance as getWorkbenchRotationTriggerDistanceFromTargets
-} from "./construction/workbenchRotationTargets.js";
-import {
   cancelPendingWorkbenchPlacementIntent,
   hasPendingWorkbenchPlacementIntent
 } from "./construction/pendingPlacementIntent.js";
@@ -903,8 +896,37 @@ export function startGameLoop({
   const workbenchRotationRuntime = createWorkbenchRotationRuntime({
     normalizePlacementYaw,
     getRotatedPlacementSize,
-    getTargetSize: getWorkbenchRotationTargetSize,
-    placementRotationStep: PLACEMENT_ROTATION_STEP
+    placementRotationStep: PLACEMENT_ROTATION_STEP,
+    targetSources: {
+      session,
+      getStoryFlags: () => controls.storyState?.flags || {},
+      footprints: {
+        houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT,
+        houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
+        solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
+        trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT
+      },
+      thermalCabinLabel: SANDBOTS_ITEM_NAMES.thermalCabin,
+      getPlacementCollisionSize,
+      getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
+      getBuildGridConfig: () => session.buildGridConfig,
+      rotateDistance: WORKBENCH_OBJECT_ROTATE_DISTANCE,
+      triggerTileMargin: WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN
+    },
+    feedback: {
+      getPromptText: () => resolveWorkbenchRotationPrompt(getCurrentInputModalityState()),
+      playConfirmSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM),
+      playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
+      playNavigateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE),
+      pushNotice: (notice) => hud?.pushNotice?.(notice)
+    },
+    solarStation: {
+      getInstance: () => session.strawBedModelInstance,
+      getPlacement: () => session.strawBed,
+      isPlacementPreviewActive: () => session.strawBedPlacementPreview?.active,
+      isPlaced: () => controls.storyState.flags.strawBedPlacedInBulbasaurHabitat,
+      getNowSeconds: getRuntimeNowSeconds
+    }
   });
   const constructionHouseModelInstanceRuntime = createConstructionHouseModelInstanceRuntime({
     session,
@@ -912,11 +934,11 @@ export function startGameLoop({
     getNowSeconds: getRuntimeNowSeconds,
     getSelectedRotationKind: () => workbenchRotationRuntime.getSelection()?.kind,
     prepareDistance: PLAYER_CONSTRUCTION_MODEL_PREPARE_DISTANCE,
-    getWorkbenchRotationPreviewYaw,
+    getWorkbenchRotationPreviewYaw: workbenchRotationRuntime.getPreviewYaw,
     isWorldPositionWithinRenderDistance,
     applyTrainHouseDance,
     applyPlacementSpawn: applyPlayerPlacementSpawnToModelInstance,
-    applyRotationTint: applyWorkbenchRotationSelectionTint
+    applyRotationTint: workbenchRotationRuntime.applySelectionTint
   });
   const snowstormFogRuntime = createSnowstormFogRuntime({
     mount,
@@ -1162,10 +1184,10 @@ export function startGameLoop({
     workbenchRotationRuntime,
     callbacks: {
       rotateActivePlacementPreview,
-      rotateNearbyWorkbenchConstruction,
+      rotateNearbyWorkbenchConstruction: workbenchRotationRuntime.rotateNearbyTargetWithFeedback,
       hasActivePlacementPreview,
       hasPendingWorkbenchPlacementIntent,
-      clearWorkbenchConstructionRotationSelection,
+      clearWorkbenchConstructionRotationSelection: workbenchRotationRuntime.clearSelectionWithFeedback,
       cancelActivePlacementPreviews,
       cancelPendingWorkbenchPlacementIntentWithNotice,
       isBuildBlockFieldMoveEquipped,
@@ -1178,7 +1200,7 @@ export function startGameLoop({
       updateCampfirePlacementPreview,
       updateLeafDenKitPlacementPreview,
       updateSolarStationSpawnEffect,
-      syncSolarStationWorkbenchRotationVisual,
+      syncSolarStationWorkbenchRotationVisual: workbenchRotationRuntime.syncSolarStationWorkbenchRotationVisualFromSources,
       syncFreeBlockBuildPreview,
       updateBuildBlockDebugOverlay: (debug) => buildBlockDebugOverlay.update(debug)
     }
@@ -1516,145 +1538,6 @@ export function startGameLoop({
       playRotateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE),
       pushNotice: (notice) => hud?.pushNotice?.(notice)
     });
-  }
-
-  function getRotatableWorkbenchPlacementCandidates() {
-    return getRotatableWorkbenchPlacementCandidatesFromTargets({
-      flags: controls.storyState?.flags || {},
-      footprints: {
-        houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT,
-        houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
-        solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-        trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT
-      },
-      session,
-      thermalCabinLabel: SANDBOTS_ITEM_NAMES.thermalCabin
-    });
-  }
-
-  function getWorkbenchRotationTargetSize(target) {
-    return getWorkbenchRotationTargetSizeFromTargets(target, {
-      getPlacementCollisionSize
-    });
-  }
-
-  function getWorkbenchRotationTargetDistance(playerPosition, target) {
-    return getWorkbenchRotationTargetDistanceFromTargets(playerPosition, target, {
-      getTargetSize: getWorkbenchRotationTargetSize
-    });
-  }
-
-  function getWorkbenchRotationTriggerDistance() {
-    return getWorkbenchRotationTriggerDistanceFromTargets({
-      buildGridConfig: session.buildGridConfig,
-      rotateDistance: WORKBENCH_OBJECT_ROTATE_DISTANCE,
-      triggerTileMargin: WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN
-    });
-  }
-
-  function getNearestRotatableWorkbenchPlacement() {
-    const playerPosition = session.playerCharacter?.getPosition?.();
-    return getNearestRotatableWorkbenchPlacementFromTargets({
-      candidates: getRotatableWorkbenchPlacementCandidates(),
-      getTargetDistance: getWorkbenchRotationTargetDistance,
-      playerPosition,
-      triggerDistance: getWorkbenchRotationTriggerDistance()
-    });
-  }
-
-  function getSelectedRotatableWorkbenchPlacement() {
-    return workbenchRotationRuntime.getSelectedTarget(
-      getRotatableWorkbenchPlacementCandidates(),
-      {
-        isTargetValid: (target) => {
-          const playerPosition = session.playerCharacter?.getPosition?.();
-          const position = target.placement?.position;
-          if (!Array.isArray(playerPosition) || !Array.isArray(position)) {
-            return true;
-          }
-
-          const distance = getWorkbenchRotationTargetDistance(playerPosition, target);
-          return !(
-            Number.isFinite(distance) &&
-            distance > getWorkbenchRotationTriggerDistance() * 1.6
-          );
-        }
-      }
-    );
-  }
-
-  function getWorkbenchRotationPreviewYaw(target) {
-    return workbenchRotationRuntime.getPreviewYaw(target);
-  }
-
-  function getWorkbenchRotationPreviewSize(target) {
-    return workbenchRotationRuntime.getPreviewSize(target);
-  }
-
-  function applyWorkbenchRotationSelectionTint(kind, instance, nowSeconds = getRuntimeNowSeconds()) {
-    return workbenchRotationRuntime.applySelectionTint(kind, instance, nowSeconds);
-  }
-
-  function selectWorkbenchConstructionForRotation(target) {
-    return workbenchRotationRuntime.selectWithFeedback(target, {
-      promptText: resolveWorkbenchRotationPrompt(getCurrentInputModalityState()),
-      playConfirmSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM),
-      pushNotice: (notice) => hud?.pushNotice?.(notice)
-    });
-  }
-
-  function clearWorkbenchConstructionRotationSelection() {
-    return workbenchRotationRuntime.clearWithFeedback({
-      playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
-      pushNotice: (notice) => hud?.pushNotice?.(notice)
-    });
-  }
-
-  function confirmWorkbenchConstructionRotationSelection() {
-    let selectedRotationTarget = null;
-    return workbenchRotationRuntime.confirmWithFeedback({
-      getSelectedTarget: () => {
-        selectedRotationTarget = getSelectedRotatableWorkbenchPlacement();
-        return selectedRotationTarget;
-      },
-      syncPlacementYaw: (placement) => {
-        if (selectedRotationTarget?.kind === "solarStation") {
-          syncSolarStationPlacementYaw(placement);
-        }
-      },
-      playConfirmSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM),
-      pushNotice: (notice) => hud?.pushNotice?.(notice)
-    });
-  }
-
-  function syncSolarStationPlacementYaw(placement) {
-    workbenchRotationRuntime.syncSolarStationPlacementYaw({
-      instance: session.strawBedModelInstance,
-      placement
-    });
-  }
-
-  function syncSolarStationWorkbenchRotationVisual(nowSeconds = getRuntimeNowSeconds()) {
-    workbenchRotationRuntime.syncSolarStationWorkbenchRotationVisual({
-      instance: session.strawBedModelInstance,
-      placement: session.strawBed,
-      placementPreviewActive: session.strawBedPlacementPreview?.active,
-      placed: controls.storyState.flags.strawBedPlacedInBulbasaurHabitat,
-      nowSeconds
-    });
-  }
-
-  function rotateNearbyWorkbenchConstruction(direction) {
-    return workbenchRotationRuntime.rotateNearbyWithFeedback({
-      direction,
-      getSelectedTarget: getSelectedRotatableWorkbenchPlacement,
-      playNavigateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE),
-      pushNotice: (notice) => hud?.pushNotice?.(notice)
-    });
-  }
-
-  function getWorkbenchRotationGroundCell(target) {
-    return workbenchRotationRuntime.getGroundCell(target);
   }
 
   function updateLeafDenKitPlacementPreview(timeSeconds = 0) {
@@ -3005,7 +2888,7 @@ export function startGameLoop({
       const primaryInteractTargetIsWorkbench = primaryInteractTarget?.target?.id === "workbench";
       const primaryActionConfirmsRotation =
         !primaryInteractTargetIsWorkbench &&
-        Boolean(getSelectedRotatableWorkbenchPlacement());
+        Boolean(workbenchRotationRuntime.getSelectedTargetFromSources());
       const primaryActionPlacementCanYieldToRotation = Boolean(
         !primaryActionPlacementTarget ||
         primaryActionTarget?.leafDenKitPlacement ||
@@ -3020,7 +2903,7 @@ export function startGameLoop({
         !primaryActionIsMove &&
         !leafageAutoWaterGunTarget?.groundCell &&
         !leafageAutoGrowTarget?.leafageGroundCell ?
-          getNearestRotatableWorkbenchPlacement() :
+          workbenchRotationRuntime.getNearestTarget() :
           null;
       const primaryActionBagDestroyTarget =
         harvestRequestSource === "gamepadBag" &&
@@ -3051,9 +2934,9 @@ export function startGameLoop({
       }
 
       if (primaryActionConfirmsRotation) {
-        confirmWorkbenchConstructionRotationSelection();
+        workbenchRotationRuntime.confirmSelectedTargetWithFeedback();
       } else if (primaryActionRotationTarget) {
-        selectWorkbenchConstructionForRotation(primaryActionRotationTarget);
+        workbenchRotationRuntime.selectTargetWithFeedback(primaryActionRotationTarget);
       } else if (primaryActionBagDestroyTarget?.target) {
         performGameplayDestroyAction({
           playerPosition,
@@ -3535,8 +3418,8 @@ if (canProcessDestroyAction && destroyActionRequested) {
       pendingWaterGunGroundCells,
       getCurrentInputModalityState,
       getPlayerCounterPromptText: (frameNow) => playerCounterPromptRuntime.get(frameNow),
-      getSelectedRotatableWorkbenchPlacement,
-      getNearestRotatableWorkbenchPlacement,
+      getSelectedRotatableWorkbenchPlacement: workbenchRotationRuntime.getSelectedTargetFromSources,
+      getNearestRotatableWorkbenchPlacement: workbenchRotationRuntime.getNearestTarget,
       debug: debugInteractionFlow
     });
 
@@ -3571,7 +3454,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       activeFireGroundCell,
       session,
       storyState: controls.storyState,
-      getWorkbenchRotationGroundCell,
+      getWorkbenchRotationGroundCell: workbenchRotationRuntime.getGroundCell,
       buildSolarStationPreviewPowerRadiusGroundCells: (_session, preview) =>
         solarStationPowerRadiusRuntime.buildPreviewPowerRadiusGroundCells(preview),
       buildPlacedSolarStationPowerRadiusGroundCells: () =>
