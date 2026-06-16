@@ -232,6 +232,7 @@ import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createWorkbenchRotationRuntime } from "./workbenchRotationRuntime.js";
 import { createWoodCollectPopRuntime } from "./woodCollectPopRuntime.js";
+import { createRustlingGrassEventRuntime } from "./world/rustlingGrassEventRuntime.js";
 import { createWorldCellPlannerInteractionRuntime } from "./world/worldCellPlannerInteractionRuntime.js";
 
 export {
@@ -906,6 +907,9 @@ export function startGameLoop({
     rendering,
     session,
     worldCanvas
+  });
+  const rustlingGrassEventRuntime = createRustlingGrassEventRuntime({
+    getStoryState: () => controls.storyState
   });
   const movementQuestRuntime = createMovementQuestRuntime({
     minimumMovementDistance: 0.0005,
@@ -3555,30 +3559,6 @@ export function startGameLoop({
     }
   }
 
-  function updateRustlingGrassEvent(deltaTime, canAdvance) {
-    const flags = controls.storyState?.flags;
-
-    if (
-      !canAdvance ||
-      !flags?.pendingRustlingGrassCellId ||
-      flags.rustlingGrassCellId ||
-      flags.bulbasaurRevealed
-    ) {
-      return;
-    }
-
-    const nextDelay = Math.max(0, Number(flags.rustlingGrassDelay || 0) - deltaTime);
-    flags.rustlingGrassDelay = nextDelay;
-
-    if (nextDelay > 0) {
-      return;
-    }
-
-    flags.rustlingGrassCellId = flags.pendingRustlingGrassCellId;
-    delete flags.pendingRustlingGrassCellId;
-    delete flags.rustlingGrassDelay;
-  }
-
   function readGameLoopFlowState() {
     const tutorialActive = isGameFlow(gameFlowValues.TUTORIAL);
 
@@ -3686,7 +3666,10 @@ export function startGameLoop({
       controls.clearMovementInput();
     }
 
-    updateRustlingGrassEvent(deltaTime, canAdvanceRustlingGrass);
+    rustlingGrassEventRuntime.update({
+      deltaTime,
+      canAdvance: canAdvanceRustlingGrass
+    });
 
     return { committedEarlyFrame: false };
   }

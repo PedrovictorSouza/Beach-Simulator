@@ -12360,3 +12360,51 @@ npm test
 - `1835` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Rustling Grass Event Runtime Extraction
+
+Created the `world/rustling-grass-event` boundary with
+`app/runtime/world/rustlingGrassEventRuntime.js`.
+
+Study path:
+
+1. The runtime owns the delayed world-state transition from
+   `pendingRustlingGrassCellId` to `rustlingGrassCellId`.
+2. `gameLoop.js` still decides when the world event is allowed to advance via
+   `canAdvanceRustlingGrass`, preserving the existing frame policy boundary.
+3. `gameLoop.js` now calls
+   `rustlingGrassEventRuntime.update({ deltaTime, canAdvance })` from the same
+   early gameplay control frame point where the local function used to run.
+
+Removed from `gameLoop.js`:
+
+- local `updateRustlingGrassEvent(...)` implementation;
+- direct mutation details for `rustlingGrassDelay`,
+  `pendingRustlingGrassCellId` and `rustlingGrassCellId`.
+
+Kept in `gameLoop.js`:
+
+- frame ordering;
+- blocker/policy calculation for `canAdvanceRustlingGrass`;
+- composition-root wiring to `controls.storyState`.
+
+Tests added:
+
+- `tests/rustlingGrassEventRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/rustlingGrassEventRuntime.test.js
+npm test -- --run tests/rustlingGrassEventRuntime.test.js tests/gameLoopFramePolicies.test.js
+npm test -- --run tests/gameplayInteractions.test.js -t rustling
+npm run build
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `305` test files passed, `1` failed
+- `1839` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
