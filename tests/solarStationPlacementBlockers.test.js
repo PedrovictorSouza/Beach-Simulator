@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createSolarStationPlacementBlockerRuntime,
   getSolarStationPlacementBlockers,
   isSolarStationPlacementBlocked
 } from "../app/runtime/construction/solarStationPlacementBlockers.js";
@@ -163,6 +164,73 @@ describe("solar station placement blockers", () => {
         maxZ: position[2] + size[1] * 0.5
       }),
       doPlacementRectsOverlap: () => true
+    })).toBe(true);
+  });
+
+  it("creates a runtime that injects session, story state and blocker callbacks", () => {
+    const session = {
+      logChair: {
+        position: [1, 0, 1],
+        size: [1, 1]
+      }
+    };
+    const storyState = {
+      flags: {
+        logChairPlaced: true
+      }
+    };
+    const runtime = createSolarStationPlacementBlockerRuntime({
+      session,
+      getStoryState: () => storyState,
+      footprints: {
+        solarStation: [2.2, 2.2]
+      },
+      createPlayerConstructionPlacementBlockers: () => [
+        {
+          position: [2, 0, 2],
+          size: [1, 1]
+        }
+      ],
+      getWorldObjectPlacementBlockers: () => [
+        {
+          position: [3, 0, 3],
+          size: [1, 1]
+        }
+      ],
+      getPlacementCollisionSize: (placement, fallbackSize = [1, 1]) =>
+        placement?.size || fallbackSize,
+      getPlacementRect: (position, size) => ({
+        minX: position[0] - size[0] * 0.5,
+        maxX: position[0] + size[0] * 0.5,
+        minZ: position[2] - size[1] * 0.5,
+        maxZ: position[2] + size[1] * 0.5
+      }),
+      doPlacementRectsOverlap: (left, right) =>
+        left.minX <= right.maxX &&
+        left.maxX >= right.minX &&
+        left.minZ <= right.maxZ &&
+        left.maxZ >= right.minZ
+    });
+
+    expect(runtime.getBlockers()).toEqual([
+      {
+        position: [2, 0, 2],
+        size: [1, 1]
+      },
+      {
+        position: [3, 0, 3],
+        size: [1, 1]
+      },
+      {
+        position: [1, 0, 1],
+        size: [1, 1]
+      }
+    ]);
+    expect(runtime.isBlocked({
+      minX: 0.75,
+      maxX: 1.25,
+      minZ: 0.75,
+      maxZ: 1.25
     })).toBe(true);
   });
 });

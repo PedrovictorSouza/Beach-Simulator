@@ -368,6 +368,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move Solar Station power-radius wiring into the `construction`
   boundary.
+- Completed: move construction placement blocker wiring into the `construction`
+  boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -3864,6 +3866,92 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Construction Placement Blocker Runtime Wiring
+
+Integrated the existing placement blocker helpers through small runtime
+factories inside the `construction` boundary:
+
+- `createWorldObjectPlacementBlockerRuntime(...)` in
+  `app/runtime/construction/worldObjectPlacementBlockers.js`
+- `createSolarStationPlacementBlockerRuntime(...)` in
+  `app/runtime/construction/solarStationPlacementBlockers.js`
+
+Boundary classification: `construction`, focused on blocker dependency wiring
+for placement preview validation and foundation-zone blocker assembly.
+
+Study path:
+
+1. `gameLoop.js` used to own local wrapper functions that injected tree
+   footprint tuning, Solar Station footprints, story state, player blockers,
+   world-object blockers and placement geometry callbacks.
+2. The construction modules already owned the pure blocker rules. This cut
+   moved the composition of those rules into runtime factories with explicit
+   dependencies.
+3. `startGameLoop()` still wires the dependencies as the composition root.
+   The frame order, placement preview update order and `requestAnimationFrame`
+   scheduling did not move.
+
+Removed from `gameLoop.js`:
+
+- local `getTreePlacementBlockerSize(...)` wrapper;
+- local `getLeppaTreePlacementBlockerSize(...)` wrapper;
+- local `getWorldObjectPlacementBlockers(...)` wrapper;
+- local `getSolarStationPlacementBlockers(...)` wrapper;
+- local `isSolarStationPlacementBlocked(...)` wrapper.
+
+Kept in `gameLoop.js`:
+
+- construction placement preview orchestration;
+- placement geometry imports used by other local construction flows;
+- all placement tuning constants;
+- all gameplay, field move, input, audio and camera behavior.
+
+Tests updated:
+
+- `tests/worldObjectPlacementBlockers.test.js`
+- `tests/solarStationPlacementBlockers.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/worldObjectPlacementBlockers.test.js tests/solarStationPlacementBlockers.test.js
+```
+
+The first run failed because the runtime factories did not exist yet. After
+adding the factories and wiring `gameLoop.js` through them, the focused
+construction validation passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/worldObjectPlacementBlockers.test.js tests/solarStationPlacementBlockers.test.js tests/constructionPlacementFrameRuntime.test.js tests/foundationBuildZone.test.js tests/placementBlockers.test.js
+npm run build
+```
+
+Focused result:
+
+- `5` test files passed
+- `63` tests passed
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `309` test files passed, `1` failed
+- `1893` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+The three failures remain:
+
+- `grows a collidable Native tree with Leafage when Grow Bot's object is set to nativeTree`
+- `grows Native tree on a safe nearby cell instead of trapping the player under it`
+- `drops Wood when a Leafage Native tree is destroyed`
 
 Manual gameplay validation remains pending for this cut.
 

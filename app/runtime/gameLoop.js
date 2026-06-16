@@ -70,15 +70,8 @@ import {
   updateSolarStationSpawnEffect
 } from "./construction/playerPlacementSpawnEffect.js";
 import { createSolarStationPowerRadiusRuntime } from "./construction/solarStationPowerRadius.js";
-import {
-  getSolarStationPlacementBlockers as getSolarStationPlacementBlockersWithConfig,
-  isSolarStationPlacementBlocked as isSolarStationPlacementBlockedWithConfig
-} from "./construction/solarStationPlacementBlockers.js";
-import {
-  getLeppaTreePlacementBlockerSize as getLeppaTreePlacementBlockerSizeWithConfig,
-  getTreePlacementBlockerSize as getTreePlacementBlockerSizeWithConfig,
-  getWorldObjectPlacementBlockers as getWorldObjectPlacementBlockersWithConfig
-} from "./construction/worldObjectPlacementBlockers.js";
+import { createSolarStationPlacementBlockerRuntime } from "./construction/solarStationPlacementBlockers.js";
+import { createWorldObjectPlacementBlockerRuntime } from "./construction/worldObjectPlacementBlockers.js";
 import {
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
   doPlacementRectsOverlap,
@@ -568,67 +561,6 @@ function buildSolarStationFieldMarkedGroundCells(placementTarget) {
   });
 }
 
-function getTreePlacementBlockerSize(treeModel, instance) {
-  return getTreePlacementBlockerSizeWithConfig({
-    treeModel,
-    instance,
-    treeFootprint,
-    treeFootprintScale: TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
-    deadTreeFootprintScale: DEAD_TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
-    treeMinSize: TREE_PLACEMENT_BLOCKER_MIN_SIZE,
-    deadTreeMinSize: DEAD_TREE_PLACEMENT_BLOCKER_MIN_SIZE
-  });
-}
-
-function getLeppaTreePlacementBlockerSize(session) {
-  return getLeppaTreePlacementBlockerSizeWithConfig({
-    session,
-    blockerSize: LEPPA_TREE_PLACEMENT_BLOCKER_SIZE,
-    defaultCellSize: LEPPA_TREE_PLACEMENT_BLOCKER_DEFAULT_CELL_SIZE
-  });
-}
-
-function getWorldObjectPlacementBlockers(session) {
-  return getWorldObjectPlacementBlockersWithConfig({
-    session,
-    treeFootprint,
-    treeFootprintScale: TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
-    deadTreeFootprintScale: DEAD_TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
-    treeMinSize: TREE_PLACEMENT_BLOCKER_MIN_SIZE,
-    deadTreeMinSize: DEAD_TREE_PLACEMENT_BLOCKER_MIN_SIZE,
-    leppaTreeBlockerSize: LEPPA_TREE_PLACEMENT_BLOCKER_SIZE,
-    leppaTreeDefaultCellSize: LEPPA_TREE_PLACEMENT_BLOCKER_DEFAULT_CELL_SIZE
-  });
-}
-
-function getSolarStationPlacementBlockers(session, storyState) {
-  return getSolarStationPlacementBlockersWithConfig({
-    session,
-    storyState,
-    footprints: {
-      greenhouse: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-      trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
-      houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT
-    },
-    createPlayerConstructionPlacementBlockers,
-    getWorldObjectPlacementBlockers,
-    getPlacementCollisionSize
-  });
-}
-
-function isSolarStationPlacementBlocked(session, storyState, placementRect) {
-  return isSolarStationPlacementBlockedWithConfig({
-    session,
-    storyState,
-    placementRect,
-    getSolarStationPlacementBlockers,
-    getPlacementRect,
-    doPlacementRectsOverlap
-  });
-}
-
 function lerp(start, end, progress) {
   return start + (end - start) * progress;
 }
@@ -857,6 +789,32 @@ export function startGameLoop({
     getColliders: getPlayerConstructionTerrainColliders,
     playBlockedSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
     pushNotice: (message) => hud?.pushNotice?.(message)
+  });
+  const worldObjectPlacementBlockerRuntime = createWorldObjectPlacementBlockerRuntime({
+    session,
+    treeFootprint,
+    treeFootprintScale: TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
+    deadTreeFootprintScale: DEAD_TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
+    treeMinSize: TREE_PLACEMENT_BLOCKER_MIN_SIZE,
+    deadTreeMinSize: DEAD_TREE_PLACEMENT_BLOCKER_MIN_SIZE,
+    leppaTreeBlockerSize: LEPPA_TREE_PLACEMENT_BLOCKER_SIZE,
+    leppaTreeDefaultCellSize: LEPPA_TREE_PLACEMENT_BLOCKER_DEFAULT_CELL_SIZE
+  });
+  const solarStationPlacementBlockerRuntime = createSolarStationPlacementBlockerRuntime({
+    session,
+    getStoryState: () => controls.storyState,
+    footprints: {
+      greenhouse: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+      solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
+      trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+      houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
+      houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT
+    },
+    createPlayerConstructionPlacementBlockers,
+    getWorldObjectPlacementBlockers: worldObjectPlacementBlockerRuntime.getBlockers,
+    getPlacementCollisionSize,
+    getPlacementRect,
+    doPlacementRectsOverlap
   });
   const fieldMoveApproachPositionRuntime = createFieldMoveApproachPositionRuntime({
     getSquirtlePosition: () =>
@@ -1518,7 +1476,7 @@ export function startGameLoop({
           SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE
         ),
       isPlacementBlocked: (previewRect) =>
-        isSolarStationPlacementBlocked(session, controls.storyState, previewRect),
+        solarStationPlacementBlockerRuntime.isBlocked(previewRect),
       shouldHideInactiveInstance: () =>
         !controls.storyState.flags.strawBedPlacedInBulbasaurHabitat
     });
@@ -1697,7 +1655,7 @@ export function startGameLoop({
       timeSeconds,
       fallbackFootprint: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
       gridFootprint: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT,
-      getBlockers: () => getSolarStationPlacementBlockers(session, controls.storyState),
+      getBlockers: solarStationPlacementBlockerRuntime.getBlockers,
       validatePlacement: validateBuildingKitPlacement,
       syncPlacementPreview: (preview) =>
         constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview),
@@ -1717,7 +1675,7 @@ export function startGameLoop({
       timeSeconds,
       fallbackFootprint: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
       gridFootprint: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
-      getBlockers: () => getSolarStationPlacementBlockers(session, controls.storyState),
+      getBlockers: solarStationPlacementBlockerRuntime.getBlockers,
       validatePlacement: validateBuildingKitPlacement,
       syncPlacementPreview: (preview) =>
         constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview),
@@ -1738,7 +1696,7 @@ export function startGameLoop({
       timeSeconds,
       fallbackFootprint: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
       gridFootprint: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
-      getBlockers: () => getSolarStationPlacementBlockers(session, controls.storyState),
+      getBlockers: solarStationPlacementBlockerRuntime.getBlockers,
       validatePlacement: validateBuildingKitPlacement,
       syncPlacementPreview: (preview) =>
         constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview),
@@ -2054,7 +2012,7 @@ export function startGameLoop({
       terrainColliders: getPlayerConstructionTerrainColliders(),
       freeBlockInstances: session.freeBlockInstances || [],
       isFoundationFreeBlockAllowed: (instance) => isFoundationFreeBlockAllowedInZone(instance, buildZone),
-      worldObjectBlockers: getWorldObjectPlacementBlockers(session),
+      worldObjectBlockers: worldObjectPlacementBlockerRuntime.getBlockers(),
       playerPosition: session.playerCharacter?.getPosition?.() || null,
       npcActors: session.npcActors || [],
       isNpcActive: (npcActor) => rendering?.isNpcActive?.(npcActor, controls.storyState),

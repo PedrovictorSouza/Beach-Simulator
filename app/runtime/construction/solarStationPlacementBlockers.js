@@ -105,3 +105,41 @@ export function isSolarStationPlacementBlocked({
       });
     });
 }
+
+export function createSolarStationPlacementBlockerRuntime({
+  session = null,
+  getStoryState = () => ({}),
+  footprints,
+  createPlayerConstructionPlacementBlockers = () => [],
+  getWorldObjectPlacementBlockers = () => [],
+  getPlacementCollisionSize,
+  getPlacementRect,
+  doPlacementRectsOverlap
+} = {}) {
+  function getBlockers() {
+    return getSolarStationPlacementBlockers({
+      session,
+      storyState: getStoryState(),
+      footprints,
+      createPlayerConstructionPlacementBlockers,
+      getWorldObjectPlacementBlockers: () => getWorldObjectPlacementBlockers(),
+      getPlacementCollisionSize
+    });
+  }
+
+  function isBlocked(placementRect) {
+    return isSolarStationPlacementBlocked({
+      session,
+      storyState: getStoryState(),
+      placementRect,
+      getSolarStationPlacementBlockers: () => getBlockers(),
+      getPlacementRect,
+      doPlacementRectsOverlap
+    });
+  }
+
+  return {
+    getBlockers,
+    isBlocked
+  };
+}

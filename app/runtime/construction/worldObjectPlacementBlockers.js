@@ -102,3 +102,53 @@ export function getWorldObjectPlacementBlockers({
 
   return blockers;
 }
+
+export function createWorldObjectPlacementBlockerRuntime({
+  session = null,
+  treeFootprint = () => 0,
+  treeFootprintScale,
+  deadTreeFootprintScale,
+  treeMinSize,
+  deadTreeMinSize,
+  leppaTreeBlockerSize,
+  leppaTreeDefaultCellSize
+} = {}) {
+  function getTreeBlockerSize(treeModel, instance) {
+    return getTreePlacementBlockerSize({
+      treeModel,
+      instance,
+      treeFootprint,
+      treeFootprintScale,
+      deadTreeFootprintScale,
+      treeMinSize,
+      deadTreeMinSize
+    });
+  }
+
+  function getLeppaTreeBlockerSize(nextSession = session) {
+    return getLeppaTreePlacementBlockerSize({
+      session: nextSession,
+      blockerSize: leppaTreeBlockerSize,
+      defaultCellSize: leppaTreeDefaultCellSize
+    });
+  }
+
+  function getBlockers(nextSession = session) {
+    return getWorldObjectPlacementBlockers({
+      session: nextSession,
+      treeFootprint,
+      treeFootprintScale,
+      deadTreeFootprintScale,
+      treeMinSize,
+      deadTreeMinSize,
+      leppaTreeBlockerSize,
+      leppaTreeDefaultCellSize
+    });
+  }
+
+  return {
+    getBlockers,
+    getLeppaTreeBlockerSize,
+    getTreeBlockerSize
+  };
+}

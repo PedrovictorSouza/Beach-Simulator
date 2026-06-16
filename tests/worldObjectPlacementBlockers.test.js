@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createWorldObjectPlacementBlockerRuntime,
   getLeppaTreePlacementBlockerSize,
   getTreePlacementBlockerSize,
   getWorldObjectPlacementBlockers
@@ -120,6 +121,58 @@ describe("world object placement blockers", () => {
         kind: "tree",
         position: [1, 0, 2],
         size: [1, 1]
+      },
+      {
+        id: "tree:leppa",
+        kind: "tree",
+        position: [4, 0, 5],
+        size: [2, 2]
+      }
+    ]);
+  });
+
+  it("creates a runtime that injects world object blocker config", () => {
+    const session = {
+      palmModel: {},
+      palmInstances: [
+        {
+          id: "palm-a",
+          active: true,
+          offset: [1, 0, 2],
+          alive: false
+        }
+      ],
+      buildGridConfig: {
+        cellSize: 1
+      },
+      leppaTree: {
+        id: "leppa",
+        position: [4, 0, 5],
+        footprint: {
+          width: 2,
+          height: 2
+        }
+      }
+    };
+    const runtime = createWorldObjectPlacementBlockerRuntime({
+      session,
+      treeFootprint: () => 2,
+      treeFootprintScale: 0.5,
+      deadTreeFootprintScale: 1.5,
+      treeMinSize: 0.9,
+      deadTreeMinSize: 1.35,
+      leppaTreeBlockerSize: [2.35, 2.35],
+      leppaTreeDefaultCellSize: 1.425
+    });
+
+    expect(runtime.getTreeBlockerSize({}, { alive: false })).toEqual([3, 3]);
+    expect(runtime.getLeppaTreeBlockerSize()).toEqual([2, 2]);
+    expect(runtime.getBlockers()).toEqual([
+      {
+        id: "tree:palm-a",
+        kind: "tree",
+        position: [1, 0, 2],
+        size: [3, 3]
       },
       {
         id: "tree:leppa",
