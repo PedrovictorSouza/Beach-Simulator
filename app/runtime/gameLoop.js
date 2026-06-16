@@ -5,6 +5,7 @@ import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { createBeeFieldRuntime } from "./companions/beeFieldRuntime.js";
 import { createBulbasaurWorkbenchGuideRuntime } from "./companions/bulbasaurWorkbenchGuideRuntime.js";
+import { createCompanionEncounterRuntime } from "./companions/companionEncounterRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
 import { createCompanionGroundPatrolFrameRuntime } from "./companions/companionGroundPatrolFrameRuntime.js";
 import { createCompanionIdleMotionRuntime } from "./companions/companionIdleMotionRuntime.js";
@@ -152,10 +153,7 @@ import {
   getTallGrassInstanceScale,
   getTallGrassYaw
 } from "./tallGrassMotion.js";
-import {
-  applyTrainHouseDance,
-  shouldCompleteThermalCabinHomeBeat
-} from "./trainHouseDance.js";
+import { applyTrainHouseDance } from "./trainHouseDance.js";
 import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createWoodCollectPopRuntime } from "./woodCollectPopRuntime.js";
@@ -1271,6 +1269,28 @@ export function startGameLoop({
       }
     }
   });
+  const companionEncounterRuntime = createCompanionEncounterRuntime({
+    session,
+    controls,
+    repairBoxRevealOpeningRuntime,
+    bulbasaurWorkbenchGuideRuntime,
+    companionModelSyncRuntime,
+    companionIdleMotionRuntime,
+    constructionHelperMotionRuntime,
+    companionFollowMovementRuntime,
+    callbacks: {
+      isLeafDenConstructionActive
+    },
+    config: {
+      bulbasaurModelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET,
+      charmanderModelFaceYawOffset: CHARMANDER_MODEL_FACE_YAW_OFFSET,
+      timburrModelFaceYawOffset: TIMBURR_MODEL_FACE_YAW_OFFSET,
+      charmanderFollowSpeed: CHARMANDER_FOLLOW_SPEED,
+      charmanderFollowDistance: CHARMANDER_FOLLOW_DISTANCE,
+      timburrFollowSpeed: TIMBURR_FOLLOW_SPEED,
+      timburrFollowDistance: TIMBURR_FOLLOW_DISTANCE
+    }
+  });
 
   const companionFrameRuntime = createCompanionFrameRuntime({
     session,
@@ -1289,10 +1309,10 @@ export function startGameLoop({
       isWaterGunSfxBurstActive: (nowSeconds) => waterGunSfxBurstRuntime.isActive(nowSeconds),
       updateBulbasaurRepairBoxRustle: (deltaTime) =>
         companionRepairBoxModelRuntime.updateRepairBoxRustle(session.bulbasaurEncounter, deltaTime),
-      updateBulbasaurEncounter,
-      updateCharmanderEncounter,
+      updateBulbasaurEncounter: (...args) => companionEncounterRuntime.updateBulbasaur(...args),
+      updateCharmanderEncounter: (...args) => companionEncounterRuntime.updateCharmander(...args),
       updateCharmanderFireAction: (deltaTime) => fireRuntime.updateAction(deltaTime),
-      updateTimburrEncounter,
+      updateTimburrEncounter: (...args) => companionEncounterRuntime.updateTimburr(...args),
       updateTimburrBuildBlockAction: (deltaTime, now) =>
         buildBlockRuntime.updateAction(deltaTime, now),
       syncCompanionRepairModules: () => companionModelSyncRuntime.syncRepairModules(),
@@ -1816,165 +1836,6 @@ export function startGameLoop({
 
   function getConstructionCloudBurstBillboards(uvRect, nowSeconds = getRuntimeNowSeconds()) {
     return leafDenConstructionPresentationRuntime.getCloudBurstBillboards(uvRect, nowSeconds);
-  }
-
-  function updateBulbasaurEncounter(deltaTime) {
-    const encounter = session.bulbasaurEncounter;
-
-    if (
-      repairBoxRevealOpeningRuntime.update(deltaTime, encounter, {
-        syncModelInstance: () => companionModelSyncRuntime.syncBulbasaur()
-      })
-    ) {
-      return;
-    }
-
-    if (
-      controls.storyState?.flags?.bulbasaurRevealed &&
-      encounter &&
-      !encounter.visible &&
-      Array.isArray(encounter.repairPosition)
-    ) {
-      repairBoxRevealOpeningRuntime.revealAtRepairPosition(encounter);
-      if (encounter.repairModuleInstance) {
-        encounter.repairModuleInstance.active = false;
-      }
-    }
-
-    if (bulbasaurWorkbenchGuideRuntime.isActive()) {
-      bulbasaurWorkbenchGuideRuntime.advance(deltaTime, encounter);
-      companionModelSyncRuntime.syncBulbasaur();
-      return;
-    }
-
-    if (encounter) {
-      encounter.workbenchGuideWaypointIndex = 0;
-    }
-
-    if (!encounter?.visible || !encounter.position) {
-      companionModelSyncRuntime.syncBulbasaur();
-      return;
-    }
-
-    companionIdleMotionRuntime.updateJumpArc(encounter, {
-      deltaTime,
-      modelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET
-    });
-    companionModelSyncRuntime.syncBulbasaur();
-  }
-
-  function updateCharmanderEncounter(deltaTime, { activeMoveId = null } = {}) {
-    const encounter = session.charmanderEncounter;
-
-    if (
-      repairBoxRevealOpeningRuntime.update(deltaTime, encounter, {
-        syncModelInstance: () => companionModelSyncRuntime.syncCharmander()
-      })
-    ) {
-      return;
-    }
-
-    if (!encounter || !controls.storyState?.flags?.charmanderRevealed) {
-      return;
-    }
-
-    encounter.visible = true;
-
-    if (!encounter.position) {
-      encounter.position = session.playerCharacter?.getPosition?.() || [0, 0.02, 0];
-    }
-
-    if (isLeafDenConstructionActive()) {
-      constructionHelperMotionRuntime.moveToLeafDen(encounter, {
-        offset: [-1.08, 0, 0.82],
-        modelFaceYawOffset: CHARMANDER_MODEL_FACE_YAW_OFFSET
-      });
-      companionModelSyncRuntime.syncCharmander();
-      return;
-    }
-
-    if (
-      controls.storyState.flags.charmanderFollowing &&
-      session.playerCharacter &&
-      !session.charmanderFireAction &&
-      !isLeafDenConstructionActive()
-    ) {
-      companionFollowMovementRuntime.moveFormationMemberTowardPlayer(encounter, {
-        companionId: "charmander",
-        activeMoveId,
-        deltaTime,
-        speed: CHARMANDER_FOLLOW_SPEED,
-        defaultDistance: CHARMANDER_FOLLOW_DISTANCE,
-        modelFaceYawOffset: CHARMANDER_MODEL_FACE_YAW_OFFSET
-      });
-    } else if (!session.charmanderFireAction) {
-      companionIdleMotionRuntime.faceTowardPlayer(encounter, {
-        modelFaceYawOffset: CHARMANDER_MODEL_FACE_YAW_OFFSET
-      });
-    }
-
-    if (
-      session.campfire?.position &&
-      (controls.storyState.flags.charmanderFollowing || controls.storyState.flags.charmanderRevealed) &&
-      !controls.storyState.flags.charmanderCampfireLit
-    ) {
-      if (shouldCompleteThermalCabinHomeBeat({
-        thermalBotFollowing: controls.storyState.flags.charmanderFollowing,
-        thermalBotRegistered: controls.storyState.flags.charmanderRevealed,
-        thermalBotPosition: encounter.position,
-        playerPosition: session.playerCharacter?.getPosition?.(),
-        trainHousePosition: session.campfire.position,
-        alreadyComplete: controls.storyState.flags.charmanderCampfireLit
-      })) {
-        encounter.litCampfire = true;
-        controls.storyState.flags.charmanderCampfireLit = true;
-        controls.storyState.flags.charmanderFollowing = false;
-        controls.onCharmanderCampfireLit?.();
-      }
-    }
-
-    companionModelSyncRuntime.syncCharmander();
-  }
-
-  function updateTimburrEncounter(deltaTime, { activeMoveId = null } = {}) {
-    const encounter = session.timburrEncounter;
-
-    if (!encounter || !controls.storyState?.flags?.timburrRevealed) {
-      return;
-    }
-
-    encounter.visible = true;
-
-    if (!encounter.position) {
-      encounter.position = session.playerCharacter?.getPosition?.() || [0, 0.02, 0];
-    }
-
-    if (isLeafDenConstructionActive()) {
-      constructionHelperMotionRuntime.moveToLeafDen(encounter, {
-        offset: [1.04, 0, -0.76],
-        modelFaceYawOffset: Number(encounter.modelFaceYawOffset ?? TIMBURR_MODEL_FACE_YAW_OFFSET)
-      });
-      return;
-    }
-
-    if (session.timburrBuildBlockAction) {
-      return;
-    }
-
-    if (
-      controls.storyState.flags.timburrFollowing &&
-      session.playerCharacter &&
-      !isLeafDenConstructionActive()
-    ) {
-      companionFollowMovementRuntime.moveFormationMemberTowardPlayer(encounter, {
-        companionId: "timburr",
-        activeMoveId,
-        deltaTime,
-        speed: TIMBURR_FOLLOW_SPEED,
-        defaultDistance: TIMBURR_FOLLOW_DISTANCE,
-        modelFaceYawOffset: Number(encounter.modelFaceYawOffset ?? TIMBURR_MODEL_FACE_YAW_OFFSET)
-      });
-    }
   }
 
   function readGameLoopFlowState() {

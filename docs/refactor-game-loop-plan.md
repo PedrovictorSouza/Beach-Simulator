@@ -382,6 +382,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `player` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
+- Completed: move companion encounter update rules into the `companions`
+  boundary.
 - Next: select the next small domain boundary without moving field moves,
   camera rules, input mapping or render core.
 
@@ -3876,6 +3878,70 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Companion Encounter Runtime Wiring
+
+Created `app/runtime/companions/companionEncounterRuntime.js` so the companion
+domain owns the existing Bulbasaur, Charmander and Timburr encounter update
+rules.
+
+Boundary classification: `companions`, focused on companion encounter frame
+behavior. The runtime still delegates motion, model sync, repair-box reveal,
+Workbench guide and Leaf Den helper movement to the existing specialized
+runtimes.
+
+Removed from `gameLoop.js`:
+
+- local Bulbasaur encounter update function;
+- local Charmander encounter update function;
+- local Timburr encounter update function;
+- direct local use of the Thermal Cabin home-beat policy inside frame wiring.
+
+Kept in `gameLoop.js`:
+
+- `startGameLoop()` composition wiring;
+- `companionFrameRuntime` orchestration order;
+- field-move action updates;
+- companion tuning constants passed into the companion runtime;
+- public re-export of `shouldCompleteThermalCabinHomeBeat`.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `3457` lines.
+- After this cut, `app/runtime/gameLoop.js` is `3318` lines.
+
+Tests added:
+
+- `tests/companionEncounterRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionEncounterRuntime.test.js
+```
+
+The first run failed because `createCompanionEncounterRuntime(...)` did not
+exist yet. After adding the runtime under the existing `companions` boundary,
+the focused runtime test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionEncounterRuntime.test.js tests/companionFrameRuntime.test.js tests/companionFollowMovementRuntime.test.js tests/companionIdleMotionRuntime.test.js tests/bulbasaurWorkbenchGuideRuntime.test.js tests/trainHouseRuntime.test.js
+npm run build
+```
+
+Focused result:
+
+- `6` test files passed
+- `28` tests passed
+
+Full-suite validation was not repeated for this cut. The known baseline still
+has failures outside this boundary: the existing Leafage Native Tree failures
+and the isolated scene-flow failure tied to dirty `startScreen.js` / bootstrap
+work.
 
 Manual gameplay validation remains pending for this cut.
 
