@@ -16154,3 +16154,87 @@ npm test
   to dirty `startScreen.js` / bootstrap work already present in the worktree.
 
 Manual gameplay validation remains pending for this cut.
+
+### Gameplay Prompt Preparation Frame Runtime Boundary
+
+Expanded `app/runtime/presentation/gameplayPromptTargetFrameState.js` with
+`createGameplayPromptPreparationFrameRuntime(...)`.
+
+Boundary classification: `presentation / render helpers`, focused on preparing
+the gameplay target, ground guidance, prompt and ground-cell highlight state
+that later feeds HUD and world-space presentation.
+
+Study path:
+
+1. `startGameLoop()` wires the runtime dependencies as composition root.
+2. `frame(now)` still decides when prompt/snapshot preparation happens.
+3. The new runtime now owns the coordination between nearby gameplay targets,
+   active quest/task lookups, ground guidance cells, active construction
+   preview filtering, prompt text state and ground-cell highlight frame state.
+4. `gameLoop.js` now asks for one `gameplayPromptPreparationFrame` and keeps
+   only the small set of values needed by HUD, base render snapshot and
+   world-space presentation.
+
+Removed from `gameLoop.js`:
+
+- direct import/use of `resolveGameplayTargetFrameState(...)`;
+- direct import/use of `resolveGameplayGroundGuidanceFrameState(...)`;
+- direct import/use of `resolveGameplayGroundCellHighlightFrameState(...)`;
+- direct import/use of `resolveActiveConstructionPlacementPreviews(...)`;
+- direct import/use of `resolveGameplayPromptFrameState(...)`;
+- large inline target/guidance/prompt/highlight preparation block;
+- one-off callback wiring for water-gun pending cells, free-roam restoration
+  cells, boulder shaded task cells, grow-first-habitat cells, foundation build
+  zone cells, solar power radius cells and ground action feedback frames.
+
+Kept in `gameLoop.js`:
+
+- temporal order of prompt preparation after gameplay presentation frame;
+- compact `equipmentState`, `placementPreviews` and `placementFootprints`
+  inputs;
+- handoff of prompt state to HUD and world-space presentation.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2697` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2631` lines.
+- This cut is a real frame-body reduction; some dependency wiring moved to
+  `startGameLoop()` where it belongs.
+
+Tests updated:
+
+- `tests/gameplayPromptTargetFrameState.test.js`
+- `tests/gameLoopGroundCellHighlightWiring.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/gameplayPromptTargetFrameState.test.js
+```
+
+The first run failed because `createGameplayPromptPreparationFrameRuntime(...)`
+did not exist yet. After adding the runtime factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameplayPromptTargetFrameState.test.js
+npm test -- --run tests/gameplayPromptTargetFrameState.test.js tests/gameplayTargetFrameState.test.js tests/groundCellHighlightFrameState.test.js tests/worldSpacePresentationSnapshotFrame.test.js tests/gameLoopGroundCellHighlightWiring.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1972` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.

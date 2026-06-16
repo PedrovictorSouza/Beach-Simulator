@@ -27,10 +27,7 @@ import { createConstructionHouseModelInstanceRuntime } from "./construction/cons
 import { createConstructionHelperMotionRuntime } from "./construction/constructionHelperMotion.js";
 import { createConstructionPlacementControlRuntime } from "./construction/constructionPlacementControlRuntime.js";
 import { createConstructionPlacementPreviewRuntime } from "./construction/constructionPlacementPreviewRuntime.js";
-import {
-  createConstructionPlacementFrameRuntime,
-  resolveActiveConstructionPlacementPreviews
-} from "./construction/constructionPlacementFrameRuntime.js";
+import { createConstructionPlacementFrameRuntime } from "./construction/constructionPlacementFrameRuntime.js";
 import {
   cancelPendingWorkbenchPlacementIntent,
   hasPendingWorkbenchPlacementIntent
@@ -126,7 +123,7 @@ import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
-import { resolveGameplayPromptFrameState } from "./presentation/gameplayPromptTargetFrameState.js";
+import { createGameplayPromptPreparationFrameRuntime } from "./presentation/gameplayPromptTargetFrameState.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
 import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
 import { createBaseRenderSnapshotFrameRuntime } from "./presentation/baseRenderSnapshotFrame.js";
@@ -135,11 +132,6 @@ import { createSupplyCounterPromptController } from "./presentation/supplyCounte
 import { createSupplyPickupFeedbackRuntime } from "./presentation/supplyPickupFeedbackRuntime.js";
 import { createTreeRevivalLeafBurstFrameRuntime } from "./presentation/treeRevivalLeafBurstFrameRuntime.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
-import { resolveGameplayTargetFrameState } from "./presentation/gameplayTargetFrameState.js";
-import {
-  resolveGameplayGroundCellHighlightFrameState,
-  resolveGameplayGroundGuidanceFrameState
-} from "./presentation/groundCellHighlightFrameState.js";
 import { getGrassCollisionObjects } from "./presentation/grassCollisionObjects.js";
 import {
   updateNatureGrassRenderFrame,
@@ -1726,6 +1718,58 @@ export function startGameLoop({
       resolveGameplayActionPermission
     }
   });
+  const gameplayPromptPreparationFrameRuntime = createGameplayPromptPreparationFrameRuntime({
+    controls,
+    session,
+    gameplay,
+    getCurrentInputModalityState,
+    getPlayerCounterPromptText: (frameNow) => playerCounterPromptRuntime.get(frameNow),
+    getSelectedRotatableWorkbenchPlacement: workbenchRotationRuntime.getSelectedTargetFromSources,
+    getNearestRotatableWorkbenchPlacement: workbenchRotationRuntime.getNearestTarget,
+    debug: debugInteractionFlow,
+    getPendingSquirtleWaterGunGroundCells: () => waterGunRuntime.getPendingGroundCells(),
+    getFreeRoamRestorationGroundCells: (options) => getFreeRoamRestorationGroundCells({
+      ...options,
+      groundDeadInstances: session.groundDeadInstances,
+      groundFlowerPatches: session.groundFlowerPatches,
+      groundGrassPatches: session.groundGrassPatches,
+      groundPurifiedInstances: session.groundPurifiedInstances,
+      iceGroundInstances: session.iceGroundInstances
+    }),
+    getLeppaTreeSurroundingGroundCells,
+    isOpeningLeppaTreeRequestActive,
+    buildSolarStationFieldMarkedGroundCells,
+    getBoulderShadedTaskGroundCells: (storyState) => getBoulderShadedTaskGroundCells({
+      storyState,
+      challengeBoulder: session.challengeBoulder,
+      groundDeadInstances: session.groundDeadInstances,
+      groundFlowerPatches: session.groundFlowerPatches,
+      groundGrassPatches: session.groundGrassPatches,
+      groundPurifiedInstances: session.groundPurifiedInstances
+    }),
+    getGrowFirstHabitatTaskGroundCells: (options) => getGrowFirstHabitatTaskGroundCells({
+      ...options,
+      referencePosition:
+        session.bulbasaurEncounter?.position ||
+        session.bulbasaurEncounter?.repairPosition ||
+        session.playerCharacter?.getPosition?.() ||
+        null,
+      groundFlowerPatches: session.groundFlowerPatches,
+      groundGrassPatches: session.groundGrassPatches,
+      groundPurifiedInstances: session.groundPurifiedInstances
+    }),
+    buildFoundationBuildZoneGroundCells: foundationBuildZoneRuntime.buildGroundCells,
+    getWorldCellPlannerSelectedGroundCell,
+    getWorkbenchRotationGroundCell: workbenchRotationRuntime.getGroundCell,
+    buildSolarStationPreviewPowerRadiusGroundCells: (_session, preview) =>
+      solarStationPowerRadiusRuntime.buildPreviewPowerRadiusGroundCells(preview),
+    buildPlacedSolarStationPowerRadiusGroundCells: () =>
+      solarStationPowerRadiusRuntime.buildPlacedPowerRadiusGroundCells(),
+    getGroundActionFeedbackFrame: (frameNow) =>
+      groundActionFeedbackRuntime.getFeedbackFrame({ session, now: frameNow }),
+    getFieldToolTargetPulseFrame: (groundCell, frameNow) =>
+      groundActionFeedbackRuntime.getPulseFrame(groundCell, frameNow)
+  });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
     controls,
@@ -2343,163 +2387,53 @@ export function startGameLoop({
       currentFlowState
     } = gameplayPresentationFrame;
     // Prompt and snapshot preparation.
-    const {
-      canQueryNearbyGameplayTargets,
-      nearbyHarvestTarget,
-      highlightedGroundCell,
-      highlightedGroundCellTargetState,
-      highlightedGroundCellAbilityId,
-      nearbyInteractable
-    } = resolveGameplayTargetFrameState({
-      session,
-      controls,
-      gameplay,
-      flowState: currentFlowState,
-      gameplayOpeningMovementLocked,
-      waterGunEquipped,
-      leafageEquipped,
-      fireEquipped
-    });
-    const activeQuest = gameplay.getActiveQuest(controls.storyState);
-    const activeTask = gameplay.getActiveTask?.() || null;
-    const activeSystemQuest = gameplay.getActiveSystemQuest?.() || null;
-    const {
-      pendingWaterGunGroundCells,
-      activeFireGroundCell,
-      markedGroundCellPulsePhase,
-      markedActionGroundCells
-    } = resolveGameplayGroundGuidanceFrameState({
+    const gameplayPromptPreparationFrame = gameplayPromptPreparationFrameRuntime.update({
+      now,
       gameplayOpeningMovementLocked,
       gameplayOpeningHudHidden,
       flowState: currentFlowState,
-      activeQuest,
-      activeSystemQuest,
-      activeTask,
-      storyState: controls.storyState,
-      session,
-      now,
-      solarStationPlacementPreview,
-      campfirePlacementPreview,
-      leafDenKitPlacementPreview,
-      nearbyHarvestTarget,
-      waterGunEquipped,
-      leafageEquipped,
-      fireEquipped,
-      openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState),
-      getPendingSquirtleWaterGunGroundCells: () => waterGunRuntime.getPendingGroundCells(),
-      getFreeRoamRestorationGroundCells: (options) => getFreeRoamRestorationGroundCells({
-        ...options,
-        groundDeadInstances: session.groundDeadInstances,
-        groundFlowerPatches: session.groundFlowerPatches,
-        groundGrassPatches: session.groundGrassPatches,
-        groundPurifiedInstances: session.groundPurifiedInstances,
-        iceGroundInstances: session.iceGroundInstances
-      }),
-      getLeppaTreeSurroundingGroundCells,
-      isLeppaTreeTileHintFlashing: () => gameplay.isLeppaTreeTileHintFlashing?.(),
-      buildSolarStationFieldMarkedGroundCells,
-      getBoulderShadedTaskGroundCells: (storyState) => getBoulderShadedTaskGroundCells({
-        storyState,
-        challengeBoulder: session.challengeBoulder,
-        groundDeadInstances: session.groundDeadInstances,
-        groundFlowerPatches: session.groundFlowerPatches,
-        groundGrassPatches: session.groundGrassPatches,
-        groundPurifiedInstances: session.groundPurifiedInstances
-      }),
-      getGrowFirstHabitatTaskGroundCells: (options) => getGrowFirstHabitatTaskGroundCells({
-        ...options,
-        referencePosition:
-          session.bulbasaurEncounter?.position ||
-          session.bulbasaurEncounter?.repairPosition ||
-          session.playerCharacter?.getPosition?.() ||
-          null,
-        groundFlowerPatches: session.groundFlowerPatches,
-        groundGrassPatches: session.groundGrassPatches,
-        groundPurifiedInstances: session.groundPurifiedInstances
-      }),
-      buildFoundationBuildZoneGroundCells: foundationBuildZoneRuntime.buildGroundCells,
-      getWorldCellPlannerSelectedGroundCell
+      equipmentState: {
+        activeMoveId,
+        waterGunEquipped,
+        leafageEquipped,
+        fireEquipped
+      },
+      placementPreviews: {
+        solarStationPlacementPreview,
+        greenhousePlacementPreview,
+        campfirePlacementPreview,
+        leafDenKitPlacementPreview
+      },
+      placementFootprints: {
+        solarStation: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
+        greenhouse: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
+        campfire: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
+        leafDenKit: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT
+      }
     });
     ({
       solarStationPlacementPreview,
       greenhousePlacementPreview,
       campfirePlacementPreview,
       leafDenKitPlacementPreview
-    } = resolveActiveConstructionPlacementPreviews({
-      session,
-      solarStationPlacementPreview,
-      greenhousePlacementPreview,
-      campfirePlacementPreview,
-      leafDenKitPlacementPreview
-    }));
+    } = gameplayPromptPreparationFrame);
     const {
       inputModalityState,
       transientNoticeRoute,
       playerCounterPromptText,
-      framePlacementPrompts,
       pendingPlacementIntent,
       pendingPlacementPrompt,
-      selectedWorkbenchRotationTarget,
       nearbyWorkbenchRotationTarget,
       workbenchRotationPrompt,
       destroyableObjectPrompt,
-      promptCopy
-    } = resolveGameplayPromptFrameState({
-      now,
-      solarStationPlacementPreview,
-      greenhousePlacementPreview,
-      campfirePlacementPreview,
-      leafDenKitPlacementPreview,
       nearbyHarvestTarget,
       nearbyInteractable,
-      gameplayOpeningMovementLocked,
-      cinematicActive,
-      tutorialActive,
-      skillLearnActive,
-      scriptedInteractionActive,
-      flowState: currentFlowState,
-      session,
-      storyState: controls.storyState,
-      inventory: controls.inventory,
-      gameplay,
       activeQuest,
-      activeMoveId,
-      pendingWaterGunGroundCells,
-      getCurrentInputModalityState,
-      getPlayerCounterPromptText: (frameNow) => playerCounterPromptRuntime.get(frameNow),
-      getSelectedRotatableWorkbenchPlacement: workbenchRotationRuntime.getSelectedTargetFromSources,
-      getNearestRotatableWorkbenchPlacement: workbenchRotationRuntime.getNearestTarget,
-      debug: debugInteractionFlow
-    });
-
-    const groundCellHighlightFrameState = resolveGameplayGroundCellHighlightFrameState({
-      gameplayOpeningMovementLocked,
-      flowState: currentFlowState,
-      highlightedGroundCell,
-      placementFootprints: {
-        solarStation: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
-        greenhouse: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
-        campfire: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
-        leafDenKit: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT
-      },
-      solarStationPlacementPreview,
-      greenhousePlacementPreview,
-      campfirePlacementPreview,
-      leafDenKitPlacementPreview,
-      selectedWorkbenchRotationTarget,
-      activeFireGroundCell,
-      session,
-      storyState: controls.storyState,
-      getWorkbenchRotationGroundCell: workbenchRotationRuntime.getGroundCell,
-      buildSolarStationPreviewPowerRadiusGroundCells: (_session, preview) =>
-        solarStationPowerRadiusRuntime.buildPreviewPowerRadiusGroundCells(preview),
-      buildPlacedSolarStationPowerRadiusGroundCells: () =>
-        solarStationPowerRadiusRuntime.buildPlacedPowerRadiusGroundCells(),
-      getGroundActionFeedbackFrame: () =>
-        groundActionFeedbackRuntime.getFeedbackFrame({ session, now }),
-      getFieldToolTargetPulseFrame: (groundCell) =>
-        groundActionFeedbackRuntime.getPulseFrame(groundCell, now)
-    });
+      activeTask,
+      activeSystemQuest,
+      promptCopy,
+      groundCellHighlightFrameState
+    } = gameplayPromptPreparationFrame;
 
     updateHudSnapshotFrame(nextFrame, {
       gameplayOpeningCameraLocked,

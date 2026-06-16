@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createGameplayPromptPreparationFrameRuntime,
   resolveGameplayPromptFrameState,
   resolveGameplayPromptTargetFrameState
 } from "../app/runtime/presentation/gameplayPromptTargetFrameState.js";
@@ -191,5 +192,93 @@ describe("gameplay prompt target frame state", () => {
       flowState: { cinematicActive: true },
       getNearestRotatableWorkbenchPlacement
     }).nearbyWorkbenchRotationTarget).toBe(null);
+  });
+
+  it("creates a runtime that prepares gameplay target, prompt and highlight frame state", () => {
+    const activeQuest = { id: "quest-a" };
+    const activeTask = { id: "task-a" };
+    const activeSystemQuest = { id: "system-a" };
+    const groundCell = { id: "ground-a" };
+    const runtime = createGameplayPromptPreparationFrameRuntime({
+      controls: {
+        storyState: { flags: {} },
+        inventory: {}
+      },
+      session: {
+        ...createSession(),
+        strawBedPlacementPreview: { active: true },
+        greenhousePlacementPreview: { active: false },
+        campfirePlacementPreview: { active: true },
+        leafDenKitPlacementPreview: { active: false },
+        groundDeadInstances: [],
+        groundFlowerPatches: [],
+        groundGrassPatches: [],
+        groundPurifiedInstances: [],
+        iceGroundInstances: []
+      },
+      gameplay: {
+        getActiveQuest: vi.fn(() => activeQuest),
+        getActiveTask: vi.fn(() => activeTask),
+        getActiveSystemQuest: vi.fn(() => activeSystemQuest),
+        findNearbyActionTarget: vi.fn(() => ({ groundCell })),
+        findNearbyInteractable: vi.fn(() => ({ id: "interactable" })),
+        findNearbyDestroyableObjectPrompt: vi.fn(() => null),
+        isLeppaTreeTileHintFlashing: vi.fn(() => false),
+        buildNearbyPrompt: vi.fn(() => "nearby"),
+        getItemLabel: vi.fn()
+      },
+      getCurrentInputModalityState: () => ({ device: "keyboard" }),
+      getPlayerCounterPromptText: () => "+1 Wood",
+      getPendingSquirtleWaterGunGroundCells: () => [groundCell],
+      getFreeRoamRestorationGroundCells: () => [],
+      getLeppaTreeSurroundingGroundCells: () => [],
+      buildSolarStationFieldMarkedGroundCells: () => [],
+      getBoulderShadedTaskGroundCells: () => [],
+      getGrowFirstHabitatTaskGroundCells: () => [],
+      buildFoundationBuildZoneGroundCells: () => [],
+      getWorldCellPlannerSelectedGroundCell: () => null,
+      getWorkbenchRotationGroundCell: () => null,
+      buildSolarStationPreviewPowerRadiusGroundCells: () => [],
+      buildPlacedSolarStationPowerRadiusGroundCells: () => [],
+      getGroundActionFeedbackFrame: () => null,
+      getFieldToolTargetPulseFrame: () => ({ pulse: true })
+    });
+
+    const state = runtime.update({
+      now: 1000,
+      gameplayOpeningMovementLocked: false,
+      gameplayOpeningHudHidden: false,
+      flowState: { gameplayActive: true },
+      equipmentState: {
+        activeMoveId: "waterGun",
+        waterGunEquipped: true,
+        leafageEquipped: false,
+        fireEquipped: false
+      },
+      placementPreviews: {
+        solarStationPlacementPreview: { id: "solar" },
+        greenhousePlacementPreview: { id: "greenhouse" },
+        campfirePlacementPreview: { id: "campfire" },
+        leafDenKitPlacementPreview: { id: "leaf-den" }
+      },
+      placementFootprints: {}
+    });
+
+    expect(state.activeQuest).toBe(activeQuest);
+    expect(state.activeTask).toBe(activeTask);
+    expect(state.activeSystemQuest).toBe(activeSystemQuest);
+    expect(state.nearbyHarvestTarget).toEqual({ groundCell });
+    expect(state.nearbyInteractable).toEqual({ id: "interactable" });
+    expect(state.pendingWaterGunGroundCells).toEqual([groundCell]);
+    expect(state.solarStationPlacementPreview).toEqual({ id: "solar" });
+    expect(state.greenhousePlacementPreview).toBe(null);
+    expect(state.campfirePlacementPreview).toEqual({ id: "campfire" });
+    expect(state.leafDenKitPlacementPreview).toBe(null);
+    expect(state.inputModalityState).toEqual({ device: "keyboard" });
+    expect(state.playerCounterPromptText).toBe("+1 Wood");
+    expect(state.groundCellHighlightFrameState).toEqual(expect.objectContaining({
+      shouldShowGroundCellHighlight: true,
+      fieldToolTargetPulseFrame: { pulse: true }
+    }));
   });
 });
