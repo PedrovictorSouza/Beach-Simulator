@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createFieldMoveActorPositionRuntime,
   getBulbasaurGrowEmitterPosition,
   getCharmanderMouthPosition,
   getSquirtleMouthPosition,
@@ -58,5 +59,29 @@ describe("field move actor positions", () => {
     })).toEqual([1, 0.04, 2]);
 
     expect(getSquirtleWorldPosition()).toBeNull();
+  });
+
+  it("creates a runtime that injects actor sources and logical yaws", () => {
+    const runtime = createFieldMoveActorPositionRuntime({
+      getSquirtle: () => ({
+        position: [1, 0.2, 2]
+      }),
+      getCharmander: () => ({
+        modelInstance: {
+          offset: [3, 0.1, 4]
+        }
+      }),
+      getBulbasaur: () => null,
+      getSquirtleYaw: () => Math.PI * 0.5,
+      getCharmanderYaw: () => 0,
+      getBulbasaurYaw: () => 0
+    });
+
+    const squirtleMouth = runtime.getSquirtleMouthPosition();
+    expect(squirtleMouth[0]).toBeCloseTo(1.34);
+    expect(squirtleMouth[1]).toBeCloseTo(0.86);
+    expect(squirtleMouth[2]).toBeCloseTo(2);
+    expect(runtime.getCharmanderWorldPosition()).toEqual([3, 0.1, 4]);
+    expect(runtime.getBulbasaurGrowEmitterPosition()).toEqual([0, 0.72, 0.3]);
   });
 });

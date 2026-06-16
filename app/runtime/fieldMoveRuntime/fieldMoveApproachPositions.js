@@ -3,6 +3,7 @@ import {
   CHARMANDER_FIRE_STAND_DISTANCE,
   SQUIRTLE_WATER_GUN_STAND_DISTANCE
 } from "./fieldMoveTuning.js";
+import { resolveTimburrBuildBlockApproachPosition } from "./buildBlockRuntime.js";
 
 function resolveFieldMoveApproachPosition({
   targetPosition,
@@ -76,4 +77,52 @@ export function resolveCharmanderFireApproachPosition({
     playerPosition,
     standDistance: CHARMANDER_FIRE_STAND_DISTANCE
   });
+}
+
+export function createFieldMoveApproachPositionRuntime({
+  getSquirtlePosition = () => null,
+  getBulbasaurPosition = () => null,
+  getCharmanderPosition = () => null,
+  getTimburrPosition = () => null,
+  isBuildBlockApproachBlocked = null
+} = {}) {
+  function getSquirtleWaterGunApproachPosition(targetPosition, playerPosition = null) {
+    return resolveSquirtleWaterGunApproachPosition({
+      targetPosition,
+      squirtlePosition: getSquirtlePosition(),
+      playerPosition
+    });
+  }
+
+  function getBulbasaurLeafageApproachPosition(targetPosition, playerPosition = null) {
+    return resolveBulbasaurLeafageApproachPosition({
+      targetPosition,
+      bulbasaurPosition: getBulbasaurPosition(),
+      playerPosition
+    });
+  }
+
+  function getCharmanderFireApproachPosition(targetPosition, playerPosition = null) {
+    return resolveCharmanderFireApproachPosition({
+      targetPosition,
+      charmanderPosition: getCharmanderPosition(),
+      playerPosition
+    });
+  }
+
+  function getTimburrBuildBlockApproachPosition(targetPosition, playerPosition = null) {
+    return resolveTimburrBuildBlockApproachPosition({
+      targetPosition,
+      timburrPosition: getTimburrPosition(),
+      playerPosition,
+      isBlocked: isBuildBlockApproachBlocked
+    });
+  }
+
+  return {
+    getBulbasaurLeafageApproachPosition,
+    getCharmanderFireApproachPosition,
+    getSquirtleWaterGunApproachPosition,
+    getTimburrBuildBlockApproachPosition
+  };
 }

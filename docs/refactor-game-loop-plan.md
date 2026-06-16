@@ -364,6 +364,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move companion world-speech cue wiring into the `companions`
   boundary.
+- Completed: move field-move position source wiring into the `fieldMoveRuntime`
+  boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -3929,6 +3931,82 @@ npm test
 
 - `309` test files passed, `1` failed
 - `1888` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
+### Field Move Position Source Runtime
+
+Expanded existing `fieldMoveRuntime` modules:
+
+- `app/runtime/fieldMoveRuntime/fieldMoveActorPositions.js`
+- `app/runtime/fieldMoveRuntime/fieldMoveApproachPositions.js`
+
+Classification: `fieldMoveRuntime`, specifically actor position and approach
+position source wiring.
+
+Study path:
+
+1. The pure position math stayed in the existing field-move modules.
+2. `createFieldMoveActorPositionRuntime(...)` now owns the session/yaw binding
+   for Squirtle mouth position, Charmander mouth position, Bulbasaur grow
+   emitter position and companion world positions.
+3. `createFieldMoveApproachPositionRuntime(...)` now owns the session/blocker
+   binding for Water Gun, Leafage, Fire and Build Block approach positions.
+4. Water Gun, Leafage, Fire and Build Block runtimes still receive callbacks
+   with the same behavior and timing. No ability tuning changed.
+
+Removed from `gameLoop.js`:
+
+- local `getSquirtleWaterGunApproachPosition(...)` wrapper;
+- local `getBulbasaurLeafageApproachPosition(...)` wrapper;
+- local `getTimburrBuildBlockApproachPosition(...)` wrapper;
+- local `getCharmanderFireApproachPosition(...)` wrapper;
+- local `getSquirtleMouthPosition(...)` wrapper;
+- local `getCharmanderMouthPosition(...)` wrapper;
+- local `getBulbasaurGrowEmitterPosition(...)` wrapper;
+- local `getSquirtleWorldPosition(...)` wrapper;
+- local `getCharmanderWorldPosition(...)` wrapper;
+- direct imports of low-level field-move position resolvers for game-loop
+  wiring.
+
+Kept in `gameLoop.js`:
+
+- composition of session, yaw and blocker dependencies;
+- public re-export of `resolveTimburrBuildBlockApproachPosition(...)`;
+- field move runtime ordering and ability dispatch.
+
+Tests updated:
+
+- `tests/fieldMoveActorPositions.test.js`
+- `tests/fieldMoveApproachPositions.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/fieldMoveActorPositions.test.js tests/fieldMoveApproachPositions.test.js
+```
+
+The first run failed because the two runtime factories did not exist yet.
+After adding them, the focused tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/fieldMoveActorPositions.test.js tests/fieldMoveApproachPositions.test.js
+npm test -- --run tests/fieldMoveActorPositions.test.js tests/fieldMoveApproachPositions.test.js tests/waterGunRuntime.test.js tests/fireRuntime.test.js tests/leafageRuntime.test.js tests/buildBlockRuntime.test.js tests/companionPresentationFrame.test.js tests/worldSpacePresentationFrameState.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `309` test files passed, `1` failed
+- `1890` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
 

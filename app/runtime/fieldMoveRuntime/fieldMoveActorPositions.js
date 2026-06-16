@@ -57,3 +57,53 @@ export function getCharmanderWorldPosition({
 } = {}) {
   return getActorPosition(charmander, null);
 }
+
+export function createFieldMoveActorPositionRuntime({
+  getSquirtle = () => null,
+  getCharmander = () => null,
+  getBulbasaur = () => null,
+  getSquirtleYaw = () => 0,
+  getCharmanderYaw = () => 0,
+  getBulbasaurYaw = () => 0
+} = {}) {
+  function resolveSquirtleMouthPosition() {
+    return getSquirtleMouthPosition({
+      squirtle: getSquirtle(),
+      yaw: getSquirtleYaw()
+    });
+  }
+
+  function resolveCharmanderMouthPosition() {
+    return getCharmanderMouthPosition({
+      charmander: getCharmander(),
+      yaw: getCharmanderYaw()
+    });
+  }
+
+  function resolveBulbasaurGrowEmitterPosition() {
+    return getBulbasaurGrowEmitterPosition({
+      bulbasaur: getBulbasaur(),
+      yaw: getBulbasaurYaw()
+    });
+  }
+
+  function resolveSquirtleWorldPosition() {
+    return getSquirtleWorldPosition({
+      squirtle: getSquirtle()
+    });
+  }
+
+  function resolveCharmanderWorldPosition() {
+    return getCharmanderWorldPosition({
+      charmander: getCharmander()
+    });
+  }
+
+  return {
+    getBulbasaurGrowEmitterPosition: resolveBulbasaurGrowEmitterPosition,
+    getCharmanderMouthPosition: resolveCharmanderMouthPosition,
+    getCharmanderWorldPosition: resolveCharmanderWorldPosition,
+    getSquirtleMouthPosition: resolveSquirtleMouthPosition,
+    getSquirtleWorldPosition: resolveSquirtleWorldPosition
+  };
+}

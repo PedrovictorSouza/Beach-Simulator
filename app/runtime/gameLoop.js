@@ -120,8 +120,7 @@ import {
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
 import {
   createBuildBlockRuntime,
-  resolveConstructionDisplacementPosition,
-  resolveTimburrBuildBlockApproachPosition
+  resolveConstructionDisplacementPosition
 } from "./fieldMoveRuntime/buildBlockRuntime.js";
 export {
   resolveConstructionDisplacementPosition,
@@ -140,18 +139,8 @@ import { createFieldMoveImpactRuntime } from "./fieldMoveRuntime/fieldMoveImpact
 import { createFireRuntime } from "./fieldMoveRuntime/fireRuntime.js";
 import { createLeafageRuntime } from "./fieldMoveRuntime/leafageRuntime.js";
 import { createWaterGunRuntime } from "./fieldMoveRuntime/waterGunRuntime.js";
-import {
-  resolveBulbasaurLeafageApproachPosition,
-  resolveCharmanderFireApproachPosition,
-  resolveSquirtleWaterGunApproachPosition
-} from "./fieldMoveRuntime/fieldMoveApproachPositions.js";
-import {
-  getBulbasaurGrowEmitterPosition as resolveBulbasaurGrowEmitterPosition,
-  getCharmanderMouthPosition as resolveCharmanderMouthPosition,
-  getCharmanderWorldPosition as resolveCharmanderWorldPosition,
-  getSquirtleMouthPosition as resolveSquirtleMouthPosition,
-  getSquirtleWorldPosition as resolveSquirtleWorldPosition
-} from "./fieldMoveRuntime/fieldMoveActorPositions.js";
+import { createFieldMoveApproachPositionRuntime } from "./fieldMoveRuntime/fieldMoveApproachPositions.js";
+import { createFieldMoveActorPositionRuntime } from "./fieldMoveRuntime/fieldMoveActorPositions.js";
 import {
   getGardenProgressSnapshot,
   getTreeRevivalSnapshot
@@ -912,6 +901,14 @@ export function startGameLoop({
     }
   });
   const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime();
+  const fieldMoveActorPositionRuntime = createFieldMoveActorPositionRuntime({
+    getSquirtle: () => session.actTwoSquirtle,
+    getCharmander: () => session.charmanderEncounter,
+    getBulbasaur: () => session.bulbasaurEncounter,
+    getSquirtleYaw: getSquirtleLogicalFacingYaw,
+    getCharmanderYaw: getCharmanderLogicalFacingYaw,
+    getBulbasaurYaw: getBulbasaurLogicalFacingYaw
+  });
   const companionWorldSpeechCueRuntime = createCompanionWorldSpeechCueRuntime({
     chopperCueSchedule: {
       initialDelayMs: CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS,
@@ -926,7 +923,7 @@ export function startGameLoop({
     getFlags: () => controls.storyState?.flags || {},
     getPlayerSkills: () => controls.playerSkills || {},
     getBulbasaurPosition: () => session.bulbasaurEncounter?.position,
-    getSquirtlePosition: getSquirtleWorldPosition,
+    getSquirtlePosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
     isPlayerNearWorldPosition,
     config: {
       chopperInteractDistance: POKEMON_TALK_INTERACT_DISTANCE + 0.45,
@@ -941,6 +938,19 @@ export function startGameLoop({
     getColliders: getPlayerConstructionTerrainColliders,
     playBlockedSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
     pushNotice: (message) => hud?.pushNotice?.(message)
+  });
+  const fieldMoveApproachPositionRuntime = createFieldMoveApproachPositionRuntime({
+    getSquirtlePosition: () =>
+      session.actTwoSquirtle?.position ||
+      session.actTwoSquirtle?.modelInstance?.offset,
+    getBulbasaurPosition: () =>
+      session.bulbasaurEncounter?.position ||
+      session.bulbasaurEncounter?.modelInstance?.offset,
+    getCharmanderPosition: () =>
+      session.charmanderEncounter?.position ||
+      session.charmanderEncounter?.modelInstance?.offset,
+    getTimburrPosition: () => session.timburrEncounter?.position,
+    isBuildBlockApproachBlocked: companionConstructionBlockerRuntime.isBlocked
   });
   const companionFollowMovementRuntime = createCompanionFollowMovementRuntime({
     getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
@@ -1175,7 +1185,10 @@ export function startGameLoop({
     getPlayerPosition: () => session.playerCharacter?.getPosition?.() || null,
     getGroundCellCenterPosition,
     getApproachPosition: ({ targetPosition, playerPosition }) =>
-      getSquirtleWaterGunApproachPosition(targetPosition, playerPosition),
+      fieldMoveApproachPositionRuntime.getSquirtleWaterGunApproachPosition(
+        targetPosition,
+        playerPosition
+      ),
     getModelYawToward: getSquirtleModelYawToward,
     tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
     isPositionBlocked: companionConstructionBlockerRuntime.isBlocked,
@@ -1191,7 +1204,10 @@ export function startGameLoop({
     hasFireCarbon: hasCharmanderFireCarbon,
     getGroundCellCenterPosition,
     getApproachPosition: ({ targetPosition, playerPosition }) =>
-      getCharmanderFireApproachPosition(targetPosition, playerPosition),
+      fieldMoveApproachPositionRuntime.getCharmanderFireApproachPosition(
+        targetPosition,
+        playerPosition
+      ),
     getModelYawToward: (fromPosition, toPosition) =>
       getRobotModelYawToward(
         fromPosition,
@@ -1210,7 +1226,10 @@ export function startGameLoop({
     isBusy: () => bulbasaurWorkbenchGuideRuntime.isActive(),
     getGroundCellCenterPosition,
     getApproachPosition: ({ targetPosition, playerPosition }) =>
-      getBulbasaurLeafageApproachPosition(targetPosition, playerPosition),
+      fieldMoveApproachPositionRuntime.getBulbasaurLeafageApproachPosition(
+        targetPosition,
+        playerPosition
+      ),
     getModelYawToward: (fromPosition, toPosition) =>
       getRobotModelYawToward(
         fromPosition,
@@ -1239,7 +1258,10 @@ export function startGameLoop({
     getTimburr: () => session.timburrEncounter,
     resolveTarget: resolveFreeBlockBuildTarget,
     getApproachPosition: ({ targetPosition, playerPosition }) =>
-      getTimburrBuildBlockApproachPosition(targetPosition, playerPosition),
+      fieldMoveApproachPositionRuntime.getTimburrBuildBlockApproachPosition(
+        targetPosition,
+        playerPosition
+      ),
     getApproachBlockers: companionConstructionBlockerRuntime.getBlockers,
     shouldCastFromBlockedApproach: shouldTimburrBuildBlockCastFromBlockedApproach,
     tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
@@ -2445,80 +2467,8 @@ export function startGameLoop({
     }) ?? 0;
   }
 
-  function getSquirtleWaterGunApproachPosition(targetPosition, playerPosition = null) {
-    return resolveSquirtleWaterGunApproachPosition({
-      targetPosition,
-      squirtlePosition:
-        session.actTwoSquirtle?.position ||
-        session.actTwoSquirtle?.modelInstance?.offset,
-      playerPosition
-    });
-  }
-
-  function getBulbasaurLeafageApproachPosition(targetPosition, playerPosition = null) {
-    return resolveBulbasaurLeafageApproachPosition({
-      targetPosition,
-      bulbasaurPosition:
-        session.bulbasaurEncounter?.position ||
-        session.bulbasaurEncounter?.modelInstance?.offset,
-      playerPosition
-    });
-  }
-
-  function getTimburrBuildBlockApproachPosition(targetPosition, playerPosition = null) {
-    return resolveTimburrBuildBlockApproachPosition({
-      targetPosition,
-      timburrPosition: session.timburrEncounter?.position,
-      playerPosition,
-      isBlocked: companionConstructionBlockerRuntime.isBlocked
-    });
-  }
-
-  function getCharmanderFireApproachPosition(targetPosition, playerPosition = null) {
-    return resolveCharmanderFireApproachPosition({
-      targetPosition,
-      charmanderPosition:
-        session.charmanderEncounter?.position ||
-        session.charmanderEncounter?.modelInstance?.offset,
-      playerPosition
-    });
-  }
-
   function startNextQueuedSquirtleWaterGunAction() {
     waterGunRuntime.startNextQueued();
-  }
-
-  function getSquirtleMouthPosition() {
-    return resolveSquirtleMouthPosition({
-      squirtle: session.actTwoSquirtle,
-      yaw: getSquirtleLogicalFacingYaw()
-    });
-  }
-
-  function getCharmanderMouthPosition() {
-    return resolveCharmanderMouthPosition({
-      charmander: session.charmanderEncounter,
-      yaw: getCharmanderLogicalFacingYaw()
-    });
-  }
-
-  function getBulbasaurGrowEmitterPosition() {
-    return resolveBulbasaurGrowEmitterPosition({
-      bulbasaur: session.bulbasaurEncounter,
-      yaw: getBulbasaurLogicalFacingYaw()
-    });
-  }
-
-  function getSquirtleWorldPosition() {
-    return resolveSquirtleWorldPosition({
-      squirtle: session.actTwoSquirtle
-    });
-  }
-
-  function getCharmanderWorldPosition() {
-    return resolveCharmanderWorldPosition({
-      charmander: session.charmanderEncounter
-    });
   }
 
   const processWorldCellPlannerClick = worldCellPlannerInteractionRuntime.processClick;
@@ -3964,7 +3914,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       isDryGrassHydroMissionActive,
       getEncounterRepairBoxPosition,
       getLeppaTreeSurroundingGroundCells,
-      getSquirtleWorldPosition,
+      getSquirtleWorldPosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
       isSquirtleWaterCharging: () => companionAbilityResourcesRuntime.isSquirtleWaterCharging(),
       getFreeBlockBuildCostMarker,
       getPeriodicChopperAttentionCue:
@@ -4137,11 +4087,11 @@ if (canProcessDestroyAction && destroyActionRequested) {
       rendering,
       camera,
       now,
-      getSquirtleWorldPosition,
-      getCharmanderWorldPosition,
-      getSquirtleMouthPosition,
-      getCharmanderMouthPosition,
-      getBulbasaurGrowEmitterPosition,
+      getSquirtleWorldPosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
+      getCharmanderWorldPosition: fieldMoveActorPositionRuntime.getCharmanderWorldPosition,
+      getSquirtleMouthPosition: fieldMoveActorPositionRuntime.getSquirtleMouthPosition,
+      getCharmanderMouthPosition: fieldMoveActorPositionRuntime.getCharmanderMouthPosition,
+      getBulbasaurGrowEmitterPosition: fieldMoveActorPositionRuntime.getBulbasaurGrowEmitterPosition,
       getSquirtleWaterStaminaState: () =>
         companionAbilityResourcesRuntime.getSquirtleWaterStaminaState(),
       getCharmanderCarbonEnergyState: () =>
