@@ -205,6 +205,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `player` action runtime.
 - Completed: move primary auto field-move target dispatch into the existing
   `player` action runtime.
+- Completed: move primary player action fallback/feedback branch orchestration
+  into the existing `player` action runtime.
 - Completed: move dialogue camera controller into the `camera` boundary.
 - Completed: move placement camera assist into the `camera` boundary.
 - Completed: move construction billboard builders into the `construction`
@@ -15695,6 +15697,105 @@ npm test
 ```
 
 `npm test` completed with `1950` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Primary Action Runtime Boundary
+
+Expanded `app/player/playerActionRuntime.js` with:
+
+- `createPlayerPrimaryActionFallbackRuntime(...)`;
+- `createPlayerPrimaryActionRuntime(...)`.
+
+Boundary classification: `player / gameplay action runtime`, focused on the
+primary-action side-effect branch after `gameLoop.js` has already computed the
+target context and follow-up intent.
+
+Study path:
+
+1. `gameLoop.js` still computes primary action target state, secondary target
+   queries, rotation candidates and interact candidates.
+2. `playerPrimaryActionRuntime.update(...)` now owns the action branch order:
+   rotation confirm, rotation select, destroy, auto field move, blocked feedback,
+   placement/bag harvest, field move, busy companion notice, interact and default
+   harvest fallback.
+3. `createPlayerPrimaryActionFallbackRuntime(...)` owns the repeated/invalid
+   feedback and harvest fallback details used by that branch.
+4. `startGameLoop()` remains the composition root; the new runtimes are created
+   in `gameLoop.js` and receive dependencies explicitly.
+
+Removed from `gameLoop.js`:
+
+- direct rotation confirmation/select side effects inside the primary-action
+  branch;
+- direct destroy dispatch inside that branch;
+- repeated field-move cancel feedback;
+- invalid Leafage and Fire prompt dispatch;
+- blocked placement cancel feedback;
+- placement harvest fallback;
+- bag harvest fallback;
+- direct primary field-move runtime dispatch;
+- Leaf Den busy notice dispatch;
+- direct interact dispatch;
+- default harvest fallback dispatch.
+
+Kept in `gameLoop.js`:
+
+- frame timing and frame order;
+- primary target and follow-up intent calculation;
+- secondary target query calculation;
+- workbench rotation candidate lookup;
+- bag destroy candidate lookup;
+- first Water Gun primary-use flag mutation;
+- `performHarvestAction(...)` wrapper;
+- held Water Gun branch.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` version was `2944`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is expected
+  to be `2936` lines.
+- The visible worktree may show `2937` lines while the unrelated
+  `shouldShowGroundCellHighlight` residual line is restored.
+
+Tests updated:
+
+- `tests/playerActionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+```
+
+The first new fallback-runtime run failed because
+`createPlayerPrimaryActionFallbackRuntime(...)` did not exist yet. After adding
+it, the focused test passed. The next primary-action-runtime run failed because
+`createPlayerPrimaryActionRuntime(...)` did not exist yet. After adding it, the
+focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+npm test -- --run tests/playerActionRuntime.test.js tests/playerActionContext.test.js tests/playerActionTargetContext.test.js tests/waterGunRuntime.test.js tests/leafageRuntime.test.js tests/gameLoopFramePolicies.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1960` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;

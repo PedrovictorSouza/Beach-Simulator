@@ -122,6 +122,8 @@ import {
   createPlayerDirectActionRuntime,
   createPlayerHeldWaterGunActionRuntime,
   createPlayerHarvestActionRuntime,
+  createPlayerPrimaryActionRuntime,
+  createPlayerPrimaryActionFallbackRuntime,
   createPlayerPrimaryFieldMoveActionRuntime
 } from "../player/playerActionRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
@@ -1599,6 +1601,14 @@ export function startGameLoop({
       triggerWaterGunSfxBurst
     }
   });
+  const playerPrimaryActionFallbackRuntime = createPlayerPrimaryActionFallbackRuntime({
+    groundActionFeedbackRuntime,
+    fieldMoveInvalidTargetPromptRuntime,
+    callbacks: {
+      playSoundEvent
+    },
+    soundEventIds: SOUND_EVENT_IDS
+  });
   const playerPrimaryFieldMoveActionRuntime = createPlayerPrimaryFieldMoveActionRuntime({
     buildBlockRuntime,
     waterGunRuntime,
@@ -1621,6 +1631,21 @@ export function startGameLoop({
       buildLocked: `${SANDBOTS_BOT_NAMES.builder} has not learned Build yet.`,
       buildUnavailable: `${SANDBOTS_BOT_NAMES.builder} needs to be nearby.`,
       missingMaterial: "Need Wood"
+    }
+  });
+  const playerPrimaryActionRuntime = createPlayerPrimaryActionRuntime({
+    workbenchRotationRuntime,
+    playerActionRuntime,
+    playerActionContext,
+    playerPrimaryActionFallbackRuntime,
+    playerPrimaryFieldMoveActionRuntime,
+    callbacks: {
+      isBusyCompanionTarget: isLeafDenBusyCompanionTarget,
+      onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart,
+      pushNotice: (notice) => hud?.pushNotice?.(notice)
+    },
+    notices: {
+      leafDenBusy: LEAF_DEN_BUSY_NOTICE
     }
   });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
@@ -2342,69 +2367,36 @@ export function startGameLoop({
         controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
       }
 
-      if (primaryActionConfirmsRotation) {
-        workbenchRotationRuntime.confirmSelectedTargetWithFeedback();
-      } else if (primaryActionRotationTarget) {
-        workbenchRotationRuntime.selectTargetWithFeedback(primaryActionRotationTarget);
-      } else if (primaryActionBagDestroyTarget?.target) {
-        playerActionRuntime.performDestroy(playerActionContext.getDestroyOptions(playerPosition));
-      } else if (playerPrimaryFieldMoveActionRuntime.tryAutoTargetAction({
-        leafageAutoWaterGunTarget,
+      playerPrimaryActionRuntime.update({
+        buildBlockEquipped,
+        dialogueActive,
+        fireEquipped,
+        gamepadPrimaryMoveRequested,
+        lastBuildBlockInvalidReason: session.lastTimburrBuildBlockInvalidReason,
         leafageAutoGrowTarget,
+        leafageAutoWaterGunTarget,
+        leafageEquipped,
+        leafagePrimaryMoveRequested,
+        now,
         performHarvestAction,
-        playerPosition
-      })) {
-        // Auto field-move target handled by the player action runtime.
-      } else if (primaryActionRepeatedFieldMove) {
-        playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-        groundActionFeedbackRuntime.triggerInvalid(primaryActionAlreadyResolvedGroundCell, now);
-      } else if (primaryActionInvalidLeafageUse) {
-        playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-        fieldMoveInvalidTargetPromptRuntime.triggerLeafage(now);
-      } else if (primaryActionInvalidFireUse) {
-        playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-        fieldMoveInvalidTargetPromptRuntime.triggerFire(now);
-      } else if (primaryActionPlacementBlocked) {
-        playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-        // The trigger is reserved for the selected move. Placements use their own place controls.
-      } else if (primaryActionIsPlacement) {
-        performHarvestAction(playerPosition, {
-          allowLeafage: false
-        });
-      } else if (primaryActionIsBagHarvest) {
-        performHarvestAction(playerPosition, {
-          allowLeafage: false,
-          allowFire: false,
-          allowPlacement: false,
-          forcedHarvestTarget: primaryActionTarget
-        });
-      } else if (primaryActionIsMove && !dialogueActive) {
-        playerPrimaryFieldMoveActionRuntime.update({
-          buildBlockEquipped,
-          fireEquipped,
-          lastBuildBlockInvalidReason: session.lastTimburrBuildBlockInvalidReason,
-          leafageEquipped,
-          leafagePrimaryMoveRequested,
-          performHarvestAction,
-          playerPosition,
-          primaryActionIntent,
-          primaryActionTarget,
-          primaryActionWantsFieldMove,
-          waterGunEquipped
-        });
-      } else if (isLeafDenBusyCompanionTarget(primaryInteractTarget?.target)) {
-        hud?.pushNotice?.(LEAF_DEN_BUSY_NOTICE);
-      } else if (primaryInteractTarget?.target) {
-        playerActionRuntime.performInteract(playerActionContext.getInteractOptions(playerPosition, {
-          onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart
-        }));
-      } else if (!dialogueActive && !primaryActionWantsFieldMove) {
-        performHarvestAction(playerPosition, {
-          allowLeafage: false,
-          allowFire: false,
-          allowPlacement: !gamepadPrimaryMoveRequested
-        });
-      }
+        playerPosition,
+        primaryActionAlreadyResolvedGroundCell,
+        primaryActionBagDestroyTarget,
+        primaryActionConfirmsRotation,
+        primaryActionIntent,
+        primaryActionInvalidFireUse,
+        primaryActionInvalidLeafageUse,
+        primaryActionIsBagHarvest,
+        primaryActionIsMove,
+        primaryActionIsPlacement,
+        primaryActionPlacementBlocked,
+        primaryActionRepeatedFieldMove,
+        primaryActionRotationTarget,
+        primaryActionTarget,
+        primaryActionWantsFieldMove,
+        primaryInteractTarget,
+        waterGunEquipped
+      });
     } else {
       playerHeldWaterGunActionRuntime.update({
         flowState: frameFlowState,

@@ -5,6 +5,8 @@ import {
   createPlayerDirectActionRuntime,
   createPlayerHeldWaterGunActionRuntime,
   createPlayerHarvestActionRuntime,
+  createPlayerPrimaryActionRuntime,
+  createPlayerPrimaryActionFallbackRuntime,
   createPlayerPrimaryFieldMoveActionRuntime
 } from "../app/player/playerActionRuntime.js";
 
@@ -546,6 +548,347 @@ describe("createPlayerHeldWaterGunActionRuntime", () => {
     expect(gameplay.findNearbyActionTarget).not.toHaveBeenCalled();
     expect(waterGunRuntime.startAction).not.toHaveBeenCalled();
     expect(performHarvestAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("createPlayerPrimaryActionFallbackRuntime", () => {
+  function createPrimaryActionFallbackRuntime() {
+    const groundActionFeedbackRuntime = {
+      triggerInvalid: vi.fn()
+    };
+    const fieldMoveInvalidTargetPromptRuntime = {
+      triggerFire: vi.fn(),
+      triggerLeafage: vi.fn()
+    };
+    const callbacks = {
+      playSoundEvent: vi.fn()
+    };
+    const performHarvestAction = vi.fn();
+    const runtime = createPlayerPrimaryActionFallbackRuntime({
+      groundActionFeedbackRuntime,
+      fieldMoveInvalidTargetPromptRuntime,
+      callbacks,
+      soundEventIds: SOUND_EVENT_IDS
+    });
+
+    return {
+      callbacks,
+      fieldMoveInvalidTargetPromptRuntime,
+      groundActionFeedbackRuntime,
+      performHarvestAction,
+      runtime
+    };
+  }
+
+  it("routes repeated field move feedback and consumes the branch", () => {
+    const {
+      callbacks,
+      groundActionFeedbackRuntime,
+      runtime
+    } = createPrimaryActionFallbackRuntime();
+    const groundCell = { id: "already-restored" };
+
+    expect(runtime.tryBlockedFeedback({
+      alreadyResolvedGroundCell: groundCell,
+      now: 1200,
+      repeatedFieldMove: true
+    })).toBe(true);
+
+    expect(callbacks.playSoundEvent).toHaveBeenCalledWith("cancel");
+    expect(groundActionFeedbackRuntime.triggerInvalid).toHaveBeenCalledWith(groundCell, 1200);
+  });
+
+  it("routes invalid Leafage and Fire prompts through injected runtimes", () => {
+    const {
+      callbacks,
+      fieldMoveInvalidTargetPromptRuntime,
+      runtime
+    } = createPrimaryActionFallbackRuntime();
+
+    expect(runtime.tryBlockedFeedback({
+      invalidLeafageUse: true,
+      now: 1400
+    })).toBe(true);
+
+    expect(callbacks.playSoundEvent).toHaveBeenCalledWith("cancel");
+    expect(fieldMoveInvalidTargetPromptRuntime.triggerLeafage).toHaveBeenCalledWith(1400);
+
+    callbacks.playSoundEvent.mockClear();
+
+    expect(runtime.tryBlockedFeedback({
+      invalidFireUse: true,
+      now: 1500
+    })).toBe(true);
+
+    expect(callbacks.playSoundEvent).toHaveBeenCalledWith("cancel");
+    expect(fieldMoveInvalidTargetPromptRuntime.triggerFire).toHaveBeenCalledWith(1500);
+  });
+
+  it("plays cancel for blocked placement without triggering field prompts", () => {
+    const {
+      callbacks,
+      fieldMoveInvalidTargetPromptRuntime,
+      groundActionFeedbackRuntime,
+      runtime
+    } = createPrimaryActionFallbackRuntime();
+
+    expect(runtime.tryBlockedFeedback({
+      placementBlocked: true,
+      now: 1600
+    })).toBe(true);
+
+    expect(callbacks.playSoundEvent).toHaveBeenCalledWith("cancel");
+    expect(fieldMoveInvalidTargetPromptRuntime.triggerLeafage).not.toHaveBeenCalled();
+    expect(fieldMoveInvalidTargetPromptRuntime.triggerFire).not.toHaveBeenCalled();
+    expect(groundActionFeedbackRuntime.triggerInvalid).not.toHaveBeenCalled();
+  });
+
+  it("routes placement and bag harvest fallbacks", () => {
+    const {
+      performHarvestAction,
+      runtime
+    } = createPrimaryActionFallbackRuntime();
+    const primaryActionTarget = { shrub: { id: "bag-target" } };
+
+    expect(runtime.tryPlacementOrBagHarvest({
+      isPlacement: true,
+      performHarvestAction,
+      playerPosition: [1, 0, 2]
+    })).toBe(true);
+
+    expect(performHarvestAction).toHaveBeenCalledWith([1, 0, 2], {
+      allowLeafage: false
+    });
+
+    performHarvestAction.mockClear();
+
+    expect(runtime.tryPlacementOrBagHarvest({
+      isBagHarvest: true,
+      performHarvestAction,
+      playerPosition: [3, 0, 4],
+      primaryActionTarget
+    })).toBe(true);
+
+    expect(performHarvestAction).toHaveBeenCalledWith([3, 0, 4], {
+      allowLeafage: false,
+      allowFire: false,
+      allowPlacement: false,
+      forcedHarvestTarget: primaryActionTarget
+    });
+  });
+
+  it("routes default harvest fallback only when dialogue and field moves allow it", () => {
+    const {
+      performHarvestAction,
+      runtime
+    } = createPrimaryActionFallbackRuntime();
+
+    expect(runtime.tryDefaultHarvestFallback({
+      dialogueActive: false,
+      gamepadPrimaryMoveRequested: true,
+      performHarvestAction,
+      playerPosition: [1, 0, 2],
+      primaryActionWantsFieldMove: false
+    })).toBe(true);
+
+    expect(performHarvestAction).toHaveBeenCalledWith([1, 0, 2], {
+      allowLeafage: false,
+      allowFire: false,
+      allowPlacement: false
+    });
+
+    performHarvestAction.mockClear();
+
+    expect(runtime.tryDefaultHarvestFallback({
+      dialogueActive: true,
+      performHarvestAction,
+      playerPosition: [1, 0, 2],
+      primaryActionWantsFieldMove: false
+    })).toBe(false);
+    expect(runtime.tryDefaultHarvestFallback({
+      dialogueActive: false,
+      performHarvestAction,
+      playerPosition: [1, 0, 2],
+      primaryActionWantsFieldMove: true
+    })).toBe(false);
+    expect(performHarvestAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("createPlayerPrimaryActionRuntime", () => {
+  function createPrimaryActionRuntime({
+    autoTargetHandled = false,
+    blockedFeedbackHandled = false,
+    placementOrBagHandled = false,
+    defaultHarvestHandled = false
+  } = {}) {
+    const workbenchRotationRuntime = {
+      confirmSelectedTargetWithFeedback: vi.fn(),
+      selectTargetWithFeedback: vi.fn()
+    };
+    const playerActionRuntime = {
+      performDestroy: vi.fn(),
+      performInteract: vi.fn()
+    };
+    const playerActionContext = {
+      getDestroyOptions: vi.fn((playerPosition) => ({ destroyAt: playerPosition })),
+      getInteractOptions: vi.fn((playerPosition, options) => ({
+        interactAt: playerPosition,
+        ...options
+      }))
+    };
+    const playerPrimaryActionFallbackRuntime = {
+      tryBlockedFeedback: vi.fn(() => blockedFeedbackHandled),
+      tryDefaultHarvestFallback: vi.fn(() => defaultHarvestHandled),
+      tryPlacementOrBagHarvest: vi.fn(() => placementOrBagHandled)
+    };
+    const playerPrimaryFieldMoveActionRuntime = {
+      tryAutoTargetAction: vi.fn(() => autoTargetHandled),
+      update: vi.fn()
+    };
+    const callbacks = {
+      isBusyCompanionTarget: vi.fn(() => false),
+      onNpcInteractionStart: vi.fn(),
+      pushNotice: vi.fn()
+    };
+    const runtime = createPlayerPrimaryActionRuntime({
+      workbenchRotationRuntime,
+      playerActionRuntime,
+      playerActionContext,
+      playerPrimaryActionFallbackRuntime,
+      playerPrimaryFieldMoveActionRuntime,
+      callbacks,
+      notices: {
+        leafDenBusy: "Leaf den busy"
+      }
+    });
+
+    return {
+      callbacks,
+      playerActionContext,
+      playerActionRuntime,
+      playerPrimaryActionFallbackRuntime,
+      playerPrimaryFieldMoveActionRuntime,
+      runtime,
+      workbenchRotationRuntime
+    };
+  }
+
+  it("keeps rotation confirmation before destroy and other fallbacks", () => {
+    const {
+      playerActionRuntime,
+      playerPrimaryActionFallbackRuntime,
+      runtime,
+      workbenchRotationRuntime
+    } = createPrimaryActionRuntime();
+
+    runtime.update({
+      playerPosition: [1, 0, 2],
+      primaryActionBagDestroyTarget: { target: { id: "rock" } },
+      primaryActionConfirmsRotation: true
+    });
+
+    expect(workbenchRotationRuntime.confirmSelectedTargetWithFeedback).toHaveBeenCalledTimes(1);
+    expect(playerActionRuntime.performDestroy).not.toHaveBeenCalled();
+    expect(playerPrimaryActionFallbackRuntime.tryBlockedFeedback).not.toHaveBeenCalled();
+  });
+
+  it("delegates auto field-move targets before blocked feedback", () => {
+    const {
+      playerPrimaryActionFallbackRuntime,
+      playerPrimaryFieldMoveActionRuntime,
+      runtime
+    } = createPrimaryActionRuntime({ autoTargetHandled: true });
+    const performHarvestAction = vi.fn();
+
+    runtime.update({
+      leafageAutoWaterGunTarget: { groundCell: { id: "auto-water" } },
+      performHarvestAction,
+      playerPosition: [1, 0, 2],
+      primaryActionRepeatedFieldMove: true
+    });
+
+    expect(playerPrimaryFieldMoveActionRuntime.tryAutoTargetAction).toHaveBeenCalledWith({
+      leafageAutoWaterGunTarget: { groundCell: { id: "auto-water" } },
+      leafageAutoGrowTarget: null,
+      performHarvestAction,
+      playerPosition: [1, 0, 2]
+    });
+    expect(playerPrimaryActionFallbackRuntime.tryBlockedFeedback).not.toHaveBeenCalled();
+  });
+
+  it("delegates primary field moves before busy companion or interact handling", () => {
+    const {
+      callbacks,
+      playerActionRuntime,
+      playerPrimaryFieldMoveActionRuntime,
+      runtime
+    } = createPrimaryActionRuntime();
+
+    runtime.update({
+      dialogueActive: false,
+      fireEquipped: true,
+      performHarvestAction: vi.fn(),
+      playerPosition: [1, 0, 2],
+      primaryActionIntent: { isFireGroundTarget: true },
+      primaryActionIsMove: true,
+      primaryActionTarget: { fireGroundCell: { id: "fire-cell" } },
+      primaryActionWantsFieldMove: true,
+      primaryInteractTarget: { target: { id: "leaf-den" } }
+    });
+
+    expect(playerPrimaryFieldMoveActionRuntime.update).toHaveBeenCalledWith(expect.objectContaining({
+      fireEquipped: true,
+      playerPosition: [1, 0, 2],
+      primaryActionWantsFieldMove: true
+    }));
+    expect(callbacks.pushNotice).not.toHaveBeenCalled();
+    expect(playerActionRuntime.performInteract).not.toHaveBeenCalled();
+  });
+
+  it("routes busy companion notices before interact and default harvest", () => {
+    const {
+      callbacks,
+      playerActionRuntime,
+      playerPrimaryActionFallbackRuntime,
+      runtime
+    } = createPrimaryActionRuntime();
+    callbacks.isBusyCompanionTarget.mockReturnValue(true);
+
+    runtime.update({
+      performHarvestAction: vi.fn(),
+      playerPosition: [1, 0, 2],
+      primaryInteractTarget: { target: { id: "busy-leaf-den" } }
+    });
+
+    expect(callbacks.pushNotice).toHaveBeenCalledWith("Leaf den busy");
+    expect(playerActionRuntime.performInteract).not.toHaveBeenCalled();
+    expect(playerPrimaryActionFallbackRuntime.tryDefaultHarvestFallback).not.toHaveBeenCalled();
+  });
+
+  it("routes interact before default harvest fallback", () => {
+    const {
+      callbacks,
+      playerActionContext,
+      playerActionRuntime,
+      playerPrimaryActionFallbackRuntime,
+      runtime
+    } = createPrimaryActionRuntime({ defaultHarvestHandled: true });
+
+    runtime.update({
+      performHarvestAction: vi.fn(),
+      playerPosition: [1, 0, 2],
+      primaryInteractTarget: { target: { id: "npc" } }
+    });
+
+    expect(playerActionContext.getInteractOptions).toHaveBeenCalledWith([1, 0, 2], {
+      onNpcInteractionStart: callbacks.onNpcInteractionStart
+    });
+    expect(playerActionRuntime.performInteract).toHaveBeenCalledWith({
+      interactAt: [1, 0, 2],
+      onNpcInteractionStart: callbacks.onNpcInteractionStart
+    });
+    expect(playerPrimaryActionFallbackRuntime.tryDefaultHarvestFallback).not.toHaveBeenCalled();
   });
 });
 

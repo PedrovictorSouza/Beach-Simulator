@@ -291,6 +291,213 @@ export function createPlayerDirectActionRuntime({
   };
 }
 
+export function createPlayerPrimaryActionFallbackRuntime({
+  groundActionFeedbackRuntime = {},
+  fieldMoveInvalidTargetPromptRuntime = {},
+  callbacks = {},
+  soundEventIds = {}
+} = {}) {
+  function playCancel() {
+    callbacks.playSoundEvent?.(soundEventIds.UI_CANCEL);
+  }
+
+  function tryBlockedFeedback({
+    alreadyResolvedGroundCell = null,
+    invalidFireUse = false,
+    invalidLeafageUse = false,
+    now,
+    placementBlocked = false,
+    repeatedFieldMove = false
+  } = {}) {
+    if (repeatedFieldMove) {
+      playCancel();
+      groundActionFeedbackRuntime.triggerInvalid?.(alreadyResolvedGroundCell, now);
+      return true;
+    }
+
+    if (invalidLeafageUse) {
+      playCancel();
+      fieldMoveInvalidTargetPromptRuntime.triggerLeafage?.(now);
+      return true;
+    }
+
+    if (invalidFireUse) {
+      playCancel();
+      fieldMoveInvalidTargetPromptRuntime.triggerFire?.(now);
+      return true;
+    }
+
+    if (placementBlocked) {
+      playCancel();
+      return true;
+    }
+
+    return false;
+  }
+
+  function tryPlacementOrBagHarvest({
+    isBagHarvest = false,
+    isPlacement = false,
+    performHarvestAction,
+    playerPosition,
+    primaryActionTarget = null
+  } = {}) {
+    if (isPlacement) {
+      performHarvestAction?.(playerPosition, {
+        allowLeafage: false
+      });
+      return true;
+    }
+
+    if (isBagHarvest) {
+      performHarvestAction?.(playerPosition, {
+        allowLeafage: false,
+        allowFire: false,
+        allowPlacement: false,
+        forcedHarvestTarget: primaryActionTarget
+      });
+      return true;
+    }
+
+    return false;
+  }
+
+  function tryDefaultHarvestFallback({
+    dialogueActive = false,
+    gamepadPrimaryMoveRequested = false,
+    performHarvestAction,
+    playerPosition,
+    primaryActionWantsFieldMove = false
+  } = {}) {
+    if (dialogueActive || primaryActionWantsFieldMove) {
+      return false;
+    }
+
+    performHarvestAction?.(playerPosition, {
+      allowLeafage: false,
+      allowFire: false,
+      allowPlacement: !gamepadPrimaryMoveRequested
+    });
+    return true;
+  }
+
+  return {
+    tryBlockedFeedback,
+    tryDefaultHarvestFallback,
+    tryPlacementOrBagHarvest
+  };
+}
+
+export function createPlayerPrimaryActionRuntime({
+  workbenchRotationRuntime = {},
+  playerActionRuntime = {},
+  playerActionContext = {},
+  playerPrimaryActionFallbackRuntime = {},
+  playerPrimaryFieldMoveActionRuntime = {},
+  callbacks = {},
+  notices = {}
+} = {}) {
+  function update({
+    buildBlockEquipped = false,
+    dialogueActive = false,
+    fireEquipped = false,
+    gamepadPrimaryMoveRequested = false,
+    lastBuildBlockInvalidReason = null,
+    leafageAutoGrowTarget = null,
+    leafageAutoWaterGunTarget = null,
+    leafageEquipped = false,
+    leafagePrimaryMoveRequested = false,
+    now,
+    performHarvestAction,
+    playerPosition,
+    primaryActionAlreadyResolvedGroundCell = null,
+    primaryActionBagDestroyTarget = null,
+    primaryActionConfirmsRotation = false,
+    primaryActionIntent = {},
+    primaryActionInvalidFireUse = false,
+    primaryActionInvalidLeafageUse = false,
+    primaryActionIsBagHarvest = false,
+    primaryActionIsMove = false,
+    primaryActionIsPlacement = false,
+    primaryActionPlacementBlocked = false,
+    primaryActionRepeatedFieldMove = false,
+    primaryActionRotationTarget = null,
+    primaryActionTarget = null,
+    primaryActionWantsFieldMove = false,
+    primaryInteractTarget = null,
+    waterGunEquipped = false
+  } = {}) {
+    if (primaryActionConfirmsRotation) {
+      workbenchRotationRuntime.confirmSelectedTargetWithFeedback?.();
+    } else if (primaryActionRotationTarget) {
+      workbenchRotationRuntime.selectTargetWithFeedback?.(primaryActionRotationTarget);
+    } else if (primaryActionBagDestroyTarget?.target) {
+      playerActionRuntime.performDestroy?.(
+        playerActionContext.getDestroyOptions?.(playerPosition)
+      );
+    } else if (playerPrimaryFieldMoveActionRuntime.tryAutoTargetAction?.({
+      leafageAutoWaterGunTarget,
+      leafageAutoGrowTarget,
+      performHarvestAction,
+      playerPosition
+    })) {
+      return;
+    } else if (playerPrimaryActionFallbackRuntime.tryBlockedFeedback?.({
+      alreadyResolvedGroundCell: primaryActionAlreadyResolvedGroundCell,
+      invalidFireUse: primaryActionInvalidFireUse,
+      invalidLeafageUse: primaryActionInvalidLeafageUse,
+      now,
+      placementBlocked: primaryActionPlacementBlocked,
+      repeatedFieldMove: primaryActionRepeatedFieldMove
+    })) {
+      return;
+    } else if (playerPrimaryActionFallbackRuntime.tryPlacementOrBagHarvest?.({
+      isBagHarvest: primaryActionIsBagHarvest,
+      isPlacement: primaryActionIsPlacement,
+      performHarvestAction,
+      playerPosition,
+      primaryActionTarget
+    })) {
+      return;
+    } else if (primaryActionIsMove && !dialogueActive) {
+      playerPrimaryFieldMoveActionRuntime.update?.({
+        buildBlockEquipped,
+        fireEquipped,
+        lastBuildBlockInvalidReason,
+        leafageEquipped,
+        leafagePrimaryMoveRequested,
+        performHarvestAction,
+        playerPosition,
+        primaryActionIntent,
+        primaryActionTarget,
+        primaryActionWantsFieldMove,
+        waterGunEquipped
+      });
+    } else if (callbacks.isBusyCompanionTarget?.(primaryInteractTarget?.target)) {
+      callbacks.pushNotice?.(notices.leafDenBusy);
+    } else if (primaryInteractTarget?.target) {
+      playerActionRuntime.performInteract?.(
+        playerActionContext.getInteractOptions?.(
+          playerPosition,
+          { onNpcInteractionStart: callbacks.onNpcInteractionStart }
+        )
+      );
+    } else {
+      playerPrimaryActionFallbackRuntime.tryDefaultHarvestFallback?.({
+        dialogueActive,
+        gamepadPrimaryMoveRequested,
+        performHarvestAction,
+        playerPosition,
+        primaryActionWantsFieldMove
+      });
+    }
+  }
+
+  return {
+    update
+  };
+}
+
 function isHeldWaterGunFlowBlocked(flowState = {}) {
   const {
     cinematicActive = false,
