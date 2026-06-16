@@ -3996,6 +3996,90 @@ Still pending:
 
 - manual gameplay validation.
 
+## Camera Debug Frame Overlay Runtime Boundary
+
+Date: 2026-06-16
+
+Boundary classification: `camera runtime/debug`, inside the existing
+`app/runtime/camera/cameraDebugRuntime.js` module.
+
+Goal:
+
+- remove camera debug payload assembly from `gameLoop.js`;
+- keep `gameLoop.js` as composition root and frame orchestrator;
+- avoid a new helper file;
+- preserve the existing `createCameraDebugFrameState(...)` payload shape.
+
+What moved:
+
+- the detailed reads for paused state, gameplay camera state, camera pose,
+  active quest ids, player position and opening ship position;
+- the call to `createCameraDebugFrameState(...)`;
+- the `CAMERA_DEBUG_ENABLED` early-return behavior for frame overlay updates.
+
+New owner:
+
+- `createCameraDebugRuntime(...).updateFrameOverlay(frameState)`.
+
+Kept in `gameLoop.js`:
+
+- creation of `cameraDebugRuntime`;
+- dependency wiring for the camera debug state sources;
+- forwarding the compact frame-state payload from `gameplayInputFrameRuntime`.
+
+Why this is safe:
+
+- `createCameraDebugFrameState(...)` remains unchanged;
+- the runtime still does not read DOM or runtime sources when debug is
+  disabled;
+- input frame ordering and camera control behavior are unchanged.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` had `2436` lines.
+- After this cut, `app/runtime/gameLoop.js` has `2419` lines.
+
+Tests added:
+
+- `tests/cameraDebugRuntime.test.js` now verifies that disabled debug does not
+  read frame sources and that enabled debug builds/renders the camera frame
+  overlay from runtime sources.
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/cameraDebugRuntime.test.js
+```
+
+The first run failed because `runtime.updateFrameOverlay` did not exist yet.
+After implementing the method and rewiring `gameLoop.js`, the focused tests
+passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/cameraDebugRuntime.test.js tests/cameraDebugFrameState.test.js tests/gameplayInputRuntime.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1980` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` existing scene-flow failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Still pending:
+
+- manual gameplay validation.
+
 ### Early Gameplay Control Frame Runtime Boundary
 
 Expanded `app/runtime/gameLoopFrameRuntime.js` with

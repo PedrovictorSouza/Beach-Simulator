@@ -1,7 +1,11 @@
+import { createCameraDebugFrameState } from "./cameraDebugFrameState.js";
+
 export function createCameraDebugRuntime({
   enabled = false,
   mount,
-  performanceNow = () => performance.now()
+  performanceNow = () => performance.now(),
+  readFrameState = () => ({}),
+  createFrameState = createCameraDebugFrameState
 } = {}) {
   let element = null;
   const errors = [];
@@ -60,9 +64,21 @@ export function createCameraDebugRuntime({
     }, null, 2);
   }
 
+  function updateFrameOverlay(frameState = {}) {
+    if (!enabled) {
+      return;
+    }
+
+    update(createFrameState({
+      ...frameState,
+      ...readFrameState(frameState)
+    }));
+  }
+
   return {
     pushError,
     attachGlobalListeners,
-    update
+    update,
+    updateFrameOverlay
   };
 }

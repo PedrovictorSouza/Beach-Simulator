@@ -2,7 +2,6 @@ import { createGameLoopFrameClock } from "./gameLoopFrameClock.js";
 import { createGameLoopFrameRuntime } from "./gameLoopFrameRuntime.js";
 import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
-import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { createBeeFieldRuntime } from "./companions/beeFieldRuntime.js";
 import { createBulbasaurWorkbenchGuideRuntime } from "./companions/bulbasaurWorkbenchGuideRuntime.js";
 import { createCompanionEncounterRuntime } from "./companions/companionEncounterRuntime.js";
@@ -551,7 +550,17 @@ export function startGameLoop({
   });
   const cameraDebugRuntime = createCameraDebugRuntime({
     enabled: CAMERA_DEBUG_ENABLED,
-    mount
+    mount,
+    readFrameState: ({ now }) => ({
+      paused: Boolean(controls.isPaused?.()),
+      gameplayCameraState: gameplayCameraDirector.getState(now),
+      cameraPose: camera.getPose?.() || null,
+      systemQuestId: gameplay.getActiveSystemQuest?.()?.id || null,
+      uiQuestId: gameplay.getActiveQuest?.(controls.storyState)?.id || null,
+      playerPosition: session.playerCharacter?.getPosition?.() || null,
+      shipVisible: session.gameplayOpeningShip?.visible,
+      shipPosition: session.gameplayOpeningShip?.position
+    })
   });
   cameraDebugRuntime.attachGlobalListeners();
   const playerCounterPromptRuntime = createPlayerCounterPromptRuntime({
@@ -1430,7 +1439,9 @@ export function startGameLoop({
     inputModalityPanelController,
     getInputModalityState: getCurrentInputModalityState,
     getCameraTransitionActive: () => camera.isTargetTransitionActive(),
-    updateCameraDebugFrameOverlay
+    updateCameraDebugFrameOverlay: (frameState) => {
+      cameraDebugRuntime.updateFrameOverlay(frameState);
+    }
   });
 
   const gameplayOpeningRuntime = createGameplayOpeningRuntime({
@@ -2004,34 +2015,6 @@ export function startGameLoop({
       scriptedInteractionActive: Boolean(controls.isScriptedInteractionActive?.()),
       tutorialCameraFocus: tutorialActive ? actTwoTutorial.getCameraFocusTarget() : null
     };
-  }
-
-  function updateCameraDebugFrameOverlay({
-    now,
-    flowState,
-    movementBlocked,
-    gameplayOpeningMovementLocked,
-    cameraTransitionActive
-  }) {
-    if (!CAMERA_DEBUG_ENABLED) {
-      return;
-    }
-
-    cameraDebugRuntime.update(createCameraDebugFrameState({
-      now,
-      flowState,
-      movementBlocked,
-      gameplayOpeningMovementLocked,
-      cameraTransitionActive,
-      paused: Boolean(controls.isPaused?.()),
-      gameplayCameraState: gameplayCameraDirector.getState(now),
-      cameraPose: camera.getPose?.() || null,
-      systemQuestId: gameplay.getActiveSystemQuest?.()?.id || null,
-      uiQuestId: gameplay.getActiveQuest?.(controls.storyState)?.id || null,
-      playerPosition: session.playerCharacter?.getPosition?.() || null,
-      shipVisible: session.gameplayOpeningShip?.visible,
-      shipPosition: session.gameplayOpeningShip?.position
-    }));
   }
 
   function updateGameplayPresentationFrame({
