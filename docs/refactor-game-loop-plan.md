@@ -4102,6 +4102,73 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Free Block Build Session Runtime Extraction
+
+Added `app/runtime/construction/freeBlockBuildSessionRuntime.js`.
+
+Classification: `construction`, focused on Free Block build session/controller
+lifecycle.
+
+Study path:
+
+1. `gameLoop.js` still owned Free Block grid-config normalization,
+   controller creation, build-state creation, snapshot restore and snapshot
+   sync.
+2. That made the loop aware of low-level `createFreeBlockBuildState(...)` and
+   `createFreeBlockBuildController(...)` details.
+3. `createFreeBlockBuildSessionRuntime(...)` now owns that lifecycle.
+4. `gameLoop.js` keeps wrapper functions so existing construction, foundation
+   and preview flow can continue calling the same local names.
+
+Removed from `gameLoop.js`:
+
+- direct Free Block grid-config normalization;
+- direct Free Block build state construction;
+- direct Free Block placement controller construction/reuse;
+- direct restore of `freeBlockBuildSnapshot`;
+- direct snapshot serialization assignment.
+
+Kept in `gameLoop.js`:
+
+- `FREE_BLOCK_BUILD_GRID_CONFIG` tuning constant;
+- composition-time runtime creation;
+- local wrappers used by existing construction flow;
+- all placement, preview, foundation zone and field move timing.
+
+Tests added:
+
+- `tests/freeBlockBuildSessionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js
+```
+
+The first run failed because `freeBlockBuildSessionRuntime.js` did not exist
+yet. After adding it, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js tests/freeBlockBuildSystem.test.js tests/freeBlockRemoval.test.js tests/freeBlockPlacementResult.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1866` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Solar Station Workbench Rotation Visual Extraction
 
 Expanded the existing `createWorkbenchRotationRuntime(...)` boundary in

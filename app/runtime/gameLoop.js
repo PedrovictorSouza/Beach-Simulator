@@ -38,6 +38,7 @@ import {
   syncFreeBlockPreviewInstance
 } from "./construction/freeBlockPreview.js";
 import { applyFreeBlockPlacementResult } from "./construction/freeBlockPlacementResult.js";
+import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
 import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
 import {
   ensurePlayerHouseModelInstances as ensurePlayerHouseModelInstancesWithSession,
@@ -384,8 +385,6 @@ import {
 } from "../gameplay/placementBlockers.js";
 import { createGridSystem } from "../gameplay/gridBuildingSystem.js";
 import {
-  createFreeBlockBuildController,
-  createFreeBlockBuildState,
   FREE_BLOCK_TYPES,
   getFreeBlockBuildZoneProgress,
   resolveFreeBlockTargetCell
@@ -895,6 +894,11 @@ export function startGameLoop({
   const fieldMoveInvalidTargetPromptRuntime = createFieldMoveInvalidTargetPromptRuntime({
     leafageDurationMs: LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS,
     fireDurationMs: FIRE_INVALID_TARGET_PROMPT_DURATION_MS
+  });
+  const freeBlockBuildSessionRuntime = createFreeBlockBuildSessionRuntime({
+    session,
+    defaultGridConfig: FREE_BLOCK_BUILD_GRID_CONFIG,
+    initialBlockType: FREE_BLOCK_TYPES.WALL
   });
   const worldCellPlannerInteractionRuntime = createWorldCellPlannerInteractionRuntime({
     camera,
@@ -2085,18 +2089,7 @@ export function startGameLoop({
   }
 
   function getFreeBlockBuildGridConfig() {
-    const config = session.buildGridConfig || session.gridPlacement?.gridConfig || FREE_BLOCK_BUILD_GRID_CONFIG;
-    return {
-      cellSize: Number(config.cellSize || FREE_BLOCK_BUILD_GRID_CONFIG.cellSize),
-      origin: {
-        x: Number(config.origin?.x ?? FREE_BLOCK_BUILD_GRID_CONFIG.origin.x),
-        y: Number(config.origin?.y ?? FREE_BLOCK_BUILD_GRID_CONFIG.origin.y),
-        z: Number(config.origin?.z ?? FREE_BLOCK_BUILD_GRID_CONFIG.origin.z)
-      },
-      width: Math.max(1, Math.trunc(Number(config.width || FREE_BLOCK_BUILD_GRID_CONFIG.width))),
-      height: Math.max(1, Math.trunc(Number(config.height || FREE_BLOCK_BUILD_GRID_CONFIG.height))),
-      visualOffsetY: Number(config.visualOffsetY ?? FREE_BLOCK_BUILD_GRID_CONFIG.visualOffsetY)
-    };
+    return freeBlockBuildSessionRuntime.getGridConfig();
   }
 
   function isBuildBlockFieldMoveEquipped() {
@@ -2234,37 +2227,7 @@ export function startGameLoop({
   }
 
   function getFreeBlockBuildController() {
-    const gridConfig = getFreeBlockBuildGridConfig();
-    const gridSignature = JSON.stringify(gridConfig);
-    if (
-      session.freeBlockPlacementController &&
-      session.freeBlockPlacementGridSignature === gridSignature
-    ) {
-      return session.freeBlockPlacementController;
-    }
-
-    const gridSystem = createGridSystem(gridConfig);
-    session.freeBlockInstances ||= [];
-    session.freeBlockBuildState = createFreeBlockBuildState({
-      buildId: "freeBuild",
-      bounds: {
-        originCell: { x: 0, y: 0 },
-        width: gridSystem.width,
-        height: gridSystem.height
-      }
-    });
-    session.freeBlockPlacementController = createFreeBlockBuildController({
-      gridSystem,
-      buildState: session.freeBlockBuildState,
-      blockInstanceStore: session.freeBlockInstances,
-      initialBlockType: FREE_BLOCK_TYPES.WALL
-    });
-    if (session.freeBlockBuildSnapshot) {
-      session.freeBlockBuildState.restoreFreeBlocks(session.freeBlockBuildSnapshot);
-      session.freeBlockPlacementController.syncInstancesFromState();
-    }
-    session.freeBlockPlacementGridSignature = gridSignature;
-    return session.freeBlockPlacementController;
+    return freeBlockBuildSessionRuntime.getController();
   }
 
   function shouldShowFoundationBuildZone(activeQuest = null, activeSystemQuest = null) {
@@ -2377,9 +2340,7 @@ export function startGameLoop({
   }
 
   function syncFreeBlockBuildSnapshot() {
-    const controller = getFreeBlockBuildController();
-    session.freeBlockBuildSnapshot = controller.serializeFreeBlocks();
-    return session.freeBlockBuildSnapshot;
+    return freeBlockBuildSessionRuntime.syncSnapshot();
   }
 
   function movePlayerAwayFromPlacedFreeBlock(targetCell, playerPosition = null) {
