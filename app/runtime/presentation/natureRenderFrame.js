@@ -14,7 +14,10 @@ import {
   getTallGrassSway,
   getTallGrassYaw
 } from "../tallGrassMotion.js";
-import { getNatureRevivalScale } from "../../session/natureRevivalEffects.js";
+import {
+  getNatureRevivalScale,
+  updateNatureRevivalEffects
+} from "../../session/natureRevivalEffects.js";
 import { getSnowstormBillboards } from "../../session/snowstormParticleField.js";
 import { LEAVES_ITEM_ID } from "../../../gameplayContent.js";
 import {
@@ -534,8 +537,9 @@ export function createNaturePresentationFrameRuntime({
   rendering = {},
   camera = null,
   landscapeCutEffectRuntime = { appendRenderables: () => {} },
-  woodCollectPopRuntime = { getBillboards: () => [] },
-  gearPickupParticleRuntime = { getBillboards: () => [] },
+  treeRevivalLeafBurstFrameRuntime = { update: () => {} },
+  woodCollectPopRuntime = { update: () => {}, getBillboards: () => [] },
+  gearPickupParticleRuntime = { update: () => {}, getBillboards: () => [] },
   getEncounterRepairBoxPosition = () => null,
   clamp = clamp01,
   sources = {}
@@ -547,8 +551,16 @@ export function createNaturePresentationFrameRuntime({
     getRepairBoxRevealParticleTargetForSession = getRepairBoxRevealParticleTarget,
     appendGhostTree = appendRebirthOfNatureGhostTree,
     getSnowstormBillboardsForSession = getSnowstormBillboards,
-    appendOpeningShipBillboards = appendGameplayOpeningShipBillboards
+    appendOpeningShipBillboards = appendGameplayOpeningShipBillboards,
+    updateNatureRevivalEffectsForSession = updateNatureRevivalEffects
   } = sources;
+
+  function updatePassiveEffects(deltaTime = 0) {
+    updateNatureRevivalEffectsForSession(session.natureRevivalEffects, deltaTime);
+    treeRevivalLeafBurstFrameRuntime.update(deltaTime);
+    woodCollectPopRuntime.update(deltaTime);
+    gearPickupParticleRuntime.update(deltaTime);
+  }
 
   function update({
     nextFrame,
@@ -639,6 +651,7 @@ export function createNaturePresentationFrameRuntime({
   }
 
   return {
-    update
+    update,
+    updatePassiveEffects
   };
 }

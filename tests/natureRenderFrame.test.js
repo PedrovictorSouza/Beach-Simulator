@@ -235,4 +235,50 @@ describe("nature render frame", () => {
       shipBillboard
     ]));
   });
+
+  it("updates passive nature effect runtimes with the frame delta", () => {
+    const session = createBaseSession({
+      natureRevivalEffects: [{ id: "revival-effect" }]
+    });
+    const updateNatureRevivalEffectsForSession = vi.fn();
+    const treeRevivalLeafBurstFrameRuntime = { update: vi.fn() };
+    const woodCollectPopRuntime = {
+      update: vi.fn(),
+      getBillboards: () => []
+    };
+    const gearPickupParticleRuntime = {
+      update: vi.fn(),
+      getBillboards: () => []
+    };
+    const runtime = createNaturePresentationFrameRuntime({
+      session,
+      controls: { storyState: { flags: {} } },
+      rendering: {
+        fullUvRect: "uv",
+        isResourceNodeActive: () => true
+      },
+      camera: {
+        getPose: () => ({ target: [0, 0, 0] })
+      },
+      landscapeCutEffectRuntime: {
+        appendRenderables: vi.fn()
+      },
+      treeRevivalLeafBurstFrameRuntime,
+      woodCollectPopRuntime,
+      gearPickupParticleRuntime,
+      sources: {
+        updateNatureRevivalEffectsForSession
+      }
+    });
+
+    runtime.updatePassiveEffects(0.25);
+
+    expect(updateNatureRevivalEffectsForSession).toHaveBeenCalledWith(
+      session.natureRevivalEffects,
+      0.25
+    );
+    expect(treeRevivalLeafBurstFrameRuntime.update).toHaveBeenCalledWith(0.25);
+    expect(woodCollectPopRuntime.update).toHaveBeenCalledWith(0.25);
+    expect(gearPickupParticleRuntime.update).toHaveBeenCalledWith(0.25);
+  });
 });

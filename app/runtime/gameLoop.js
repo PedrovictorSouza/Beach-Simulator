@@ -243,9 +243,6 @@ import {
 import { createPlacementCameraAssist } from "./camera/placementCameraAssist.js";
 import { getSnowstormFogIntensity } from "../session/snowstormParticleField.js";
 import { PLAYER_SPEED } from "../session/configurePlayerSpawner.js";
-import {
-  updateNatureRevivalEffects
-} from "../session/natureRevivalEffects.js";
 import { updateIntroRoomFrame } from "../scenes/introRoom/introRoomSequence.js";
 import { createGameplayCameraDirector } from "./gameplayCameraDirector.js";
 import { SOUND_EVENT_IDS } from "./soundEventRuntime.js";
@@ -690,6 +687,7 @@ export function startGameLoop({
     rendering,
     camera,
     landscapeCutEffectRuntime,
+    treeRevivalLeafBurstFrameRuntime,
     woodCollectPopRuntime,
     gearPickupParticleRuntime,
     getEncounterRepairBoxPosition,
@@ -2036,13 +2034,6 @@ export function startGameLoop({
     }));
   }
 
-  function updatePassiveEffectFrames(deltaTime) {
-    updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
-    treeRevivalLeafBurstFrameRuntime.update(deltaTime);
-    woodCollectPopRuntime.update(deltaTime);
-    gearPickupParticleRuntime.update(deltaTime);
-  }
-
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -2188,7 +2179,7 @@ export function startGameLoop({
       foundationBuildZoneCameraFocusActive,
       tutorialActive
     });
-    updatePassiveEffectFrames(deltaTime);
+    naturePresentationFrameRuntime.updatePassiveEffects(deltaTime);
 
     // Gameplay actions and simulation.
     const firstTaughtActionFreedomWindow = syncFirstTaughtActionFreedomWindow(

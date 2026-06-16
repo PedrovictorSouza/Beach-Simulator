@@ -3908,6 +3908,94 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+## Passive Nature Effect Frame Runtime Boundary
+
+Date: 2026-06-16
+
+Boundary classification: `presentation / render helpers`, inside the existing
+`app/runtime/presentation/natureRenderFrame.js` module.
+
+Goal:
+
+- remove passive nature-effect coordination from `gameLoop.js`;
+- keep `frame(now)` as temporal orchestrator;
+- avoid a new loose helper file;
+- keep all tuning, rendering data shapes and frame order unchanged.
+
+What moved:
+
+- `updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime)`;
+- `treeRevivalLeafBurstFrameRuntime.update(deltaTime)`;
+- `woodCollectPopRuntime.update(deltaTime)`;
+- `gearPickupParticleRuntime.update(deltaTime)`.
+
+New owner:
+
+- `createNaturePresentationFrameRuntime(...).updatePassiveEffects(deltaTime)`.
+
+Kept in `gameLoop.js`:
+
+- the timing/order of the passive-effect update call;
+- creation of `treeRevivalLeafBurstFrameRuntime`, `woodCollectPopRuntime` and
+  `gearPickupParticleRuntime`;
+- gameplay action trigger calls that enqueue those effects.
+
+Why this is safe:
+
+- the extraction only groups four existing update calls under an existing
+  nature presentation runtime;
+- the same `deltaTime` is passed through;
+- no constants, durations, particle counts, billboards or render snapshot
+  formats changed.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` had `2445` lines.
+- After this cut, `app/runtime/gameLoop.js` has `2436` lines.
+
+Tests added:
+
+- `tests/natureRenderFrame.test.js` now verifies that
+  `updatePassiveEffects(deltaTime)` advances nature revival effects, tree
+  revival leaf burst, wood collect pop effects and gear pickup particle
+  effects with the same frame delta.
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/natureRenderFrame.test.js
+```
+
+The first run failed because `runtime.updatePassiveEffects` did not exist yet.
+After implementing the runtime method and rewiring `gameLoop.js`, the focused
+test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/natureRenderFrame.test.js
+npm test -- --run tests/natureRenderFrame.test.js tests/natureRevivalEffects.test.js tests/treeRevivalLeafBurstFrameRuntime.test.js tests/woodCollectPopRuntime.test.js tests/gearPickupParticleRuntime.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1979` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` existing scene-flow failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Still pending:
+
+- manual gameplay validation.
+
 ### Early Gameplay Control Frame Runtime Boundary
 
 Expanded `app/runtime/gameLoopFrameRuntime.js` with
