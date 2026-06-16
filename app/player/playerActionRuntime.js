@@ -245,3 +245,48 @@ export function createPlayerHarvestActionRuntime({
     perform
   };
 }
+
+export function createPlayerDirectActionRuntime({
+  controls = {},
+  session = {},
+  playerActionContext = {},
+  playerActionRuntime = {},
+  callbacks = {},
+  soundEventIds = {}
+} = {}) {
+  function getPlayerPosition() {
+    return session.playerCharacter?.getPosition?.();
+  }
+
+  function update({ canProcessGameplayAction = false } = {}) {
+    const canProcessDestroyAction = canProcessGameplayAction;
+    const destroyActionRequested = controls.consumeDestroyActionRequest?.();
+
+    callbacks.debugInteractionFlow?.("gameLoop.destroyAction.input", {
+      canProcessDestroyAction,
+      destroyActionRequested,
+      playerPosition: getPlayerPosition()
+    });
+
+    if (canProcessDestroyAction && destroyActionRequested) {
+      playerActionRuntime.performDestroy?.(
+        playerActionContext.getDestroyOptions?.(getPlayerPosition())
+      );
+    }
+
+    const interactRequested = controls.consumeInteractRequest?.();
+    if (interactRequested && canProcessGameplayAction) {
+      callbacks.playSoundEvent?.(soundEventIds.UI_CONFIRM);
+      playerActionRuntime.performInteract?.(
+        playerActionContext.getInteractOptions?.(
+          getPlayerPosition(),
+          { onNpcInteractionStart: callbacks.onNpcInteractionStart }
+        )
+      );
+    }
+  }
+
+  return {
+    update
+  };
+}

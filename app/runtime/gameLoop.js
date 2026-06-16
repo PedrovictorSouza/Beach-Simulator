@@ -119,6 +119,7 @@ import {
 } from "../player/playerActionTargetContext.js";
 import {
   createPlayerActionRuntime,
+  createPlayerDirectActionRuntime,
   createPlayerHarvestActionRuntime
 } from "../player/playerActionRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
@@ -1573,6 +1574,18 @@ export function startGameLoop({
       treeRevivalTargetCount: 5
     }
   });
+  const playerDirectActionRuntime = createPlayerDirectActionRuntime({
+    controls,
+    session,
+    playerActionContext,
+    playerActionRuntime,
+    callbacks: {
+      debugInteractionFlow,
+      onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart,
+      playSoundEvent
+    },
+    soundEventIds: SOUND_EVENT_IDS
+  });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
     controls,
@@ -2489,32 +2502,7 @@ export function startGameLoop({
       hasPlayerCharacter: Boolean(session.playerCharacter),
       flowState: frameFlowState
     });
-    const canProcessDestroyAction = canProcessGameplayAction;
-
-   const destroyActionRequested = controls.consumeDestroyActionRequest?.();
-
-debugInteractionFlow("gameLoop.destroyAction.input", {
-  canProcessDestroyAction,
-  destroyActionRequested,
-  playerPosition: session.playerCharacter?.getPosition?.()
-});
-
-if (canProcessDestroyAction && destroyActionRequested) {
-  playerActionRuntime.performDestroy(
-    playerActionContext.getDestroyOptions(session.playerCharacter.getPosition())
-  );
-}
-
-    if (
-      controls.consumeInteractRequest() &&
-      canProcessGameplayAction
-    ) {
-      playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM);
-      playerActionRuntime.performInteract(playerActionContext.getInteractOptions(
-        session.playerCharacter.getPosition(),
-        { onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart }
-      ));
-    }
+    playerDirectActionRuntime.update({ canProcessGameplayAction });
 
     processFollowerCallFrame({
       controls,

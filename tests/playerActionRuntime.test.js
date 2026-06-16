@@ -2,12 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createPlayerActionRuntime,
+  createPlayerDirectActionRuntime,
   createPlayerHarvestActionRuntime
 } from "../app/player/playerActionRuntime.js";
 
 const SOUND_EVENT_IDS = Object.freeze({
   GAMEPLAY_IMPACT: "impact",
-  UI_CANCEL: "cancel"
+  UI_CANCEL: "cancel",
+  UI_CONFIRM: "confirm"
 });
 
 function createRuntime({
@@ -314,5 +316,103 @@ describe("createPlayerHarvestActionRuntime", () => {
       "fire",
       789
     );
+  });
+});
+
+describe("createPlayerDirectActionRuntime", () => {
+  function createDirectRuntime({
+    canDestroy = true,
+    destroyRequested = true,
+    interactRequested = true
+  } = {}) {
+    const controls = {
+      consumeDestroyActionRequest: vi.fn(() => destroyRequested),
+      consumeInteractRequest: vi.fn(() => interactRequested)
+    };
+    const session = {
+      playerCharacter: {
+        getPosition: vi.fn(() => [1, 0, 2])
+      }
+    };
+    const playerActionContext = {
+      getDestroyOptions: vi.fn((playerPosition) => ({ playerPosition, type: "destroy" })),
+      getInteractOptions: vi.fn((playerPosition, options) => ({
+        ...options,
+        playerPosition,
+        type: "interact"
+      }))
+    };
+    const playerActionRuntime = {
+      performDestroy: vi.fn(),
+      performInteract: vi.fn()
+    };
+    const callbacks = {
+      debugInteractionFlow: vi.fn(),
+      onNpcInteractionStart: vi.fn(),
+      playSoundEvent: vi.fn()
+    };
+    const runtime = createPlayerDirectActionRuntime({
+      controls,
+      session,
+      playerActionContext,
+      playerActionRuntime,
+      callbacks,
+      soundEventIds: SOUND_EVENT_IDS
+    });
+
+    runtime.update({ canProcessGameplayAction: canDestroy });
+
+    return {
+      callbacks,
+      controls,
+      playerActionContext,
+      playerActionRuntime,
+      session
+    };
+  }
+
+  it("consumes and performs destroy before interact when gameplay actions are allowed", () => {
+    const { callbacks, playerActionContext, playerActionRuntime } = createDirectRuntime();
+
+    expect(callbacks.debugInteractionFlow).toHaveBeenCalledWith(
+      "gameLoop.destroyAction.input",
+      {
+        canProcessDestroyAction: true,
+        destroyActionRequested: true,
+        playerPosition: [1, 0, 2]
+      }
+    );
+    expect(playerActionContext.getDestroyOptions).toHaveBeenCalledWith([1, 0, 2]);
+    expect(playerActionRuntime.performDestroy).toHaveBeenCalledWith({
+      playerPosition: [1, 0, 2],
+      type: "destroy"
+    });
+    expect(callbacks.playSoundEvent).toHaveBeenCalledWith("confirm");
+    expect(playerActionRuntime.performInteract).toHaveBeenCalledWith({
+      onNpcInteractionStart: callbacks.onNpcInteractionStart,
+      playerPosition: [1, 0, 2],
+      type: "interact"
+    });
+  });
+
+  it("still consumes requests but skips side effects when gameplay actions are blocked", () => {
+    const {
+      callbacks,
+      controls,
+      playerActionRuntime
+    } = createDirectRuntime({ canDestroy: false });
+
+    expect(controls.consumeDestroyActionRequest).toHaveBeenCalledTimes(1);
+    expect(controls.consumeInteractRequest).toHaveBeenCalledTimes(1);
+    expect(callbacks.debugInteractionFlow).toHaveBeenCalledWith(
+      "gameLoop.destroyAction.input",
+      expect.objectContaining({
+        canProcessDestroyAction: false,
+        destroyActionRequested: true
+      })
+    );
+    expect(callbacks.playSoundEvent).not.toHaveBeenCalled();
+    expect(playerActionRuntime.performDestroy).not.toHaveBeenCalled();
+    expect(playerActionRuntime.performInteract).not.toHaveBeenCalled();
   });
 });

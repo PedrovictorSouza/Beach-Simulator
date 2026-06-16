@@ -197,6 +197,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move camera zoom preset controller into the `camera` boundary.
 - Completed: move player movement tuning into the `movement` boundary and
   preserve the companion follow spacing contract.
+- Completed: move direct destroy/interact action request handling into the
+  existing `player` action runtime.
 - Completed: move dialogue camera controller into the `camera` boundary.
 - Completed: move placement camera assist into the `camera` boundary.
 - Completed: move construction billboard builders into the `construction`
@@ -15374,5 +15376,82 @@ Full-suite validation was not repeated for this cut. The immediately previous
 full run already had known failures outside this boundary: the existing `3`
 Leafage Native Tree failures and `1` isolated scene-flow failure tied to dirty
 `startScreen.js` / bootstrap work.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Direct Action Runtime Boundary
+
+Expanded the existing `app/player/playerActionRuntime.js` domain module with
+`createPlayerDirectActionRuntime(...)`.
+
+Boundary classification: `player / gameplay action runtime`, focused on direct
+player destroy/interact request consumption and dispatch after the primary
+action branch.
+
+Study path:
+
+1. `gameLoop.js` still decides whether gameplay actions are currently allowed
+   through `resolveGameplayActionPermission(...)`.
+2. `createPlayerDirectActionRuntime(...)` now owns the direct destroy/interact
+   request consumption sequence.
+3. The runtime keeps the previous order: consume destroy request, emit the
+   destroy debug payload, perform destroy when allowed, consume interact
+   request, then perform interact and confirmation SFX when allowed.
+
+Removed from `gameLoop.js`:
+
+- direct destroy request consumption;
+- direct destroy debug payload construction;
+- direct destroy action dispatch;
+- direct interact request consumption;
+- direct interact confirmation SFX and dispatch.
+
+Kept in `gameLoop.js`:
+
+- primary-action target branching;
+- gameplay action permission calculation;
+- `startGameLoop()` dependency wiring;
+- frame ordering around primary actions, follower call and simulation updates.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` baseline was `3041`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is `3029`
+  lines.
+
+Tests updated:
+
+- `tests/playerActionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+```
+
+The first run failed because `createPlayerDirectActionRuntime(...)` did not
+exist yet. After adding the runtime and updating the game-loop wiring, the
+focused tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js tests/playerActionContext.test.js tests/playerActionTargetContext.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1939` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
 
 Manual gameplay validation remains pending for this cut.
