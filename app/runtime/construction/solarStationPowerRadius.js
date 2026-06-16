@@ -265,3 +265,79 @@ export function isInsideSolarStationPowerRadius({
     getPlacementCollisionSize
   });
 }
+
+export function createSolarStationPowerRadiusRuntime({
+  session = {},
+  getStoryState = () => ({}),
+  radiusMultiplier = 1,
+  previewFootprint = [1, 1],
+  gridFootprint,
+  markedTileLimit = 1200,
+  getPlacementCollisionSize = getDefaultPlacementCollisionSize,
+  getPlacementPreviewFootprintWorldSize = () => previewFootprint
+} = {}) {
+  function getPowerPosition() {
+    return getSolarStationPowerPosition(session, getStoryState());
+  }
+
+  function getPowerRadius() {
+    return getSolarStationPowerRadius({
+      session,
+      radiusMultiplier,
+      previewFootprint,
+      getPlacementCollisionSize
+    });
+  }
+
+  function getPreviewPowerRadius(preview) {
+    return getSolarStationPreviewPowerRadius({
+      session,
+      preview,
+      radiusMultiplier,
+      gridFootprint,
+      getPlacementPreviewFootprintWorldSize
+    });
+  }
+
+  function buildPreviewPowerRadiusGroundCells(preview) {
+    return buildSolarStationPreviewPowerRadiusGroundCells({
+      session,
+      preview,
+      radiusMultiplier,
+      gridFootprint,
+      markedTileLimit,
+      getPlacementPreviewFootprintWorldSize
+    });
+  }
+
+  function buildPlacedPowerRadiusGroundCells() {
+    return buildPlacedSolarStationPowerRadiusGroundCells({
+      session,
+      storyState: getStoryState(),
+      radiusMultiplier,
+      previewFootprint,
+      markedTileLimit,
+      getPlacementCollisionSize
+    });
+  }
+
+  function isInsidePowerRadius(position) {
+    return isInsideSolarStationPowerRadius({
+      session,
+      storyState: getStoryState(),
+      position,
+      radiusMultiplier,
+      previewFootprint,
+      getPlacementCollisionSize
+    });
+  }
+
+  return {
+    buildPlacedPowerRadiusGroundCells,
+    buildPreviewPowerRadiusGroundCells,
+    getPowerPosition,
+    getPowerRadius,
+    getPreviewPowerRadius,
+    isInsidePowerRadius
+  };
+}

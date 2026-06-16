@@ -69,15 +69,7 @@ import {
   applyPlayerPlacementSpawnToModelInstance,
   updateSolarStationSpawnEffect
 } from "./construction/playerPlacementSpawnEffect.js";
-import {
-  buildPlacedSolarStationPowerRadiusGroundCells as buildPlacedSolarStationPowerRadiusGroundCellsWithConfig,
-  buildSolarStationPowerRadiusGroundCells as buildSolarStationPowerRadiusGroundCellsWithConfig,
-  buildSolarStationPreviewPowerRadiusGroundCells as buildSolarStationPreviewPowerRadiusGroundCellsWithConfig,
-  getSolarStationPowerPosition as getSolarStationPowerPositionWithSession,
-  getSolarStationPowerRadius as getSolarStationPowerRadiusWithConfig,
-  getSolarStationPreviewPowerRadius as getSolarStationPreviewPowerRadiusWithConfig,
-  isInsideSolarStationPowerRadius as isInsideSolarStationPowerRadiusWithConfig
-} from "./construction/solarStationPowerRadius.js";
+import { createSolarStationPowerRadiusRuntime } from "./construction/solarStationPowerRadius.js";
 import {
   getSolarStationPlacementBlockers as getSolarStationPlacementBlockersWithConfig,
   isSolarStationPlacementBlocked as isSolarStationPlacementBlockedWithConfig
@@ -576,55 +568,6 @@ function buildSolarStationFieldMarkedGroundCells(placementTarget) {
   });
 }
 
-function buildSolarStationPowerRadiusGroundCells({
-  center,
-  radius,
-  gridConfig = null,
-  gridStep = 1.425,
-  idPrefix = "solar-station-power-radius"
-} = {}) {
-  return buildSolarStationPowerRadiusGroundCellsWithConfig({
-    center,
-    radius,
-    gridConfig,
-    gridStep,
-    idPrefix,
-    markedTileLimit: SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT
-  });
-}
-
-function getSolarStationPreviewPowerRadius(session, preview) {
-  return getSolarStationPreviewPowerRadiusWithConfig({
-    session,
-    preview,
-    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
-    gridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
-    getPlacementPreviewFootprintWorldSize
-  });
-}
-
-function buildSolarStationPreviewPowerRadiusGroundCells(session, preview) {
-  return buildSolarStationPreviewPowerRadiusGroundCellsWithConfig({
-    session,
-    preview,
-    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
-    gridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
-    markedTileLimit: SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT,
-    getPlacementPreviewFootprintWorldSize
-  });
-}
-
-function buildPlacedSolarStationPowerRadiusGroundCells(session, storyState) {
-  return buildPlacedSolarStationPowerRadiusGroundCellsWithConfig({
-    session,
-    storyState,
-    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
-    previewFootprint: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-    markedTileLimit: SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT,
-    getPlacementCollisionSize
-  });
-}
-
 function getTreePlacementBlockerSize(treeModel, instance) {
   return getTreePlacementBlockerSizeWithConfig({
     treeModel,
@@ -683,30 +626,6 @@ function isSolarStationPlacementBlocked(session, storyState, placementRect) {
     getSolarStationPlacementBlockers,
     getPlacementRect,
     doPlacementRectsOverlap
-  });
-}
-
-function getSolarStationPowerPosition(session, storyState) {
-  return getSolarStationPowerPositionWithSession(session, storyState);
-}
-
-function getSolarStationPowerRadius(session) {
-  return getSolarStationPowerRadiusWithConfig({
-    session,
-    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
-    previewFootprint: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-    getPlacementCollisionSize
-  });
-}
-
-function isInsideSolarStationPowerRadius(session, storyState, position) {
-  return isInsideSolarStationPowerRadiusWithConfig({
-    session,
-    storyState,
-    position,
-    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
-    previewFootprint: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-    getPlacementCollisionSize
   });
 }
 
@@ -1272,6 +1191,16 @@ export function startGameLoop({
       modelFaceYawOffset: TIMBURR_MODEL_FACE_YAW_OFFSET
     }
   });
+  const solarStationPowerRadiusRuntime = createSolarStationPowerRadiusRuntime({
+    session,
+    getStoryState: () => controls.storyState,
+    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
+    previewFootprint: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
+    gridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
+    markedTileLimit: SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT,
+    getPlacementCollisionSize,
+    getPlacementPreviewFootprintWorldSize
+  });
   const constructionPlacementFrameRuntime = createConstructionPlacementFrameRuntime({
     controls,
     getMovementAxes: () => camera.getMovementAxes(),
@@ -1773,12 +1702,11 @@ export function startGameLoop({
       syncPlacementPreview: (preview) =>
         constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview),
       isInsidePowerRadius: (position) =>
-        isInsideSolarStationPowerRadius(session, controls.storyState, position),
+        solarStationPowerRadiusRuntime.isInsidePowerRadius(position),
       evaluateSiteChoice: evaluateHabitatSiteChoice,
-      getSolarStationPowerPosition: () =>
-        getSolarStationPowerPosition(session, controls.storyState),
+      getSolarStationPowerPosition: solarStationPowerRadiusRuntime.getPowerPosition,
       workbenchPosition: WORKBENCH_POSITION,
-      getSolarStationPowerRadius: () => getSolarStationPowerRadius(session)
+      getSolarStationPowerRadius: solarStationPowerRadiusRuntime.getPowerRadius
     });
   }
 
@@ -3845,8 +3773,10 @@ if (canProcessDestroyAction && destroyActionRequested) {
       session,
       storyState: controls.storyState,
       getWorkbenchRotationGroundCell,
-      buildSolarStationPreviewPowerRadiusGroundCells,
-      buildPlacedSolarStationPowerRadiusGroundCells,
+      buildSolarStationPreviewPowerRadiusGroundCells: (_session, preview) =>
+        solarStationPowerRadiusRuntime.buildPreviewPowerRadiusGroundCells(preview),
+      buildPlacedSolarStationPowerRadiusGroundCells: () =>
+        solarStationPowerRadiusRuntime.buildPlacedPowerRadiusGroundCells(),
       getGroundActionFeedbackFrame: () =>
         groundActionFeedbackRuntime.getFeedbackFrame({ session, now }),
       getFieldToolTargetPulseFrame: (groundCell) =>

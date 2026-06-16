@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildSolarStationPowerRadiusGroundCells,
+  createSolarStationPowerRadiusRuntime,
   getSolarStationPowerPosition,
   getSolarStationPowerRadius,
   isInsideSolarStationPowerRadius
@@ -126,5 +127,50 @@ describe("solar station power radius", () => {
       previewFootprint: [2, 2],
       getPlacementCollisionSize: (placement, fallbackSize) => placement?.size || fallbackSize
     })).toBe(false);
+  });
+
+  it("creates a runtime that injects session, story state and config", () => {
+    const session = {
+      buildGridConfig: {
+        cellSize: 1,
+        origin: { x: -2, z: -2 },
+        width: 5,
+        height: 5
+      },
+      strawBed: {
+        position: [0, 0.02, 0],
+        size: [2, 2]
+      },
+      strawBedModelInstance: {
+        solarStationFinalScale: 2
+      }
+    };
+    const storyState = {
+      flags: {
+        strawBedPlacedInBulbasaurHabitat: true
+      }
+    };
+    const preview = {
+      snappedPosition: [0, 0.02, 0],
+      gridConfig: session.buildGridConfig,
+      gridStep: 1
+    };
+    const runtime = createSolarStationPowerRadiusRuntime({
+      session,
+      getStoryState: () => storyState,
+      radiusMultiplier: 3,
+      previewFootprint: [2, 2],
+      gridFootprint: { width: 2, height: 2 },
+      markedTileLimit: 4,
+      getPlacementCollisionSize: (placement, fallbackSize) => placement?.size || fallbackSize,
+      getPlacementPreviewFootprintWorldSize: () => [2, 2]
+    });
+
+    expect(runtime.getPowerPosition()).toBe(session.strawBed.position);
+    expect(runtime.getPowerRadius()).toBe(6);
+    expect(runtime.isInsidePowerRadius([5.9, 0.02, 0])).toBe(true);
+    expect(runtime.isInsidePowerRadius([6.1, 0.02, 0])).toBe(false);
+    expect(runtime.buildPreviewPowerRadiusGroundCells(preview)).toHaveLength(4);
+    expect(runtime.buildPlacedPowerRadiusGroundCells()).toHaveLength(4);
   });
 });

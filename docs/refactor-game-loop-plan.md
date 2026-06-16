@@ -366,6 +366,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move field-move position source wiring into the `fieldMoveRuntime`
   boundary.
+- Completed: move Solar Station power-radius wiring into the `construction`
+  boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -4007,6 +4009,78 @@ npm test
 
 - `309` test files passed, `1` failed
 - `1890` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
+### Solar Station Power Radius Runtime
+
+Expanded `app/runtime/construction/solarStationPowerRadius.js` with
+`createSolarStationPowerRadiusRuntime(...)`.
+
+Classification: `construction`, specifically Solar Station power-radius source
+wiring.
+
+Study path:
+
+1. The pure power-radius calculations remain in
+   `solarStationPowerRadius.js`.
+2. The new runtime owns the repeated binding of `session`, `storyState`,
+   radius multiplier, preview footprint, grid footprint, marked-tile limit and
+   placement sizing callbacks.
+3. `gameLoop.js` keeps composition and still passes callbacks to construction
+   placement and presentation boundaries.
+4. `buildSolarStationFieldMarkedGroundCells(...)` stayed in `gameLoop.js` for
+   now because it belongs to `placementGeometry`, not power-radius behavior.
+
+Removed from `gameLoop.js`:
+
+- local `buildSolarStationPowerRadiusGroundCells(...)` wrapper;
+- local `getSolarStationPreviewPowerRadius(...)` wrapper;
+- local `buildSolarStationPreviewPowerRadiusGroundCells(...)` wrapper;
+- local `buildPlacedSolarStationPowerRadiusGroundCells(...)` wrapper;
+- local `getSolarStationPowerPosition(...)` wrapper;
+- local `getSolarStationPowerRadius(...)` wrapper;
+- local `isInsideSolarStationPowerRadius(...)` wrapper;
+- direct imports of low-level Solar Station power-radius functions.
+
+Kept in `gameLoop.js`:
+
+- runtime composition;
+- `buildSolarStationFieldMarkedGroundCells(...)`;
+- small adapters for the current `groundCellHighlightFrameState` callback
+  signature.
+
+Tests updated:
+
+- `tests/solarStationPowerRadius.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/solarStationPowerRadius.test.js
+```
+
+The first run failed because `createSolarStationPowerRadiusRuntime(...)` did
+not exist yet. After adding the runtime factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/solarStationPowerRadius.test.js
+npm test -- --run tests/solarStationPowerRadius.test.js tests/constructionPlacementFrameRuntime.test.js tests/groundCellHighlightFrameState.test.js tests/placementGeometry.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `309` test files passed, `1` failed
+- `1891` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
 
