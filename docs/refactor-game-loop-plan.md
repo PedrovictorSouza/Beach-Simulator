@@ -16070,3 +16070,87 @@ npm test
   to dirty `startScreen.js` / bootstrap work already present in the worktree.
 
 Manual gameplay validation remains pending for this cut.
+
+### World-Space Presentation Frame Runtime Boundary
+
+Expanded `app/runtime/presentation/worldSpacePresentationSnapshotFrame.js` with
+`createWorldSpacePresentationFrameRuntime(...)`.
+
+Boundary classification: `presentation / render helpers`, focused on
+world-space UI state and snapshot population: speech bubbles, prompts, ground
+cell highlights and status popups.
+
+Study path:
+
+1. `startGameLoop()` still wires dependencies as composition root.
+2. `frame(now)` still decides the temporal point where world-space
+   presentation runs.
+3. The presentation boundary now owns the bridge between
+   `resolveWorldSpacePresentationFrameState(...)` and
+   `updateWorldSpacePresentationSnapshotFrame(...)`.
+4. `gameLoop.js` now passes a compact frame payload to
+   `worldSpacePresentationFrameRuntime.update(...)` and receives
+   `canShowWorldSpaceUi` for later world object billboards.
+5. Ground-cell highlight output now moves as one `groundCellHighlightFrameState`
+   object instead of being destructured into many one-use locals in `frame(now)`.
+
+Removed from `gameLoop.js`:
+
+- direct import/use of `resolveWorldSpacePresentationFrameState(...)`;
+- direct import/use of `updateWorldSpacePresentationSnapshotFrame(...)`;
+- manual world-space presentation state composition;
+- manual snapshot population call for world speech, prompts, highlights and
+  status popups;
+- long one-use destructuring of ground-cell highlight frame state.
+
+Kept in `gameLoop.js`:
+
+- world-space presentation runtime construction and dependency wiring;
+- frame ordering around HUD/base snapshot before world-space presentation;
+- `canShowWorldSpaceUi` handoff to world-object billboard rendering.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2740` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2697` lines.
+- The previous loose `shouldShowGroundCellHighlight` destructuring line is no
+  longer needed because the full ground-cell highlight state object is passed
+  through to the presentation runtime.
+
+Tests updated:
+
+- `tests/worldSpacePresentationSnapshotFrame.test.js`
+- `tests/gameLoopGroundCellHighlightWiring.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/worldSpacePresentationSnapshotFrame.test.js
+```
+
+The first run failed because `createWorldSpacePresentationFrameRuntime(...)`
+did not exist yet. After adding the runtime factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/worldSpacePresentationSnapshotFrame.test.js
+npm test -- --run tests/worldSpacePresentationSnapshotFrame.test.js tests/worldSpacePresentationFrameState.test.js tests/worldPromptFrameState.test.js tests/worldSpeechFrameState.test.js tests/groundCellHighlightFrameState.test.js tests/gameLoopGroundCellHighlightWiring.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1971` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.

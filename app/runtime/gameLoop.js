@@ -127,8 +127,7 @@ import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { resolveGameplayPromptFrameState } from "./presentation/gameplayPromptTargetFrameState.js";
-import { resolveWorldSpacePresentationFrameState } from "./presentation/worldSpacePresentationFrameState.js";
-import { updateWorldSpacePresentationSnapshotFrame } from "./presentation/worldSpacePresentationSnapshotFrame.js";
+import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
 import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
 import { createBaseRenderSnapshotFrameRuntime } from "./presentation/baseRenderSnapshotFrame.js";
 import { prepareRenderSnapshotContext as prepareRenderSnapshotContextWithSources } from "./presentation/renderSnapshotContext.js";
@@ -1267,6 +1266,38 @@ export function startGameLoop({
       syncFreeBlockBuildPreview: (...args) => freeBlockBuildRuntime.syncPreview(...args),
       updateBuildBlockDebugOverlay: (debug) => buildBlockDebugOverlay.update(debug)
     }
+  });
+  const worldSpacePresentationFrameRuntime = createWorldSpacePresentationFrameRuntime({
+    controls,
+    session,
+    gameplay,
+    repairBoxPromptDistance: REPAIR_BOX_PROMPT_DISTANCE,
+    restoredGrassMissionTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
+    waterGunFirstUsePromptFlag: WATER_GUN_FIRST_USE_PROMPT_FLAG,
+    resolveWorldSpaceUiVisibility,
+    shouldShowWorkbenchGreenArrowCue,
+    applyWorkbenchGreenArrowCue,
+    isPlayerNearWorldPosition: worldSceneSyncRuntime.isPlayerNearWorldPosition,
+    isDryGrassHydroMissionActive,
+    getEncounterRepairBoxPosition,
+    getLeppaTreeSurroundingGroundCells,
+    getSquirtleWorldPosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
+    isSquirtleWaterCharging: () => companionAbilityResourcesRuntime.isSquirtleWaterCharging(),
+    getFreeBlockBuildCostMarker: (...args) =>
+      constructionPlacementControlRuntime.getFreeBlockBuildCostMarker(...args),
+    getPeriodicChopperAttentionCue: (...args) =>
+      companionWorldSpeechCueRuntime.getChopperAttentionCue(...args),
+    isLeafageInvalidTargetVisible: (frameNow) =>
+      fieldMoveInvalidTargetPromptRuntime.isLeafageVisible(frameNow),
+    isFireInvalidTargetVisible: (frameNow) =>
+      fieldMoveInvalidTargetPromptRuntime.isFireVisible(frameNow),
+    isRunBreadcrumbVisible: (frameNow) =>
+      runBreadcrumbPromptRuntime.isVisible(frameNow),
+    getCompanionLostHint: (...args) =>
+      companionWorldSpeechCueRuntime.getCompanionLostHint(...args),
+    consumeChopperAttentionCueSoundCycle: (...args) =>
+      companionWorldSpeechCueRuntime.consumeChopperAttentionCueSoundCycle(...args),
+    playChopperVoice: () => playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE)
   });
   const baseRenderSnapshotFrameRuntime = createBaseRenderSnapshotFrameRuntime({
     camera,
@@ -2441,20 +2472,7 @@ export function startGameLoop({
       debug: debugInteractionFlow
     });
 
-    const {
-      fieldToolTargetPulseFrame,
-      solarStationPlacementGroundCells,
-      solarStationPlacementGroundCell,
-      solarStationPowerRadiusGroundCells,
-      greenhousePlacementGroundCells,
-      greenhousePlacementGroundCell,
-      campfirePlacementGroundCells,
-      campfirePlacementGroundCell,
-      leafDenKitPlacementGroundCells,
-      leafDenKitPlacementGroundCell,
-      workbenchRotationGroundCell,
-      groundActionFeedbackFrame
-    } = resolveGameplayGroundCellHighlightFrameState({
+    const groundCellHighlightFrameState = resolveGameplayGroundCellHighlightFrameState({
       gameplayOpeningMovementLocked,
       flowState: currentFlowState,
       highlightedGroundCell,
@@ -2506,7 +2524,8 @@ export function startGameLoop({
     });
 
     // World-space UI and render preparation.
-    const worldSpacePresentationFrameState = resolveWorldSpacePresentationFrameState({
+    const { canShowWorldSpaceUi } = worldSpacePresentationFrameRuntime.update({
+      nextFrame,
       now,
       gameplayOpeningCameraLocked,
       flowState: currentFlowState,
@@ -2514,103 +2533,41 @@ export function startGameLoop({
       activeQuest,
       activeTask,
       activeSystemQuest,
-      buildBlockEquipped,
-      controls,
-      session,
+      equipmentState: {
+        buildBlockEquipped,
+        waterGunEquipped,
+        leafageEquipped
+      },
       inputModalityState,
-      solarStationPlacementPreview,
-      greenhousePlacementPreview,
-      campfirePlacementPreview,
-      leafDenKitPlacementPreview,
-      pendingPlacementPrompt,
-      workbenchRotationPrompt,
-      destroyableObjectPrompt,
-      freeBlockPreviewTarget,
-      transientNoticeRoute,
-      playerCounterPromptText,
-      waterGunEquipped,
-      leafageEquipped,
-      nearbyInteractable,
-      chopperBulbasaurRepairBoxInvestigationTarget,
-      repairBoxPromptDistance: REPAIR_BOX_PROMPT_DISTANCE,
-      firstTaughtActionFreedomWindowActive: firstTaughtActionFreedomWindow.active,
-      restoredGrassMissionTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
-      waterGunFirstUsePromptDismissed: controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG],
-      openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState),
-      resolveWorldSpaceUiVisibility,
-      shouldShowWorkbenchGreenArrowCue,
-      applyWorkbenchGreenArrowCue,
-      isPlayerNearWorldPosition: worldSceneSyncRuntime.isPlayerNearWorldPosition,
-      isDryGrassHydroMissionActive,
-      getEncounterRepairBoxPosition,
-      getLeppaTreeSurroundingGroundCells,
-      getSquirtleWorldPosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
-      isSquirtleWaterCharging: () => companionAbilityResourcesRuntime.isSquirtleWaterCharging(),
-      getFreeBlockBuildCostMarker: constructionPlacementControlRuntime.getFreeBlockBuildCostMarker,
-      getPeriodicChopperAttentionCue:
-        companionWorldSpeechCueRuntime.getChopperAttentionCue,
-      isLeafageInvalidTargetVisible: (frameNow) =>
-        fieldMoveInvalidTargetPromptRuntime.isLeafageVisible(frameNow),
-      isFireInvalidTargetVisible: (frameNow) =>
-        fieldMoveInvalidTargetPromptRuntime.isFireVisible(frameNow),
-      isRunBreadcrumbVisible: (frameNow) =>
-        runBreadcrumbPromptRuntime.isVisible(frameNow)
-    });
-    const { canShowWorldSpaceUi } = worldSpacePresentationFrameState;
-
-    updateWorldSpacePresentationSnapshotFrame(nextFrame, {
-      now,
-      activeQuest,
-      activeMoveId,
-      session,
-      controls,
-      gameplay,
-      inputModalityState,
-      presentationState: worldSpacePresentationFrameState,
-      promptSources: {
+      placementPreviews: {
         solarStationPlacementPreview,
         greenhousePlacementPreview,
         campfirePlacementPreview,
-        leafDenKitPlacementPreview,
-        pendingPlacementIntent,
-        nearbyHarvestTarget,
+        leafDenKitPlacementPreview
+      },
+      promptState: {
+        pendingPlacementPrompt,
         workbenchRotationPrompt,
         destroyableObjectPrompt,
         transientNoticeRoute,
         playerCounterPromptText,
-        leafageEquipped
+        openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState)
       },
-      groundCellHighlightState: {
-        solarStationPlacementGroundCell,
-        solarStationPowerRadiusGroundCells,
-        solarStationPlacementGroundCells,
-        greenhousePlacementGroundCell,
-        greenhousePlacementGroundCells,
-        campfirePlacementGroundCell,
-        campfirePlacementGroundCells,
-        leafDenKitPlacementGroundCell,
-        leafDenKitPlacementGroundCells,
-        workbenchRotationGroundCell,
-        activeFireGroundCell,
-        shouldShowGroundCellHighlight,
-        highlightedGroundCell,
-        highlightedGroundCellTargetState,
-        highlightedGroundCellAbilityId,
-        markedActionGroundCells,
-        markedGroundCellPulsePhase,
-        groundActionFeedbackFrame,
-        fieldToolTargetPulseFrame
+      freeBlockPreviewTarget,
+      nearbyInteractable,
+      chopperBulbasaurRepairBoxInvestigationTarget,
+      firstTaughtActionFreedomWindowActive: firstTaughtActionFreedomWindow.active,
+      promptSources: {
+        pendingPlacementIntent,
+        nearbyHarvestTarget
       },
+      groundCellHighlightState: groundCellHighlightFrameState,
       frameBlockers: {
         gameplayOpeningCameraLocked,
         cinematicActive,
         tutorialActive,
         pokedexModalOpen
-      },
-      getCompanionLostHint: companionWorldSpeechCueRuntime.getCompanionLostHint,
-      consumeChopperAttentionCueSoundCycle:
-        companionWorldSpeechCueRuntime.consumeChopperAttentionCueSoundCycle,
-      playChopperVoice: () => playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE)
+      }
     });
 
     // Render snapshot preparation.

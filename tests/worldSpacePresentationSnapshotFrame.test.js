@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createWorldSpacePresentationFrameRuntime,
   updateWorldSpacePresentationSnapshotFrame
 } from "../app/runtime/presentation/worldSpacePresentationSnapshotFrame.js";
 
@@ -116,5 +117,116 @@ describe("world space presentation snapshot frame", () => {
       worldPosition: playerPosition
     });
     expect(getQuestCompletionPop).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates a runtime that resolves world-space state and writes the snapshot", () => {
+    const nextFrame = createNextFrame();
+    const playerPosition = [5, 0, 6];
+    const tangrowthPosition = [1, 0, 2];
+    const resolveWorldSpaceUiVisibility = vi.fn(() => true);
+    const runtime = createWorldSpacePresentationFrameRuntime({
+      controls: {
+        storyState: {
+          flags: {
+            charmanderFollowing: true
+          }
+        },
+        playerSkills: {
+          waterGun: true
+        },
+        isPrimaryActionActive: () => false,
+        getFieldMoveSwitchPrompt: () => null
+      },
+      session: {
+        playerCharacter: {
+          getPosition: () => playerPosition
+        },
+        npcActors: [
+          {
+            id: "tangrowth",
+            character: {
+              getPosition: () => tangrowthPosition
+            }
+          }
+        ],
+        workbenchGreenArrowModelInstance: {},
+        groundGrassPatches: [],
+        groundDeadInstances: [],
+        groundPurifiedInstances: [],
+        actTwoSquirtle: null,
+        bulbasaurEncounter: null,
+        charmanderEncounter: null,
+        timburrEncounter: null,
+        leppaTree: null
+      },
+      gameplay: {
+        tangrowthOpeningLine: "Hello, Broky.",
+        getQuestCompletionPop: () => null
+      },
+      repairBoxPromptDistance: 3,
+      restoredGrassMissionTargetCount: 10,
+      waterGunFirstUsePromptFlag: "waterGunFirstUsePromptDismissed",
+      resolveWorldSpaceUiVisibility,
+      shouldShowWorkbenchGreenArrowCue: () => false,
+      applyWorkbenchGreenArrowCue: vi.fn(),
+      isPlayerNearWorldPosition: () => false,
+      isDryGrassHydroMissionActive: () => true,
+      getEncounterRepairBoxPosition: () => null,
+      getLeppaTreeSurroundingGroundCells: () => [],
+      getSquirtleWorldPosition: () => null,
+      isSquirtleWaterCharging: () => false,
+      getFreeBlockBuildCostMarker: () => null,
+      getPeriodicChopperAttentionCue: () => null,
+      isLeafageInvalidTargetVisible: () => false,
+      isFireInvalidTargetVisible: () => false,
+      isRunBreadcrumbVisible: () => false
+    });
+
+    const result = runtime.update({
+      nextFrame,
+      now: 1200,
+      gameplayOpeningCameraLocked: false,
+      flowState: { gameplayActive: true },
+      activeMoveId: "waterGun",
+      activeQuest: { id: "meetTangrowth" },
+      activeTask: { id: "task-a" },
+      activeSystemQuest: { id: "quest-a" },
+      equipmentState: {
+        buildBlockEquipped: false,
+        waterGunEquipped: true,
+        leafageEquipped: false
+      },
+      inputModalityState: {},
+      placementPreviews: {},
+      promptState: {
+        playerCounterPromptText: "+1 Wood"
+      },
+      firstTaughtActionFreedomWindowActive: true,
+      promptSources: {},
+      groundCellHighlightState: {
+        shouldShowGroundCellHighlight: true,
+        highlightedGroundCell: { id: "target-cell" },
+        highlightedGroundCellTargetState: "valid",
+        highlightedGroundCellAbilityId: "waterGun"
+      },
+      frameBlockers: {}
+    });
+
+    expect(result.canShowWorldSpaceUi).toBe(true);
+    expect(nextFrame.worldSpeech).toEqual({
+      visible: true,
+      text: "Hello, Broky.",
+      worldPosition: tangrowthPosition
+    });
+    expect(nextFrame.groundCellHighlight).toEqual(expect.objectContaining({
+      visible: true,
+      groundCell: expect.objectContaining({
+        id: "target-cell"
+      })
+    }));
+    expect(resolveWorldSpaceUiVisibility).toHaveBeenCalledWith({
+      gameplayOpeningCameraLocked: false,
+      flowState: { gameplayActive: true }
+    });
   });
 });
