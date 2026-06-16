@@ -110,7 +110,11 @@ import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
 import { createPlayerActionContext } from "../player/playerActionContext.js";
-import { createPlayerActionTargetContext } from "../player/playerActionTargetContext.js";
+import {
+  createPlayerActionTargetContext,
+  resolvePrimaryActionAutoTargetQueries,
+  resolvePrimaryActionTargetIntent
+} from "../player/playerActionTargetContext.js";
 import { createPlayerActionRuntime } from "../player/playerActionRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
@@ -2102,11 +2106,6 @@ export function startGameLoop({
       scriptedInteractionActive,
       dialogueActive
     });
-    const isWaterGunTreeTarget = (target) => Boolean(
-      waterGunEquipped &&
-      target?.palm
-    );
-
     function performHarvestAction(playerPosition, options = {}) {
       const previousWateredTreeCount = Number(controls.storyState.flags.wateredTreeCount || 0);
       const previousRestoredGrassCount = Number(controls.storyState.flags.restoredGrassCount || 0);
@@ -2191,56 +2190,38 @@ export function startGameLoop({
           allowPlacement: !gamepadPrimaryMoveRequested && !buildBlockEquipped
         })
       );
-      const primaryActionPlacementTarget = Boolean(
-        primaryActionTarget?.logChairPlacement ||
-        primaryActionTarget?.greenhousePlacement ||
-        primaryActionTarget?.campfirePlacement ||
-        primaryActionTarget?.strawBedPlacement ||
-        primaryActionTarget?.leafDenKitPlacement ||
-        primaryActionTarget?.leafDenFurniturePlacement ||
-        primaryActionTarget?.dittoFlagPlacement
-      );
-      const primaryActionCanUseFieldMove = Boolean(
-        waterGunEquipped ||
-        leafageEquipped ||
-        fireEquipped ||
-        buildBlockEquipped
-      );
-      const primaryActionWantsFieldMove =
-        primaryActionCanUseFieldMove &&
-        (
-          harvestRequestSource === "gamepadPrimary" ||
-          harvestRequestSource === "keyboardPrimary" ||
-          (
-            harvestRequestSource === "gamepadBag" &&
-            leafageEquipped &&
-            primaryActionTarget?.leafageGroundCell
-          )
-        );
+      const primaryActionIntent = resolvePrimaryActionTargetIntent({
+        target: primaryActionTarget,
+        harvestRequestSource,
+        waterGunEquipped,
+        leafageEquipped,
+        fireEquipped,
+        buildBlockEquipped,
+        leafagePrimaryMoveRequested,
+        gamepadPrimaryMoveRequested
+      });
+      const primaryActionPlacementTarget = primaryActionIntent.placementTarget;
+      const primaryActionWantsFieldMove = primaryActionIntent.wantsFieldMove;
       if (
         primaryActionWantsFieldMove &&
         groundActionFeedbackRuntime.isPulseSource(harvestRequestSource)
       ) {
         groundActionFeedbackRuntime.triggerPulse(activeMoveId, now);
       }
-      const primaryActionIsPlacement =
-        primaryActionPlacementTarget && !gamepadPrimaryMoveRequested && !buildBlockEquipped;
-      const primaryActionPlacementBlocked =
-        primaryActionPlacementTarget && (gamepadPrimaryMoveRequested || buildBlockEquipped);
-      const primaryActionIsMove = Boolean(
-        (buildBlockEquipped && primaryActionWantsFieldMove) ||
-        (waterGunEquipped && primaryActionTarget?.groundCell) ||
-        isWaterGunTreeTarget(primaryActionTarget) ||
-        (leafageEquipped && leafagePrimaryMoveRequested && primaryActionTarget?.leafageGroundCell) ||
-        (fireEquipped && primaryActionTarget?.fireGroundCell)
-      );
+      const primaryActionIsPlacement = primaryActionIntent.isPlacement;
+      const primaryActionPlacementBlocked = primaryActionIntent.placementBlocked;
+      const primaryActionIsMove = primaryActionIntent.isMove;
+      const primaryActionAutoTargetQueries = resolvePrimaryActionAutoTargetQueries({
+        target: primaryActionTarget,
+        targetIntent: primaryActionIntent,
+        waterGunEquipped,
+        waterGunSkillLearned: controls.playerSkills?.waterGun,
+        leafageEquipped,
+        leafageSkillLearned: controls.playerSkills?.leafage,
+        leafagePrimaryMoveRequested
+      });
       const leafageAutoWaterGunTarget =
-        leafageEquipped &&
-        leafagePrimaryMoveRequested &&
-        primaryActionWantsFieldMove &&
-        controls.playerSkills?.waterGun &&
-        !primaryActionPlacementTarget &&
-        !primaryActionTarget?.leafageGroundCell ?
+        primaryActionAutoTargetQueries.shouldFindLeafageAutoWaterGunTarget ?
           gameplay.findNearbyActionTarget(
             playerActionTargetContext.getNearbyActionTargetOptions({
               playerPosition,
@@ -2252,15 +2233,7 @@ export function startGameLoop({
           ) :
           null;
       const leafageAutoGrowTarget =
-        waterGunEquipped &&
-        controls.playerSkills?.leafage &&
-        primaryActionWantsFieldMove &&
-        !primaryActionPlacementTarget &&
-        !primaryActionTarget?.palm &&
-        !primaryActionTarget?.resourceNode &&
-        !primaryActionTarget?.leppaTree &&
-        !primaryActionTarget?.groundCell &&
-        !primaryActionTarget?.leafageGroundCell ?
+        primaryActionAutoTargetQueries.shouldFindLeafageAutoGrowTarget ?
           gameplay.findNearbyActionTarget(
             playerActionTargetContext.getNearbyActionTargetOptions({
               playerPosition,
@@ -2331,12 +2304,8 @@ export function startGameLoop({
       const primaryActionConfirmsRotation =
         !primaryInteractTargetIsWorkbench &&
         Boolean(workbenchRotationRuntime.getSelectedTargetFromSources());
-      const primaryActionPlacementCanYieldToRotation = Boolean(
-        !primaryActionPlacementTarget ||
-        primaryActionTarget?.leafDenKitPlacement ||
-        primaryActionTarget?.leafDenFurniturePlacement ||
-        primaryActionTarget?.dittoFlagPlacement
-      );
+      const primaryActionPlacementCanYieldToRotation =
+        primaryActionIntent.placementCanYieldToRotation;
       const primaryActionRotationTarget =
         !primaryInteractTargetIsWorkbench &&
         !primaryActionConfirmsRotation &&
@@ -2358,13 +2327,7 @@ export function startGameLoop({
             { includeRestoredGrass: true }
           ) :
           null;
-      const primaryActionIsBagHarvest = Boolean(
-        harvestRequestSource === "gamepadBag" &&
-        (
-          primaryActionTarget?.palm ||
-          primaryActionTarget?.resourceNode
-        )
-      );
+      const primaryActionIsBagHarvest = primaryActionIntent.isBagHarvest;
       if (
         waterGunEquipped &&
         (
@@ -2468,7 +2431,7 @@ export function startGameLoop({
               forcedHarvestTarget: primaryActionTarget
             });
           }
-        } else if (isWaterGunTreeTarget(primaryActionTarget)) {
+        } else if (primaryActionIntent.isWaterGunTreeTarget) {
           if (companionAbilityResourcesRuntime.consumeSquirtleWaterStaminaForInstantAction()) {
             triggerWaterGunSfxBurst();
             performHarvestAction(playerPosition, {

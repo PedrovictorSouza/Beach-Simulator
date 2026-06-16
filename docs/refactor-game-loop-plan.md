@@ -384,6 +384,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move player action payload assembly into the `player` boundary.
 - Completed: move nearby player action target payload assembly into the
   `player` boundary.
+- Completed: move primary player action target intent classification into the
+  `player` boundary.
 - Completed: move player harvest/interact/destroy action side effects into the
   `player` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
@@ -3885,6 +3887,70 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Primary Action Target Intent Boundary
+
+Expanded `app/player/playerActionTargetContext.js` so the player boundary also
+owns the pure target-intent classification used by the primary action branch.
+
+Boundary classification: `player / gameplay action runtime`, focused on
+classifying action target intent without executing side effects.
+
+Removed from `gameLoop.js`:
+
+- inline placement-target classification;
+- inline field-move intent classification;
+- inline move/placement/blocked/bag-harvest classification;
+- inline Leafage auto-Water-Gun target query condition;
+- inline Water-Gun auto-Leafage target query condition;
+- local Water Gun tree-target helper.
+
+Kept in `gameLoop.js`:
+
+- action execution order;
+- calls to `gameplay.findNearbyActionTarget(...)`;
+- feedback side effects;
+- invalid target prompts;
+- field-move runtime calls.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` baseline was `3124`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is `3087`
+  lines.
+
+Tests extended:
+
+- `tests/playerActionTargetContext.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionTargetContext.test.js
+```
+
+The first run failed because `resolvePrimaryActionTargetIntent(...)` and
+`resolvePrimaryActionAutoTargetQueries(...)` did not exist yet. After extending
+the existing player target context module, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionTargetContext.test.js tests/playerActionContext.test.js tests/playerActionRuntime.test.js
+```
+
+Focused result:
+
+- `3` test files passed
+- `14` tests passed
+
+Full-suite validation was not repeated for this cut. The known baseline still
+has failures outside this boundary: the existing Leafage Native Tree failures
+and the isolated scene-flow failure tied to dirty `startScreen.js` / bootstrap
+work.
 
 Manual gameplay validation remains pending for this cut.
 

@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { createPlayerActionTargetContext } from "../app/player/playerActionTargetContext.js";
+import {
+  createPlayerActionTargetContext,
+  resolvePrimaryActionAutoTargetQueries,
+  resolvePrimaryActionTargetIntent
+} from "../app/player/playerActionTargetContext.js";
 
 function createSession() {
   return {
@@ -85,6 +89,97 @@ describe("createPlayerActionTargetContext", () => {
       canPurifyGround: true,
       canUseLeafage: false,
       allowPlacement: false
+    });
+  });
+});
+
+describe("primary action target intent", () => {
+  it("classifies placement targets without changing placement blocker semantics", () => {
+    expect(resolvePrimaryActionTargetIntent({
+      target: { greenhousePlacement: {} },
+      harvestRequestSource: "keyboardPrimary",
+      gamepadPrimaryMoveRequested: false,
+      buildBlockEquipped: false
+    })).toEqual(expect.objectContaining({
+      placementTarget: true,
+      placementBlocked: false,
+      isPlacement: true,
+      placementCanYieldToRotation: false
+    }));
+
+    expect(resolvePrimaryActionTargetIntent({
+      target: { greenhousePlacement: {} },
+      harvestRequestSource: "gamepadPrimary",
+      gamepadPrimaryMoveRequested: true,
+      buildBlockEquipped: false
+    })).toEqual(expect.objectContaining({
+      placementTarget: true,
+      placementBlocked: true,
+      isPlacement: false
+    }));
+  });
+
+  it("classifies selected field move intent from request source and equipped skills", () => {
+    expect(resolvePrimaryActionTargetIntent({
+      target: { leafageGroundCell: { id: "leafage-cell" } },
+      harvestRequestSource: "gamepadBag",
+      leafageEquipped: true,
+      leafagePrimaryMoveRequested: true
+    })).toEqual(expect.objectContaining({
+      canUseFieldMove: true,
+      wantsFieldMove: true,
+      isMove: true
+    }));
+
+    expect(resolvePrimaryActionTargetIntent({
+      target: { palm: { id: "palm" } },
+      harvestRequestSource: "keyboardPrimary",
+      waterGunEquipped: true
+    })).toEqual(expect.objectContaining({
+      isWaterGunTreeTarget: true,
+      isMove: true
+    }));
+  });
+
+  it("preserves bag harvest classification for palm and resource targets", () => {
+    expect(resolvePrimaryActionTargetIntent({
+      target: { resourceNode: { id: "wood" } },
+      harvestRequestSource: "gamepadBag"
+    })).toEqual(expect.objectContaining({
+      isBagHarvest: true
+    }));
+  });
+});
+
+describe("primary action auto target queries", () => {
+  it("requests a Water Gun target when Leafage misses a leafage ground cell", () => {
+    expect(resolvePrimaryActionAutoTargetQueries({
+      target: {},
+      leafageEquipped: true,
+      leafagePrimaryMoveRequested: true,
+      waterGunSkillLearned: true,
+      targetIntent: {
+        wantsFieldMove: true,
+        placementTarget: false
+      }
+    })).toEqual({
+      shouldFindLeafageAutoWaterGunTarget: true,
+      shouldFindLeafageAutoGrowTarget: false
+    });
+  });
+
+  it("requests a Leafage target when Water Gun finds no usable target", () => {
+    expect(resolvePrimaryActionAutoTargetQueries({
+      target: {},
+      waterGunEquipped: true,
+      leafageSkillLearned: true,
+      targetIntent: {
+        wantsFieldMove: true,
+        placementTarget: false
+      }
+    })).toEqual({
+      shouldFindLeafageAutoWaterGunTarget: false,
+      shouldFindLeafageAutoGrowTarget: true
     });
   });
 });
