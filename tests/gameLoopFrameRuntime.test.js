@@ -172,4 +172,70 @@ describe("createGameLoopFrameRuntime", () => {
       flowState
     });
   });
+
+  it("commits early when the intro room consumes the frame", () => {
+    const processWorldCellPlannerClick = vi.fn();
+    const updateIntroRoomFrame = vi.fn(() => true);
+    const updateRustlingGrass = vi.fn();
+    const context = createRuntime({
+      frameRuntimeOverrides: {
+        earlyFrame: {
+          processWorldCellPlannerClick,
+          updateIntroRoomFrame,
+          updateRustlingGrass
+        }
+      }
+    });
+
+    expect(context.runtime.updateEarlyGameplayControlFrame({
+      nextFrame: context.nextFrame,
+      deltaTime: 0.016,
+      introActive: true,
+      shouldClearPendingActions: true,
+      shouldClearMovementInput: true,
+      canAdvanceRustlingGrass: false
+    })).toEqual({ committedEarlyFrame: true });
+    expect(processWorldCellPlannerClick).toHaveBeenCalledOnce();
+    expect(updateIntroRoomFrame).toHaveBeenCalledWith({
+      nextFrame: context.nextFrame,
+      deltaTime: 0.016
+    });
+    expect(context.frameSnapshotController.commitFrame).toHaveBeenCalledOnce();
+    expect(context.controls.clearPendingActions).not.toHaveBeenCalled();
+    expect(context.controls.clearMovementInput).not.toHaveBeenCalled();
+    expect(updateRustlingGrass).not.toHaveBeenCalled();
+  });
+
+  it("processes normal early gameplay control cleanup before simulation continues", () => {
+    const processWorldCellPlannerClick = vi.fn();
+    const updateIntroRoomFrame = vi.fn(() => false);
+    const updateRustlingGrass = vi.fn();
+    const context = createRuntime({
+      frameRuntimeOverrides: {
+        earlyFrame: {
+          processWorldCellPlannerClick,
+          updateIntroRoomFrame,
+          updateRustlingGrass
+        }
+      }
+    });
+
+    expect(context.runtime.updateEarlyGameplayControlFrame({
+      nextFrame: context.nextFrame,
+      deltaTime: 0.02,
+      introActive: false,
+      shouldClearPendingActions: true,
+      shouldClearMovementInput: true,
+      canAdvanceRustlingGrass: true
+    })).toEqual({ committedEarlyFrame: false });
+    expect(processWorldCellPlannerClick).toHaveBeenCalledOnce();
+    expect(updateIntroRoomFrame).not.toHaveBeenCalled();
+    expect(context.controls.clearPendingActions).toHaveBeenCalledOnce();
+    expect(context.controls.clearMovementInput).toHaveBeenCalledOnce();
+    expect(updateRustlingGrass).toHaveBeenCalledWith({
+      deltaTime: 0.02,
+      canAdvance: true
+    });
+    expect(context.frameSnapshotController.commitFrame).not.toHaveBeenCalled();
+  });
 });

@@ -12,12 +12,18 @@ export function createGameLoopFrameRuntime({
   placement = {},
   placementCameraAssist = { update: () => {} },
   updateFoundationBuildZoneCameraFocus = () => false,
-  resolveBlockers = resolveGameLoopBlockers
+  resolveBlockers = resolveGameLoopBlockers,
+  earlyFrame = {}
 }) {
   const {
     contracts: placementContracts = [],
     hasActivePlacementPreview = () => false
   } = placement;
+  const {
+    processWorldCellPlannerClick = () => {},
+    updateIntroRoomFrame = () => false,
+    updateRustlingGrass = () => {}
+  } = earlyFrame;
 
   function beginFrame(now) {
     const nextFrame = frameSnapshotController.beginFrame();
@@ -88,10 +94,48 @@ export function createGameLoopFrameRuntime({
     };
   }
 
+  function updateEarlyGameplayControlFrame({
+    nextFrame,
+    deltaTime = 0,
+    introActive = false,
+    shouldClearPendingActions = false,
+    shouldClearMovementInput = false,
+    canAdvanceRustlingGrass = false
+  } = {}) {
+    processWorldCellPlannerClick();
+
+    if (
+      introActive &&
+      updateIntroRoomFrame({
+        nextFrame,
+        deltaTime
+      })
+    ) {
+      commitFrame();
+      return { committedEarlyFrame: true };
+    }
+
+    if (shouldClearPendingActions) {
+      controls.clearPendingActions();
+    }
+
+    if (shouldClearMovementInput) {
+      controls.clearMovementInput();
+    }
+
+    updateRustlingGrass({
+      deltaTime,
+      canAdvance: canAdvanceRustlingGrass
+    });
+
+    return { committedEarlyFrame: false };
+  }
+
   return {
     beginGameplayFrameContext,
     beginFrame,
     commitFrame,
+    updateEarlyGameplayControlFrame,
     updateInputAndCheckPaused
   };
 }

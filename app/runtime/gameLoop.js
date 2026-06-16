@@ -1471,7 +1471,21 @@ export function startGameLoop({
       hasActivePlacementPreview
     },
     placementCameraAssist,
-    updateFoundationBuildZoneCameraFocus
+    updateFoundationBuildZoneCameraFocus,
+    earlyFrame: {
+      processWorldCellPlannerClick: () => processWorldCellPlannerClick(),
+      updateIntroRoomFrame: ({ nextFrame, deltaTime }) => updateIntroRoomFrame({
+        introRoomScene: session.introRoomScene,
+        camera,
+        worldCanvas,
+        frame: nextFrame,
+        deltaTime
+      }),
+      updateRustlingGrass: ({ deltaTime, canAdvance }) => rustlingGrassEventRuntime.update({
+        deltaTime,
+        canAdvance
+      })
+    }
   });
 
   function cancelActivePlacementPreviews() {
@@ -2022,46 +2036,6 @@ export function startGameLoop({
     }));
   }
 
-  function updateEarlyGameplayControlFrame({
-    nextFrame,
-    deltaTime,
-    introActive,
-    shouldClearPendingActions,
-    shouldClearMovementInput,
-    canAdvanceRustlingGrass
-  }) {
-    processWorldCellPlannerClick();
-
-    if (
-      introActive &&
-      updateIntroRoomFrame({
-        introRoomScene: session.introRoomScene,
-        camera,
-        worldCanvas,
-        frame: nextFrame,
-        deltaTime
-      })
-    ) {
-      frameRuntime.commitFrame();
-      return { committedEarlyFrame: true };
-    }
-
-    if (shouldClearPendingActions) {
-      controls.clearPendingActions();
-    }
-
-    if (shouldClearMovementInput) {
-      controls.clearMovementInput();
-    }
-
-    rustlingGrassEventRuntime.update({
-      deltaTime,
-      canAdvance: canAdvanceRustlingGrass
-    });
-
-    return { committedEarlyFrame: false };
-  }
-
   function updatePassiveEffectFrames(deltaTime) {
     updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
     treeRevivalLeafBurstFrameRuntime.update(deltaTime);
@@ -2172,7 +2146,7 @@ export function startGameLoop({
       gameplayOpeningMovementLocked
     });
 
-    const { committedEarlyFrame } = updateEarlyGameplayControlFrame({
+    const { committedEarlyFrame } = frameRuntime.updateEarlyGameplayControlFrame({
       nextFrame,
       deltaTime,
       introActive,
