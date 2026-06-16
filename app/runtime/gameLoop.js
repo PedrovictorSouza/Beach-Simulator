@@ -160,6 +160,7 @@ import { createWoodCollectPopRuntime } from "./woodCollectPopRuntime.js";
 import { createWorkbenchRotationRuntime } from "./construction/workbenchRotationRuntime.js";
 import { createRustlingGrassEventRuntime } from "./world/rustlingGrassEventRuntime.js";
 import { createWorldCellPlannerInteractionRuntime } from "./world/worldCellPlannerInteractionRuntime.js";
+import { createWorldSceneSyncRuntime } from "./world/worldSceneSyncRuntime.js";
 
 export {
   resolveCompanionFollowDistance,
@@ -660,6 +661,14 @@ export function startGameLoop({
   const rustlingGrassEventRuntime = createRustlingGrassEventRuntime({
     getStoryState: () => controls.storyState
   });
+  const worldSceneSyncRuntime = createWorldSceneSyncRuntime({
+    session,
+    controls,
+    config: {
+      workbenchPosition: WORKBENCH_POSITION,
+      workbenchInteractDistance: WORKBENCH_INTERACT_DISTANCE
+    }
+  });
   const movementQuestRuntime = createMovementQuestRuntime({
     minimumMovementDistance: 0.0005,
     reportDistance: 0.04
@@ -735,7 +744,7 @@ export function startGameLoop({
     getPlayerSkills: () => controls.playerSkills || {},
     getBulbasaurPosition: () => session.bulbasaurEncounter?.position,
     getSquirtlePosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
-    isPlayerNearWorldPosition,
+    isPlayerNearWorldPosition: worldSceneSyncRuntime.isPlayerNearWorldPosition,
     config: {
       chopperInteractDistance: POKEMON_TALK_INTERACT_DISTANCE + 0.45,
       chopperCueText: CHOPPER_ATTENTION_CUE_TEXT,
@@ -993,7 +1002,7 @@ export function startGameLoop({
   const companionModelSyncRuntime = createCompanionModelSyncRuntime({
     session,
     repairBoxModelRuntime: companionRepairBoxModelRuntime,
-    syncInteractablePosition,
+    syncInteractablePosition: worldSceneSyncRuntime.syncInteractablePosition,
     config: {
       robotModelScale: ROBOT_MODEL_SCALE,
       bulbasaurModelScale: BULBASAUR_ROBOT_MODEL_SCALE,
@@ -1013,7 +1022,7 @@ export function startGameLoop({
     session,
     controls,
     repairBoxRuntime: companionRepairBoxModelRuntime,
-    syncInteractablePosition,
+    syncInteractablePosition: worldSceneSyncRuntime.syncInteractablePosition,
     config: {
       activeTint: REPAIR_BOX_ACTIVE_TINT,
       activeTintStrength: REPAIR_BOX_ACTIVE_TINT_STRENGTH
@@ -1716,50 +1725,6 @@ export function startGameLoop({
     });
   }
 
-  function isPlayerNearWorldPosition(worldPosition, distance) {
-    const playerPosition = session.playerCharacter?.getPosition?.();
-
-    if (!Array.isArray(playerPosition) || !Array.isArray(worldPosition)) {
-      return false;
-    }
-
-    return Math.hypot(
-      playerPosition[0] - worldPosition[0],
-      playerPosition[2] - worldPosition[2]
-    ) <= distance;
-  }
-
-  function syncInteractablePosition(interactableId, position) {
-    if (!Array.isArray(position) || !Array.isArray(session.interactables)) {
-      return;
-    }
-
-    const interactable = session.interactables.find((entry) => entry.id === interactableId);
-    if (interactable) {
-      interactable.position = [...position];
-    }
-  }
-
-  function syncWorkbenchInteractable() {
-    syncInteractablePosition("workbench", WORKBENCH_POSITION);
-    const workbench = session.interactables?.find((entry) => entry.id === "workbench");
-    if (workbench) {
-      workbench.interactDistance = WORKBENCH_INTERACT_DISTANCE;
-    }
-  }
-
-  function syncPokemonCenterWorkshopVisualState() {
-    const assembled = Boolean(controls.storyState?.flags?.challengesUnlocked);
-
-    if (session.pokemonCenterWorkshopAssembledInstance) {
-      session.pokemonCenterWorkshopAssembledInstance.active = assembled;
-    }
-
-    for (const instance of session.pokemonCenterWorkshopDismantledInstances || []) {
-      instance.active = !assembled;
-    }
-  }
-
   function isBuildBlockFieldMoveEquipped() {
     return Boolean(
       controls.playerSkills?.buildBlock &&
@@ -2034,8 +1999,8 @@ export function startGameLoop({
     camera.resizeCanvases();
     camera.update(deltaTime);
     clearInteractionObjectHighlights(session);
-    syncWorkbenchInteractable();
-    syncPokemonCenterWorkshopVisualState();
+    worldSceneSyncRuntime.syncWorkbenchInteractable();
+    worldSceneSyncRuntime.syncPokemonCenterWorkshopVisualState();
   }
 
   function frame(now) {
@@ -3086,7 +3051,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       resolveWorldSpaceUiVisibility,
       shouldShowWorkbenchGreenArrowCue,
       applyWorkbenchGreenArrowCue,
-      isPlayerNearWorldPosition,
+      isPlayerNearWorldPosition: worldSceneSyncRuntime.isPlayerNearWorldPosition,
       isDryGrassHydroMissionActive,
       getEncounterRepairBoxPosition,
       getLeppaTreeSurroundingGroundCells,
