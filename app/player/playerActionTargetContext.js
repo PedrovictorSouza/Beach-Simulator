@@ -31,7 +31,36 @@ export function createPlayerActionTargetContext({
     };
   }
 
+  function getNearbyInteractableArgs(playerPosition) {
+    return [
+      playerPosition,
+      session.npcActors,
+      session.interactables,
+      controls.storyState,
+      session.groundGrassPatches || [],
+      session.logChair,
+      session.leafDen,
+      session.timburrEncounter,
+      session.charmanderEncounter,
+      session.leppaTree,
+      session.bulbasaurEncounter,
+      session.groundFlowerPatches || []
+    ];
+  }
+
+  function getBagDestroyTargetArgs(playerPosition) {
+    return [
+      playerPosition,
+      session.groundGrassPatches || [],
+      controls.storyState,
+      session.groundFlowerPatches || [],
+      { includeRestoredGrass: true }
+    ];
+  }
+
   return {
+    getBagDestroyTargetArgs,
+    getNearbyInteractableArgs,
     getNearbyActionTargetOptions
   };
 }
@@ -137,6 +166,87 @@ export function resolvePrimaryActionAutoTargetQueries({
       !target?.leppaTree &&
       !target?.groundCell &&
       !target?.leafageGroundCell
+    )
+  };
+}
+
+export function resolvePrimaryActionTargetFollowupIntent({
+  target = null,
+  targetIntent = {},
+  leafageAutoWaterGunTarget = null,
+  leafageAutoGrowTarget = null,
+  leafageEquipped = false,
+  leafagePrimaryMoveRequested = false,
+  fireEquipped = false
+} = {}) {
+  const hasLeafageAutoWaterGunGroundCell = Boolean(leafageAutoWaterGunTarget?.groundCell);
+  const hasLeafageAutoGrowGroundCell = Boolean(leafageAutoGrowTarget?.leafageGroundCell);
+  const invalidLeafageUse = Boolean(
+    leafageEquipped &&
+    leafagePrimaryMoveRequested &&
+    targetIntent.wantsFieldMove &&
+    !targetIntent.placementTarget &&
+    !target?.leafageGroundCell &&
+    !hasLeafageAutoWaterGunGroundCell
+  );
+  const invalidFireUse = Boolean(
+    fireEquipped &&
+    targetIntent.wantsFieldMove &&
+    !targetIntent.placementTarget &&
+    !target?.fireGroundCell
+  );
+
+  return {
+    hasLeafageAutoGrowGroundCell,
+    hasLeafageAutoWaterGunGroundCell,
+    invalidFireUse,
+    invalidLeafageUse,
+    shouldFindAlreadyResolvedGroundCell: Boolean(
+      targetIntent.wantsFieldMove &&
+      !targetIntent.placementTarget &&
+      !targetIntent.isMove &&
+      !hasLeafageAutoWaterGunGroundCell &&
+      !hasLeafageAutoGrowGroundCell
+    )
+  };
+}
+
+export function resolvePrimaryActionSecondaryTargetQueries({
+  harvestRequestSource = null,
+  dialogueActive = false,
+  targetIntent = {},
+  followupIntent = {},
+  repeatedFieldMove = false,
+  primaryInteractTargetIsWorkbench = false,
+  primaryActionConfirmsRotation = false
+} = {}) {
+  const hasAutoTarget = Boolean(
+    followupIntent.hasLeafageAutoWaterGunGroundCell ||
+    followupIntent.hasLeafageAutoGrowGroundCell
+  );
+
+  return {
+    shouldFindBagDestroyTarget: Boolean(
+      harvestRequestSource === "gamepadBag" &&
+      !dialogueActive
+    ),
+    shouldFindInteractTarget: Boolean(
+      !dialogueActive &&
+      !targetIntent.wantsFieldMove &&
+      !targetIntent.isPlacement &&
+      !targetIntent.isMove &&
+      !hasAutoTarget &&
+      !repeatedFieldMove &&
+      !followupIntent.invalidLeafageUse &&
+      !followupIntent.invalidFireUse
+    ),
+    shouldFindRotationTarget: Boolean(
+      !primaryInteractTargetIsWorkbench &&
+      !primaryActionConfirmsRotation &&
+      !dialogueActive &&
+      targetIntent.placementCanYieldToRotation &&
+      !targetIntent.isMove &&
+      !hasAutoTarget
     )
   };
 }

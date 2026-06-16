@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   createPlayerActionTargetContext,
   resolvePrimaryActionAutoTargetQueries,
+  resolvePrimaryActionSecondaryTargetQueries,
+  resolvePrimaryActionTargetFollowupIntent,
   resolvePrimaryActionTargetIntent
 } from "../app/player/playerActionTargetContext.js";
 
@@ -90,6 +92,35 @@ describe("createPlayerActionTargetContext", () => {
       canUseLeafage: false,
       allowPlacement: false
     });
+  });
+
+  it("builds positional args for interactable and bag destroy target queries", () => {
+    const session = createSession();
+    const controls = createControls();
+    const context = createPlayerActionTargetContext({ session, controls });
+    const playerPosition = [1, 0, 2];
+
+    expect(context.getNearbyInteractableArgs(playerPosition)).toEqual([
+      playerPosition,
+      session.npcActors,
+      session.interactables,
+      controls.storyState,
+      session.groundGrassPatches,
+      session.logChair,
+      session.leafDen,
+      session.timburrEncounter,
+      session.charmanderEncounter,
+      session.leppaTree,
+      session.bulbasaurEncounter,
+      session.groundFlowerPatches
+    ]);
+    expect(context.getBagDestroyTargetArgs(playerPosition)).toEqual([
+      playerPosition,
+      session.groundGrassPatches,
+      controls.storyState,
+      session.groundFlowerPatches,
+      { includeRestoredGrass: true }
+    ]);
   });
 });
 
@@ -180,6 +211,63 @@ describe("primary action auto target queries", () => {
     })).toEqual({
       shouldFindLeafageAutoWaterGunTarget: false,
       shouldFindLeafageAutoGrowTarget: true
+    });
+  });
+});
+
+describe("primary action secondary target queries", () => {
+  it("classifies invalid field move and already-resolved fallback checks", () => {
+    expect(resolvePrimaryActionTargetFollowupIntent({
+      target: {},
+      targetIntent: {
+        wantsFieldMove: true,
+        placementTarget: false,
+        isMove: false
+      },
+      leafageEquipped: true,
+      leafagePrimaryMoveRequested: true
+    })).toEqual(expect.objectContaining({
+      invalidLeafageUse: true,
+      invalidFireUse: false,
+      shouldFindAlreadyResolvedGroundCell: true
+    }));
+
+    expect(resolvePrimaryActionTargetFollowupIntent({
+      target: {},
+      targetIntent: {
+        wantsFieldMove: true,
+        placementTarget: false,
+        isMove: false
+      },
+      fireEquipped: true
+    })).toEqual(expect.objectContaining({
+      invalidFireUse: true
+    }));
+  });
+
+  it("decides whether primary action should query interact, rotation and bag destroy targets", () => {
+    expect(resolvePrimaryActionSecondaryTargetQueries({
+      harvestRequestSource: "gamepadBag",
+      dialogueActive: false,
+      targetIntent: {
+        wantsFieldMove: false,
+        isPlacement: false,
+        isMove: false,
+        placementCanYieldToRotation: true
+      },
+      followupIntent: {
+        hasLeafageAutoWaterGunGroundCell: false,
+        hasLeafageAutoGrowGroundCell: false,
+        invalidLeafageUse: false,
+        invalidFireUse: false
+      },
+      repeatedFieldMove: false,
+      primaryInteractTargetIsWorkbench: false,
+      primaryActionConfirmsRotation: false
+    })).toEqual({
+      shouldFindBagDestroyTarget: true,
+      shouldFindInteractTarget: true,
+      shouldFindRotationTarget: true
     });
   });
 });
