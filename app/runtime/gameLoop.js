@@ -257,6 +257,10 @@ export {
 } from "./trainHouseDance.js";
 
 export {
+  resolveTrainHouseMusicVolume
+} from "./audio/trainHouseMusicRuntime.js";
+
+export {
   applyWorkbenchGreenArrowCue,
   shouldShowWorkbenchGreenArrowCue
 } from "./workbenchCueRuntime.js";
@@ -272,9 +276,6 @@ import {
   LANDSCAPE_CUT_EFFECT_LIFT,
   LANDSCAPE_CUT_EFFECT_POP_SCALE,
   PLAYER_COUNTER_PROMPT_DURATION_MS,
-  TRAIN_HOUSE_MUSIC_FADE_DISTANCE,
-  TRAIN_HOUSE_MUSIC_FULL_DISTANCE,
-  TRAIN_HOUSE_MUSIC_MAX_VOLUME,
   TREE_REVIVAL_LEAF_BURST_BASE_HEIGHT,
   TREE_REVIVAL_LEAF_BURST_DRIFT,
   TREE_REVIVAL_LEAF_BURST_GRAVITY,
@@ -403,6 +404,7 @@ import { resolvePsxDistanceFogSettings } from "../rendering/psxDistanceFogConfig
 import { PLACEMENT_CONTRACTS } from "../gameplay/contracts/placementContracts.js";
 import { cancelPlacementPreview, hasActivePlacementPreview } from "../gameplay/contracts/placementRuntime.js";
 import { createGameplayAudioRuntime } from "./gameplayAudioRuntime.js";
+import { createTrainHouseMusicRuntime } from "./audio/trainHouseMusicRuntime.js";
 import { createGameplayOpeningRuntime } from "./opening/createGameplayOpeningRuntime.js";
 import {
   createGameplayInputFrameRuntime,
@@ -566,34 +568,6 @@ function clamp01(value) {
 function easeOutCubic(value) {
   const progress = clamp01(value);
   return 1 - Math.pow(1 - progress, 3);
-}
-
-export function resolveTrainHouseMusicVolume({
-  playerPosition,
-  trainHousePosition,
-  fullDistance = TRAIN_HOUSE_MUSIC_FULL_DISTANCE,
-  fadeDistance = TRAIN_HOUSE_MUSIC_FADE_DISTANCE,
-  maxVolume = TRAIN_HOUSE_MUSIC_MAX_VOLUME
-} = {}) {
-  if (!Array.isArray(playerPosition) || !Array.isArray(trainHousePosition)) {
-    return 0;
-  }
-
-  const distance = Math.hypot(
-    playerPosition[0] - trainHousePosition[0],
-    playerPosition[2] - trainHousePosition[2]
-  );
-  if (!Number.isFinite(distance) || distance >= fadeDistance) {
-    return 0;
-  }
-
-  if (distance <= fullDistance) {
-    return maxVolume;
-  }
-
-  const proximity = 1 - ((distance - fullDistance) / Math.max(0.001, fadeDistance - fullDistance));
-  const easedProximity = clamp01(proximity) * clamp01(proximity) * (3 - 2 * clamp01(proximity));
-  return maxVolume * easedProximity;
 }
 
 export function shouldCompleteThermalCabinHomeBeat({
@@ -887,6 +861,23 @@ export function startGameLoop({
     triggerPrompt: (text, now) => {
       playerCounterPromptRuntime.trigger(text, now);
     }
+  });
+  const getSfxVolumeScale = () => gameplay?.audioMixRuntime?.getSfxVolumeScale?.() ?? 1;
+  const getMusicVolumeScale = () => gameplay?.audioMixRuntime?.getMusicVolumeScale?.() ?? 1;
+  const playSoundEvent = (eventId, options) => {
+    gameplay?.playSoundEvent?.(eventId, options);
+  };
+  const audio = createGameplayAudioRuntime({
+    getSfxVolumeScale,
+    getMusicVolumeScale,
+    playSoundEvent
+  });
+  const trainHouseMusicRuntime = createTrainHouseMusicRuntime({
+    audio,
+    getPlayerPosition: () => session.playerCharacter?.getPosition?.() || null,
+    getStoryState: () => controls.storyState,
+    getTrainHousePosition: () => session.campfire?.position || null,
+    getMusicRuntime: () => gameplay.musicRuntime
   });
   const supplyPickupFeedbackRuntime = createSupplyPickupFeedbackRuntime({
     audio,
@@ -1245,11 +1236,6 @@ export function startGameLoop({
       repairBoxMotionRuntime.update(deltaTime);
     }
   });
-  const getSfxVolumeScale = () => gameplay?.audioMixRuntime?.getSfxVolumeScale?.() ?? 1;
-  const getMusicVolumeScale = () => gameplay?.audioMixRuntime?.getMusicVolumeScale?.() ?? 1;
-  const playSoundEvent = (eventId, options) => {
-    gameplay?.playSoundEvent?.(eventId, options);
-  };
   const buildBlockRuntime = createBuildBlockRuntime({
     session,
     controls,
@@ -1360,11 +1346,6 @@ export function startGameLoop({
     }
   });
 
-  const audio = createGameplayAudioRuntime({
-    getSfxVolumeScale,
-    getMusicVolumeScale,
-    playSoundEvent
-  });
   const companionFrameRuntime = createCompanionFrameRuntime({
     session,
     controls,
@@ -3364,27 +3345,6 @@ export function startGameLoop({
     });
   }
 
-  function updateTrainHouseMusic(nowSeconds = 0) {
-    const playerPosition = session.playerCharacter?.getPosition?.() || null;
-    const trainHousePosition =
-      session.campfire?.position && controls.storyState.flags.campfireSpatOut ?
-        session.campfire.position :
-        null;
-    const nextVolume = resolveTrainHouseMusicVolume({
-      playerPosition,
-      trainHousePosition
-    });
-
-    audio.updateTrainHouseMusic({
-      active: nextVolume > 0.002,
-      volume: nextVolume
-    });
-    gameplay.musicRuntime?.reportObjectMusicActivity?.({
-      active: nextVolume > 0.002,
-      nowSeconds
-    });
-  }
-
   function updateBulbasaurEncounter(deltaTime) {
     const encounter = session.bulbasaurEncounter;
 
@@ -3788,7 +3748,7 @@ export function startGameLoop({
       active: playerMovedThisFrame || gameplayOpeningCameraFrame?.phase === "player-exit"
     });
     const nowSeconds = now * 0.001;
-    updateTrainHouseMusic(nowSeconds);
+    trainHouseMusicRuntime.update(nowSeconds);
     gameplay.musicRuntime?.update?.(deltaTime, { nowSeconds });
 
     gameplayOpeningRuntime.updateHudReveal({

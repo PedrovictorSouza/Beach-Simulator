@@ -4,6 +4,7 @@ import {
   shouldCompleteThermalCabinHomeBeat,
   resolveTrainHouseMusicVolume
 } from "../app/runtime/gameLoop.js";
+import { createTrainHouseMusicRuntime } from "../app/runtime/audio/trainHouseMusicRuntime.js";
 
 describe("Thermal Cabin runtime effects", () => {
   it("raises music volume as the player approaches the Thermal Cabin", () => {
@@ -31,6 +32,59 @@ describe("Thermal Cabin runtime effects", () => {
     expect(midVolume).toBeGreaterThan(0);
     expect(midVolume).toBeGreaterThan(edgeVolume);
     expect(closeVolume).toBeGreaterThan(midVolume);
+  });
+
+  it("updates Thermal Cabin music only after the cabin is active", () => {
+    const updates = [];
+    const objectActivity = [];
+    const runtime = createTrainHouseMusicRuntime({
+      audio: {
+        updateTrainHouseMusic(update) {
+          updates.push(update);
+        }
+      },
+      getPlayerPosition: () => [4.5, 0, 4],
+      getStoryState: () => ({ flags: { campfireSpatOut: false } }),
+      getTrainHousePosition: () => [4, 0, 4],
+      musicRuntime: {
+        reportObjectMusicActivity(update) {
+          objectActivity.push(update);
+        }
+      }
+    });
+
+    const result = runtime.update(12.5);
+
+    expect(result).toMatchObject({ active: false, volume: 0 });
+    expect(updates).toEqual([{ active: false, volume: 0 }]);
+    expect(objectActivity).toEqual([{ active: false, nowSeconds: 12.5 }]);
+  });
+
+  it("reports active Thermal Cabin object music when the player is near the active cabin", () => {
+    const updates = [];
+    const objectActivity = [];
+    const runtime = createTrainHouseMusicRuntime({
+      audio: {
+        updateTrainHouseMusic(update) {
+          updates.push(update);
+        }
+      },
+      getPlayerPosition: () => [4.5, 0, 4],
+      getStoryState: () => ({ flags: { campfireSpatOut: true } }),
+      getTrainHousePosition: () => [4, 0, 4],
+      musicRuntime: {
+        reportObjectMusicActivity(update) {
+          objectActivity.push(update);
+        }
+      }
+    });
+
+    const result = runtime.update(3);
+
+    expect(result.active).toBe(true);
+    expect(result.volume).toBeGreaterThan(0);
+    expect(updates).toEqual([{ active: true, volume: result.volume }]);
+    expect(objectActivity).toEqual([{ active: true, nowSeconds: 3 }]);
   });
 
   it("dances the Thermal Cabin without moving its ground pivot", () => {

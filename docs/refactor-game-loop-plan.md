@@ -12308,3 +12308,55 @@ Native Tree baseline:
 - `1833` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Train House Music Runtime Extraction
+
+Created the `audio/train-house-music` boundary with
+`app/runtime/audio/trainHouseMusicRuntime.js`.
+
+Study path:
+
+1. The runtime owns Thermal Cabin music activation, distance volume resolution
+   and object-music activity reporting.
+2. `gameLoop.js` keeps frame timing and calls
+   `trainHouseMusicRuntime.update(nowSeconds)` at the same presentation-frame
+   point where the local function used to run.
+3. The public `resolveTrainHouseMusicVolume(...)` API remains available from
+   `gameLoop.js` through a re-export, so existing callers do not need to move
+   immediately.
+4. The audio wiring order was corrected so `createGameplayAudioRuntime(...)`
+   runs before runtimes that receive `audio`; this removes a possible TDZ
+   `ReferenceError` without changing frame order.
+
+Removed from `gameLoop.js`:
+
+- local `resolveTrainHouseMusicVolume(...)` implementation;
+- local `updateTrainHouseMusic(...)` implementation;
+- direct imports of Thermal Cabin music tuning constants.
+
+Kept in `gameLoop.js`:
+
+- composition-root wiring for `audio`, `session`, `controls` and
+  `gameplay.musicRuntime`;
+- the existing presentation-frame update order.
+
+Tests added:
+
+- `tests/trainHouseRuntime.test.js` now covers inactive cabin music gating and
+  active cabin object-music reporting through `createTrainHouseMusicRuntime()`.
+
+Passed:
+
+```sh
+npm test -- --run tests/trainHouseRuntime.test.js
+npm test -- --run tests/trainHouseRuntime.test.js tests/audioLifecycle.test.js
+npm run build
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `304` test files passed, `1` failed
+- `1835` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
