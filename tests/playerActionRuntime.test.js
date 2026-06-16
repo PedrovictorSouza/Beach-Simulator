@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createPlayerActionRuntime,
+  createPlayerActionFrameRuntime,
   createPlayerDirectActionRuntime,
   createPlayerHeldWaterGunActionRuntime,
   createPlayerHarvestActionRuntime,
@@ -321,6 +322,172 @@ describe("createPlayerHarvestActionRuntime", () => {
       "fire",
       789
     );
+  });
+});
+
+describe("createPlayerActionFrameRuntime", () => {
+  function createActionFrameRuntime({
+    activeMoveId = "waterGun",
+    bulbasaurGuideActive = false,
+    buildBlockEquipped = false,
+    primaryHandled = true
+  } = {}) {
+    const controls = {
+      getActiveMoveId: vi.fn(() => activeMoveId),
+      playerSkills: {
+        fire: true,
+        leafage: true,
+        waterGun: true
+      }
+    };
+    const session = {
+      playerCharacter: {}
+    };
+    const playerHarvestActionRuntime = {
+      perform: vi.fn(() => true)
+    };
+    const playerPrimaryActionFrameRuntime = {
+      update: vi.fn(() => ({ handled: primaryHandled }))
+    };
+    const playerHeldWaterGunActionRuntime = {
+      update: vi.fn()
+    };
+    const playerDirectActionRuntime = {
+      update: vi.fn()
+    };
+    const constructionPlacementControlRuntime = {
+      isBuildBlockFieldMoveEquipped: vi.fn(() => buildBlockEquipped)
+    };
+    const bulbasaurWorkbenchGuideRuntime = {
+      isActive: vi.fn(() => bulbasaurGuideActive)
+    };
+    const callbacks = {
+      resolveGameplayActionPermission: vi.fn(() => true)
+    };
+    const runtime = createPlayerActionFrameRuntime({
+      controls,
+      session,
+      playerHarvestActionRuntime,
+      playerPrimaryActionFrameRuntime,
+      playerHeldWaterGunActionRuntime,
+      playerDirectActionRuntime,
+      constructionPlacementControlRuntime,
+      bulbasaurWorkbenchGuideRuntime,
+      callbacks
+    });
+
+    return {
+      bulbasaurWorkbenchGuideRuntime,
+      callbacks,
+      constructionPlacementControlRuntime,
+      controls,
+      playerDirectActionRuntime,
+      playerHarvestActionRuntime,
+      playerHeldWaterGunActionRuntime,
+      playerPrimaryActionFrameRuntime,
+      runtime,
+      session
+    };
+  }
+
+  it("resolves active move equipment for the frame", () => {
+    const {
+      bulbasaurWorkbenchGuideRuntime,
+      constructionPlacementControlRuntime,
+      controls,
+      runtime
+    } = createActionFrameRuntime({
+      activeMoveId: "leafage",
+      buildBlockEquipped: true
+    });
+
+    expect(runtime.getActionState()).toEqual({
+      activeMoveId: "leafage",
+      buildBlockEquipped: true,
+      fireEquipped: false,
+      leafageEquipped: true,
+      waterGunEquipped: false
+    });
+    expect(controls.getActiveMoveId).toHaveBeenCalledTimes(1);
+    expect(bulbasaurWorkbenchGuideRuntime.isActive).toHaveBeenCalledTimes(1);
+    expect(constructionPlacementControlRuntime.isBuildBlockFieldMoveEquipped)
+      .toHaveBeenCalledTimes(1);
+  });
+
+  it("blocks Leafage equipment during the Bulbasaur workbench guide", () => {
+    const { runtime } = createActionFrameRuntime({
+      activeMoveId: "leafage",
+      bulbasaurGuideActive: true
+    });
+
+    expect(runtime.getActionState()).toEqual(expect.objectContaining({
+      activeMoveId: "leafage",
+      leafageEquipped: false
+    }));
+  });
+
+  it("updates primary action, skips held Water Gun when handled, and updates direct actions", () => {
+    const {
+      callbacks,
+      playerDirectActionRuntime,
+      playerHeldWaterGunActionRuntime,
+      playerHarvestActionRuntime,
+      playerPrimaryActionFrameRuntime,
+      runtime
+    } = createActionFrameRuntime({ primaryHandled: true });
+    const equipmentState = runtime.getActionState();
+
+    const result = runtime.update({
+      now: 1200,
+      flowState: { dialogueActive: false },
+      equipmentState
+    });
+
+    expect(playerPrimaryActionFrameRuntime.update).toHaveBeenCalledWith(expect.objectContaining({
+      activeMoveId: "waterGun",
+      now: 1200,
+      waterGunEquipped: true
+    }));
+    const performHarvestAction =
+      playerPrimaryActionFrameRuntime.update.mock.calls[0][0].performHarvestAction;
+    expect(performHarvestAction([1, 0, 2], { useWaterGun: true })).toBe(true);
+    expect(playerHarvestActionRuntime.perform).toHaveBeenCalledWith({
+      playerPosition: [1, 0, 2],
+      options: { useWaterGun: true },
+      now: 1200,
+      waterGunEquipped: true,
+      leafageEquipped: false,
+      fireEquipped: false
+    });
+    expect(playerHeldWaterGunActionRuntime.update).not.toHaveBeenCalled();
+    expect(callbacks.resolveGameplayActionPermission).toHaveBeenCalledWith({
+      hasPlayerCharacter: true,
+      flowState: { dialogueActive: false }
+    });
+    expect(playerDirectActionRuntime.update).toHaveBeenCalledWith({
+      canProcessGameplayAction: true
+    });
+    expect(result).toEqual(expect.objectContaining({
+      activeMoveId: "waterGun",
+      primaryActionFrame: { handled: true }
+    }));
+  });
+
+  it("falls back to held Water Gun when primary action is not handled", () => {
+    const {
+      playerHeldWaterGunActionRuntime,
+      runtime
+    } = createActionFrameRuntime({ primaryHandled: false });
+
+    runtime.update({
+      now: 1200,
+      flowState: { dialogueActive: false }
+    });
+
+    expect(playerHeldWaterGunActionRuntime.update).toHaveBeenCalledWith(expect.objectContaining({
+      flowState: { dialogueActive: false },
+      waterGunEquipped: true
+    }));
   });
 });
 

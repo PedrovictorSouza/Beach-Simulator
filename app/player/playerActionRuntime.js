@@ -252,6 +252,113 @@ export function createPlayerHarvestActionRuntime({
   };
 }
 
+export function createPlayerActionFrameRuntime({
+  controls = {},
+  session = {},
+  playerHarvestActionRuntime = {},
+  playerPrimaryActionFrameRuntime = {},
+  playerHeldWaterGunActionRuntime = {},
+  playerDirectActionRuntime = {},
+  constructionPlacementControlRuntime = {},
+  bulbasaurWorkbenchGuideRuntime = {},
+  callbacks = {}
+} = {}) {
+  function getActionState() {
+    const activeMoveId = controls.getActiveMoveId?.() || null;
+    const waterGunEquipped = Boolean(
+      controls.playerSkills?.waterGun &&
+      activeMoveId === "waterGun"
+    );
+    const leafageEquipped = Boolean(
+      controls.playerSkills?.leafage &&
+      activeMoveId === "leafage" &&
+      !bulbasaurWorkbenchGuideRuntime.isActive?.()
+    );
+    const fireEquipped = Boolean(
+      controls.playerSkills?.fire &&
+      activeMoveId === "fire"
+    );
+    const buildBlockEquipped = Boolean(
+      constructionPlacementControlRuntime.isBuildBlockFieldMoveEquipped?.()
+    );
+
+    return {
+      activeMoveId,
+      buildBlockEquipped,
+      fireEquipped,
+      leafageEquipped,
+      waterGunEquipped
+    };
+  }
+
+  function createPerformHarvestAction({
+    now,
+    equipmentState
+  }) {
+    return (playerPosition, options = {}) =>
+      playerHarvestActionRuntime.perform?.({
+        playerPosition,
+        options,
+        now,
+        waterGunEquipped: equipmentState.waterGunEquipped,
+        leafageEquipped: equipmentState.leafageEquipped,
+        fireEquipped: equipmentState.fireEquipped
+      });
+  }
+
+  function update({
+    now,
+    flowState = {},
+    equipmentState = getActionState()
+  } = {}) {
+    const performHarvestAction = createPerformHarvestAction({
+      now,
+      equipmentState
+    });
+    const primaryActionFrame = playerPrimaryActionFrameRuntime.update?.({
+      activeMoveId: equipmentState.activeMoveId,
+      buildBlockEquipped: equipmentState.buildBlockEquipped,
+      cinematicActive: flowState.cinematicActive,
+      dialogueActive: flowState.dialogueActive,
+      fireEquipped: equipmentState.fireEquipped,
+      leafageEquipped: equipmentState.leafageEquipped,
+      now,
+      performHarvestAction,
+      scriptedInteractionActive: flowState.scriptedInteractionActive,
+      skillLearnActive: flowState.skillLearnActive,
+      tutorialActive: flowState.tutorialActive,
+      waterGunEquipped: equipmentState.waterGunEquipped
+    }) || { handled: false };
+
+    if (!primaryActionFrame.handled) {
+      playerHeldWaterGunActionRuntime.update?.({
+        flowState,
+        performHarvestAction,
+        waterGunEquipped: equipmentState.waterGunEquipped
+      });
+    }
+
+    const canProcessGameplayAction = Boolean(
+      callbacks.resolveGameplayActionPermission?.({
+        hasPlayerCharacter: Boolean(session.playerCharacter),
+        flowState
+      })
+    );
+    playerDirectActionRuntime.update?.({ canProcessGameplayAction });
+
+    return {
+      ...equipmentState,
+      canProcessGameplayAction,
+      primaryActionFrame
+    };
+  }
+
+  return {
+    getActionState,
+    update
+  };
+}
+
 export function createPlayerDirectActionRuntime({
   controls = {},
   session = {},

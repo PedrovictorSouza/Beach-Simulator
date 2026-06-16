@@ -113,6 +113,7 @@ import { createPlayerActionContext } from "../player/playerActionContext.js";
 import { createPlayerActionTargetContext } from "../player/playerActionTargetContext.js";
 import {
   createPlayerActionRuntime,
+  createPlayerActionFrameRuntime,
   createPlayerDirectActionRuntime,
   createPlayerHeldWaterGunActionRuntime,
   createPlayerHarvestActionRuntime,
@@ -1661,6 +1662,19 @@ export function startGameLoop({
     },
     soundEventIds: SOUND_EVENT_IDS
   });
+  const playerActionFrameRuntime = createPlayerActionFrameRuntime({
+    controls,
+    session,
+    playerHarvestActionRuntime,
+    playerPrimaryActionFrameRuntime,
+    playerHeldWaterGunActionRuntime,
+    playerDirectActionRuntime,
+    constructionPlacementControlRuntime,
+    bulbasaurWorkbenchGuideRuntime,
+    callbacks: {
+      resolveGameplayActionPermission
+    }
+  });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
     controls,
@@ -2182,28 +2196,18 @@ export function startGameLoop({
     updatePassiveEffectFrames(deltaTime);
 
     // Gameplay actions and simulation.
-    const activeMoveId = controls.getActiveMoveId?.() || null;
     const firstTaughtActionFreedomWindow = syncFirstTaughtActionFreedomWindow(
       controls.storyState,
       { now }
     );
-    const waterGunEquipped = Boolean(
-      controls.playerSkills?.waterGun &&
-      activeMoveId === "waterGun"
-    );
-    const bulbasaurWorkbenchGuideActive = bulbasaurWorkbenchGuideRuntime.isActive();
-    const leafageEquipped = Boolean(
-      controls.playerSkills?.leafage &&
-      activeMoveId === "leafage" &&
-      !bulbasaurWorkbenchGuideActive
-    );
-    const fireEquipped = Boolean(
-      controls.playerSkills?.fire &&
-      activeMoveId === "fire"
-    );
-    const buildBlockEquipped = Boolean(
-      constructionPlacementControlRuntime.isBuildBlockFieldMoveEquipped()
-    );
+    const playerActionState = playerActionFrameRuntime.getActionState();
+    const {
+      activeMoveId,
+      buildBlockEquipped,
+      fireEquipped,
+      leafageEquipped,
+      waterGunEquipped
+    } = playerActionState;
     const { freeBlockPreviewTarget } = constructionPlacementFrameRuntime.updateFreeBlockPreview({
       now,
       buildBlockEquipped,
@@ -2216,46 +2220,11 @@ export function startGameLoop({
       scriptedInteractionActive,
       dialogueActive
     });
-    function performHarvestAction(playerPosition, options = {}) {
-      return playerHarvestActionRuntime.perform({
-        playerPosition,
-        options,
-        now,
-        waterGunEquipped,
-        leafageEquipped,
-        fireEquipped
-      });
-    }
-
-    const primaryActionFrame = playerPrimaryActionFrameRuntime.update({
-      activeMoveId,
-      buildBlockEquipped,
-      cinematicActive,
-      dialogueActive,
-      fireEquipped,
-      leafageEquipped,
+    playerActionFrameRuntime.update({
       now,
-      performHarvestAction,
-      scriptedInteractionActive,
-      skillLearnActive,
-      tutorialActive,
-      waterGunEquipped
+      flowState: frameFlowState,
+      equipmentState: playerActionState
     });
-    if (primaryActionFrame.handled) {
-      // Primary action handled by the player action runtime.
-    } else {
-      playerHeldWaterGunActionRuntime.update({
-        flowState: frameFlowState,
-        performHarvestAction,
-        waterGunEquipped
-      });
-    }
-
-    const canProcessGameplayAction = resolveGameplayActionPermission({
-      hasPlayerCharacter: Boolean(session.playerCharacter),
-      flowState: frameFlowState
-    });
-    playerDirectActionRuntime.update({ canProcessGameplayAction });
 
     processFollowerCallFrame({
       controls,

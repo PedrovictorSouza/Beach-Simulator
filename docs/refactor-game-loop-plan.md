@@ -209,6 +209,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   into the existing `player` action runtime.
 - Completed: move primary player action frame context preparation into the
   existing `player` action runtime.
+- Completed: move player action equipment and frame action orchestration into
+  the existing `player` action runtime.
 - Completed: move dialogue camera controller into the `camera` boundary.
 - Completed: move placement camera assist into the `camera` boundary.
 - Completed: move construction billboard builders into the `construction`
@@ -15892,6 +15894,91 @@ npm test
 ```
 
 `npm test` completed with `1963` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Action Frame Runtime Boundary
+
+Expanded `app/player/playerActionRuntime.js` with
+`createPlayerActionFrameRuntime(...)`.
+
+Boundary classification: `player / gameplay action runtime`, focused on the
+frame-level action orchestration after movement and placement preview updates.
+
+Study path:
+
+1. `gameLoop.js` still syncs the first taught action freedom window because the
+   result feeds render/UI presentation state.
+2. `playerActionFrameRuntime.getActionState()` now owns active move equipment
+   resolution for Water Gun, Leafage, Fire and Build Block.
+3. `gameLoop.js` still passes `buildBlockEquipped` to construction preview
+   update, preserving preview order.
+4. `playerActionFrameRuntime.update(...)` now creates the harvest action wrapper,
+   delegates primary action, falls back to held Water Gun only when primary did
+   not handle the frame, and updates direct destroy/interact action processing.
+5. The runtime returns the action state that the rest of the frame still needs
+   for companions, prompts, guidance and render preparation.
+
+Removed from `gameLoop.js`:
+
+- direct active move equipment calculation;
+- direct Bulbasaur workbench guide check for Leafage equipment;
+- local `performHarvestAction(...)` wrapper;
+- direct primary action frame runtime call;
+- direct held Water Gun fallback call;
+- direct gameplay action permission calculation;
+- direct `playerDirectActionRuntime.update(...)` call.
+
+Kept in `gameLoop.js`:
+
+- first taught action freedom window sync;
+- free block preview update, because it belongs to construction preview order;
+- action state destructuring for later frame presentation and simulation;
+- composition of all player action runtimes.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` version was `2782`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is expected
+  to be `2751` lines.
+- The visible worktree may show `2752` lines while the unrelated
+  `shouldShowGroundCellHighlight` residual line is restored.
+
+Tests updated:
+
+- `tests/playerActionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+```
+
+The first run failed because `createPlayerActionFrameRuntime(...)` did not
+exist yet. After adding it, the focused player action runtime tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+npm test -- --run tests/playerActionRuntime.test.js tests/playerActionContext.test.js tests/playerActionTargetContext.test.js tests/waterGunRuntime.test.js tests/leafageRuntime.test.js tests/gameLoopFramePolicies.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1967` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;
