@@ -30,3 +30,28 @@ export function moveConstructionHelperToLeafDen({
 
   return true;
 }
+
+export function createConstructionHelperMotionRuntime({
+  getLeafDenPosition = () => null,
+  getNowSeconds = () => 0,
+  getYawToward = () => 0
+} = {}) {
+  function moveToLeafDen(encounter, {
+    offset = [0, 0, 0],
+    modelFaceYawOffset = 0,
+    nowSeconds = getNowSeconds()
+  } = {}) {
+    return moveConstructionHelperToLeafDen({
+      encounter,
+      leafDenPosition: getLeafDenPosition(),
+      offset,
+      modelFaceYawOffset,
+      nowSeconds,
+      getYawToward
+    });
+  }
+
+  return {
+    moveToLeafDen
+  };
+}

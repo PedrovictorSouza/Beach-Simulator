@@ -356,6 +356,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move Bulbasaur jump arc motion into the `companions` boundary.
 - Completed: move companion follow formation movement into the `companions`
   boundary.
+- Completed: move construction helper motion wiring into the `construction`
+  boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -8316,6 +8318,69 @@ The full suite completed with the existing Leafage Native Tree baseline:
   - `drops Wood when a Leafage Native tree is destroyed`
 
 Manual gameplay validation remains pending in this pass.
+
+### Construction Helper Motion Runtime Expansion
+
+Expanded `app/runtime/construction/constructionHelperMotion.js`.
+
+Classification: `construction`, specifically Leaf Den construction helper
+motion wiring.
+
+Study path:
+
+1. `moveConstructionHelperToLeafDen(...)` remains the pure helper for the
+   bobbing construction-helper motion formula.
+2. `createConstructionHelperMotionRuntime(...)` now owns the wiring that was
+   previously a private `gameLoop.js` wrapper: current Leaf Den position,
+   current runtime seconds and model yaw callback.
+3. Charmander and Timburr encounter branches still decide when construction
+   helper motion is active and which offsets/yaw constants apply.
+4. No motion formula, scale clamp, offset, yaw offset or sync order changed.
+
+Removed from `gameLoop.js`:
+
+- private `moveConstructionHelperToLeafDen(...)` wrapper;
+- direct construction-helper dependency assembly from the encounter section.
+
+Kept in `gameLoop.js`:
+
+- construction-active gate;
+- Charmander/Timburr encounter lifecycle;
+- companion-specific helper offsets and model face-yaw offsets.
+
+Tests updated:
+
+- `tests/constructionHelperMotion.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionHelperMotion.test.js
+```
+
+The first run failed because `createConstructionHelperMotionRuntime(...)` did
+not exist yet. After adding the runtime factory, the focused suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionHelperMotion.test.js
+npm test -- --run tests/constructionHelperMotion.test.js tests/companionFrameRuntime.test.js tests/companionFollowMovementRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1884` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
 
 ### Construction House Model Instance Boundary
 

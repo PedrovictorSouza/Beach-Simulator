@@ -47,9 +47,7 @@ import {
   syncLeafDenModelInstance as syncLeafDenModelInstanceWithSession,
   syncPlayerHouseModelInstances as syncPlayerHouseModelInstancesWithSession
 } from "./construction/constructionHouseModelInstances.js";
-import {
-  moveConstructionHelperToLeafDen as moveConstructionHelperToLeafDenWithConfig
-} from "./construction/constructionHelperMotion.js";
+import { createConstructionHelperMotionRuntime } from "./construction/constructionHelperMotion.js";
 import {
   createConstructionPlacementFrameRuntime,
   resolveActiveConstructionPlacementPreviews,
@@ -1173,6 +1171,11 @@ export function startGameLoop({
   const leafDenConstructionPresentationRuntime = createLeafDenConstructionPresentationRuntime({
     session,
     getStoryState: () => controls.storyState
+  });
+  const constructionHelperMotionRuntime = createConstructionHelperMotionRuntime({
+    getLeafDenPosition: () => session.leafDen?.position,
+    getNowSeconds: getRuntimeNowSeconds,
+    getYawToward: getRobotModelYawToward
   });
   const npcConversationFocusRuntime = createNpcConversationFocusRuntime({
     controls,
@@ -2702,21 +2705,6 @@ export function startGameLoop({
     companionModelSyncRuntime.syncBulbasaur();
   }
 
-  function moveConstructionHelperToLeafDen(encounter, {
-    offset = [0, 0, 0],
-    modelFaceYawOffset = 0,
-    nowSeconds = getRuntimeNowSeconds()
-  } = {}) {
-    return moveConstructionHelperToLeafDenWithConfig({
-      encounter,
-      leafDenPosition: session.leafDen?.position,
-      offset,
-      modelFaceYawOffset,
-      nowSeconds,
-      getYawToward: getRobotModelYawToward
-    });
-  }
-
   function updateCharmanderEncounter(deltaTime, { activeMoveId = null } = {}) {
     const encounter = session.charmanderEncounter;
 
@@ -2739,7 +2727,7 @@ export function startGameLoop({
     }
 
     if (isLeafDenConstructionActive()) {
-      moveConstructionHelperToLeafDen(encounter, {
+      constructionHelperMotionRuntime.moveToLeafDen(encounter, {
         offset: [-1.08, 0, 0.82],
         modelFaceYawOffset: CHARMANDER_MODEL_FACE_YAW_OFFSET
       });
@@ -2804,7 +2792,7 @@ export function startGameLoop({
     }
 
     if (isLeafDenConstructionActive()) {
-      moveConstructionHelperToLeafDen(encounter, {
+      constructionHelperMotionRuntime.moveToLeafDen(encounter, {
         offset: [1.04, 0, -0.76],
         modelFaceYawOffset: Number(encounter.modelFaceYawOffset ?? TIMBURR_MODEL_FACE_YAW_OFFSET)
       });
