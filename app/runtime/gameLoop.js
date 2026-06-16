@@ -1,5 +1,8 @@
 import { createGameLoopFrameClock } from "./gameLoopFrameClock.js";
-import { createGameLoopFrameRuntime } from "./gameLoopFrameRuntime.js";
+import {
+  createGameLoopFlowStateReader,
+  createGameLoopFrameRuntime
+} from "./gameLoopFrameRuntime.js";
 import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createBeeFieldRuntime } from "./companions/beeFieldRuntime.js";
@@ -1464,6 +1467,14 @@ export function startGameLoop({
       onCycleCameraZoom: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE)
     }
   });
+  const readGameLoopFlowState = createGameLoopFlowStateReader({
+    isGameFlow,
+    gameFlowValues,
+    actTwoTutorial,
+    pokedexUiState,
+    gameplayDialogue,
+    controls
+  });
   const frameRuntime = createGameLoopFrameRuntime({
     frameClock,
     frameSnapshotController,
@@ -1998,23 +2009,6 @@ export function startGameLoop({
 
   function getConstructionCloudBurstBillboards(uvRect, nowSeconds = getRuntimeNowSeconds()) {
     return leafDenConstructionPresentationRuntime.getCloudBurstBillboards(uvRect, nowSeconds);
-  }
-
-  function readGameLoopFlowState() {
-    const tutorialActive = isGameFlow(gameFlowValues.TUTORIAL);
-
-    return {
-      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY),
-      cinematicActive: isGameFlow(gameFlowValues.CINEMATIC),
-      introActive: isGameFlow(gameFlowValues.INTRO),
-      tutorialActive,
-      tutorialMovementLocked: tutorialActive ? actTwoTutorial.isMovementLocked() : false,
-      pokedexModalOpen: pokedexUiState.open,
-      dialogueActive: gameplayDialogue.isActive(),
-      skillLearnActive: Boolean(controls.isSkillLearnActive?.()),
-      scriptedInteractionActive: Boolean(controls.isScriptedInteractionActive?.()),
-      tutorialCameraFocus: tutorialActive ? actTwoTutorial.getCameraFocusTarget() : null
-    };
   }
 
   function updateGameplayPresentationFrame({

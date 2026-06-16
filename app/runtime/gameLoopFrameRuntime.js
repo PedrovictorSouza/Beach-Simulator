@@ -1,5 +1,31 @@
 import { resolveGameLoopBlockers } from "./gameLoopFramePolicies.js";
 
+export function createGameLoopFlowStateReader({
+  isGameFlow = () => false,
+  gameFlowValues = {},
+  actTwoTutorial = {},
+  pokedexUiState = {},
+  gameplayDialogue = {},
+  controls = {}
+} = {}) {
+  return function readGameLoopFlowState() {
+    const tutorialActive = isGameFlow(gameFlowValues.TUTORIAL);
+
+    return {
+      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY),
+      cinematicActive: isGameFlow(gameFlowValues.CINEMATIC),
+      introActive: isGameFlow(gameFlowValues.INTRO),
+      tutorialActive,
+      tutorialMovementLocked: tutorialActive ? actTwoTutorial.isMovementLocked() : false,
+      pokedexModalOpen: pokedexUiState.open,
+      dialogueActive: Boolean(gameplayDialogue.isActive?.()),
+      skillLearnActive: Boolean(controls.isSkillLearnActive?.()),
+      scriptedInteractionActive: Boolean(controls.isScriptedInteractionActive?.()),
+      tutorialCameraFocus: tutorialActive ? actTwoTutorial.getCameraFocusTarget() : null
+    };
+  };
+}
+
 export function createGameLoopFrameRuntime({
   frameClock,
   frameSnapshotController,

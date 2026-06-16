@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createGameLoopFrameRuntime } from "../app/runtime/gameLoopFrameRuntime.js";
+import {
+  createGameLoopFlowStateReader,
+  createGameLoopFrameRuntime
+} from "../app/runtime/gameLoopFrameRuntime.js";
 
 function createRuntime({
   paused = false,
@@ -53,6 +56,79 @@ function createRuntime({
 }
 
 describe("createGameLoopFrameRuntime", () => {
+  it("reads game flow state through explicit runtime dependencies", () => {
+    const gameFlowValues = {
+      GAMEPLAY: "gameplay",
+      CINEMATIC: "cinematic",
+      INTRO: "intro",
+      TUTORIAL: "tutorial"
+    };
+    const activeFlows = new Set(["gameplay", "tutorial"]);
+    const isGameFlow = vi.fn((flow) => activeFlows.has(flow));
+    const actTwoTutorial = {
+      isMovementLocked: vi.fn(() => true),
+      getCameraFocusTarget: vi.fn(() => ({ id: "focus-target" }))
+    };
+    const readFlowState = createGameLoopFlowStateReader({
+      isGameFlow,
+      gameFlowValues,
+      actTwoTutorial,
+      pokedexUiState: { open: true },
+      gameplayDialogue: { isActive: vi.fn(() => false) },
+      controls: {
+        isSkillLearnActive: vi.fn(() => true),
+        isScriptedInteractionActive: vi.fn(() => false)
+      }
+    });
+
+    expect(readFlowState()).toEqual({
+      gameplayActive: true,
+      cinematicActive: false,
+      introActive: false,
+      tutorialActive: true,
+      tutorialMovementLocked: true,
+      pokedexModalOpen: true,
+      dialogueActive: false,
+      skillLearnActive: true,
+      scriptedInteractionActive: false,
+      tutorialCameraFocus: { id: "focus-target" }
+    });
+    expect(isGameFlow).toHaveBeenCalledWith("tutorial");
+    expect(isGameFlow).toHaveBeenCalledWith("gameplay");
+    expect(isGameFlow).toHaveBeenCalledWith("cinematic");
+    expect(isGameFlow).toHaveBeenCalledWith("intro");
+    expect(actTwoTutorial.isMovementLocked).toHaveBeenCalledOnce();
+    expect(actTwoTutorial.getCameraFocusTarget).toHaveBeenCalledOnce();
+  });
+
+  it("does not query tutorial locks when tutorial flow is inactive", () => {
+    const actTwoTutorial = {
+      isMovementLocked: vi.fn(),
+      getCameraFocusTarget: vi.fn()
+    };
+    const readFlowState = createGameLoopFlowStateReader({
+      isGameFlow: () => false,
+      gameFlowValues: {
+        GAMEPLAY: "gameplay",
+        CINEMATIC: "cinematic",
+        INTRO: "intro",
+        TUTORIAL: "tutorial"
+      },
+      actTwoTutorial,
+      pokedexUiState: {},
+      gameplayDialogue: {},
+      controls: {}
+    });
+
+    expect(readFlowState()).toMatchObject({
+      tutorialActive: false,
+      tutorialMovementLocked: false,
+      tutorialCameraFocus: null
+    });
+    expect(actTwoTutorial.isMovementLocked).not.toHaveBeenCalled();
+    expect(actTwoTutorial.getCameraFocusTarget).not.toHaveBeenCalled();
+  });
+
   it("begins a snapshot and returns timing with the current flow state", () => {
     const context = createRuntime();
 

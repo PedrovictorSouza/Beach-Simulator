@@ -4080,6 +4080,90 @@ Still pending:
 
 - manual gameplay validation.
 
+## Game Loop Flow State Reader Boundary
+
+Date: 2026-06-16
+
+Boundary classification: `frame lifecycle`, inside the existing
+`app/runtime/gameLoopFrameRuntime.js` module.
+
+Goal:
+
+- remove direct flow-state policy implementation from `gameLoop.js`;
+- keep `startGameLoop()` as the composition root for dependencies;
+- keep `frame(now)` reading flow state through `frameRuntime.beginFrame(now)`;
+- avoid creating a generic helper file.
+
+What moved:
+
+- tutorial/gameplay/cinematic/intro flow reads;
+- tutorial movement lock read;
+- pokedex modal, dialogue, skill-learn and scripted-interaction flags;
+- tutorial camera focus lookup.
+
+New owner:
+
+- `createGameLoopFlowStateReader(...)`.
+
+Kept in `gameLoop.js`:
+
+- dependency wiring for `isGameFlow`, `gameFlowValues`, tutorial state,
+  pokedex state, dialogue and controls;
+- passing the resulting reader into `createGameLoopFrameRuntime(...)`.
+
+Why this is safe:
+
+- `createGameLoopFrameRuntime.beginFrame(now)` still calls `readFlowState()` at
+  the same point in the frame;
+- tutorial lock/focus are still only read when tutorial flow is active;
+- no game flow constants or scene transitions changed.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` had `2419` lines.
+- After this cut, `app/runtime/gameLoop.js` has `2413` lines.
+
+Tests added:
+
+- `tests/gameLoopFrameRuntime.test.js` now verifies the flow-state reader
+  returns the expected frame flags and avoids tutorial lock/focus reads when
+  tutorial flow is inactive.
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/gameLoopFrameRuntime.test.js
+```
+
+The first run failed because `createGameLoopFlowStateReader(...)` did not
+exist yet. After implementing the reader and rewiring `gameLoop.js`, focused
+tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameLoopFrameRuntime.test.js tests/gameLoopFramePolicies.test.js tests/gameLoopFrameClock.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1982` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` existing scene-flow failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Still pending:
+
+- manual gameplay validation.
+
 ### Early Gameplay Control Frame Runtime Boundary
 
 Expanded `app/runtime/gameLoopFrameRuntime.js` with
