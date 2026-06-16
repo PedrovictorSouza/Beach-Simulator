@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import { createGameLoopFrameRuntime } from "../app/runtime/gameLoopFrameRuntime.js";
 
 function createRuntime({
-  paused = false
+  paused = false,
+  frameRuntimeOverrides = {}
 } = {}) {
   const nextFrame = { id: "frame-1" };
   const flowState = { gameplayActive: true };
@@ -34,7 +35,8 @@ function createRuntime({
     fpsPanelController,
     controls,
     readFlowState,
-    advanceElapsed
+    advanceElapsed,
+    ...frameRuntimeOverrides
   });
 
   return {
@@ -97,5 +99,77 @@ describe("createGameLoopFrameRuntime", () => {
     const context = createRuntime();
 
     expect(context.runtime).not.toHaveProperty("requestAnimationFrame");
+  });
+
+  it("begins the gameplay frame context with opening, placement and blocker state", () => {
+    const openingRuntime = {
+      beginFrame: vi.fn(() => ({
+        cameraFrame: { phase: "establishing" }
+      })),
+      isCameraLocked: vi.fn(() => true),
+      isMovementLocked: vi.fn(() => true)
+    };
+    const hasActivePlacementPreview = vi.fn(() => true);
+    const placementCameraAssist = {
+      update: vi.fn()
+    };
+    const updateFoundationBuildZoneCameraFocus = vi.fn(() => false);
+    const resolveBlockers = vi.fn(() => ({
+      movementBlocked: true,
+      shouldClearPendingActions: true,
+      shouldClearMovementInput: true,
+      canAdvanceRustlingGrass: false
+    }));
+    const session = { id: "session" };
+    const placementContracts = [{ id: "contract" }];
+    const context = createRuntime({
+      frameRuntimeOverrides: {
+        gameplayOpeningRuntime: openingRuntime,
+        session,
+        placement: {
+          contracts: placementContracts,
+          hasActivePlacementPreview
+        },
+        placementCameraAssist,
+        updateFoundationBuildZoneCameraFocus,
+        resolveBlockers
+      }
+    });
+    const flowState = {
+      gameplayActive: true,
+      tutorialActive: false
+    };
+
+    expect(context.runtime.beginGameplayFrameContext({
+      now: 1200,
+      deltaTime: 0.016,
+      flowState
+    })).toEqual({
+      gameplayOpeningCameraFrame: { phase: "establishing" },
+      gameplayOpeningCameraLocked: true,
+      gameplayOpeningMovementLocked: true,
+      placementPreviewActive: true,
+      foundationBuildZoneCameraFocusActive: false,
+      movementBlocked: true,
+      shouldClearPendingActions: true,
+      shouldClearMovementInput: true,
+      canAdvanceRustlingGrass: false
+    });
+    expect(openingRuntime.beginFrame).toHaveBeenCalledWith({
+      now: 1200,
+      deltaTime: 0.016,
+      gameplayActive: true
+    });
+    expect(hasActivePlacementPreview).toHaveBeenCalledWith(session, placementContracts);
+    expect(placementCameraAssist.update).toHaveBeenCalledWith({
+      placementActive: true
+    });
+    expect(updateFoundationBuildZoneCameraFocus).toHaveBeenCalledWith(1200);
+    expect(resolveBlockers).toHaveBeenCalledWith({
+      gameplayOpeningMovementLocked: true,
+      foundationBuildZoneCameraFocusActive: false,
+      placementPreviewActive: true,
+      flowState
+    });
   });
 });

@@ -1,11 +1,24 @@
+import { resolveGameLoopBlockers } from "./gameLoopFramePolicies.js";
+
 export function createGameLoopFrameRuntime({
   frameClock,
   frameSnapshotController,
   fpsPanelController,
   controls,
   readFlowState,
-  advanceElapsed
+  advanceElapsed,
+  gameplayOpeningRuntime = null,
+  session = {},
+  placement = {},
+  placementCameraAssist = { update: () => {} },
+  updateFoundationBuildZoneCameraFocus = () => false,
+  resolveBlockers = resolveGameLoopBlockers
 }) {
+  const {
+    contracts: placementContracts = [],
+    hasActivePlacementPreview = () => false
+  } = placement;
+
   function beginFrame(now) {
     const nextFrame = frameSnapshotController.beginFrame();
     const { rawDeltaTime, deltaTime } = frameClock.update(now);
@@ -36,7 +49,47 @@ export function createGameLoopFrameRuntime({
     frameSnapshotController.commitFrame();
   }
 
+  function beginGameplayFrameContext({
+    now = 0,
+    deltaTime = 0,
+    flowState = {}
+  } = {}) {
+    const gameplayOpeningFrameStart = gameplayOpeningRuntime?.beginFrame?.({
+      now,
+      deltaTime,
+      gameplayActive: flowState.gameplayActive
+    }) || {};
+    const gameplayOpeningCameraLocked = Boolean(
+      gameplayOpeningRuntime?.isCameraLocked?.()
+    );
+    const gameplayOpeningMovementLocked = Boolean(
+      gameplayOpeningRuntime?.isMovementLocked?.()
+    );
+    const placementPreviewActive = Boolean(
+      hasActivePlacementPreview(session, placementContracts)
+    );
+    placementCameraAssist.update?.({ placementActive: placementPreviewActive });
+    const foundationBuildZoneCameraFocusActive = Boolean(
+      updateFoundationBuildZoneCameraFocus(now)
+    );
+
+    return {
+      gameplayOpeningCameraFrame: gameplayOpeningFrameStart.cameraFrame,
+      gameplayOpeningCameraLocked,
+      gameplayOpeningMovementLocked,
+      placementPreviewActive,
+      foundationBuildZoneCameraFocusActive,
+      ...resolveBlockers({
+        gameplayOpeningMovementLocked,
+        foundationBuildZoneCameraFocusActive,
+        placementPreviewActive,
+        flowState
+      })
+    };
+  }
+
   return {
+    beginGameplayFrameContext,
     beginFrame,
     commitFrame,
     updateInputAndCheckPaused

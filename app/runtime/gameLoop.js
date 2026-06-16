@@ -66,7 +66,6 @@ import {
 import { createGameplayCameraFrameRuntime } from "./camera/gameplayCameraFrameRuntime.js";
 import {
   resolveGameplayActionPermission,
-  resolveGameLoopBlockers,
   resolvePlayerMovementPermission,
   resolveWorldSpaceUiVisibility
 } from "./gameLoopFramePolicies.js";
@@ -1121,16 +1120,6 @@ export function startGameLoop({
     applyImpact: (action) => fieldMoveImpactRuntime.applyBulbasaurLeafageImpact(action),
     onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.grow)
   });
-  const frameRuntime = createGameLoopFrameRuntime({
-    frameClock,
-    frameSnapshotController,
-    fpsPanelController,
-    controls,
-    readFlowState: readGameLoopFlowState,
-    advanceElapsed: (deltaTime) => {
-      repairBoxMotionRuntime.update(deltaTime);
-    }
-  });
   const buildBlockRuntime = createBuildBlockRuntime({
     session,
     controls,
@@ -1465,6 +1454,24 @@ export function startGameLoop({
       isGameplayFlow: () => isGameFlow(gameFlowValues.GAMEPLAY),
       onCycleCameraZoom: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE)
     }
+  });
+  const frameRuntime = createGameLoopFrameRuntime({
+    frameClock,
+    frameSnapshotController,
+    fpsPanelController,
+    controls,
+    readFlowState: readGameLoopFlowState,
+    advanceElapsed: (deltaTime) => {
+      repairBoxMotionRuntime.update(deltaTime);
+    },
+    gameplayOpeningRuntime,
+    session,
+    placement: {
+      contracts: PLACEMENT_CONTRACTS,
+      hasActivePlacementPreview
+    },
+    placementCameraAssist,
+    updateFoundationBuildZoneCameraFocus
   });
 
   function cancelActivePlacementPreviews() {
@@ -1987,36 +1994,6 @@ export function startGameLoop({
     };
   }
 
-  function beginGameplayFrameContext({ now, deltaTime, flowState }) {
-    const gameplayOpeningFrameStart = gameplayOpeningRuntime.beginFrame({
-      now,
-      deltaTime,
-      gameplayActive: flowState.gameplayActive
-    });
-    const gameplayOpeningCameraLocked = gameplayOpeningRuntime.isCameraLocked();
-    const gameplayOpeningMovementLocked = gameplayOpeningRuntime.isMovementLocked();
-    const placementPreviewActive = hasActivePlacementPreview(
-      session,
-      PLACEMENT_CONTRACTS
-    );
-    placementCameraAssist.update({ placementActive: placementPreviewActive });
-    const foundationBuildZoneCameraFocusActive = updateFoundationBuildZoneCameraFocus(now);
-
-    return {
-      gameplayOpeningCameraFrame: gameplayOpeningFrameStart.cameraFrame,
-      gameplayOpeningCameraLocked,
-      gameplayOpeningMovementLocked,
-      placementPreviewActive,
-      foundationBuildZoneCameraFocusActive,
-      ...resolveGameLoopBlockers({
-        gameplayOpeningMovementLocked,
-        foundationBuildZoneCameraFocusActive,
-        placementPreviewActive,
-        flowState
-      })
-    };
-  }
-
   function updateCameraDebugFrameOverlay({
     now,
     flowState,
@@ -2175,7 +2152,7 @@ export function startGameLoop({
       shouldClearPendingActions,
       shouldClearMovementInput,
       canAdvanceRustlingGrass
-    } = beginGameplayFrameContext({
+    } = frameRuntime.beginGameplayFrameContext({
       now,
       deltaTime,
       flowState: frameFlowState

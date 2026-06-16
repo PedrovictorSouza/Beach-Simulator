@@ -3908,6 +3908,81 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Gameplay Frame Context Runtime Boundary
+
+Expanded `app/runtime/gameLoopFrameRuntime.js` with
+`beginGameplayFrameContext(...)`.
+
+Boundary classification: `frame lifecycle`, focused on the early frame context
+that combines gameplay opening state, placement preview state, placement camera
+assist and blocker policy.
+
+Study path:
+
+1. `startGameLoop()` still wires the frame runtime as composition root.
+2. `frame(now)` still decides when the gameplay frame context is calculated.
+3. `gameLoopFrameRuntime.beginGameplayFrameContext(...)` now owns the local
+   sequencing of opening `beginFrame`, opening camera/movement locks,
+   placement preview detection, placement camera assist update, foundation
+   build-zone camera focus and blocker resolution.
+4. `requestAnimationFrame(frame)` remains in `gameLoop.js`.
+
+Removed from `gameLoop.js`:
+
+- local `beginGameplayFrameContext(...)`;
+- direct use of `resolveGameLoopBlockers(...)` inside `gameLoop.js`;
+- inline opening/placement/foundation blocker context composition.
+
+Kept in `gameLoop.js`:
+
+- temporal placement of this context immediately after scene sync;
+- dependency wiring for placement contracts, opening runtime and camera assist;
+- foundation build-zone camera focus implementation, because it still owns
+  camera pose transition details and should be extracted separately if needed.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2494` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2471` lines.
+- No new file was created; the boundary was added to the existing
+  `gameLoopFrameRuntime.js` module.
+
+Tests updated:
+
+- `tests/gameLoopFrameRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/gameLoopFrameRuntime.test.js
+```
+
+The first run failed because `beginGameplayFrameContext(...)` did not exist
+yet. After adding the method, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameLoopFrameRuntime.test.js tests/gameLoopFramePolicies.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1976` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Ambient World Frame Runtime Boundary
 
 Expanded `app/runtime/world/worldSceneSyncRuntime.js` with
