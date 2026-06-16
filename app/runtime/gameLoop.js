@@ -979,6 +979,8 @@ export function startGameLoop({
     getFollowDirection: (yaw) => companionFollowDirectionRuntime.get(yaw),
     tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
     getModelYawToward: getRobotModelYawToward,
+    resolveFollowFormationIndex: getCompanionFollowFormationIndex,
+    resolveFollowDistance: resolveCompanionFollowDistance,
     arriveDistance: COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE
   });
   const companionIdleMotionRuntime = createCompanionIdleMotionRuntime({
@@ -2751,16 +2753,12 @@ export function startGameLoop({
       !session.charmanderFireAction &&
       !isLeafDenConstructionActive()
     ) {
-      const formationIndex = getCompanionFollowFormationIndex("charmander", activeMoveId);
-      companionFollowMovementRuntime.moveTowardPlayer(encounter, {
+      companionFollowMovementRuntime.moveFormationMemberTowardPlayer(encounter, {
+        companionId: "charmander",
+        activeMoveId,
         deltaTime,
         speed: CHARMANDER_FOLLOW_SPEED,
-        followDistance: resolveCompanionFollowDistance({
-          companionId: "charmander",
-          activeMoveId,
-          defaultDistance: CHARMANDER_FOLLOW_DISTANCE,
-          formationIndex
-        }),
+        defaultDistance: CHARMANDER_FOLLOW_DISTANCE,
         modelFaceYawOffset: CHARMANDER_MODEL_FACE_YAW_OFFSET
       });
     } else if (!session.charmanderFireAction) {
@@ -2822,16 +2820,12 @@ export function startGameLoop({
       session.playerCharacter &&
       !isLeafDenConstructionActive()
     ) {
-      const formationIndex = getCompanionFollowFormationIndex("timburr", activeMoveId);
-      companionFollowMovementRuntime.moveTowardPlayer(encounter, {
+      companionFollowMovementRuntime.moveFormationMemberTowardPlayer(encounter, {
+        companionId: "timburr",
+        activeMoveId,
         deltaTime,
         speed: TIMBURR_FOLLOW_SPEED,
-        followDistance: resolveCompanionFollowDistance({
-          companionId: "timburr",
-          activeMoveId,
-          defaultDistance: TIMBURR_FOLLOW_DISTANCE,
-          formationIndex
-        }),
+        defaultDistance: TIMBURR_FOLLOW_DISTANCE,
         modelFaceYawOffset: Number(encounter.modelFaceYawOffset ?? TIMBURR_MODEL_FACE_YAW_OFFSET)
       });
     }

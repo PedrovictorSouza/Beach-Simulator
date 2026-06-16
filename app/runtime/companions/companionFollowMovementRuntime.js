@@ -4,6 +4,8 @@ export function createCompanionFollowMovementRuntime({
   getFollowDirection = () => [0, 1],
   tryMoveCompanionToPosition = () => false,
   getModelYawToward = () => 0,
+  resolveFollowFormationIndex = () => null,
+  resolveFollowDistance = ({ defaultDistance } = {}) => defaultDistance,
   arriveDistance = 0
 } = {}) {
   function getTargetPosition(followDistance) {
@@ -68,8 +70,33 @@ export function createCompanionFollowMovementRuntime({
     return true;
   }
 
+  function moveFormationMemberTowardPlayer(companion, {
+    companionId,
+    activeMoveId = null,
+    deltaTime,
+    speed,
+    defaultDistance,
+    modelFaceYawOffset = null
+  }) {
+    const formationIndex = resolveFollowFormationIndex(companionId, activeMoveId);
+    const followDistance = resolveFollowDistance({
+      companionId,
+      activeMoveId,
+      defaultDistance,
+      formationIndex
+    });
+
+    return moveTowardPlayer(companion, {
+      deltaTime,
+      speed,
+      followDistance,
+      modelFaceYawOffset
+    });
+  }
+
   return {
     getTargetPosition,
+    moveFormationMemberTowardPlayer,
     moveTowardPlayer
   };
 }

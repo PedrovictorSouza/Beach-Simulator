@@ -354,6 +354,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move companion simulation frame coordination into the `companions`
   boundary.
 - Completed: move Bulbasaur jump arc motion into the `companions` boundary.
+- Completed: move companion follow formation movement into the `companions`
+  boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -5826,6 +5828,71 @@ existing Leafage Native Tree baseline:
 - `3` failed in `tests/gameplayInteractions.test.js`
 
 No manual browser validation was run in this cut.
+
+### Companion Follow Formation Movement Expansion
+
+Expanded `app/runtime/companions/companionFollowMovementRuntime.js`.
+
+Classification: `companions`, specifically follow-slot movement orchestration.
+
+Study path:
+
+1. `gameLoop.js` still decides whether Charmander or Timburr may follow in the
+   current encounter branch.
+2. Once following is allowed, `gameLoop.js` now passes the companion id, active
+   move id, speed, default distance and model face-yaw offset to
+   `moveFormationMemberTowardPlayer(...)`.
+3. The runtime resolves formation index, resolves final follow distance, and
+   delegates to the existing `moveTowardPlayer(...)` path.
+4. The movement algorithm, collision-aware callback, arrival distance and yaw
+   application remain unchanged.
+
+Removed from `gameLoop.js`:
+
+- duplicated Charmander formation-index local variable;
+- duplicated Timburr formation-index local variable;
+- direct per-branch `resolveCompanionFollowDistance(...)` object assembly for
+  Charmander and Timburr.
+
+Kept in `gameLoop.js`:
+
+- encounter lifecycle gates;
+- reveal/follow/action/construction blockers;
+- companion-specific speed constants and model face-yaw offsets.
+
+Tests updated:
+
+- `tests/companionFollowMovementRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionFollowMovementRuntime.test.js
+```
+
+The first run failed because `moveFormationMemberTowardPlayer(...)` did not
+exist yet. After adding the runtime method, the focused suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionFollowMovementRuntime.test.js
+npm test -- --run tests/companionFollowMovementRuntime.test.js tests/companionFollowMotion.test.js tests/companionFollowFormation.test.js tests/companionFrameRuntime.test.js tests/companionGroundPatrolFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1883` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
 
 ### Companion Idle Motion Runtime
 
