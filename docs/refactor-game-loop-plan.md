@@ -362,6 +362,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move construction house model-instance wiring into the
   `construction` boundary.
+- Completed: move companion world-speech cue wiring into the `companions`
+  boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -3858,6 +3860,75 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Companion World Speech Cue Runtime
+
+Added `app/runtime/companions/companionWorldSpeechCueRuntime.js`.
+
+Classification: `companions`, specifically world-space companion speech cues.
+
+Study path:
+
+1. `gameLoop.js` still owned the wiring for two companion speech policies:
+   Chopper's periodic "Hey!" cue and the periodic lost-companion Water Gun
+   hint.
+2. The low-level pure policies remain in their existing modules:
+   `chopperAttentionCueRuntime.js` and `companionLostHintRuntime.js`.
+3. The new runtime composes those existing policies with frame/session
+   dependencies: story flags, player skills, bot positions, player proximity
+   checks and schedule/tuning values.
+4. Presentation still receives the same callback names and data shapes, so the
+   world-space UI and world-speech snapshot contracts did not change.
+
+Removed from `gameLoop.js`:
+
+- direct construction of `createChopperAttentionCueRuntime(...)`;
+- direct construction of `createCompanionLostHintRuntime(...)`;
+- local `getPeriodicChopperAttentionCue(...)` wrapper;
+- local `getPeriodicCompanionLostHint(...)` wrapper;
+- direct imports of the companion cue resolver functions.
+
+Kept in `gameLoop.js`:
+
+- runtime composition and injection of tuning/text constants;
+- the existing presentation callback name `getPeriodicChopperAttentionCue`,
+  because that is the current presentation-frame API;
+- Chopper voice sound dispatch, because audio events still flow through the
+  game-loop composition root.
+
+Tests added:
+
+- `tests/companionWorldSpeechCueRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionWorldSpeechCueRuntime.test.js
+```
+
+The first run failed because `companionWorldSpeechCueRuntime.js` did not exist.
+After adding the runtime factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionWorldSpeechCueRuntime.test.js
+npm test -- --run tests/companionWorldSpeechCueRuntime.test.js tests/chopperAttentionCueRuntime.test.js tests/companionLostHintRuntime.test.js tests/worldSpacePresentationFrameState.test.js tests/worldPromptFrameState.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `309` test files passed, `1` failed
+- `1888` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
 

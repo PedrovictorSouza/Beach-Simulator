@@ -5,12 +5,12 @@ import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { createBeeFieldRuntime } from "./companions/beeFieldRuntime.js";
 import { createBulbasaurWorkbenchGuideRuntime } from "./companions/bulbasaurWorkbenchGuideRuntime.js";
-import { createChopperAttentionCueRuntime, resolveChopperAttentionCue } from "./companions/chopperAttentionCueRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
 import { createCompanionGroundPatrolFrameRuntime } from "./companions/companionGroundPatrolFrameRuntime.js";
 import { createCompanionIdleMotionRuntime } from "./companions/companionIdleMotionRuntime.js";
 import { createCompanionModelSyncRuntime } from "./companions/companionModelSyncRuntime.js";
 import { createCompanionRepairBoxModelRuntime } from "./companions/companionRepairBoxModelRuntime.js";
+import { createCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
 import { createSquirtleReassemblyRuntime } from "./companions/squirtleReassemblyRuntime.js";
@@ -105,10 +105,6 @@ import {
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
 } from "./companions/companionFollowMotion.js";
-import {
-  createCompanionLostHintRuntime,
-  resolveWaterGunCompanionLostHint
-} from "./companions/companionLostHintRuntime.js";
 import { updateCompanionPresentationFrame } from "./companions/companionPresentationFrame.js";
 import {
   createFoundationBuildZoneCameraFocusPose,
@@ -916,15 +912,29 @@ export function startGameLoop({
     }
   });
   const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime();
-  const companionLostHintRuntime = createCompanionLostHintRuntime({
-    initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
-    repeatMs: COMPANION_LOST_HINT_REPEAT_MS,
-    durationMs: COMPANION_LOST_HINT_DURATION_MS
-  });
-  const chopperAttentionCueRuntime = createChopperAttentionCueRuntime({
-    initialDelayMs: CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS,
-    repeatMs: CHOPPER_ATTENTION_CUE_REPEAT_MS,
-    durationMs: CHOPPER_ATTENTION_CUE_DURATION_MS
+  const companionWorldSpeechCueRuntime = createCompanionWorldSpeechCueRuntime({
+    chopperCueSchedule: {
+      initialDelayMs: CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS,
+      repeatMs: CHOPPER_ATTENTION_CUE_REPEAT_MS,
+      durationMs: CHOPPER_ATTENTION_CUE_DURATION_MS
+    },
+    companionLostHintSchedule: {
+      initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
+      repeatMs: COMPANION_LOST_HINT_REPEAT_MS,
+      durationMs: COMPANION_LOST_HINT_DURATION_MS
+    },
+    getFlags: () => controls.storyState?.flags || {},
+    getPlayerSkills: () => controls.playerSkills || {},
+    getBulbasaurPosition: () => session.bulbasaurEncounter?.position,
+    getSquirtlePosition: getSquirtleWorldPosition,
+    isPlayerNearWorldPosition,
+    config: {
+      chopperInteractDistance: POKEMON_TALK_INTERACT_DISTANCE + 0.45,
+      chopperCueText: CHOPPER_ATTENTION_CUE_TEXT,
+      restoreTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
+      squirtleHintText: SQUIRTLE_WATER_GUN_HINT_TEXT,
+      bulbasaurHintText: BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT
+    }
   });
   const companionFollowDirectionRuntime = createCompanionFollowDirectionRuntime();
   const companionConstructionBlockerRuntime = createCompanionConstructionBlockerRuntime({
@@ -2511,44 +2521,6 @@ export function startGameLoop({
     });
   }
 
-  function getPeriodicChopperAttentionCue({
-    activeTask,
-    activeSystemQuest,
-    chopperPosition,
-    now
-  }) {
-    const cue = resolveChopperAttentionCue({
-      activeTaskId: activeTask?.id,
-      activeSystemQuestId: activeSystemQuest?.id,
-      chopperPosition,
-      isPlayerNearWorldPosition,
-      interactDistance: POKEMON_TALK_INTERACT_DISTANCE + 0.45,
-      text: CHOPPER_ATTENTION_CUE_TEXT
-    });
-
-    return chopperAttentionCueRuntime.get(cue, now);
-  }
-
-  function getPeriodicCompanionLostHint({
-    activeQuest,
-    activeMoveId,
-    now
-  }) {
-    const hint = resolveWaterGunCompanionLostHint({
-      activeQuestId: activeQuest?.id,
-      activeMoveId,
-      flags: controls.storyState?.flags || {},
-      playerHasWaterGun: controls.playerSkills?.waterGun,
-      bulbasaurPosition: session.bulbasaurEncounter?.position,
-      squirtlePosition: getSquirtleWorldPosition(),
-      restoreTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
-      squirtleHintText: SQUIRTLE_WATER_GUN_HINT_TEXT,
-      bulbasaurHintText: BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT
-    });
-
-    return companionLostHintRuntime.get(hint, now);
-  }
-
   const processWorldCellPlannerClick = worldCellPlannerInteractionRuntime.processClick;
   const getWorldCellPlannerSelectedGroundCell =
     worldCellPlannerInteractionRuntime.getSelectedGroundCell;
@@ -3995,7 +3967,8 @@ if (canProcessDestroyAction && destroyActionRequested) {
       getSquirtleWorldPosition,
       isSquirtleWaterCharging: () => companionAbilityResourcesRuntime.isSquirtleWaterCharging(),
       getFreeBlockBuildCostMarker,
-      getPeriodicChopperAttentionCue,
+      getPeriodicChopperAttentionCue:
+        companionWorldSpeechCueRuntime.getChopperAttentionCue,
       isLeafageInvalidTargetVisible: (frameNow) =>
         fieldMoveInvalidTargetPromptRuntime.isLeafageVisible(frameNow),
       isFireInvalidTargetVisible: (frameNow) =>
@@ -4054,9 +4027,9 @@ if (canProcessDestroyAction && destroyActionRequested) {
         tutorialActive,
         pokedexModalOpen
       },
-      getCompanionLostHint: getPeriodicCompanionLostHint,
-      consumeChopperAttentionCueSoundCycle: (cycleId) =>
-        chopperAttentionCueRuntime.consumeSoundCycle(cycleId),
+      getCompanionLostHint: companionWorldSpeechCueRuntime.getCompanionLostHint,
+      consumeChopperAttentionCueSoundCycle:
+        companionWorldSpeechCueRuntime.consumeChopperAttentionCueSoundCycle,
       playChopperVoice: () => playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE)
     });
 
