@@ -105,7 +105,6 @@ import {
   getPlacementRect,
   getRotatedPlacementSize as getRotatedPlacementSizeWithConfig,
   getSnappedPlacementPreviewPosition,
-  hasFinitePlacementBounds,
   isWorldPositionOnFreeBlockCell,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
@@ -626,10 +625,6 @@ function syncModelResourceInstances(resourceNodes = [], storyState = {}, deltaTi
       resourceNode.yaw = Number(resourceNode.yaw || 0) + spinYawSpeed * Math.max(0, deltaTime);
     }
   }
-}
-
-function clampNumber(value, min, max) {
-  return Math.min(max, Math.max(min, value));
 }
 
 function getRotatedPlacementSize(size = [1, 1], yaw = 0) {
@@ -1271,6 +1266,8 @@ export function startGameLoop({
   });
   const constructionPlacementFrameRuntime = createConstructionPlacementFrameRuntime({
     controls,
+    getMovementAxes: () => camera.getMovementAxes(),
+    getPlayerPosition: () => session.playerCharacter?.getPosition?.() || null,
     session,
     placementContracts: PLACEMENT_CONTRACTS,
     workbenchRotationRuntime,
@@ -1576,56 +1573,6 @@ export function startGameLoop({
     return getSnappedPlacementPreviewPosition(preview);
   }
 
-  function syncPlacementPreviewPositionToPlayer(preview, defaultForwardDistance = 0) {
-    const playerPosition = session.playerCharacter?.getPosition?.();
-    if (!preview?.active || !Array.isArray(playerPosition)) {
-      return;
-    }
-    const playerX = Number(playerPosition[0]);
-    const playerZ = Number(playerPosition[2]);
-    if (!Number.isFinite(playerX) || !Number.isFinite(playerZ)) {
-      return;
-    }
-
-    if (!Array.isArray(preview.followPlayerOffset)) {
-      const position = Array.isArray(preview.position) ?
-        preview.position :
-        playerPosition;
-      const positionX = Number(position[0]);
-      const positionZ = Number(position[2]);
-      const offset = [
-        (Number.isFinite(positionX) ? positionX : playerX) - playerX,
-        0,
-        (Number.isFinite(positionZ) ? positionZ : playerZ) - playerZ
-      ];
-      const offsetLength = Math.hypot(offset[0], offset[2]);
-
-      if (offsetLength < 0.35 && defaultForwardDistance > 0) {
-        const movementAxes = camera.getMovementAxes();
-        const forwardX = Number(movementAxes?.up?.[0]) || 0;
-        const forwardZ = Number(movementAxes?.up?.[2]) || 0;
-        const forwardLength = Math.hypot(forwardX, forwardZ) || 1;
-        offset[0] = (forwardX / forwardLength) * defaultForwardDistance;
-        offset[2] = (forwardZ / forwardLength) * defaultForwardDistance;
-      }
-
-      preview.followPlayerOffset = offset;
-    }
-
-    const nextPosition = [
-      playerX + Number(preview.followPlayerOffset[0] || 0),
-      Array.isArray(preview.position) ? Number(preview.position[1] || 0.02) : 0.02,
-      playerZ + Number(preview.followPlayerOffset[2] || 0)
-    ];
-
-    if (hasFinitePlacementBounds(preview.bounds)) {
-      nextPosition[0] = clampNumber(nextPosition[0], preview.bounds.minX, preview.bounds.maxX);
-      nextPosition[2] = clampNumber(nextPosition[2], preview.bounds.minZ, preview.bounds.maxZ);
-    }
-
-    preview.position = nextPosition;
-  }
-
   function updateSolarStationPlacementPreview(timeSeconds = 0) {
     const preview = session.strawBedPlacementPreview;
     if (!preview?.active) {
@@ -1638,7 +1585,10 @@ export function startGameLoop({
       return null;
     }
 
-    syncPlacementPreviewPositionToPlayer(preview, SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE);
+    constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(
+      preview,
+      SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE
+    );
 
     const snappedPosition = getSnappedSolarStationPreviewPosition(preview);
     const previewRect = getPlacementRect(
@@ -1909,7 +1859,7 @@ export function startGameLoop({
       return null;
     }
 
-    syncPlacementPreviewPositionToPlayer(preview);
+    constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview);
 
     const snappedPosition = getSnappedSolarStationPreviewPosition(preview);
     const previewSize = getRotatedPlacementSize(
@@ -1991,7 +1941,7 @@ export function startGameLoop({
       return null;
     }
 
-    syncPlacementPreviewPositionToPlayer(preview);
+    constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview);
 
     const snappedPosition = getSnappedSolarStationPreviewPosition(preview);
     const previewCollisionSize = getPlacementPreviewFootprintWorldSize(
@@ -2054,7 +2004,7 @@ export function startGameLoop({
       return null;
     }
 
-    syncPlacementPreviewPositionToPlayer(preview);
+    constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview);
 
     const snappedPosition = getSnappedSolarStationPreviewPosition(preview);
     const previewCollisionSize = getPlacementPreviewFootprintWorldSize(

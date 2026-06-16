@@ -12589,3 +12589,70 @@ npm test
 - `1845` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Construction Placement Preview Position Sync Extraction
+
+Expanded the existing `constructionPlacementFrameRuntime` boundary in
+`app/runtime/construction/constructionPlacementFrameRuntime.js`.
+
+Classification: `construction`, focused on frame-level placement-preview
+position sync.
+
+Study path:
+
+1. `gameLoop.js` previously owned the rule that keeps active placement previews
+   offset from the player, applies the default forward spacing for near-player
+   previews and clamps preview positions to finite bounds.
+2. `syncPlacementPreviewPositionToPlayer(...)` now owns that rule as a tested
+   construction helper.
+3. `createConstructionPlacementFrameRuntime(...)` exposes
+   `syncPlacementPreviewPositionToPlayer(preview, defaultForwardDistance)` after
+   `startGameLoop()` injects `getPlayerPosition` and `getMovementAxes`.
+
+Removed from `gameLoop.js`:
+
+- local `syncPlacementPreviewPositionToPlayer(...)`;
+- local `clampNumber(...)`, which was only used by that preview sync rule;
+- direct camera-axis/default-forward placement offset calculation.
+
+Kept in `gameLoop.js`:
+
+- the per-preview update functions for Solar Station, House Kit, Thermal Cabin
+  and Greenhouse;
+- placement validation, snapped-position calculation and model-instance visual
+  mutation;
+- frame order and all placement tuning constants.
+
+Tests updated:
+
+- `tests/constructionPlacementFrameRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+```
+
+The first run failed because the helper and runtime method did not exist yet.
+After adding them, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js tests/placementGeometry.test.js tests/placementPreviewVisual.test.js tests/placementPreviewPrompts.test.js tests/freeBlockPreview.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1848` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.

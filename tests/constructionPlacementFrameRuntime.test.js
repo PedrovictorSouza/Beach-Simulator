@@ -2,11 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createConstructionPlacementFrameRuntime,
-  resolveActiveConstructionPlacementPreviews
+  resolveActiveConstructionPlacementPreviews,
+  syncPlacementPreviewPositionToPlayer
 } from "../app/runtime/construction/constructionPlacementFrameRuntime.js";
 
 function createRuntime({
   controls = {},
+  getMovementAxes = () => ({ up: [0, 0, 1] }),
+  getPlayerPosition = () => session.playerCharacter?.getPosition?.() || null,
   session = {},
   workbenchRotationRuntime = { getSelection: () => null },
   callbacks = {}
@@ -22,6 +25,8 @@ function createRuntime({
     session,
     placementContracts: ["contract"],
     workbenchRotationRuntime,
+    getMovementAxes,
+    getPlayerPosition,
     callbacks: {
       rotateActivePlacementPreview: vi.fn(() => null),
       rotateNearbyWorkbenchConstruction: vi.fn(),
@@ -49,6 +54,61 @@ function createRuntime({
 }
 
 describe("construction placement frame runtime", () => {
+  it("syncs active placement preview position to the player with default forward spacing", () => {
+    const preview = {
+      active: true,
+      position: [1.05, 0.02, 2.05]
+    };
+
+    expect(syncPlacementPreviewPositionToPlayer({
+      preview,
+      playerPosition: [1, 0.04, 2],
+      defaultForwardDistance: 2,
+      getMovementAxes: () => ({ up: [0, 0, 1] })
+    })).toBe(preview);
+
+    expect(preview.followPlayerOffset).toEqual([0, 0, 2]);
+    expect(preview.position).toEqual([1, 0.02, 4]);
+  });
+
+  it("keeps existing placement preview offset and clamps to finite bounds", () => {
+    const preview = {
+      active: true,
+      position: [1, 0.03, 2],
+      followPlayerOffset: [10, 0, -10],
+      bounds: {
+        minX: -1,
+        maxX: 3,
+        minZ: -2,
+        maxZ: 4
+      }
+    };
+
+    syncPlacementPreviewPositionToPlayer({
+      preview,
+      playerPosition: [1, 0.04, 2]
+    });
+
+    expect(preview.followPlayerOffset).toEqual([10, 0, -10]);
+    expect(preview.position).toEqual([3, 0.03, -2]);
+  });
+
+  it("exposes placement preview position sync through the construction frame runtime", () => {
+    const preview = {
+      active: true,
+      position: [2.05, 0.02, 3.05]
+    };
+    const runtime = createRuntime({
+      getPlayerPosition: () => [2, 0.04, 3],
+      getMovementAxes: () => ({ up: [1, 0, 0] })
+    });
+
+    runtime.syncPlacementPreviewPositionToPlayer(preview, 1.5);
+
+    expect(preview.followPlayerOffset).toEqual([1.5, 0, 0]);
+    expect(preview.position).toEqual([3.5, 0.02, 3]);
+  });
+
   it("keeps only placement previews whose session preview is still active", () => {
     expect(resolveActiveConstructionPlacementPreviews({
       session: {

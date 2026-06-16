@@ -1,3 +1,64 @@
+import { hasFinitePlacementBounds } from "./placementGeometry.js";
+
+function clampNumber(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function syncPlacementPreviewPositionToPlayer({
+  preview = null,
+  playerPosition = null,
+  getMovementAxes = () => null,
+  defaultForwardDistance = 0
+} = {}) {
+  if (!preview?.active || !Array.isArray(playerPosition)) {
+    return null;
+  }
+  const playerX = Number(playerPosition[0]);
+  const playerZ = Number(playerPosition[2]);
+  if (!Number.isFinite(playerX) || !Number.isFinite(playerZ)) {
+    return null;
+  }
+
+  if (!Array.isArray(preview.followPlayerOffset)) {
+    const position = Array.isArray(preview.position) ?
+      preview.position :
+      playerPosition;
+    const positionX = Number(position[0]);
+    const positionZ = Number(position[2]);
+    const offset = [
+      (Number.isFinite(positionX) ? positionX : playerX) - playerX,
+      0,
+      (Number.isFinite(positionZ) ? positionZ : playerZ) - playerZ
+    ];
+    const offsetLength = Math.hypot(offset[0], offset[2]);
+
+    if (offsetLength < 0.35 && defaultForwardDistance > 0) {
+      const movementAxes = getMovementAxes();
+      const forwardX = Number(movementAxes?.up?.[0]) || 0;
+      const forwardZ = Number(movementAxes?.up?.[2]) || 0;
+      const forwardLength = Math.hypot(forwardX, forwardZ) || 1;
+      offset[0] = (forwardX / forwardLength) * defaultForwardDistance;
+      offset[2] = (forwardZ / forwardLength) * defaultForwardDistance;
+    }
+
+    preview.followPlayerOffset = offset;
+  }
+
+  const nextPosition = [
+    playerX + Number(preview.followPlayerOffset[0] || 0),
+    Array.isArray(preview.position) ? Number(preview.position[1] || 0.02) : 0.02,
+    playerZ + Number(preview.followPlayerOffset[2] || 0)
+  ];
+
+  if (hasFinitePlacementBounds(preview.bounds)) {
+    nextPosition[0] = clampNumber(nextPosition[0], preview.bounds.minX, preview.bounds.maxX);
+    nextPosition[2] = clampNumber(nextPosition[2], preview.bounds.minZ, preview.bounds.maxZ);
+  }
+
+  preview.position = nextPosition;
+  return preview;
+}
+
 export function resolveActiveConstructionPlacementPreviews({
   session = {},
   solarStationPlacementPreview = null,
@@ -23,6 +84,8 @@ export function resolveActiveConstructionPlacementPreviews({
 
 export function createConstructionPlacementFrameRuntime({
   controls,
+  getMovementAxes = () => null,
+  getPlayerPosition = () => session?.playerCharacter?.getPosition?.() || null,
   session,
   placementContracts = [],
   workbenchRotationRuntime,
@@ -168,7 +231,17 @@ export function createConstructionPlacementFrameRuntime({
     return { freeBlockPreviewTarget };
   }
 
+  function syncPlacementPreviewToPlayer(preview, defaultForwardDistance = 0) {
+    return syncPlacementPreviewPositionToPlayer({
+      preview,
+      playerPosition: getPlayerPosition(),
+      getMovementAxes,
+      defaultForwardDistance
+    });
+  }
+
   return {
+    syncPlacementPreviewPositionToPlayer: syncPlacementPreviewToPlayer,
     updatePlacementControlsAndPreviews,
     updateFreeBlockPreview
   };
