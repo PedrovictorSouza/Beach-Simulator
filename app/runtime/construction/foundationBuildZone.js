@@ -5,6 +5,7 @@ import {
   doFoundationBuildZoneRectsOverlap,
   getFoundationBuildZoneCellKeys,
   getFoundationBuildZoneSignature,
+  getFoundationBuildZoneWorldRect as getFoundationBuildZoneWorldRectWithGrid,
   isFoundationBuildZoneOriginInsideGrid,
   normalizeFoundationBuildZoneOriginCell
 } from "./placementGeometry.js";
@@ -333,6 +334,224 @@ export function buildFoundationBuildZoneBlockers({
   }
 
   return blockers;
+}
+
+function getFoundationRuntimeNow() {
+  return typeof performance !== "undefined" && typeof performance.now === "function" ?
+    performance.now() :
+    Date.now();
+}
+
+export function createFoundationBuildZoneRuntime({
+  session = null,
+  controls = null,
+  rendering = null,
+  freeBlockBuildSessionRuntime = null,
+  worldObjectPlacementBlockerRuntime = null,
+  groundActionFeedbackRuntime = null,
+  config = {},
+  callbacks = {}
+} = {}) {
+  const targetSession = session || {};
+  const targetControls = controls || {};
+  const wallBlockType = config.wallBlockType || "wall";
+  const getActorPosition = callbacks.getActorPosition || ((actor) => actor?.position || null);
+  const getPerformanceNow = callbacks.getPerformanceNow || getFoundationRuntimeNow;
+  const getNowMs = callbacks.getNowMs || (() => Date.now());
+
+  function getGridConfig() {
+    return freeBlockBuildSessionRuntime?.getGridConfig?.() || null;
+  }
+
+  function getWorldRect(buildZone = null) {
+    return getFoundationBuildZoneWorldRectWithGrid(buildZone, getGridConfig());
+  }
+
+  function isFreeBlockAllowed(instance, buildZone) {
+    return isFoundationFreeBlockAllowedInZone({
+      instance,
+      buildZone,
+      buildState: targetSession.freeBlockBuildState
+    });
+  }
+
+  function getProgressCount(buildZone = null) {
+    return freeBlockBuildSessionRuntime?.getFoundationBuildZoneProgressCount?.({
+      buildZone,
+      blockType: wallBlockType
+    }) || 0;
+  }
+
+  function getBlockers(buildZone = null) {
+    return buildFoundationBuildZoneBlockers({
+      terrainColliders: callbacks.getTerrainColliders?.() || [],
+      freeBlockInstances: targetSession.freeBlockInstances || [],
+      isFoundationFreeBlockAllowed: (instance) => isFreeBlockAllowed(instance, buildZone),
+      worldObjectBlockers: worldObjectPlacementBlockerRuntime?.getBlockers?.() || [],
+      playerPosition: targetSession.playerCharacter?.getPosition?.() || null,
+      npcActors: targetSession.npcActors || [],
+      isNpcActive: (npcActor) => rendering?.isNpcActive?.(npcActor, targetControls.storyState),
+      getActorPosition,
+      interactables: targetSession.interactables || [],
+      isInteractableActive: (interactable) =>
+        rendering?.isInteractableActive?.(interactable, targetControls.storyState),
+      companions: [
+        targetSession.actTwoSquirtle,
+        targetSession.bulbasaurEncounter,
+        targetSession.timburrEncounter,
+        targetSession.charmanderEncounter
+      ],
+      resourceNodes: targetSession.resourceNodes || [],
+      isResourceNodeActive: (resourceNode) =>
+        rendering?.isResourceNodeActive?.(resourceNode, targetControls.storyState),
+      drops: [
+        ...(targetSession.woodDrops || []),
+        ...(targetSession.fieldDrops || []),
+        ...(targetSession.leppaBerryDrops || [])
+      ],
+      groundPatches: [
+        ...(targetSession.groundGrassPatches || []),
+        ...(targetSession.groundFlowerPatches || [])
+      ]
+    });
+  }
+
+  function isBuildZoneBlocked(buildZone = null) {
+    return isBuilderTutorialFoundationBuildZoneBlocked({
+      zoneRect: getWorldRect(buildZone),
+      blockers: getBlockers(buildZone)
+    });
+  }
+
+  function findAvailableBuildZone() {
+    return findAvailableBuilderTutorialFoundationBuildZone({
+      gridConfig: getGridConfig(),
+      isBuildZoneBlocked
+    });
+  }
+
+  function syncActiveBuildZone() {
+    return freeBlockBuildSessionRuntime?.syncActiveBuildZone?.({
+      flags: targetControls.storyState?.flags,
+      getFoundationProgressCount: getProgressCount,
+      isBuildZoneBlocked,
+      findAvailableBuildZone
+    }) || null;
+  }
+
+  function getActiveBuildZone() {
+    return syncActiveBuildZone();
+  }
+
+  function isBuildZoneUnavailable() {
+    return Boolean(freeBlockBuildSessionRuntime?.isBuildZoneUnavailable?.());
+  }
+
+  function getBuildZoneCenterPosition(buildZone = getActiveBuildZone()) {
+    return freeBlockBuildSessionRuntime?.getBuildZoneCenterPosition?.({ buildZone }) || null;
+  }
+
+  function shouldShow(activeQuest = null, activeSystemQuest = null) {
+    return shouldShowFoundationBuildZone({
+      activeQuest,
+      activeSystemQuest
+    });
+  }
+
+  function buildGroundCells(activeQuest = null, activeSystemQuest = null) {
+    if (!shouldShow(activeQuest, activeSystemQuest)) {
+      return [];
+    }
+
+    const buildZone = getActiveBuildZone();
+    if (!Array.isArray(buildZone?.borderCells)) {
+      return [];
+    }
+
+    return freeBlockBuildSessionRuntime?.buildFoundationBuildZoneGroundCells?.({
+      buildZone,
+      zoneUnavailable: isBuildZoneUnavailable(),
+      wallBlockType
+    }) || [];
+  }
+
+  function buildCompletionInteriorGroundCells() {
+    const buildZone = getActiveBuildZone();
+    if (!Array.isArray(buildZone?.interiorCells) || !buildZone.interiorCells.length) {
+      return [];
+    }
+
+    return freeBlockBuildSessionRuntime?.buildFoundationCompletionInteriorGroundCells?.({
+      buildZone
+    }) || [];
+  }
+
+  function triggerCompleteEffects(now = getPerformanceNow()) {
+    const flags = targetControls.storyState?.flags;
+    if (!flags) {
+      return;
+    }
+
+    const effects = applyFoundationBuildZoneCompleteEffects({
+      flags,
+      position: getBuildZoneCenterPosition(),
+      constructionCloudBursts: targetSession.constructionCloudBursts,
+      nowMs: getNowMs()
+    });
+
+    if (effects.triggerInteriorFeedback) {
+      groundActionFeedbackRuntime?.triggerFeedback?.(
+        buildCompletionInteriorGroundCells(),
+        effects.feedbackAbilityId,
+        now,
+        { durationMs: effects.feedbackDurationMs }
+      );
+    }
+
+    if (effects.constructionCloudBursts) {
+      targetSession.constructionCloudBursts = effects.constructionCloudBursts;
+    }
+  }
+
+  function syncCompletionEffects(now = getPerformanceNow()) {
+    const progress = freeBlockBuildSessionRuntime?.getBuildZoneProgress?.({
+      buildZone: getActiveBuildZone(),
+      blockType: wallBlockType
+    }) || { complete: false };
+
+    if (progress.complete) {
+      triggerCompleteEffects(now);
+    }
+
+    return progress;
+  }
+
+  function canStack() {
+    return Boolean(freeBlockBuildSessionRuntime?.canStackFreeBlockPlacement?.({
+      buildZone: getActiveBuildZone(),
+      blockType: wallBlockType
+    }));
+  }
+
+  return {
+    buildCompletionInteriorGroundCells,
+    buildGroundCells,
+    canStack,
+    findAvailableBuildZone,
+    getActiveBuildZone,
+    getBlockers,
+    getBuildZoneCenterPosition,
+    getGridConfig,
+    getProgressCount,
+    getWorldRect,
+    isBuildZoneBlocked,
+    isBuildZoneUnavailable,
+    isFreeBlockAllowed,
+    shouldShow,
+    syncActiveBuildZone,
+    syncCompletionEffects,
+    triggerCompleteEffects
+  };
 }
 
 export function isBuilderTutorialFoundationBuildZoneBlocked({

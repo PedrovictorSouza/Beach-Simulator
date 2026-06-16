@@ -6,6 +6,7 @@ import {
   buildBuilderTutorialFoundationCandidateOrigins,
   canStackFreeBlockPlacement,
   createBuilderTutorialFoundationBuildZone,
+  createFoundationBuildZoneRuntime,
   createUnavailableFoundationBuildZonePlacementResult,
   createUnavailableFoundationBuildZoneValidation,
   findAvailableBuilderTutorialFoundationBuildZone,
@@ -127,6 +128,210 @@ describe("foundation build zone", () => {
       minZ: 0,
       maxZ: 4
     });
+  });
+
+  it("creates a runtime that wires foundation zone sources and completion effects", () => {
+    const buildZone = createBuilderTutorialFoundationBuildZone({ x: 0, y: 0 });
+    const feedbackCalls = [];
+    const session = {
+      freeBlockBuildState: {
+        getBlockAtCell: () => null
+      },
+      freeBlockInstances: [
+        {
+          id: "placed-block",
+          active: true,
+          offset: [3, 0, 3]
+        }
+      ],
+      playerCharacter: {
+        getPosition: () => [1, 0, 1]
+      },
+      npcActors: [
+        {
+          id: "npc",
+          position: [2, 0, 2]
+        }
+      ],
+      interactables: [
+        {
+          id: "terminal",
+          position: [4, 0, 4]
+        }
+      ],
+      actTwoSquirtle: {
+        id: "hydro",
+        position: [5, 0, 5]
+      },
+      resourceNodes: [
+        {
+          id: "wood",
+          position: [6, 0, 6]
+        }
+      ],
+      woodDrops: [
+        {
+          id: "drop",
+          position: [7, 0, 7]
+        }
+      ],
+      groundGrassPatches: [
+        {
+          id: "grass",
+          position: [8, 0, 8]
+        }
+      ],
+      groundFlowerPatches: [],
+      constructionCloudBursts: [
+        {
+          id: "active",
+          position: [9, 0, 9],
+          startedAt: 450,
+          durationMs: 100
+        }
+      ]
+    };
+    const controls = {
+      storyState: {
+        flags: {}
+      }
+    };
+    const freeBlockBuildSessionRuntime = {
+      getGridConfig: () => ({
+        cellSize: 1,
+        origin: { x: 0, y: 0, z: 0 },
+        width: 16,
+        height: 16,
+        visualOffsetY: 0.03
+      }),
+      getFoundationBuildZoneProgressCount: () => 0,
+      syncActiveBuildZone: ({
+        flags,
+        getFoundationProgressCount,
+        isBuildZoneBlocked
+      }) => {
+        expect(flags).toBe(controls.storyState.flags);
+        expect(getFoundationProgressCount(buildZone)).toBe(0);
+        expect(isBuildZoneBlocked(buildZone)).toBe(true);
+        session.activeFreeBlockBuildZone = buildZone;
+        session.freeBlockBuildZoneUnavailable = false;
+        return buildZone;
+      },
+      isBuildZoneUnavailable: () => false,
+      getBuildZoneCenterPosition: () => [2.5, 0.03, 2.5],
+      buildFoundationBuildZoneGroundCells: () => [
+        {
+          id: "foundation-ground"
+        }
+      ],
+      buildFoundationCompletionInteriorGroundCells: () => [
+        {
+          id: "foundation-interior"
+        }
+      ],
+      getBuildZoneProgress: () => ({
+        complete: true
+      }),
+      canStackFreeBlockPlacement: () => true
+    };
+    const runtime = createFoundationBuildZoneRuntime({
+      session,
+      controls,
+      rendering: {
+        isNpcActive: () => true,
+        isInteractableActive: () => true,
+        isResourceNodeActive: () => true
+      },
+      freeBlockBuildSessionRuntime,
+      worldObjectPlacementBlockerRuntime: {
+        getBlockers: () => [
+          {
+            id: "tree",
+            kind: "tree",
+            position: [0, 0, 0],
+            size: [1, 1]
+          }
+        ]
+      },
+      groundActionFeedbackRuntime: {
+        triggerFeedback: (...args) => feedbackCalls.push(args)
+      },
+      config: {
+        wallBlockType: "wall"
+      },
+      callbacks: {
+        getTerrainColliders: () => [
+          {
+            id: "rock",
+            kind: "rock",
+            position: [0, 0, 0],
+            size: [1, 1, 1]
+          }
+        ],
+        getActorPosition: (actor) => actor.position,
+        getPerformanceNow: () => 123,
+        getNowMs: () => 500
+      }
+    });
+
+    expect(runtime.getBlockers(buildZone).map((blocker) => blocker.kind)).toEqual([
+      "rock",
+      "freeBlock",
+      "tree",
+      "player",
+      "npc",
+      "interactable",
+      "companion",
+      "resource",
+      "drop",
+      "groundPatch"
+    ]);
+    expect(runtime.getActiveBuildZone()).toBe(buildZone);
+    expect(runtime.buildGroundCells(
+      { id: "build-first-base" },
+      null
+    )).toEqual([
+      {
+        id: "foundation-ground"
+      }
+    ]);
+    expect(runtime.canStack()).toBe(true);
+
+    expect(runtime.syncCompletionEffects()).toEqual({
+      complete: true
+    });
+    expect(feedbackCalls).toEqual([
+      [
+        [
+          {
+            id: "foundation-interior"
+          }
+        ],
+        "foundationComplete",
+        123,
+        {
+          durationMs: 3000
+        }
+      ]
+    ]);
+    expect(controls.storyState.flags).toEqual({
+      builderTutorialFoundationInteriorEffectPlayed: true,
+      builderTutorialFoundationCompleteEffectPlayed: true
+    });
+    expect(session.constructionCloudBursts).toEqual([
+      {
+        id: "active",
+        position: [9, 0, 9],
+        startedAt: 450,
+        durationMs: 100
+      },
+      {
+        id: "builder-tutorial-foundation-complete",
+        position: [2.5, 0.03, 2.5],
+        startedAt: 500,
+        durationMs: 1800
+      }
+    ]);
   });
 
   it("detects blocked builder tutorial foundation zones by rect overlap", () => {

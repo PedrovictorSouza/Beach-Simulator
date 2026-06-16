@@ -15,14 +15,9 @@ import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
 import { createSquirtleReassemblyRuntime } from "./companions/squirtleReassemblyRuntime.js";
 import {
-  buildFoundationBuildZoneBlockers as buildFoundationBuildZoneBlockersWithSources,
-  applyFoundationBuildZoneCompleteEffects,
+  createFoundationBuildZoneRuntime,
   createUnavailableFoundationBuildZoneValidation,
-  findAvailableBuilderTutorialFoundationBuildZone as findAvailableBuilderTutorialFoundationBuildZoneWithConfig,
-  getBuilderTutorialFoundationZoneSignature,
-  isBuilderTutorialFoundationBuildZoneBlocked as isBuilderTutorialFoundationBuildZoneBlockedWithBlockers,
-  isFoundationFreeBlockAllowedInZone as isFoundationFreeBlockAllowedInZoneWithState,
-  shouldShowFoundationBuildZone as shouldShowFoundationBuildZoneWithState
+  getBuilderTutorialFoundationZoneSignature
 } from "./construction/foundationBuildZone.js";
 import {
   tryRemoveNearbyFreeBlock as tryRemoveNearbyFreeBlockWithRuntime
@@ -75,7 +70,6 @@ import { createWorldObjectPlacementBlockerRuntime } from "./construction/worldOb
 import {
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
   doPlacementRectsOverlap,
-  getFoundationBuildZoneWorldRect as getFoundationBuildZoneWorldRectWithGrid,
   getFreeBlockCellWorldPosition as getFreeBlockCellWorldPositionWithGrid,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
@@ -1408,6 +1402,21 @@ export function startGameLoop({
     fieldToolTargetPulseMinScale: FIELD_TOOL_TARGET_PULSE_MIN_SCALE,
     fieldToolTargetPulseFlashBrightness: FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS
   });
+  const foundationBuildZoneRuntime = createFoundationBuildZoneRuntime({
+    session,
+    controls,
+    rendering,
+    freeBlockBuildSessionRuntime,
+    worldObjectPlacementBlockerRuntime,
+    groundActionFeedbackRuntime,
+    config: {
+      wallBlockType: FREE_BLOCK_TYPES.WALL
+    },
+    callbacks: {
+      getTerrainColliders: getPlayerConstructionTerrainColliders,
+      getActorPosition: getActorDebugPosition
+    }
+  });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
     controls,
@@ -1460,7 +1469,7 @@ export function startGameLoop({
       session,
       workbenchPosition: WORKBENCH_POSITION,
       ruinedPokemonCenterPosition: RUINED_POKEMON_CENTER_POSITION,
-      getFreeBlockBuildZoneCenterPosition
+      getFreeBlockBuildZoneCenterPosition: foundationBuildZoneRuntime.getBuildZoneCenterPosition
     });
   }
 
@@ -1725,7 +1734,7 @@ export function startGameLoop({
   }
 
   function isFoundationBuildMissionActive() {
-    return shouldShowFoundationBuildZone(
+    return foundationBuildZoneRuntime.shouldShow(
       gameplay.getActiveQuest?.(controls.storyState) || null,
       gameplay.getActiveSystemQuest?.() || null
     );
@@ -1740,8 +1749,8 @@ export function startGameLoop({
       });
     }
 
-    const buildZone = getActiveFreeBlockBuildZone();
-    const zoneAvailable = Boolean(buildZone && !isFoundationBuildZoneUnavailable());
+    const buildZone = foundationBuildZoneRuntime.getActiveBuildZone();
+    const zoneAvailable = Boolean(buildZone && !foundationBuildZoneRuntime.isBuildZoneUnavailable());
     if (!zoneAvailable) {
       return foundationBuildZoneCameraFocusRuntime.update({
         now,
@@ -1758,7 +1767,7 @@ export function startGameLoop({
       flags: controls.storyState?.flags || {},
       startFocus: () => {
         const pose = createFoundationBuildZoneCameraFocusPose({
-          position: getFreeBlockBuildZoneCenterPosition(buildZone),
+          position: foundationBuildZoneRuntime.getBuildZoneCenterPosition(buildZone),
           direction: cameraOrbit.getDirection?.() || camera.getPose?.()?.direction
         });
         if (!pose) {
@@ -1988,93 +1997,6 @@ export function startGameLoop({
     );
   }
 
-  function getFoundationBuildZoneWorldRect(buildZone = null) {
-    return getFoundationBuildZoneWorldRectWithGrid(buildZone, getFreeBlockBuildGridConfig());
-  }
-
-  function isFoundationFreeBlockAllowedInZone(instance, buildZone) {
-    return isFoundationFreeBlockAllowedInZoneWithState({
-      instance,
-      buildZone,
-      buildState: session.freeBlockBuildState
-    });
-  }
-
-  function getFoundationBuildZoneProgressCount(buildZone = null) {
-    return freeBlockBuildSessionRuntime.getFoundationBuildZoneProgressCount({
-      buildZone,
-      blockType: FREE_BLOCK_TYPES.WALL
-    });
-  }
-
-  function getFoundationBuildZoneBlockers(buildZone = null) {
-    return buildFoundationBuildZoneBlockersWithSources({
-      terrainColliders: getPlayerConstructionTerrainColliders(),
-      freeBlockInstances: session.freeBlockInstances || [],
-      isFoundationFreeBlockAllowed: (instance) => isFoundationFreeBlockAllowedInZone(instance, buildZone),
-      worldObjectBlockers: worldObjectPlacementBlockerRuntime.getBlockers(),
-      playerPosition: session.playerCharacter?.getPosition?.() || null,
-      npcActors: session.npcActors || [],
-      isNpcActive: (npcActor) => rendering?.isNpcActive?.(npcActor, controls.storyState),
-      getActorPosition: getActorDebugPosition,
-      interactables: session.interactables || [],
-      isInteractableActive: (interactable) => rendering?.isInteractableActive?.(interactable, controls.storyState),
-      companions: [
-        session.actTwoSquirtle,
-        session.bulbasaurEncounter,
-        session.timburrEncounter,
-        session.charmanderEncounter
-      ],
-      resourceNodes: session.resourceNodes || [],
-      isResourceNodeActive: (resourceNode) => rendering?.isResourceNodeActive?.(resourceNode, controls.storyState),
-      drops: [
-        ...(session.woodDrops || []),
-        ...(session.fieldDrops || []),
-        ...(session.leppaBerryDrops || [])
-      ],
-      groundPatches: [
-        ...(session.groundGrassPatches || []),
-        ...(session.groundFlowerPatches || [])
-      ]
-    });
-  }
-
-  function isBuilderTutorialFoundationBuildZoneBlocked(buildZone = null) {
-    const zoneRect = getFoundationBuildZoneWorldRect(buildZone);
-    return isBuilderTutorialFoundationBuildZoneBlockedWithBlockers({
-      zoneRect,
-      blockers: getFoundationBuildZoneBlockers(buildZone)
-    });
-  }
-
-  function findAvailableBuilderTutorialFoundationBuildZone() {
-    return findAvailableBuilderTutorialFoundationBuildZoneWithConfig({
-      gridConfig: getFreeBlockBuildGridConfig(),
-      isBuildZoneBlocked: isBuilderTutorialFoundationBuildZoneBlocked
-    });
-  }
-
-  function syncActiveFreeBlockBuildZone() {
-    return freeBlockBuildSessionRuntime.syncActiveBuildZone({
-      flags: controls.storyState?.flags,
-      getFoundationProgressCount: getFoundationBuildZoneProgressCount,
-      isBuildZoneBlocked: isBuilderTutorialFoundationBuildZoneBlocked,
-      findAvailableBuildZone: findAvailableBuilderTutorialFoundationBuildZone
-    });
-  }
-
-  function getActiveFreeBlockBuildZone() {
-    return syncActiveFreeBlockBuildZone();
-  }
-
-  function isFoundationBuildZoneUnavailable() {
-    return freeBlockBuildSessionRuntime.isBuildZoneUnavailable();
-  }
-
-  function getFreeBlockBuildZoneCenterPosition(buildZone = getActiveFreeBlockBuildZone()) {
-    return freeBlockBuildSessionRuntime.getBuildZoneCenterPosition({ buildZone });
-  }
-
   function getFreeBlockBuildCostMarker(previewTarget = null) {
     const materialCost = getFreeBlockBuildController()?.getSelectedBlockMaterialCost?.();
     return buildFreeBlockBuildCostMarker({
@@ -2086,87 +2008,6 @@ export function startGameLoop({
 
   function getFreeBlockBuildController() {
     return freeBlockBuildSessionRuntime.getController();
-  }
-
-  function shouldShowFoundationBuildZone(activeQuest = null, activeSystemQuest = null) {
-    return shouldShowFoundationBuildZoneWithState({
-      activeQuest,
-      activeSystemQuest
-    });
-  }
-
-  function buildFoundationBuildZoneGroundCells(activeQuest = null, activeSystemQuest = null) {
-    if (!shouldShowFoundationBuildZone(activeQuest, activeSystemQuest)) {
-      return [];
-    }
-
-    const buildZone = getActiveFreeBlockBuildZone();
-    if (!Array.isArray(buildZone?.borderCells)) {
-      return [];
-    }
-
-    return freeBlockBuildSessionRuntime.buildFoundationBuildZoneGroundCells({
-      buildZone,
-      zoneUnavailable: isFoundationBuildZoneUnavailable(),
-      wallBlockType: FREE_BLOCK_TYPES.WALL
-    });
-  }
-
-  function buildFoundationCompletionInteriorGroundCells() {
-    const buildZone = getActiveFreeBlockBuildZone();
-    if (!Array.isArray(buildZone?.interiorCells) || !buildZone.interiorCells.length) {
-      return [];
-    }
-
-    return freeBlockBuildSessionRuntime.buildFoundationCompletionInteriorGroundCells({ buildZone });
-  }
-
-  function triggerFoundationBuildZoneCompleteEffects(now = performance.now()) {
-    const flags = controls.storyState?.flags;
-    if (!flags) {
-      return;
-    }
-
-    const position = getFreeBlockBuildZoneCenterPosition();
-    const effects = applyFoundationBuildZoneCompleteEffects({
-      flags,
-      position,
-      constructionCloudBursts: session.constructionCloudBursts,
-      nowMs: Date.now()
-    });
-
-    if (effects.triggerInteriorFeedback) {
-      groundActionFeedbackRuntime.triggerFeedback(
-        buildFoundationCompletionInteriorGroundCells(),
-        effects.feedbackAbilityId,
-        now,
-        { durationMs: effects.feedbackDurationMs }
-      );
-    }
-
-    if (effects.constructionCloudBursts) {
-      session.constructionCloudBursts = effects.constructionCloudBursts;
-    }
-  }
-
-  function syncFoundationBuildZoneCompletionEffects(now = performance.now()) {
-    const progress = freeBlockBuildSessionRuntime.getBuildZoneProgress({
-      buildZone: getActiveFreeBlockBuildZone(),
-      blockType: FREE_BLOCK_TYPES.WALL
-    });
-
-    if (progress.complete) {
-      triggerFoundationBuildZoneCompleteEffects(now);
-    }
-
-    return progress;
-  }
-
-  function canStackFreeBlockPlacement() {
-    return freeBlockBuildSessionRuntime.canStackFreeBlockPlacement({
-      buildZone: getActiveFreeBlockBuildZone(),
-      blockType: FREE_BLOCK_TYPES.WALL
-    });
   }
 
   function getFreeBlockCellWorldPosition(cell, gridSystem = createGridSystem(getFreeBlockBuildGridConfig())) {
@@ -2208,7 +2049,7 @@ export function startGameLoop({
           controls.storyState.flags.firstFreeBlockPlaced = true;
         },
         onFoundationWallBuilt: (event) => controls.onFoundationWallBuilt?.(event),
-        syncFoundationCompletionEffects: syncFoundationBuildZoneCompletionEffects,
+        syncFoundationCompletionEffects: foundationBuildZoneRuntime.syncCompletionEffects,
         syncFreeBlockBuildSnapshot,
         playPlacedSound: playInstanceObjectSfx,
         playInvalidSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
@@ -2222,13 +2063,13 @@ export function startGameLoop({
     return tryPlaceFreeBlockFromBuildInputWithRuntime({
       controller: getFreeBlockBuildController(),
       placement: {
-        buildZoneUnavailable: isFoundationBuildZoneUnavailable(),
+        buildZoneUnavailable: foundationBuildZoneRuntime.isBuildZoneUnavailable(),
         blockType: FREE_BLOCK_TYPES.WALL,
         playerPosition,
         playerYaw: session.playerModelInstance?.yaw,
         inventory: controls.inventory,
-        getBuildZone: getActiveFreeBlockBuildZone,
-        canStack: canStackFreeBlockPlacement
+        getBuildZone: foundationBuildZoneRuntime.getActiveBuildZone,
+        canStack: foundationBuildZoneRuntime.canStack
       },
       effects: {
         movePlayerAway: movePlayerAwayFromPlacedFreeBlock,
@@ -2246,10 +2087,10 @@ export function startGameLoop({
       gridSystem,
       playerPosition,
       playerYaw,
-      buildZone: getActiveFreeBlockBuildZone(),
-      allowStacking: canStackFreeBlockPlacement(),
+      buildZone: foundationBuildZoneRuntime.getActiveBuildZone(),
+      allowStacking: foundationBuildZoneRuntime.canStack(),
       inventory: controls.inventory,
-      buildZoneUnavailable: isFoundationBuildZoneUnavailable(),
+      buildZoneUnavailable: foundationBuildZoneRuntime.isBuildZoneUnavailable(),
       resolveRawTargetCell: () => resolveFreeBlockTargetCell({
         gridSystem,
         playerPosition,
@@ -2290,12 +2131,12 @@ export function startGameLoop({
       action,
       controller: getFreeBlockBuildController(),
       placement: {
-        buildZoneUnavailable: isFoundationBuildZoneUnavailable(),
+        buildZoneUnavailable: foundationBuildZoneRuntime.isBuildZoneUnavailable(),
         blockType: FREE_BLOCK_TYPES.WALL,
         playerPosition,
         inventory: controls.inventory,
-        getBuildZone: getActiveFreeBlockBuildZone,
-        canStack: canStackFreeBlockPlacement
+        getBuildZone: foundationBuildZoneRuntime.getActiveBuildZone,
+        canStack: foundationBuildZoneRuntime.canStack
       },
       effects: {
         movePlayerAway: movePlayerAwayFromPlacedFreeBlock,
@@ -3644,7 +3485,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         groundGrassPatches: session.groundGrassPatches,
         groundPurifiedInstances: session.groundPurifiedInstances
       }),
-      buildFoundationBuildZoneGroundCells,
+      buildFoundationBuildZoneGroundCells: foundationBuildZoneRuntime.buildGroundCells,
       getWorldCellPlannerSelectedGroundCell
     });
     ({

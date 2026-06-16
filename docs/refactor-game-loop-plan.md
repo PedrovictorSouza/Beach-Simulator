@@ -370,6 +370,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move construction placement blocker wiring into the `construction`
   boundary.
+- Completed: move foundation build-zone runtime wiring into the `construction`
+  boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -14401,5 +14403,109 @@ npm test
 
 - `306` test files passed, `1` failed
 - `1850` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
+### Foundation Build Zone Runtime Wiring
+
+Created `createFoundationBuildZoneRuntime(...)` inside the existing
+`app/runtime/construction/foundationBuildZone.js` domain module.
+
+Boundary classification: `construction`, focused on Builder Bot foundation
+zone state, blocker source collection, active-zone resolution, completion
+effects and Free Block foundation policy.
+
+Why this cut was larger:
+
+1. The previous placement-blocker cut removed local wrappers but only changed
+   line count modestly.
+2. This cut moved a full responsibility cluster out of `gameLoop.js`, not just
+   one helper.
+3. The runtime still receives explicit dependencies from `startGameLoop()`, so
+   `gameLoop.js` remains the composition root and the frame order did not move.
+
+Removed from `gameLoop.js`:
+
+- local foundation zone world-rect wrapper;
+- local foundation free-block allowlist wrapper;
+- local foundation progress-count wrapper;
+- local foundation blocker source assembly;
+- local builder tutorial blocked-zone lookup;
+- local available-zone search wiring;
+- local active-zone sync wrapper;
+- local foundation zone unavailable wrapper;
+- local build-zone center wrapper;
+- local foundation visibility wrapper;
+- local foundation ground-cell builder;
+- local foundation completion interior builder;
+- local foundation completion effect dispatcher;
+- local foundation completion sync wrapper;
+- local Free Block stacking wrapper.
+
+Kept in `gameLoop.js`:
+
+- Free Block input, preview and placement call sites;
+- `startGameLoop()` dependency wiring;
+- camera focus trigger callback, because it starts camera transitions and clears
+  input;
+- placement result side-effect callbacks for sounds, HUD notices and autosave
+  hooks;
+- all gameplay tuning constants and input mapping.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was around `4030` lines in the
+  current working tree.
+- After this cut, `app/runtime/gameLoop.js` is `3871` lines.
+
+Tests updated:
+
+- `tests/foundationBuildZone.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/foundationBuildZone.test.js
+```
+
+The first run failed because `createFoundationBuildZoneRuntime(...)` did not
+exist yet. After adding the runtime factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/foundationBuildZone.test.js
+npm test -- --run tests/foundationBuildZone.test.js tests/freeBlockBuildSessionRuntime.test.js tests/freeBlockBuildSystem.test.js tests/freeBlockPreview.test.js tests/freeBlockPlacementResult.test.js tests/freeBlockRemoval.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Focused result:
+
+- `7` test files passed
+- `99` tests passed
+
+Full-suite result:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1893` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` extra scene-flow failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+The scene-flow failure was reproduced in isolation:
+
+```sh
+npm test -- --run tests/sceneFlowRuntimeCompletion.test.js
+```
+
+That failure is outside this `construction` cut. The working tree already had
+unrelated dirty changes in `startScreen.js` and
+`app/bootstrap/createApplicationRuntime.js`, which are the relevant scene-flow
+files for that isolated failure.
 
 Manual gameplay validation remains pending for this cut.
