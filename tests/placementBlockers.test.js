@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  createCompanionConstructionBlockerRuntime,
   createPlayerConstructionPlacementBlockers,
   createPlayerConstructionTerrainColliders,
   getRotatedFootprintSize,
@@ -137,6 +138,46 @@ describe("placement blockers", () => {
     expect(isPositionBlockedByTerrainColliders([10, 0.04, 3], colliders)).toBe(true);
     expect(isPositionBlockedByTerrainColliders([16, 0.04, 3], colliders)).toBe(false);
     expect(isPositionBlockedByTerrainColliders([10, 2.4, 3], colliders)).toBe(false);
+  });
+
+  it("keeps companion construction movement blocking behind a small runtime", () => {
+    const colliders = createPlayerConstructionTerrainColliders({
+      session: {
+        leafDen: {
+          position: [10, 0.02, 3]
+        }
+      },
+      storyState: {
+        flags: {
+          leafDenBuilt: true
+        }
+      }
+    });
+    const playBlockedSound = vi.fn();
+    const pushNotice = vi.fn();
+    const runtime = createCompanionConstructionBlockerRuntime({
+      getColliders: () => colliders,
+      playBlockedSound,
+      pushNotice
+    });
+    const companion = {
+      position: [8, 0.04, 3]
+    };
+
+    expect(runtime.getBlockers([10, 0.04, 3])).toEqual(colliders);
+    expect(runtime.isBlocked([10, 0.04, 3])).toBe(true);
+    expect(runtime.isBlocked([16, 0.04, 3])).toBe(false);
+
+    expect(runtime.tryMove(companion, [10, 0.04, 3])).toBe(false);
+    expect(companion.position).toEqual([8, 0.04, 3]);
+
+    expect(runtime.tryMove(companion, [16, 0.04, 3])).toBe(true);
+    expect(companion.position).toEqual([16, 0.04, 3]);
+
+    runtime.cancelBlockedAction("Hydro Bot");
+
+    expect(playBlockedSound).toHaveBeenCalledTimes(1);
+    expect(pushNotice).toHaveBeenCalledWith("Hydro Bot path is blocked.");
   });
 
   it("does not let neighboring free block colliders close an empty cell gap", () => {

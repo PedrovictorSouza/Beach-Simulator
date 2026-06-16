@@ -228,3 +228,39 @@ export function isPositionBlockedByTerrainColliders(position, colliders = []) {
     return isPositionInsideTerrainColliderFootprint(position, collider);
   });
 }
+
+export function createCompanionConstructionBlockerRuntime({
+  getColliders = () => [],
+  playBlockedSound = () => {},
+  pushNotice = () => {}
+} = {}) {
+  function getBlockers(position) {
+    return (getColliders() || [])
+      .filter((collider) => isPositionInsideTerrainColliderFootprint(position, collider));
+  }
+
+  function isBlocked(position) {
+    return getBlockers(position).length > 0;
+  }
+
+  function tryMove(companion, nextPosition) {
+    if (isBlocked(nextPosition)) {
+      return false;
+    }
+
+    companion.position = nextPosition;
+    return true;
+  }
+
+  function cancelBlockedAction(actionName) {
+    playBlockedSound();
+    pushNotice(`${actionName} path is blocked.`);
+  }
+
+  return {
+    cancelBlockedAction,
+    getBlockers,
+    isBlocked,
+    tryMove
+  };
+}

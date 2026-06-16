@@ -376,10 +376,10 @@ import {
 } from "./interactionObjectHighlight.js";
 import { syncFirstTaughtActionFreedomWindow } from "../story/earlyFreedomWindow.js";
 import {
+  createCompanionConstructionBlockerRuntime,
   createPlayerConstructionPlacementBlockers,
   createPlayerConstructionTerrainColliders,
-  isPositionInsideTerrainColliderFootprint,
-  isPositionBlockedByTerrainColliders
+  isPositionInsideTerrainColliderFootprint
 } from "../gameplay/placementBlockers.js";
 import { resolveWorkbenchPlacementPreviewVisual } from "../gameplay/placementPreviewVisual.js";
 import { createGridSystem } from "../gameplay/gridBuildingSystem.js";
@@ -975,11 +975,16 @@ export function startGameLoop({
     durationMs: CHOPPER_ATTENTION_CUE_DURATION_MS
   });
   const companionFollowDirectionRuntime = createCompanionFollowDirectionRuntime();
+  const companionConstructionBlockerRuntime = createCompanionConstructionBlockerRuntime({
+    getColliders: getPlayerConstructionTerrainColliders,
+    playBlockedSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
+    pushNotice: (message) => hud?.pushNotice?.(message)
+  });
   const companionFollowMovementRuntime = createCompanionFollowMovementRuntime({
     getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
     getPlayerYaw: () => session.playerModelInstance?.yaw,
     getFollowDirection: (yaw) => companionFollowDirectionRuntime.get(yaw),
-    tryMoveCompanionToPosition,
+    tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
     getModelYawToward: getRobotModelYawToward,
     arriveDistance: COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE
   });
@@ -1191,11 +1196,11 @@ export function startGameLoop({
     getApproachPosition: ({ targetPosition, playerPosition }) =>
       getSquirtleWaterGunApproachPosition(targetPosition, playerPosition),
     getModelYawToward: getSquirtleModelYawToward,
-    tryMoveCompanionToPosition,
-    isPositionBlocked: isCompanionPositionBlockedByConstruction,
+    tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
+    isPositionBlocked: companionConstructionBlockerRuntime.isBlocked,
     syncSquirtle: () => companionModelSyncRuntime.syncSquirtle(),
     applyImpact: (action) => fieldMoveImpactRuntime.applySquirtleWaterGunImpact(action),
-    onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.hydro)
+    onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.hydro)
   });
   const fireRuntime = createFireRuntime({
     session,
@@ -1212,11 +1217,11 @@ export function startGameLoop({
         toPosition,
         CHARMANDER_MODEL_FACE_YAW_OFFSET
       ),
-    tryMoveCompanionToPosition,
-    isPositionBlocked: isCompanionPositionBlockedByConstruction,
+    tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
+    isPositionBlocked: companionConstructionBlockerRuntime.isBlocked,
     syncCharmander: () => companionModelSyncRuntime.syncCharmander(),
     applyImpact: (action) => fieldMoveImpactRuntime.applyCharmanderFireImpact(action),
-    onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.thermal)
+    onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.thermal)
   });
   const leafageRuntime = createLeafageRuntime({
     session,
@@ -1231,11 +1236,11 @@ export function startGameLoop({
         toPosition,
         BULBASAUR_MODEL_FACE_YAW_OFFSET
       ),
-    tryMoveCompanionToPosition,
-    isPositionBlocked: isCompanionPositionBlockedByConstruction,
+    tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
+    isPositionBlocked: companionConstructionBlockerRuntime.isBlocked,
     syncBulbasaur: () => companionModelSyncRuntime.syncBulbasaur(),
     applyImpact: (action) => fieldMoveImpactRuntime.applyBulbasaurLeafageImpact(action),
-    onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.grow)
+    onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.grow)
   });
   const frameRuntime = createGameLoopFrameRuntime({
     frameClock,
@@ -1254,12 +1259,12 @@ export function startGameLoop({
     resolveTarget: resolveFreeBlockBuildTarget,
     getApproachPosition: ({ targetPosition, playerPosition }) =>
       getTimburrBuildBlockApproachPosition(targetPosition, playerPosition),
-    getApproachBlockers: getCompanionPositionConstructionBlockers,
+    getApproachBlockers: companionConstructionBlockerRuntime.getBlockers,
     shouldCastFromBlockedApproach: shouldTimburrBuildBlockCastFromBlockedApproach,
-    tryMoveCompanionToPosition,
+    tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
     getModelYawToward: getRobotModelYawToward,
     applyImpact: applyTimburrBuildBlockImpact,
-    onBlocked: () => cancelBlockedCompanionAction(SANDBOTS_BOT_NAMES.builder),
+    onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.builder),
     config: {
       modelFaceYawOffset: TIMBURR_MODEL_FACE_YAW_OFFSET
     }
@@ -1544,29 +1549,6 @@ export function startGameLoop({
         houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT
       }
     });
-  }
-
-  function getCompanionPositionConstructionBlockers(position) {
-    return getPlayerConstructionTerrainColliders()
-      .filter((collider) => isPositionInsideTerrainColliderFootprint(position, collider));
-  }
-
-  function isCompanionPositionBlockedByConstruction(position) {
-    return getCompanionPositionConstructionBlockers(position).length > 0;
-  }
-
-  function tryMoveCompanionToPosition(companion, nextPosition) {
-    if (isCompanionPositionBlockedByConstruction(nextPosition)) {
-      return false;
-    }
-
-    companion.position = nextPosition;
-    return true;
-  }
-
-  function cancelBlockedCompanionAction(actionName) {
-    playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-    hud?.pushNotice?.(`${actionName} path is blocked.`);
   }
 
   function getInteractionDebugColliders() {
@@ -2710,7 +2692,7 @@ export function startGameLoop({
       targetPosition,
       playerPosition,
       cellSize: gridSystem.cellSize,
-      isBlocked: isCompanionPositionBlockedByConstruction
+      isBlocked: companionConstructionBlockerRuntime.isBlocked
     });
 
     if (!nextPlayerPosition) {
@@ -3025,7 +3007,7 @@ export function startGameLoop({
       targetPosition,
       timburrPosition: session.timburrEncounter?.position,
       playerPosition,
-      isBlocked: isCompanionPositionBlockedByConstruction
+      isBlocked: companionConstructionBlockerRuntime.isBlocked
     });
   }
 

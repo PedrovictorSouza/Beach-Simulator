@@ -12519,3 +12519,73 @@ npm test -- --run tests/landscapeCutEffectRuntime.test.js tests/natureRenderFram
 - `1844` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Companion Construction Blocker Runtime Extraction
+
+Expanded the existing `gameplay/placement-blockers` boundary in
+`app/gameplay/placementBlockers.js` instead of creating another runtime file.
+
+Classification: `bot/companion motion` plus `construction`, focused only on
+companion movement permission against construction terrain colliders.
+
+Study path:
+
+1. `placementBlockers.js` already owns construction terrain colliders and
+   blocked-position checks.
+2. `createCompanionConstructionBlockerRuntime(...)` now composes those checks
+   into the companion-facing operations that `gameLoop.js` previously owned:
+   get blockers, test blocked positions, try movement and report blocked
+   actions.
+3. `startGameLoop()` remains the composition root. It wires the runtime with
+   `getPlayerConstructionTerrainColliders`, the existing cancel sound and HUD
+   notice callback.
+
+Removed from `gameLoop.js`:
+
+- `getCompanionPositionConstructionBlockers(...)`;
+- `isCompanionPositionBlockedByConstruction(...)`;
+- `tryMoveCompanionToPosition(...)`;
+- `cancelBlockedCompanionAction(...)`;
+- direct blocker-notice string construction for companion path blocking.
+
+Kept in `gameLoop.js`:
+
+- `getPlayerConstructionTerrainColliders(...)`, because free-block preview,
+  debug and placement calculations still share that construction collider
+  snapshot;
+- field-move/runtime wiring order;
+- all placement, field-move and companion tuning.
+
+Tests updated:
+
+- `tests/placementBlockers.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/placementBlockers.test.js
+```
+
+The first run failed because `createCompanionConstructionBlockerRuntime` did not
+exist yet. After adding the factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/placementBlockers.test.js
+npm test -- --run tests/placementBlockers.test.js tests/companionFollowMovementRuntime.test.js tests/waterGunRuntime.test.js tests/fireRuntime.test.js tests/leafageRuntime.test.js tests/buildBlockRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1845` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
