@@ -127,31 +127,17 @@ import { createGameplayPromptPreparationFrameRuntime } from "./presentation/game
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
 import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
 import { createBaseRenderSnapshotFrameRuntime } from "./presentation/baseRenderSnapshotFrame.js";
-import { prepareRenderSnapshotContext as prepareRenderSnapshotContextWithSources } from "./presentation/renderSnapshotContext.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { createSupplyPickupFeedbackRuntime } from "./presentation/supplyPickupFeedbackRuntime.js";
 import { createTreeRevivalLeafBurstFrameRuntime } from "./presentation/treeRevivalLeafBurstFrameRuntime.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
-import { getGrassCollisionObjects } from "./presentation/grassCollisionObjects.js";
-import {
-  updateNatureGrassRenderFrame,
-  updateNatureRenderFrame
-} from "./presentation/natureRenderFrame.js";
+import { createNaturePresentationFrameRuntime } from "./presentation/natureRenderFrame.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
 import { updateWorldObjectBillboardFrame } from "./presentation/worldObjectBillboardFrame.js";
 import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
-import {
-  getRepairBoxRevealParticleTarget,
-  getSelectedRepairBoxParticleTarget
-} from "./repairBoxParticleTargets.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
-import { appendRebirthOfNatureGhostTree } from "./rebirthOfNatureGhostTree.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
-import {
-  getTallGrassInstanceScale,
-  getTallGrassYaw
-} from "./tallGrassMotion.js";
 import { applyTrainHouseDance } from "./trainHouseDance.js";
 import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
@@ -256,7 +242,6 @@ import {
 } from "./camera/cameraZoomPresetController.js";
 import { createPlacementCameraAssist } from "./camera/placementCameraAssist.js";
 import {
-  getSnowstormBillboards,
   getSnowstormFogIntensity,
   updateSnowstormParticleField
 } from "../session/snowstormParticleField.js";
@@ -270,7 +255,6 @@ import { updateIntroRoomFrame } from "../scenes/introRoom/introRoomSequence.js";
 import { createGameplayCameraDirector } from "./gameplayCameraDirector.js";
 import { SOUND_EVENT_IDS } from "./soundEventRuntime.js";
 import {
-  appendGameplayOpeningShipBillboards,
   getGameplayOpeningShipSceneObjects
 } from "../session/gameplayOpeningShip.js";
 import {
@@ -718,6 +702,17 @@ export function startGameLoop({
       lift: LANDSCAPE_CUT_EFFECT_LIFT,
       popScale: LANDSCAPE_CUT_EFFECT_POP_SCALE
     }
+  });
+  const naturePresentationFrameRuntime = createNaturePresentationFrameRuntime({
+    session,
+    controls,
+    rendering,
+    camera,
+    landscapeCutEffectRuntime,
+    woodCollectPopRuntime,
+    gearPickupParticleRuntime,
+    getEncounterRepairBoxPosition,
+    clamp: clamp01
   });
   const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime();
   const companionFacingRuntime = createCompanionFacingRuntime({
@@ -2130,19 +2125,6 @@ export function startGameLoop({
     });
   }
 
-  function prepareRenderSnapshotContext({ cinematicActive }) {
-    return prepareRenderSnapshotContextWithSources({
-      session,
-      camera,
-      cinematicActive,
-      getGrassCollisionObjects: () => getGrassCollisionObjects({ session }),
-      getSelectedRepairBoxParticleTarget,
-      getRepairBoxRevealParticleTarget,
-      getEncounterRepairBoxPosition,
-      clamp01
-    });
-  }
-
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -2505,67 +2487,13 @@ export function startGameLoop({
     });
 
     // Render snapshot preparation.
-    let {
+    const {
       grassBendPlayerPosition,
-      natureRenderCenter,
-      grassCollisionObjects,
-      selectedRepairBoxParticleTarget,
-      repairBoxRevealParticleTarget,
-      shouldShowRepairBoxRustlingParticles
-    } = prepareRenderSnapshotContext({ cinematicActive });
-
-    const natureGrassFrame = updateNatureGrassRenderFrame({
-      session,
+      natureRenderCenter
+    } = naturePresentationFrameRuntime.update({
       nextFrame,
-      storyState: controls.storyState,
       now,
-      grassBendPlayerPosition,
-      natureRenderCenter,
-      grassCollisionObjects,
-      shouldShowRepairBoxRustlingParticles
-    });
-    shouldShowRepairBoxRustlingParticles =
-      natureGrassFrame.shouldShowRepairBoxRustlingParticles;
-
-    appendRebirthOfNatureGhostTree(session, controls.storyState, now);
-
-    landscapeCutEffectRuntime.appendRenderables({
-      nextFrame,
-      session,
-      getTallGrassYaw,
-      getTallGrassInstanceScale
-    });
-
-    updateNatureRenderFrame({
-      session,
-      nextFrame,
-      storyState: controls.storyState,
-      rendering,
-      now,
-      grassBendPlayerPosition,
-      natureRenderCenter,
-      selectedRepairBoxParticleTarget,
-      repairBoxRevealParticleTarget,
-      shouldShowRepairBoxRustlingParticles,
-      woodCollectPopRuntime,
-      gearPickupParticleRuntime,
-      clamp: clamp01
-    });
-    nextFrame.render.genericBillboards.push(
-      ...getSnowstormBillboards(
-        session.snowstorm,
-        session.snowflakeTexture,
-        rendering.fullUvRect
-      )
-    );
-    appendGameplayOpeningShipBillboards({
-      billboards: nextFrame.render.genericBillboards,
-      ship: session.gameplayOpeningShip,
-      fallbackTexture: session.gameplayOpeningShipTexture,
-      dustTexture: session.playerDustTexture,
-      smokeTexture: session.gameplayOpeningShipSmokeTexture,
-      flashTexture: session.gameplayOpeningShipFlashTexture,
-      fullUvRect: rendering.fullUvRect
+      cinematicActive
     });
     updateWorldObjectBillboardFrame({
       session,

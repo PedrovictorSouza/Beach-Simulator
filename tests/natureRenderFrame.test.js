@@ -1,6 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
+  createNaturePresentationFrameRuntime,
   updateNatureGrassRenderFrame,
   updateNatureRenderFrame
 } from "../app/runtime/presentation/natureRenderFrame.js";
@@ -149,5 +150,89 @@ describe("nature render frame", () => {
       expect.objectContaining({ texture: "leaves", position: [4, 0.32, 0] }),
       expect.objectContaining({ texture: "leppa", position: [3, 0, 0] })
     ]);
+  });
+
+  it("runs the composed nature presentation pass without gameLoop-owned coordination", () => {
+    const session = createBaseSession({
+      playerCharacter: {
+        getPosition: () => [0, 0, 0]
+      },
+      tallGrassInstances: [{ id: "stale-grass" }],
+      groundGrassPatches: [
+        {
+          id: "runtime-grass",
+          cellId: "runtime-cell",
+          state: "alive",
+          position: [1, 0, 0],
+          size: [1, 1]
+        }
+      ],
+      woodDrops: [
+        { id: "wood-near", itemId: "wood", collected: false, position: [1, 0, 0], size: [0.4, 0.4] }
+      ],
+      snowstorm: { active: true },
+      snowflakeTexture: "snowflake",
+      gameplayOpeningShip: { visible: true }
+    });
+    const nextFrame = createNextFrame();
+    const appendRenderables = vi.fn();
+    const snowstormBillboard = { texture: "snowflake", position: [0, 1, 0] };
+    const shipBillboard = { texture: "ship", position: [0, 2, 0] };
+    const getSnowstormBillboardsForSession = vi.fn(() => [snowstormBillboard]);
+    const appendOpeningShipBillboards = vi.fn(({ billboards }) => {
+      billboards.push(shipBillboard);
+    });
+    const runtime = createNaturePresentationFrameRuntime({
+      session,
+      controls: { storyState: { flags: {} } },
+      rendering: {
+        fullUvRect: "uv",
+        isResourceNodeActive: () => true
+      },
+      camera: {
+        getPose: () => ({ target: [0, 0, 0] })
+      },
+      landscapeCutEffectRuntime: {
+        appendRenderables
+      },
+      woodCollectPopRuntime: { getBillboards: () => [] },
+      gearPickupParticleRuntime: { getBillboards: () => [] },
+      sources: {
+        getSnowstormBillboardsForSession,
+        appendOpeningShipBillboards
+      }
+    });
+
+    runtime.update({
+      nextFrame,
+      now: 100,
+      cinematicActive: false
+    });
+
+    expect(session.tallGrassInstances).toEqual([
+      expect.objectContaining({
+        id: "tall-grass-runtime-grass"
+      })
+    ]);
+    expect(nextFrame.render.woodDrops).toEqual([
+      expect.objectContaining({ id: "wood-near" })
+    ]);
+    expect(appendRenderables).toHaveBeenCalledWith(expect.objectContaining({
+      nextFrame,
+      session
+    }));
+    expect(getSnowstormBillboardsForSession).toHaveBeenCalledWith(
+      session.snowstorm,
+      "snowflake",
+      "uv"
+    );
+    expect(appendOpeningShipBillboards).toHaveBeenCalledWith(expect.objectContaining({
+      billboards: nextFrame.render.genericBillboards,
+      ship: session.gameplayOpeningShip
+    }));
+    expect(nextFrame.render.genericBillboards).toEqual(expect.arrayContaining([
+      snowstormBillboard,
+      shipBillboard
+    ]));
   });
 });

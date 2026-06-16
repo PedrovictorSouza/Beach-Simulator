@@ -1,3 +1,4 @@
+import { appendGameplayOpeningShipBillboards } from "../../session/gameplayOpeningShip.js";
 import { getFlowerArrangementBillboards } from "../flowerArrangementBillboards.js";
 import {
   getLeafDropBillboards,
@@ -14,13 +15,23 @@ import {
   getTallGrassYaw
 } from "../tallGrassMotion.js";
 import { getNatureRevivalScale } from "../../session/natureRevivalEffects.js";
+import { getSnowstormBillboards } from "../../session/snowstormParticleField.js";
 import { LEAVES_ITEM_ID } from "../../../gameplayContent.js";
 import {
   LEAF_RESOURCE_BILLBOARD_SIZE,
   LEAF_RESOURCE_BILLBOARD_Y_OFFSET
 } from "../gameplayPresentationTuning.js";
-import { getGrassObjectCollisionAlpha } from "./grassCollisionObjects.js";
+import {
+  getGrassCollisionObjects,
+  getGrassObjectCollisionAlpha
+} from "./grassCollisionObjects.js";
 import { isWorldPositionWithinRenderDistance } from "./renderDistance.js";
+import {
+  getRepairBoxRevealParticleTarget,
+  getSelectedRepairBoxParticleTarget
+} from "../repairBoxParticleTargets.js";
+import { appendRebirthOfNatureGhostTree } from "../rebirthOfNatureGhostTree.js";
+import { prepareRenderSnapshotContext } from "./renderSnapshotContext.js";
 
 const BULBASAUR_REVEAL_BOX_RAY_BILLBOARD_CONFIG = Object.freeze({
   count: 10,
@@ -514,5 +525,120 @@ export function updateNatureRenderFrame({
 
   return {
     shouldShowRepairBoxRustlingParticles
+  };
+}
+
+export function createNaturePresentationFrameRuntime({
+  session = {},
+  controls = {},
+  rendering = {},
+  camera = null,
+  landscapeCutEffectRuntime = { appendRenderables: () => {} },
+  woodCollectPopRuntime = { getBillboards: () => [] },
+  gearPickupParticleRuntime = { getBillboards: () => [] },
+  getEncounterRepairBoxPosition = () => null,
+  clamp = clamp01,
+  sources = {}
+} = {}) {
+  const {
+    prepareContext = prepareRenderSnapshotContext,
+    getGrassCollisionObjectsForSession = getGrassCollisionObjects,
+    getSelectedRepairBoxParticleTargetForSession = getSelectedRepairBoxParticleTarget,
+    getRepairBoxRevealParticleTargetForSession = getRepairBoxRevealParticleTarget,
+    appendGhostTree = appendRebirthOfNatureGhostTree,
+    getSnowstormBillboardsForSession = getSnowstormBillboards,
+    appendOpeningShipBillboards = appendGameplayOpeningShipBillboards
+  } = sources;
+
+  function update({
+    nextFrame,
+    now = 0,
+    cinematicActive = false
+  } = {}) {
+    const {
+      grassBendPlayerPosition,
+      natureRenderCenter,
+      grassCollisionObjects,
+      selectedRepairBoxParticleTarget,
+      repairBoxRevealParticleTarget,
+      shouldShowRepairBoxRustlingParticles: initialRustlingParticlesVisible
+    } = prepareContext({
+      session,
+      camera,
+      cinematicActive,
+      getGrassCollisionObjects: () => getGrassCollisionObjectsForSession({ session }),
+      getSelectedRepairBoxParticleTarget: getSelectedRepairBoxParticleTargetForSession,
+      getRepairBoxRevealParticleTarget: getRepairBoxRevealParticleTargetForSession,
+      getEncounterRepairBoxPosition,
+      clamp01: clamp
+    });
+
+    const natureGrassFrame = updateNatureGrassRenderFrame({
+      session,
+      nextFrame,
+      storyState: controls.storyState,
+      now,
+      grassBendPlayerPosition,
+      natureRenderCenter,
+      grassCollisionObjects,
+      shouldShowRepairBoxRustlingParticles: initialRustlingParticlesVisible
+    });
+    const shouldShowRepairBoxRustlingParticles =
+      natureGrassFrame.shouldShowRepairBoxRustlingParticles;
+
+    appendGhostTree(session, controls.storyState, now);
+
+    landscapeCutEffectRuntime.appendRenderables({
+      nextFrame,
+      session,
+      getTallGrassYaw,
+      getTallGrassInstanceScale
+    });
+
+    updateNatureRenderFrame({
+      session,
+      nextFrame,
+      storyState: controls.storyState,
+      rendering,
+      now,
+      grassBendPlayerPosition,
+      natureRenderCenter,
+      selectedRepairBoxParticleTarget,
+      repairBoxRevealParticleTarget,
+      shouldShowRepairBoxRustlingParticles,
+      woodCollectPopRuntime,
+      gearPickupParticleRuntime,
+      clamp
+    });
+
+    nextFrame.render.genericBillboards.push(
+      ...getSnowstormBillboardsForSession(
+        session.snowstorm,
+        session.snowflakeTexture,
+        rendering.fullUvRect
+      )
+    );
+    appendOpeningShipBillboards({
+      billboards: nextFrame.render.genericBillboards,
+      ship: session.gameplayOpeningShip,
+      fallbackTexture: session.gameplayOpeningShipTexture,
+      dustTexture: session.playerDustTexture,
+      smokeTexture: session.gameplayOpeningShipSmokeTexture,
+      flashTexture: session.gameplayOpeningShipFlashTexture,
+      fullUvRect: rendering.fullUvRect
+    });
+
+    return {
+      grassBendPlayerPosition,
+      natureRenderCenter,
+      grassCollisionObjects,
+      selectedRepairBoxParticleTarget,
+      repairBoxRevealParticleTarget,
+      shouldShowRepairBoxRustlingParticles
+    };
+  }
+
+  return {
+    update
   };
 }

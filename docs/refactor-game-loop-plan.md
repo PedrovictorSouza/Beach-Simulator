@@ -3908,6 +3908,91 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Nature Presentation Frame Runtime Boundary
+
+Expanded `app/runtime/presentation/natureRenderFrame.js` with
+`createNaturePresentationFrameRuntime(...)`.
+
+Boundary classification: `presentation / render helpers`, focused on the
+nature/environment render pass that prepares grass, flower, drop, repair-box
+nature particles, landscape cut effects, snowstorm billboards and gameplay
+opening ship billboards.
+
+Study path:
+
+1. `startGameLoop()` wires the runtime dependencies as composition root.
+2. `frame(now)` still decides when render snapshot preparation happens.
+3. The nature runtime now owns the local ordering for natural presentation:
+   render context, grass pass, rebirth ghost tree, landscape cut, nature
+   particles/drops, snowstorm billboards and opening ship billboards.
+4. `gameLoop.js` keeps the handoff values still needed by later render passes:
+   `grassBendPlayerPosition` and `natureRenderCenter`.
+
+Removed from `gameLoop.js`:
+
+- direct import/use of `prepareRenderSnapshotContext(...)`;
+- direct import/use of `getGrassCollisionObjects(...)`;
+- direct import/use of `getSelectedRepairBoxParticleTarget(...)`;
+- direct import/use of `getRepairBoxRevealParticleTarget(...)`;
+- direct import/use of `updateNatureGrassRenderFrame(...)`;
+- direct import/use of `updateNatureRenderFrame(...)`;
+- direct import/use of `appendRebirthOfNatureGhostTree(...)`;
+- direct import/use of `getSnowstormBillboards(...)`;
+- direct import/use of `appendGameplayOpeningShipBillboards(...)`;
+- direct landscape-cut append wiring from the render-preparation block.
+
+Kept in `gameLoop.js`:
+
+- the overall frame order;
+- world-object billboard rendering after the nature pass;
+- companion render presentation after world-object billboards;
+- nature revival leaf-burst billboards after companion rendering, because that
+  ordering is later in the existing frame and was not moved in this cut;
+- debug collider snapshot and render character channel assignment.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2631` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2559` lines.
+- No new file was created; the boundary was added to the existing
+  `presentation/natureRenderFrame.js` module.
+
+Tests updated:
+
+- `tests/natureRenderFrame.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/natureRenderFrame.test.js
+```
+
+The first run failed because `createNaturePresentationFrameRuntime(...)` did
+not exist yet. After adding the runtime factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/natureRenderFrame.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1973` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Player Harvest Action Runtime Boundary
 
 Expanded `app/player/playerActionRuntime.js` with
