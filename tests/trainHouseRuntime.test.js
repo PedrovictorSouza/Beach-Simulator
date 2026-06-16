@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   applyTrainHouseDance,
-  shouldCompleteThermalCabinHomeBeat,
+  shouldCompleteThermalCabinHomeBeat
+} from "../app/runtime/trainHouseDance.js";
+import {
   resolveTrainHouseMusicVolume
 } from "../app/runtime/gameLoop.js";
 import { createTrainHouseMusicRuntime } from "../app/runtime/audio/trainHouseMusicRuntime.js";

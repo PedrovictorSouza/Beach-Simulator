@@ -222,7 +222,10 @@ import {
   getTallGrassInstanceScale,
   getTallGrassYaw
 } from "./tallGrassMotion.js";
-import { applyTrainHouseDance } from "./trainHouseDance.js";
+import {
+  applyTrainHouseDance,
+  shouldCompleteThermalCabinHomeBeat
+} from "./trainHouseDance.js";
 import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createWoodCollectPopRuntime } from "./woodCollectPopRuntime.js";
@@ -249,7 +252,8 @@ export {
 } from "./interactionInfoBillboards.js";
 
 export {
-  applyTrainHouseDance
+  applyTrainHouseDance,
+  shouldCompleteThermalCabinHomeBeat
 } from "./trainHouseDance.js";
 
 export {
@@ -448,7 +452,6 @@ const BULBASAUR_WORKBENCH_GUIDE_SIDE_APPROACH_MARGIN = 1.22;
 const CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET = [-1.12, 0, -0.86];
 const CHARMANDER_FOLLOW_SPEED = PLAYER_SPEED;
 const CHARMANDER_FOLLOW_DISTANCE = 1.28;
-const CHARMANDER_CAMPFIRE_LIGHT_DISTANCE = 1.9;
 const TIMBURR_FOLLOW_SPEED = PLAYER_SPEED;
 const TIMBURR_FOLLOW_DISTANCE = 1.62;
 const SQUIRTLE_FOLLOW_SPEED = PLAYER_SPEED;
@@ -560,42 +563,6 @@ function clamp01(value) {
 function easeOutCubic(value) {
   const progress = clamp01(value);
   return 1 - Math.pow(1 - progress, 3);
-}
-
-export function shouldCompleteThermalCabinHomeBeat({
-  thermalBotFollowing = false,
-  thermalBotRegistered = false,
-  thermalBotPosition,
-  playerPosition,
-  trainHousePosition,
-  alreadyComplete = false,
-  activationDistance = CHARMANDER_CAMPFIRE_LIGHT_DISTANCE
-} = {}) {
-  if (
-    alreadyComplete ||
-    (!thermalBotFollowing && !thermalBotRegistered) ||
-    !Array.isArray(trainHousePosition)
-  ) {
-    return false;
-  }
-
-  const isNearTrainHouse = (position) => {
-    if (!Array.isArray(position)) {
-      return false;
-    }
-
-    const distance = Math.hypot(
-      Number(position[0]) - Number(trainHousePosition[0]),
-      Number(position[2]) - Number(trainHousePosition[2])
-    );
-    return Number.isFinite(distance) && distance <= activationDistance;
-  };
-
-  if (thermalBotFollowing && isNearTrainHouse(thermalBotPosition)) {
-    return true;
-  }
-
-  return isNearTrainHouse(playerPosition);
 }
 
 function syncModelResourceInstances(resourceNodes = [], storyState = {}, deltaTime = 0) {

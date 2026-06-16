@@ -6,6 +6,8 @@ import {
   TRAIN_HOUSE_DANCE_YAW_SWAY
 } from "./gameplayPresentationTuning.js";
 
+const THERMAL_CABIN_HOME_BEAT_DISTANCE = 1.9;
+
 export function applyTrainHouseDance(instance, placementPosition, nowSeconds = 0, placementYaw = 0) {
   if (!instance || !Array.isArray(placementPosition)) {
     return false;
@@ -32,4 +34,40 @@ export function applyTrainHouseDance(instance, placementPosition, nowSeconds = 0
   instance.swayStrength = Math.sin(beat * 4.4 + 0.6) * TRAIN_HOUSE_DANCE_TOP_SWAY;
   instance.active = true;
   return true;
+}
+
+export function shouldCompleteThermalCabinHomeBeat({
+  thermalBotFollowing = false,
+  thermalBotRegistered = false,
+  thermalBotPosition,
+  playerPosition,
+  trainHousePosition,
+  alreadyComplete = false,
+  activationDistance = THERMAL_CABIN_HOME_BEAT_DISTANCE
+} = {}) {
+  if (
+    alreadyComplete ||
+    (!thermalBotFollowing && !thermalBotRegistered) ||
+    !Array.isArray(trainHousePosition)
+  ) {
+    return false;
+  }
+
+  const isNearTrainHouse = (position) => {
+    if (!Array.isArray(position)) {
+      return false;
+    }
+
+    const distance = Math.hypot(
+      Number(position[0]) - Number(trainHousePosition[0]),
+      Number(position[2]) - Number(trainHousePosition[2])
+    );
+    return Number.isFinite(distance) && distance <= activationDistance;
+  };
+
+  if (thermalBotFollowing && isNearTrainHouse(thermalBotPosition)) {
+    return true;
+  }
+
+  return isNearTrainHouse(playerPosition);
 }

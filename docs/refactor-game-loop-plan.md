@@ -358,6 +358,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move construction helper motion wiring into the `construction`
   boundary.
+- Completed: move Thermal Cabin home-beat policy into the Train House runtime
+  boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -11107,6 +11109,74 @@ baseline:
 
 Manual visual gameplay validation remains pending because the in-app browser
 backend was not used during this pass.
+
+### Thermal Cabin Home Beat Policy Extraction
+
+Expanded `app/runtime/trainHouseDance.js` into the Train House/Thermal Cabin
+runtime boundary by moving `shouldCompleteThermalCabinHomeBeat(...)` out of
+`gameLoop.js`.
+
+Classification: `construction`, specifically Thermal Cabin home-beat policy.
+
+Study path:
+
+1. `trainHouseDance.js` now owns both Thermal Cabin model dance mutation and
+   the pure home-beat completion predicate.
+2. `gameLoop.js` imports the predicate for the existing Charmander/Thermal Bot
+   encounter branch and re-exports it to preserve the previous public import
+   contract.
+3. `tests/trainHouseRuntime.test.js` now imports
+   `shouldCompleteThermalCabinHomeBeat(...)` from the domain module directly.
+4. The activation distance stayed `1.9`; it was moved with the predicate and
+   not retuned.
+
+Removed from `gameLoop.js`:
+
+- local `shouldCompleteThermalCabinHomeBeat(...)` implementation;
+- local `CHARMANDER_CAMPFIRE_LIGHT_DISTANCE` constant.
+
+Kept in `gameLoop.js`:
+
+- the encounter-side mutation when the beat completes:
+  `encounter.litCampfire`, `charmanderCampfireLit`,
+  `charmanderFollowing = false` and `onCharmanderCampfireLit`;
+- the existing call site order inside `updateCharmanderEncounter(...)`;
+- re-export compatibility for `shouldCompleteThermalCabinHomeBeat(...)`.
+
+Tests updated:
+
+- `tests/trainHouseRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/trainHouseRuntime.test.js
+```
+
+The first run failed because the domain module did not export
+`shouldCompleteThermalCabinHomeBeat(...)` yet. After moving the predicate, the
+focused suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/trainHouseRuntime.test.js
+npm test -- --run tests/trainHouseRuntime.test.js tests/constructionHouseModelInstances.test.js tests/baseRenderSnapshotFrame.test.js tests/worldSpeechFrameState.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1884` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
 
 ### Mission Target Indicator Billboard Helper Extraction
 
