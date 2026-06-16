@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createPlayerActionRuntime } from "../app/player/playerActionRuntime.js";
+import {
+  createPlayerActionRuntime,
+  createPlayerHarvestActionRuntime
+} from "../app/player/playerActionRuntime.js";
 
 const SOUND_EVENT_IDS = Object.freeze({
   GAMEPLAY_IMPACT: "impact",
@@ -148,6 +151,168 @@ describe("createPlayerActionRuntime", () => {
     expect(callbacks.playSoundEvent).toHaveBeenCalledWith("cancel");
     expect(callbacks.pushNotice).toHaveBeenCalledWith(
       "No removable patch here. Move closer to planted grass or flowers."
+    );
+  });
+});
+
+function createHarvestRuntime({
+  performHarvest = () => true
+} = {}) {
+  const controls = {
+    inventory: { wood: 1 },
+    storyState: {
+      flags: {
+        restoredGrassCount: 0,
+        wateredTreeCount: 0
+      }
+    }
+  };
+  const playerActionContext = {
+    getHarvestOptions: vi.fn(({ playerPosition, options }) => ({
+      forcedHarvestTarget: options.forcedHarvestTarget || null,
+      playerPosition,
+      useFire: Boolean(options.useFire),
+      useWaterGun: Boolean(options.useWaterGun)
+    }))
+  };
+  const playerActionRuntime = {
+    performHarvest: vi.fn((options, autosaveContext) => performHarvest({
+      autosaveContext,
+      controls,
+      options
+    }))
+  };
+  const playerCounterPromptRuntime = {
+    triggerQuestCounter: vi.fn()
+  };
+  const supplyCounterPromptController = {
+    snapshot: vi.fn((inventory) => ({ wood: inventory.wood || 0 })),
+    triggerChanged: vi.fn()
+  };
+  const companionAbilityResourcesRuntime = {
+    recordSquirtleWaterGunUse: vi.fn()
+  };
+  const groundActionFeedbackRuntime = {
+    triggerFeedback: vi.fn()
+  };
+  const callbacks = {
+    playTreeBirthSfx: vi.fn(),
+    queueChangedSupplyPickupFlyItems: vi.fn()
+  };
+  const runtime = createPlayerHarvestActionRuntime({
+    controls,
+    playerActionContext,
+    playerActionRuntime,
+    playerCounterPromptRuntime,
+    supplyCounterPromptController,
+    companionAbilityResourcesRuntime,
+    groundActionFeedbackRuntime,
+    callbacks,
+    config: {
+      restoredGrassMissionTargetCount: 25,
+      treeRevivalTargetCount: 5
+    }
+  });
+
+  return {
+    callbacks,
+    companionAbilityResourcesRuntime,
+    controls,
+    groundActionFeedbackRuntime,
+    playerActionContext,
+    playerActionRuntime,
+    playerCounterPromptRuntime,
+    runtime,
+    supplyCounterPromptController
+  };
+}
+
+describe("createPlayerHarvestActionRuntime", () => {
+  it("triggers restored grass counter and water stamina bookkeeping", () => {
+    const {
+      companionAbilityResourcesRuntime,
+      controls,
+      playerActionRuntime,
+      playerCounterPromptRuntime,
+      runtime
+    } = createHarvestRuntime({
+      performHarvest: ({ controls: runtimeControls }) => {
+        runtimeControls.storyState.flags.restoredGrassCount = 1;
+        return true;
+      }
+    });
+
+    expect(runtime.perform({
+      playerPosition: [1, 0, 2],
+      options: { useWaterGun: true },
+      now: 123,
+      waterGunEquipped: true
+    })).toBe(true);
+
+    expect(playerActionRuntime.performHarvest).toHaveBeenCalledWith(
+      expect.objectContaining({
+        playerPosition: [1, 0, 2],
+        useWaterGun: true
+      }),
+      { actionType: "waterGun" }
+    );
+    expect(playerCounterPromptRuntime.triggerQuestCounter).toHaveBeenCalledWith({
+      count: 1,
+      total: 25,
+      label: "dry grass",
+      now: 123
+    });
+    expect(companionAbilityResourcesRuntime.recordSquirtleWaterGunUse).toHaveBeenCalledTimes(1);
+    expect(controls.storyState.flags.restoredGrassCount).toBe(1);
+  });
+
+  it("triggers changed supply feedback for normal harvest results", () => {
+    const {
+      callbacks,
+      controls,
+      runtime,
+      supplyCounterPromptController
+    } = createHarvestRuntime({
+      performHarvest: ({ controls: runtimeControls }) => {
+        runtimeControls.inventory.wood = 2;
+        return true;
+      }
+    });
+
+    expect(runtime.perform({
+      playerPosition: [1, 0, 2],
+      now: 456
+    })).toBe(true);
+
+    expect(callbacks.queueChangedSupplyPickupFlyItems).toHaveBeenCalledWith(
+      { wood: 1 },
+      controls.inventory
+    );
+    expect(supplyCounterPromptController.triggerChanged).toHaveBeenCalledWith(
+      { wood: 1 },
+      controls.inventory,
+      456
+    );
+  });
+
+  it("triggers fire ground feedback for fire harvest results", () => {
+    const { groundActionFeedbackRuntime, runtime } = createHarvestRuntime();
+    const fireGroundCell = { id: "fire-cell" };
+
+    expect(runtime.perform({
+      playerPosition: [1, 0, 2],
+      options: {
+        forcedHarvestTarget: { fireGroundCell },
+        useFire: true
+      },
+      now: 789,
+      fireEquipped: true
+    })).toBe(true);
+
+    expect(groundActionFeedbackRuntime.triggerFeedback).toHaveBeenCalledWith(
+      fireGroundCell,
+      "fire",
+      789
     );
   });
 });

@@ -117,7 +117,10 @@ import {
   resolvePrimaryActionTargetFollowupIntent,
   resolvePrimaryActionTargetIntent
 } from "../player/playerActionTargetContext.js";
-import { createPlayerActionRuntime } from "../player/playerActionRuntime.js";
+import {
+  createPlayerActionRuntime,
+  createPlayerHarvestActionRuntime
+} from "../player/playerActionRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
@@ -1553,6 +1556,23 @@ export function startGameLoop({
       noRemovablePatch: "No removable patch here. Move closer to planted grass or flowers."
     }
   });
+  const playerHarvestActionRuntime = createPlayerHarvestActionRuntime({
+    controls,
+    playerActionContext,
+    playerActionRuntime,
+    playerCounterPromptRuntime,
+    supplyCounterPromptController,
+    companionAbilityResourcesRuntime,
+    groundActionFeedbackRuntime,
+    callbacks: {
+      playTreeBirthSfx,
+      queueChangedSupplyPickupFlyItems
+    },
+    config: {
+      restoredGrassMissionTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
+      treeRevivalTargetCount: 5
+    }
+  });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
     controls,
@@ -2109,58 +2129,14 @@ export function startGameLoop({
       dialogueActive
     });
     function performHarvestAction(playerPosition, options = {}) {
-      const previousWateredTreeCount = Number(controls.storyState.flags.wateredTreeCount || 0);
-      const previousRestoredGrassCount = Number(controls.storyState.flags.restoredGrassCount || 0);
-      const previousSupplyCounts = supplyCounterPromptController.snapshot(controls.inventory);
-      const result = playerActionRuntime.performHarvest(playerActionContext.getHarvestOptions({
+      return playerHarvestActionRuntime.perform({
         playerPosition,
+        options,
+        now,
         waterGunEquipped,
         leafageEquipped,
-        fireEquipped,
-        options
-      }), {
-        actionType: options.useWaterGun ? "waterGun" : options.useFire ? "fire" : options.useLeafage ? "leafage" : "harvest"
+        fireEquipped
       });
-
-      const nextWateredTreeCount = Number(controls.storyState.flags.wateredTreeCount || 0);
-      const nextRestoredGrassCount = Number(controls.storyState.flags.restoredGrassCount || 0);
-      if (
-        result &&
-        options.useWaterGun &&
-        nextRestoredGrassCount > previousRestoredGrassCount
-      ) {
-        playerCounterPromptRuntime.triggerQuestCounter({
-          count: nextRestoredGrassCount,
-          total: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
-          label: "dry grass",
-          now
-        });
-      } else if (
-        result &&
-        options.useWaterGun &&
-        nextWateredTreeCount > previousWateredTreeCount
-      ) {
-        playTreeBirthSfx();
-        playerCounterPromptRuntime.triggerQuestCounter({
-          count: nextWateredTreeCount,
-          total: 5,
-          label: "trees",
-          now
-        });
-      } else if (result) {
-        queueChangedSupplyPickupFlyItems(previousSupplyCounts, controls.inventory);
-        supplyCounterPromptController.triggerChanged(previousSupplyCounts, controls.inventory, now);
-      }
-
-      if (result && options.useWaterGun) {
-        companionAbilityResourcesRuntime.recordSquirtleWaterGunUse();
-      }
-
-      if (result && options.useFire && options.forcedHarvestTarget?.fireGroundCell) {
-        groundActionFeedbackRuntime.triggerFeedback(options.forcedHarvestTarget.fireGroundCell, "fire", now);
-      }
-
-      return result;
     }
 
     const harvestRequest = controls.consumeHarvestRequest();

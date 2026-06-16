@@ -127,3 +127,121 @@ export function createPlayerActionRuntime({
     performInteract
   };
 }
+
+export function createPlayerHarvestActionRuntime({
+  controls = {},
+  playerActionContext = {},
+  playerActionRuntime = {},
+  playerCounterPromptRuntime = {},
+  supplyCounterPromptController = {},
+  companionAbilityResourcesRuntime = {},
+  groundActionFeedbackRuntime = {},
+  callbacks = {},
+  config = {}
+} = {}) {
+  const restoredGrassMissionTargetCount = Number(
+    config.restoredGrassMissionTargetCount || 0
+  );
+  const treeRevivalTargetCount = Number(config.treeRevivalTargetCount || 0);
+
+  function getActionType(options = {}) {
+    if (options.useWaterGun) {
+      return "waterGun";
+    }
+    if (options.useFire) {
+      return "fire";
+    }
+    if (options.useLeafage) {
+      return "leafage";
+    }
+    return "harvest";
+  }
+
+  function perform({
+    playerPosition,
+    options = {},
+    now = 0,
+    waterGunEquipped = false,
+    leafageEquipped = false,
+    fireEquipped = false
+  } = {}) {
+    const previousWateredTreeCount = Number(
+      controls.storyState?.flags?.wateredTreeCount || 0
+    );
+    const previousRestoredGrassCount = Number(
+      controls.storyState?.flags?.restoredGrassCount || 0
+    );
+    const previousSupplyCounts = supplyCounterPromptController.snapshot?.(
+      controls.inventory
+    );
+    const result = playerActionRuntime.performHarvest?.(
+      playerActionContext.getHarvestOptions?.({
+        playerPosition,
+        waterGunEquipped,
+        leafageEquipped,
+        fireEquipped,
+        options
+      }),
+      { actionType: getActionType(options) }
+    );
+
+    const nextWateredTreeCount = Number(
+      controls.storyState?.flags?.wateredTreeCount || 0
+    );
+    const nextRestoredGrassCount = Number(
+      controls.storyState?.flags?.restoredGrassCount || 0
+    );
+    if (
+      result &&
+      options.useWaterGun &&
+      nextRestoredGrassCount > previousRestoredGrassCount
+    ) {
+      playerCounterPromptRuntime.triggerQuestCounter?.({
+        count: nextRestoredGrassCount,
+        total: restoredGrassMissionTargetCount,
+        label: "dry grass",
+        now
+      });
+    } else if (
+      result &&
+      options.useWaterGun &&
+      nextWateredTreeCount > previousWateredTreeCount
+    ) {
+      callbacks.playTreeBirthSfx?.();
+      playerCounterPromptRuntime.triggerQuestCounter?.({
+        count: nextWateredTreeCount,
+        total: treeRevivalTargetCount,
+        label: "trees",
+        now
+      });
+    } else if (result) {
+      callbacks.queueChangedSupplyPickupFlyItems?.(
+        previousSupplyCounts,
+        controls.inventory
+      );
+      supplyCounterPromptController.triggerChanged?.(
+        previousSupplyCounts,
+        controls.inventory,
+        now
+      );
+    }
+
+    if (result && options.useWaterGun) {
+      companionAbilityResourcesRuntime.recordSquirtleWaterGunUse?.();
+    }
+
+    if (result && options.useFire && options.forcedHarvestTarget?.fireGroundCell) {
+      groundActionFeedbackRuntime.triggerFeedback?.(
+        options.forcedHarvestTarget.fireGroundCell,
+        "fire",
+        now
+      );
+    }
+
+    return result;
+  }
+
+  return {
+    perform
+  };
+}

@@ -388,6 +388,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `player` boundary.
 - Completed: move primary player action secondary target query policy into the
   `player` boundary.
+- Completed: move player harvest side-effect orchestration into the existing
+  `player` action runtime.
 - Completed: move player harvest/interact/destroy action side effects into the
   `player` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
@@ -3889,6 +3891,70 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Harvest Action Runtime Boundary
+
+Expanded `app/player/playerActionRuntime.js` with
+`createPlayerHarvestActionRuntime(...)` so the player boundary owns harvest
+side-effect orchestration that was still implemented inside `frame(now)`.
+
+Boundary classification: `player / gameplay action runtime`, focused on
+post-harvest counters, supply feedback, stamina bookkeeping and field feedback.
+
+Removed from `gameLoop.js`:
+
+- local before/after Water Gun tree and restored-grass count tracking;
+- local dry-grass and tree counter prompt updates;
+- local changed-supply pickup feedback dispatch;
+- local Squirtle Water Gun stamina usage bookkeeping;
+- local Fire ground feedback dispatch;
+- local harvest action type derivation.
+
+Kept in `gameLoop.js`:
+
+- the local `performHarvestAction(...)` wrapper, because it captures current
+  frame state (`now`, equipped moves and player position);
+- primary action branch order;
+- field-move fallback branch order.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` baseline was `3065`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is `3041`
+  lines.
+
+Tests extended:
+
+- `tests/playerActionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+```
+
+The first run failed because `createPlayerHarvestActionRuntime(...)` did not
+exist yet. After extending the existing player action runtime module, the
+focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js tests/playerActionContext.test.js tests/playerActionTargetContext.test.js
+```
+
+Focused result:
+
+- `3` test files passed
+- `20` tests passed
+
+Full-suite validation was not repeated for this cut. The known baseline still
+has failures outside this boundary: the existing Leafage Native Tree failures
+and the isolated scene-flow failure tied to dirty `startScreen.js` / bootstrap
+work.
 
 Manual gameplay validation remains pending for this cut.
 
