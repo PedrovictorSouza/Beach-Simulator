@@ -3970,6 +3970,73 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Free Block Placement Result Extraction
+
+Added `app/runtime/construction/freeBlockPlacementResult.js`.
+
+Classification: `construction`, focused on Free Block placement result
+application.
+
+Study path:
+
+1. `gameLoop.js` still owned the post-placement result policy for Free Block
+   builds.
+2. That block mixed tile feedback, first-placement story flag, foundation wall
+   quest callback, foundation completion effects, snapshot sync, audio and HUD
+   notices.
+3. `applyFreeBlockPlacementResult(...)` now owns that result policy after the
+   placement controller has already produced a result.
+4. `gameLoop.js` keeps composition callbacks for feedback runtime, story flags,
+   quest hook, snapshot sync, audio and HUD.
+
+Removed from `gameLoop.js`:
+
+- direct build/invalid feedback ability selection for Free Block placement;
+- direct Free Block placement notice formatting;
+- direct placed-vs-invalid audio/HUD branching;
+- direct foundation-wall result sequencing inside the handler body.
+
+Kept in `gameLoop.js`:
+
+- controller lookup and placement attempt timing;
+- player displacement after successful placement;
+- free block target resolution and preview state;
+- callback wiring to existing HUD, audio, quest and snapshot systems.
+
+Tests added:
+
+- `tests/freeBlockPlacementResult.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/freeBlockPlacementResult.test.js
+```
+
+The first run failed because `freeBlockPlacementResult.js` did not exist yet.
+After adding the module, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/freeBlockPlacementResult.test.js
+npm test -- --run tests/freeBlockPlacementResult.test.js tests/placementGeometry.test.js tests/placementPreviewPrompts.test.js tests/constructionPlacementFrameRuntime.test.js tests/foundationBuildZone.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `307` test files passed, `1` failed
+- `1861` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Solar Station Workbench Rotation Visual Extraction
 
 Expanded the existing `createWorkbenchRotationRuntime(...)` boundary in

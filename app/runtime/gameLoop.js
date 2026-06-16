@@ -38,6 +38,7 @@ import {
   buildFreeBlockPreviewDebug,
   syncFreeBlockPreviewInstance
 } from "./construction/freeBlockPreview.js";
+import { applyFreeBlockPlacementResult } from "./construction/freeBlockPlacementResult.js";
 import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
 import {
   ensurePlayerHouseModelInstances as ensurePlayerHouseModelInstancesWithSession,
@@ -70,8 +71,7 @@ import {
 } from "./construction/pendingPlacementIntent.js";
 import {
   buildFreeBlockBuildCostMarker,
-  getFreeBlockInvalidPlacementNotice,
-  getFreeBlockPlacementNotice
+  getFreeBlockInvalidPlacementNotice
 } from "./construction/placementPreviewPrompts.js";
 import {
   applyPlayerPlacementSpawnToModelInstance,
@@ -2415,31 +2415,24 @@ export function startGameLoop({
   }
 
   function handleFreeBlockPlacementResult(result, now) {
-    const feedbackGroundCell = buildFreeBlockFeedbackGroundCell(result);
-    if (feedbackGroundCell) {
-      groundActionFeedbackRuntime.triggerFeedback(
-        feedbackGroundCell,
-        result.placed ? "build" : "invalid",
-        now
-      );
-    }
-
-    if (result.placed) {
-      controls.storyState.flags.firstFreeBlockPlaced = true;
-      if (result.blockType === FREE_BLOCK_TYPES.WALL) {
-        controls.onFoundationWallBuilt?.({
-          targetCell: result.targetCell,
-          block: result.block
-        });
-        syncFoundationBuildZoneCompletionEffects(now);
+    return applyFreeBlockPlacementResult({
+      result,
+      feedbackGroundCell: buildFreeBlockFeedbackGroundCell(result),
+      now,
+      wallBlockType: FREE_BLOCK_TYPES.WALL,
+      actions: {
+        triggerFeedback: (...args) => groundActionFeedbackRuntime.triggerFeedback(...args),
+        markFirstFreeBlockPlaced: () => {
+          controls.storyState.flags.firstFreeBlockPlaced = true;
+        },
+        onFoundationWallBuilt: (event) => controls.onFoundationWallBuilt?.(event),
+        syncFoundationCompletionEffects: syncFoundationBuildZoneCompletionEffects,
+        syncFreeBlockBuildSnapshot,
+        playPlacedSound: playInstanceObjectSfx,
+        playInvalidSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
+        pushNotice: (notice) => hud?.pushNotice?.(notice)
       }
-      syncFreeBlockBuildSnapshot();
-      playInstanceObjectSfx();
-      hud?.pushNotice?.(getFreeBlockPlacementNotice(result));
-    } else {
-      playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-      hud?.pushNotice?.(getFreeBlockPlacementNotice(result));
-    }
+    });
   }
 
   function tryPlaceFreeBlockFromBuildInput(now) {
