@@ -126,7 +126,10 @@ import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.j
 import { createGameplayPromptPreparationFrameRuntime } from "./presentation/gameplayPromptTargetFrameState.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
 import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
-import { createBaseRenderSnapshotFrameRuntime } from "./presentation/baseRenderSnapshotFrame.js";
+import {
+  createBaseRenderSnapshotFrameRuntime,
+  createRenderSnapshotCompletionFrameRuntime
+} from "./presentation/baseRenderSnapshotFrame.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { createSupplyPickupFeedbackRuntime } from "./presentation/supplyPickupFeedbackRuntime.js";
 import { createTreeRevivalLeafBurstFrameRuntime } from "./presentation/treeRevivalLeafBurstFrameRuntime.js";
@@ -247,10 +250,8 @@ import {
 } from "../session/snowstormParticleField.js";
 import { PLAYER_SPEED } from "../session/configurePlayerSpawner.js";
 import {
-  getNatureRevivalBillboards,
   updateNatureRevivalEffects
 } from "../session/natureRevivalEffects.js";
-import { getColliderGizmoBillboards } from "../session/colliderGizmos.js";
 import { updateIntroRoomFrame } from "../scenes/introRoom/introRoomSequence.js";
 import { createGameplayCameraDirector } from "./gameplayCameraDirector.js";
 import { SOUND_EVENT_IDS } from "./soundEventRuntime.js";
@@ -1307,6 +1308,13 @@ export function startGameLoop({
     getSquirtleAssemblySceneObjects: (sceneObjects, squirtle) =>
       squirtleReassemblyRuntime.getSceneObjects(sceneObjects, squirtle),
     resolvePsxDistanceFogSettings
+  });
+  const renderSnapshotCompletionFrameRuntime = createRenderSnapshotCompletionFrameRuntime({
+    session,
+    controls,
+    rendering,
+    treeRevivalLeafBurstFrameRuntime,
+    getInteractionDebugColliders
   });
   const playerModelRuntime = createPlayerModelRuntime({
     moveValueToward,
@@ -2517,39 +2525,7 @@ export function startGameLoop({
       activeMoveId,
       now
     });
-    nextFrame.render.genericBillboards.push(
-      ...getNatureRevivalBillboards(
-        session.natureRevivalEffects,
-        session.natureRevivalSparkTexture,
-        rendering.fullUvRect
-      )
-    );
-    treeRevivalLeafBurstFrameRuntime.appendBillboards(nextFrame);
-    if (rendering.debugColliders) {
-      const debugColliders = [
-        ...(session.elevatedTerrainColliders || []),
-        ...getInteractionDebugColliders()
-      ];
-      nextFrame.colliderGizmos.visible = true;
-      nextFrame.colliderGizmos.colliders = debugColliders;
-      nextFrame.render.genericBillboards.push(
-        ...getColliderGizmoBillboards({
-          colliders: debugColliders,
-          textures: session.colliderGizmoTextures
-        })
-      );
-    }
-    nextFrame.render.characters = {
-      storyState: controls.storyState,
-      playerCharacter: session.playerCharacter,
-      npcActors: session.npcActors,
-      characterTextures: session.characterTextures,
-      isNpcActive: rendering.isNpcActive
-    };
-
-    nextFrame.tutorial.active = true;
-    nextFrame.tutorial.playerPosition = session.playerCharacter?.getPosition() || null;
-    nextFrame.tutorial.deltaTime = deltaTime;
+    renderSnapshotCompletionFrameRuntime.update(nextFrame, { deltaTime });
     // Commit the frame after all snapshot channels are populated.
     frameRuntime.commitFrame();
     requestAnimationFrame(frame);

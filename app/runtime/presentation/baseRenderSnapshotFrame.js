@@ -1,3 +1,6 @@
+import { getColliderGizmoBillboards } from "../../session/colliderGizmos.js";
+import { getNatureRevivalBillboards } from "../../session/natureRevivalEffects.js";
+
 export function createBaseRenderSnapshotFrameRuntime({
   camera,
   worldCanvas,
@@ -67,6 +70,62 @@ export function createBaseRenderSnapshotFrameRuntime({
     nextFrame.render.psxDistanceFog = psxDistanceFogSettings.enabled ?
       psxDistanceFogSettings :
       null;
+  }
+
+  return {
+    update
+  };
+}
+
+export function createRenderSnapshotCompletionFrameRuntime({
+  session = {},
+  controls = {},
+  rendering = {},
+  treeRevivalLeafBurstFrameRuntime = { appendBillboards: () => {} },
+  getInteractionDebugColliders = () => [],
+  sources = {}
+} = {}) {
+  const {
+    getNatureRevivalBillboardsForSession = getNatureRevivalBillboards,
+    getColliderGizmoBillboardsForSession = getColliderGizmoBillboards
+  } = sources;
+
+  function update(nextFrame, { deltaTime = 0 } = {}) {
+    nextFrame.render.genericBillboards.push(
+      ...getNatureRevivalBillboardsForSession(
+        session.natureRevivalEffects,
+        session.natureRevivalSparkTexture,
+        rendering.fullUvRect
+      )
+    );
+    treeRevivalLeafBurstFrameRuntime.appendBillboards(nextFrame);
+
+    if (rendering.debugColliders) {
+      const debugColliders = [
+        ...(session.elevatedTerrainColliders || []),
+        ...getInteractionDebugColliders()
+      ];
+      nextFrame.colliderGizmos.visible = true;
+      nextFrame.colliderGizmos.colliders = debugColliders;
+      nextFrame.render.genericBillboards.push(
+        ...getColliderGizmoBillboardsForSession({
+          colliders: debugColliders,
+          textures: session.colliderGizmoTextures
+        })
+      );
+    }
+
+    nextFrame.render.characters = {
+      storyState: controls.storyState,
+      playerCharacter: session.playerCharacter,
+      npcActors: session.npcActors,
+      characterTextures: session.characterTextures,
+      isNpcActive: rendering.isNpcActive
+    };
+
+    nextFrame.tutorial.active = true;
+    nextFrame.tutorial.playerPosition = session.playerCharacter?.getPosition() || null;
+    nextFrame.tutorial.deltaTime = deltaTime;
   }
 
   return {

@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createBaseRenderSnapshotFrameRuntime } from "../app/runtime/presentation/baseRenderSnapshotFrame.js";
+import {
+  createBaseRenderSnapshotFrameRuntime,
+  createRenderSnapshotCompletionFrameRuntime
+} from "../app/runtime/presentation/baseRenderSnapshotFrame.js";
 
 function createNextFrame() {
   return {
@@ -9,6 +12,24 @@ function createNextFrame() {
       sceneObjects: [],
       skyTexture: null,
       psxDistanceFog: null
+    }
+  };
+}
+
+function createCompletionNextFrame() {
+  return {
+    render: {
+      genericBillboards: [],
+      characters: null
+    },
+    colliderGizmos: {
+      visible: false,
+      colliders: []
+    },
+    tutorial: {
+      active: false,
+      playerPosition: null,
+      deltaTime: 0
     }
   };
 }
@@ -145,5 +166,97 @@ describe("base render snapshot frame", () => {
 
     expect(syncPlayerHouseModelInstances).toHaveBeenCalledWith(0.1, [2, 0, 3]);
     expect(nextFrame.render.psxDistanceFog).toBeNull();
+  });
+
+  it("completes final render snapshot channels after world and companion presentation", () => {
+    const nextFrame = createCompletionNextFrame();
+    const natureRevivalBillboard = { id: "revival-billboard" };
+    const leafBurstBillboard = { id: "leaf-burst-billboard" };
+    const colliderBillboard = { id: "collider-billboard" };
+    const playerPosition = [1, 0, 2];
+    const treeRevivalLeafBurstFrameRuntime = {
+      appendBillboards: vi.fn((frame) => {
+        frame.render.genericBillboards.push(leafBurstBillboard);
+      })
+    };
+    const getInteractionDebugColliders = vi.fn(() => [
+      { id: "interaction-collider" }
+    ]);
+    const getNatureRevivalBillboardsForSession = vi.fn(() => [
+      natureRevivalBillboard
+    ]);
+    const getColliderGizmoBillboardsForSession = vi.fn(() => [
+      colliderBillboard
+    ]);
+    const isNpcActive = vi.fn(() => true);
+    const session = {
+      natureRevivalEffects: [{ id: "revival" }],
+      natureRevivalSparkTexture: "spark",
+      colliderGizmoTextures: "collider-textures",
+      elevatedTerrainColliders: [{ id: "terrain-collider" }],
+      playerCharacter: {
+        getPosition: vi.fn(() => playerPosition)
+      },
+      npcActors: [{ id: "npc" }],
+      characterTextures: "character-textures"
+    };
+    const controls = {
+      storyState: { flags: {} }
+    };
+    const runtime = createRenderSnapshotCompletionFrameRuntime({
+      session,
+      controls,
+      rendering: {
+        fullUvRect: "uv",
+        debugColliders: true,
+        isNpcActive
+      },
+      treeRevivalLeafBurstFrameRuntime,
+      getInteractionDebugColliders,
+      sources: {
+        getNatureRevivalBillboardsForSession,
+        getColliderGizmoBillboardsForSession
+      }
+    });
+
+    runtime.update(nextFrame, { deltaTime: 0.25 });
+
+    expect(getNatureRevivalBillboardsForSession).toHaveBeenCalledWith(
+      session.natureRevivalEffects,
+      "spark",
+      "uv"
+    );
+    expect(treeRevivalLeafBurstFrameRuntime.appendBillboards).toHaveBeenCalledWith(nextFrame);
+    expect(getColliderGizmoBillboardsForSession).toHaveBeenCalledWith({
+      colliders: [
+        { id: "terrain-collider" },
+        { id: "interaction-collider" }
+      ],
+      textures: "collider-textures"
+    });
+    expect(nextFrame.render.genericBillboards).toEqual([
+      natureRevivalBillboard,
+      leafBurstBillboard,
+      colliderBillboard
+    ]);
+    expect(nextFrame.colliderGizmos).toEqual({
+      visible: true,
+      colliders: [
+        { id: "terrain-collider" },
+        { id: "interaction-collider" }
+      ]
+    });
+    expect(nextFrame.render.characters).toEqual({
+      storyState: controls.storyState,
+      playerCharacter: session.playerCharacter,
+      npcActors: session.npcActors,
+      characterTextures: "character-textures",
+      isNpcActive
+    });
+    expect(nextFrame.tutorial).toEqual({
+      active: true,
+      playerPosition,
+      deltaTime: 0.25
+    });
   });
 });

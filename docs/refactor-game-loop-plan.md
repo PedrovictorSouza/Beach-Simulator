@@ -3908,6 +3908,89 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Render Snapshot Completion Frame Runtime Boundary
+
+Expanded `app/runtime/presentation/baseRenderSnapshotFrame.js` with
+`createRenderSnapshotCompletionFrameRuntime(...)`.
+
+Boundary classification: `presentation / render helpers`, focused on final
+snapshot channels that are populated after world-object and companion
+presentation.
+
+Study path:
+
+1. `startGameLoop()` wires the completion runtime next to the base render
+   snapshot runtime.
+2. `frame(now)` still decides when final snapshot completion happens.
+3. The completion runtime now owns the final render snapshot writes for nature
+   revival billboards, tree-revival leaf-burst billboards, optional debug
+   collider gizmos, character render payload and tutorial frame data.
+4. `gameLoop.js` now calls `renderSnapshotCompletionFrameRuntime.update(...)`
+   immediately before `frameRuntime.commitFrame()`.
+
+Removed from `gameLoop.js`:
+
+- direct import/use of `getNatureRevivalBillboards(...)`;
+- direct import/use of `getColliderGizmoBillboards(...)`;
+- manual append of nature-revival billboards;
+- manual append of tree-revival leaf-burst billboards;
+- manual debug collider gizmo snapshot writes;
+- manual character render payload assignment;
+- manual tutorial snapshot assignment.
+
+Kept in `gameLoop.js`:
+
+- overall frame order;
+- the call to `companionRenderFrameRuntime.update(...)` before final snapshot
+  completion;
+- `getInteractionDebugColliders()` as a local boundary for now, because it
+  still depends on interaction/debug gameplay constants and is a better
+  candidate for a later debug-domain cut.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2559` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2535` lines.
+- No new file was created; the boundary was added to the existing
+  `presentation/baseRenderSnapshotFrame.js` module.
+
+Tests updated:
+
+- `tests/baseRenderSnapshotFrame.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/baseRenderSnapshotFrame.test.js
+```
+
+The first run failed because `createRenderSnapshotCompletionFrameRuntime(...)`
+did not exist yet. After adding the runtime factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/baseRenderSnapshotFrame.test.js
+npm test -- --run tests/baseRenderSnapshotFrame.test.js tests/frameSnapshotController.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1974` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Nature Presentation Frame Runtime Boundary
 
 Expanded `app/runtime/presentation/natureRenderFrame.js` with
