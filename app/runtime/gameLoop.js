@@ -61,7 +61,7 @@ import {
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
 } from "./companions/companionFollowMotion.js";
-import { updateCompanionPresentationFrame } from "./companions/companionPresentationFrame.js";
+import { createCompanionRenderFrameRuntime } from "./companions/companionPresentationFrame.js";
 import {
   createFoundationBuildZoneCameraFocusPose,
   createFoundationBuildZoneCameraFocusRuntime
@@ -1051,6 +1051,26 @@ export function startGameLoop({
     clamp01,
     moveValueToward,
     onSquirtleRechargeComplete: startNextQueuedSquirtleWaterGunAction
+  });
+  const companionRenderFrameRuntime = createCompanionRenderFrameRuntime({
+    session,
+    getPlayerSkills: () => controls.playerSkills,
+    getStoryState: () => controls.storyState,
+    rendering,
+    camera,
+    isActTwoTutorialStarted: () => actTwoTutorial.hasStarted(),
+    syncSquirtleModelInstance: () => companionModelSyncRuntime.syncSquirtle(),
+    getSquirtleWorldPosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
+    getCharmanderWorldPosition: fieldMoveActorPositionRuntime.getCharmanderWorldPosition,
+    getSquirtleMouthPosition: fieldMoveActorPositionRuntime.getSquirtleMouthPosition,
+    getCharmanderMouthPosition: fieldMoveActorPositionRuntime.getCharmanderMouthPosition,
+    getBulbasaurGrowEmitterPosition: fieldMoveActorPositionRuntime.getBulbasaurGrowEmitterPosition,
+    getSquirtleWaterStaminaState: () =>
+      companionAbilityResourcesRuntime.getSquirtleWaterStaminaState(),
+    getCharmanderCarbonEnergyState: () =>
+      companionAbilityResourcesRuntime.getCharmanderCarbonEnergyState(),
+    isSquirtleWaterCharging: () => companionAbilityResourcesRuntime.isSquirtleWaterCharging(),
+    interactionRadiusGizmoConfig: BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG
   });
   const leafDenConstructionPresentationRuntime = createLeafDenConstructionPresentationRuntime({
     session,
@@ -2673,41 +2693,10 @@ export function startGameLoop({
       clamp: clamp01
     });
 
-    if (session.actTwoSquirtle?.modelInstance) {
-      const squirtle = session.actTwoSquirtle;
-      const visibleActTwoSquirtle =
-        squirtle.visible ||
-        squirtle.recovered ||
-        actTwoTutorial.hasStarted() ||
-        controls.storyState.questIndex >= 1;
-      const assembledActTwoSquirtle =
-        squirtle.recovered || squirtle.assemblyState === "assembled";
-      companionModelSyncRuntime.syncSquirtle();
-      squirtle.modelInstance.active = Boolean(
-        (visibleActTwoSquirtle && assembledActTwoSquirtle) ||
-        session.squirtleWaterGunAction ||
-        companionAbilityResourcesRuntime.isSquirtleWaterCharging()
-      );
-    }
-    updateCompanionPresentationFrame({
-      session,
+    companionRenderFrameRuntime.update({
       nextFrame,
-      playerSkills: controls.playerSkills,
       activeMoveId,
-      rendering,
-      camera,
-      now,
-      getSquirtleWorldPosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
-      getCharmanderWorldPosition: fieldMoveActorPositionRuntime.getCharmanderWorldPosition,
-      getSquirtleMouthPosition: fieldMoveActorPositionRuntime.getSquirtleMouthPosition,
-      getCharmanderMouthPosition: fieldMoveActorPositionRuntime.getCharmanderMouthPosition,
-      getBulbasaurGrowEmitterPosition: fieldMoveActorPositionRuntime.getBulbasaurGrowEmitterPosition,
-      getSquirtleWaterStaminaState: () =>
-        companionAbilityResourcesRuntime.getSquirtleWaterStaminaState(),
-      getCharmanderCarbonEnergyState: () =>
-        companionAbilityResourcesRuntime.getCharmanderCarbonEnergyState(),
-      isSquirtleWaterCharging: () => companionAbilityResourcesRuntime.isSquirtleWaterCharging(),
-      interactionRadiusGizmoConfig: BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG
+      now
     });
     nextFrame.render.genericBillboards.push(
       ...getNatureRevivalBillboards(

@@ -15986,3 +15986,87 @@ npm test
   to dirty `startScreen.js` / bootstrap work already present in the worktree.
 
 Manual gameplay validation remains pending for this cut.
+
+### Companion Render Frame Runtime Boundary
+
+Expanded `app/runtime/companions/companionPresentationFrame.js` with
+`createCompanionRenderFrameRuntime(...)`.
+
+Boundary classification: `companions / presentation runtime`, focused on
+companion model visibility and companion-specific render billboards.
+
+Study path:
+
+1. `startGameLoop()` still wires the runtime dependencies as composition root.
+2. `frame(now)` now calls `companionRenderFrameRuntime.update(...)` instead of
+   knowing every companion presentation callback.
+3. The companions module now owns the Act Two Squirtle render visibility rule:
+   sync the Squirtle model instance, check story/tutorial visibility gates,
+   keep it active when assembled/recovered, and keep it active for Water Gun or
+   charging presentation.
+4. `updateCompanionPresentationFrame(...)` remains exported for existing tests
+   and direct focused use; the new runtime wraps it with the missing companion
+   model visibility step.
+
+Removed from `gameLoop.js`:
+
+- direct Act Two Squirtle model visibility rule;
+- direct call to `companionModelSyncRuntime.syncSquirtle()` inside render prep;
+- long companion presentation callback list inside the `frame(now)` body.
+
+Kept in `gameLoop.js`:
+
+- companion render runtime construction and dependency wiring;
+- temporal placement of companion presentation inside render snapshot
+  preparation;
+- `activeMoveId`, `nextFrame` and `now` handoff from the frame.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2751` lines.
+- After this cut, committed `app/runtime/gameLoop.js` is expected to be `2740`
+  lines.
+- The visible worktree may show one extra line while the unrelated
+  `shouldShowGroundCellHighlight` residual line is restored.
+- The body of `frame(now)` loses the companion-specific Squirtle visibility
+  rule and the companion presentation dependency list; some lines move to
+  composition-root wiring, which is intentional.
+
+Tests updated:
+
+- `tests/companionPresentationFrame.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionPresentationFrame.test.js
+```
+
+The first run failed because `updateCompanionRenderFrame(...)` did not exist
+yet. After adding that function, the second TDD step failed because
+`createCompanionRenderFrameRuntime(...)` did not exist yet. After adding the
+factory and updating `gameLoop.js`, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionPresentationFrame.test.js
+npm test -- --run tests/companionModelSyncRuntime.test.js tests/companionFrameRuntime.test.js tests/baseRenderSnapshotFrame.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1970` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.

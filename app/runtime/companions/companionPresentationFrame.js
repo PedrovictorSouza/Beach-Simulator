@@ -151,3 +151,86 @@ export function updateCompanionPresentationFrame({
     uvRect
   });
 }
+
+function updateActTwoSquirtleModelVisibility({
+  session,
+  storyState,
+  isActTwoTutorialStarted = () => false,
+  syncSquirtleModelInstance = () => {},
+  isSquirtleWaterCharging = () => false
+}) {
+  if (!session?.actTwoSquirtle?.modelInstance) {
+    return;
+  }
+
+  const squirtle = session.actTwoSquirtle;
+  const visibleActTwoSquirtle =
+    squirtle.visible ||
+    squirtle.recovered ||
+    isActTwoTutorialStarted() ||
+    storyState?.questIndex >= 1;
+  const assembledActTwoSquirtle =
+    squirtle.recovered || squirtle.assemblyState === "assembled";
+  syncSquirtleModelInstance();
+  squirtle.modelInstance.active = Boolean(
+    (visibleActTwoSquirtle && assembledActTwoSquirtle) ||
+    session.squirtleWaterGunAction ||
+    isSquirtleWaterCharging()
+  );
+}
+
+export function updateCompanionRenderFrame(frameState) {
+  updateActTwoSquirtleModelVisibility(frameState);
+  updateCompanionPresentationFrame(frameState);
+}
+
+export function createCompanionRenderFrameRuntime({
+  session,
+  getPlayerSkills = () => null,
+  getStoryState = () => null,
+  rendering,
+  camera,
+  isActTwoTutorialStarted = () => false,
+  syncSquirtleModelInstance = () => {},
+  getSquirtleWorldPosition,
+  getCharmanderWorldPosition,
+  getSquirtleMouthPosition,
+  getCharmanderMouthPosition,
+  getBulbasaurGrowEmitterPosition,
+  getSquirtleWaterStaminaState,
+  getCharmanderCarbonEnergyState,
+  isSquirtleWaterCharging,
+  interactionRadiusGizmoConfig
+} = {}) {
+  function update({
+    nextFrame,
+    activeMoveId = null,
+    now = 0
+  } = {}) {
+    updateCompanionRenderFrame({
+      session,
+      nextFrame,
+      playerSkills: getPlayerSkills(),
+      activeMoveId,
+      rendering,
+      camera,
+      now,
+      storyState: getStoryState(),
+      isActTwoTutorialStarted,
+      syncSquirtleModelInstance,
+      getSquirtleWorldPosition,
+      getCharmanderWorldPosition,
+      getSquirtleMouthPosition,
+      getCharmanderMouthPosition,
+      getBulbasaurGrowEmitterPosition,
+      getSquirtleWaterStaminaState,
+      getCharmanderCarbonEnergyState,
+      isSquirtleWaterCharging,
+      interactionRadiusGizmoConfig
+    });
+  }
+
+  return {
+    update
+  };
+}
