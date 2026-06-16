@@ -417,6 +417,51 @@ export function createPlayerPrimaryFieldMoveActionRuntime({
     }
   }
 
+  function tryAutoTargetAction({
+    leafageAutoWaterGunTarget = null,
+    leafageAutoGrowTarget = null,
+    performHarvestAction,
+    playerPosition
+  } = {}) {
+    if (leafageAutoWaterGunTarget?.groundCell) {
+      fieldMoveInvalidTargetPromptRuntime.resetLeafage?.();
+      callbacks.setActiveMoveId?.("waterGun");
+      callbacks.markWaterGunFirstUsePrompt?.();
+      const squirtleWaterGunResult = waterGunRuntime.startAction?.({
+        groundCell: leafageAutoWaterGunTarget.groundCell,
+        playerPosition
+      });
+
+      if (squirtleWaterGunResult === "unavailable") {
+        callbacks.triggerWaterGunSfxBurst?.();
+        performHarvestAction?.(playerPosition, {
+          useWaterGun: true,
+          forcedHarvestTarget: leafageAutoWaterGunTarget
+        });
+      }
+      return true;
+    }
+
+    if (leafageAutoGrowTarget?.leafageGroundCell) {
+      fieldMoveInvalidTargetPromptRuntime.resetLeafage?.();
+      callbacks.setActiveMoveId?.("leafage");
+      const bulbasaurLeafageResult = leafageRuntime.startAction?.({
+        groundCell: leafageAutoGrowTarget.leafageGroundCell,
+        playerPosition
+      });
+
+      if (bulbasaurLeafageResult === "unavailable") {
+        performHarvestAction?.(playerPosition, {
+          useLeafage: true,
+          forcedHarvestTarget: leafageAutoGrowTarget
+        });
+      }
+      return true;
+    }
+
+    return false;
+  }
+
   function update({
     buildBlockEquipped = false,
     fireEquipped = false,
@@ -490,6 +535,7 @@ export function createPlayerPrimaryFieldMoveActionRuntime({
   }
 
   return {
+    tryAutoTargetAction,
     update
   };
 }

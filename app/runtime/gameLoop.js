@@ -1608,8 +1608,12 @@ export function startGameLoop({
     companionAbilityResourcesRuntime,
     callbacks: {
       getFreeBlockInvalidPlacementNotice,
+      markWaterGunFirstUsePrompt: () => {
+        controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
+      },
       playSoundEvent,
       pushNotice: (notice) => hud?.pushNotice?.(notice),
+      setActiveMoveId: (moveId) => controls.setActiveMoveId?.(moveId),
       triggerWaterGunSfxBurst
     },
     soundEventIds: SOUND_EVENT_IDS,
@@ -2344,36 +2348,13 @@ export function startGameLoop({
         workbenchRotationRuntime.selectTargetWithFeedback(primaryActionRotationTarget);
       } else if (primaryActionBagDestroyTarget?.target) {
         playerActionRuntime.performDestroy(playerActionContext.getDestroyOptions(playerPosition));
-      } else if (leafageAutoWaterGunTarget?.groundCell) {
-        fieldMoveInvalidTargetPromptRuntime.resetLeafage();
-        controls.setActiveMoveId?.("waterGun");
-        controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
-        const squirtleWaterGunResult = waterGunRuntime.startAction({
-          groundCell: leafageAutoWaterGunTarget.groundCell,
-          playerPosition
-        });
-
-        if (squirtleWaterGunResult === "unavailable") {
-          triggerWaterGunSfxBurst();
-          performHarvestAction(playerPosition, {
-            useWaterGun: true,
-            forcedHarvestTarget: leafageAutoWaterGunTarget
-          });
-        }
-      } else if (leafageAutoGrowTarget?.leafageGroundCell) {
-        fieldMoveInvalidTargetPromptRuntime.resetLeafage();
-        controls.setActiveMoveId?.("leafage");
-        const bulbasaurLeafageResult = leafageRuntime.startAction({
-          groundCell: leafageAutoGrowTarget.leafageGroundCell,
-          playerPosition
-        });
-
-        if (bulbasaurLeafageResult === "unavailable") {
-          performHarvestAction(playerPosition, {
-            useLeafage: true,
-            forcedHarvestTarget: leafageAutoGrowTarget
-          });
-        }
+      } else if (playerPrimaryFieldMoveActionRuntime.tryAutoTargetAction({
+        leafageAutoWaterGunTarget,
+        leafageAutoGrowTarget,
+        performHarvestAction,
+        playerPosition
+      })) {
+        // Auto field-move target handled by the player action runtime.
       } else if (primaryActionRepeatedFieldMove) {
         playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
         groundActionFeedbackRuntime.triggerInvalid(primaryActionAlreadyResolvedGroundCell, now);

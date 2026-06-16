@@ -203,6 +203,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   existing `player` action runtime.
 - Completed: move primary field-move action dispatch into the existing
   `player` action runtime.
+- Completed: move primary auto field-move target dispatch into the existing
+  `player` action runtime.
 - Completed: move dialogue camera controller into the `camera` boundary.
 - Completed: move placement camera assist into the `camera` boundary.
 - Completed: move construction billboard builders into the `construction`
@@ -15615,6 +15617,84 @@ npm test
 ```
 
 `npm test` completed with `1947` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Primary Auto Field Move Action Runtime Boundary
+
+Expanded the existing `createPlayerPrimaryFieldMoveActionRuntime(...)` in
+`app/player/playerActionRuntime.js` with `tryAutoTargetAction(...)`.
+
+Boundary classification: `player / gameplay action runtime`, focused on the
+auto field-move target branches inside primary-action dispatch.
+
+Study path:
+
+1. `gameLoop.js` still computes `leafageAutoWaterGunTarget` and
+   `leafageAutoGrowTarget`, preserving target-query order.
+2. `tryAutoTargetAction(...)` now owns the side effects for the auto target
+   branches and returns whether the branch was handled.
+3. The return value preserves the existing `else if` priority before repeated
+   and invalid target feedback.
+
+Removed from `gameLoop.js`:
+
+- Leafage auto Water Gun branch side effects;
+- Leafage auto Grow branch side effects;
+- direct active move switching for these auto branches;
+- direct Water Gun first-use flag mutation for this branch;
+- direct fallback harvest calls for these auto branches.
+
+Kept in `gameLoop.js`:
+
+- target-query decisions for `leafageAutoWaterGunTarget` and
+  `leafageAutoGrowTarget`;
+- primary-action branch priority around rotation, bag destroy, repeated
+  feedback, invalid feedback, placement, bag harvest, interact and fallback
+  harvest;
+- frame-local `performHarvestAction(...)` wrapper.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` version was `2963`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is expected
+  to be `2944` lines.
+
+Tests updated:
+
+- `tests/playerActionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+```
+
+The first run failed because `tryAutoTargetAction(...)` did not exist yet.
+After adding it, the focused player action runtime test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+npm test -- --run tests/playerActionRuntime.test.js tests/playerActionContext.test.js tests/playerActionTargetContext.test.js tests/waterGunRuntime.test.js tests/leafageRuntime.test.js tests/gameLoopFramePolicies.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1950` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;

@@ -578,8 +578,10 @@ describe("createPlayerPrimaryFieldMoveActionRuntime", () => {
     };
     const callbacks = {
       getFreeBlockInvalidPlacementNotice: vi.fn((reason) => `Invalid: ${reason}`),
+      markWaterGunFirstUsePrompt: vi.fn(),
       playSoundEvent: vi.fn(),
       pushNotice: vi.fn(),
+      setActiveMoveId: vi.fn(),
       triggerWaterGunSfxBurst: vi.fn()
     };
     const performHarvestAction = vi.fn();
@@ -634,6 +636,83 @@ describe("createPlayerPrimaryFieldMoveActionRuntime", () => {
     expect(callbacks.playSoundEvent).toHaveBeenCalledWith("cancel");
     expect(callbacks.getFreeBlockInvalidPlacementNotice).toHaveBeenCalledWith("blocked");
     expect(callbacks.pushNotice).toHaveBeenCalledWith("Invalid: blocked");
+    expect(performHarvestAction).not.toHaveBeenCalled();
+  });
+
+  it("handles Leafage auto Water Gun target before the invalid-target branch", () => {
+    const {
+      callbacks,
+      fieldMoveInvalidTargetPromptRuntime,
+      performHarvestAction,
+      runtime,
+      waterGunRuntime
+    } = createPrimaryFieldMoveRuntime({ waterGunResult: "unavailable" });
+    const leafageAutoWaterGunTarget = { groundCell: { id: "auto-water-cell" } };
+
+    expect(runtime.tryAutoTargetAction({
+      leafageAutoWaterGunTarget,
+      performHarvestAction,
+      playerPosition: [1, 0, 2]
+    })).toBe(true);
+
+    expect(fieldMoveInvalidTargetPromptRuntime.resetLeafage).toHaveBeenCalledTimes(1);
+    expect(callbacks.setActiveMoveId).toHaveBeenCalledWith("waterGun");
+    expect(callbacks.markWaterGunFirstUsePrompt).toHaveBeenCalledTimes(1);
+    expect(waterGunRuntime.startAction).toHaveBeenCalledWith({
+      groundCell: { id: "auto-water-cell" },
+      playerPosition: [1, 0, 2]
+    });
+    expect(callbacks.triggerWaterGunSfxBurst).toHaveBeenCalledTimes(1);
+    expect(performHarvestAction).toHaveBeenCalledWith([1, 0, 2], {
+      forcedHarvestTarget: leafageAutoWaterGunTarget,
+      useWaterGun: true
+    });
+  });
+
+  it("handles Leafage auto grow target after auto Water Gun is absent", () => {
+    const {
+      callbacks,
+      fieldMoveInvalidTargetPromptRuntime,
+      leafageRuntime,
+      performHarvestAction,
+      runtime,
+      waterGunRuntime
+    } = createPrimaryFieldMoveRuntime({ leafageResult: "unavailable" });
+    const leafageAutoGrowTarget = { leafageGroundCell: { id: "auto-grow-cell" } };
+
+    expect(runtime.tryAutoTargetAction({
+      leafageAutoGrowTarget,
+      performHarvestAction,
+      playerPosition: [1, 0, 2]
+    })).toBe(true);
+
+    expect(waterGunRuntime.startAction).not.toHaveBeenCalled();
+    expect(fieldMoveInvalidTargetPromptRuntime.resetLeafage).toHaveBeenCalledTimes(1);
+    expect(callbacks.setActiveMoveId).toHaveBeenCalledWith("leafage");
+    expect(callbacks.markWaterGunFirstUsePrompt).not.toHaveBeenCalled();
+    expect(leafageRuntime.startAction).toHaveBeenCalledWith({
+      groundCell: { id: "auto-grow-cell" },
+      playerPosition: [1, 0, 2]
+    });
+    expect(performHarvestAction).toHaveBeenCalledWith([1, 0, 2], {
+      forcedHarvestTarget: leafageAutoGrowTarget,
+      useLeafage: true
+    });
+  });
+
+  it("returns false when no auto field-move target is available", () => {
+    const {
+      fieldMoveInvalidTargetPromptRuntime,
+      performHarvestAction,
+      runtime
+    } = createPrimaryFieldMoveRuntime();
+
+    expect(runtime.tryAutoTargetAction({
+      performHarvestAction,
+      playerPosition: [1, 0, 2]
+    })).toBe(false);
+
+    expect(fieldMoveInvalidTargetPromptRuntime.resetLeafage).not.toHaveBeenCalled();
     expect(performHarvestAction).not.toHaveBeenCalled();
   });
 
