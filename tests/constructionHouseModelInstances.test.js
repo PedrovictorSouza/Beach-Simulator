@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createConstructionHouseModelInstanceRuntime,
   ensurePlayerHouseModelInstances,
   syncCampfireTrainHouseModelInstance,
   syncGreenhouseModelInstances,
@@ -81,6 +82,85 @@ describe("construction house model instances", () => {
     });
 
     expect(instance.active).toBe(false);
+  });
+
+  it("creates a runtime that injects session state and model callbacks", () => {
+    const campfire = {
+      position: [3, 0.02, 5]
+    };
+    const trainHouseInstance = {
+      trainHouseBaseScale: 1.4,
+      trainHouseGroundY: 0.03,
+      active: false
+    };
+    const greenhouse = {
+      position: [7, 0.02, 9],
+      yaw: 0.5
+    };
+    const greenhouseInstance = {
+      greenhouseBaseScale: 1.8,
+      greenhouseGroundY: 0.04,
+      greenhouseBaseYaw: 0.25,
+      active: false
+    };
+    const playerHouse = {
+      id: "house-a",
+      position: [8, 0.02, 9],
+      yaw: 0.5
+    };
+    const playerHouseInstance = {
+      offset: [0, 0.03, 0],
+      scale: 1.75,
+      yaw: 0.25,
+      active: false
+    };
+    const session = {
+      campfire,
+      campfireTrainHouseModelInstance: trainHouseInstance,
+      greenhouses: [greenhouse],
+      greenhouseModelInstances: [greenhouseInstance],
+      playerHouses: [playerHouse],
+      playerHouseModelInstances: [playerHouseInstance],
+      leafDenModelInstances: [playerHouseInstance]
+    };
+    const applyTrainHouseDance = vi.fn();
+    const applyPlacementSpawn = vi.fn(() => false);
+    const applyRotationTint = vi.fn();
+    const runtime = createConstructionHouseModelInstanceRuntime({
+      session,
+      getStoryState: () => ({ flags: { campfireSpatOut: true } }),
+      getNowSeconds: () => 2.5,
+      getSelectedRotationKind: () => "playerHouse:house-a",
+      prepareDistance: 1,
+      getWorkbenchRotationPreviewYaw: () => 1.25,
+      isWorldPositionWithinRenderDistance: () => false,
+      applyTrainHouseDance,
+      applyPlacementSpawn,
+      applyRotationTint
+    });
+
+    runtime.syncCampfireTrainHouse(0.2);
+    runtime.syncGreenhouse(0.1);
+    runtime.syncPlayerHouses(0.15, [0, 0, 0]);
+
+    expect(applyTrainHouseDance).toHaveBeenCalledWith(
+      trainHouseInstance,
+      campfire.position,
+      2.5,
+      1.25
+    );
+    expect(greenhouseInstance).toMatchObject({
+      active: true,
+      offset: [7, 0.04, 9],
+      yaw: 0.75
+    });
+    expect(playerHouseInstance).toMatchObject({
+      active: true,
+      offset: [8, 0.03, 9],
+      yaw: 1.5
+    });
+    expect(applyRotationTint).toHaveBeenCalledWith("trainHouse", trainHouseInstance, 2.5);
+    expect(applyRotationTint).toHaveBeenCalledWith("playerHouse:house-a", playerHouseInstance);
   });
 
   it("syncs Greenhouse model instances from placements", () => {

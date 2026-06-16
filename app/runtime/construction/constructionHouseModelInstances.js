@@ -267,3 +267,74 @@ export function syncPlayerHouseModelInstances({
 
   return instances;
 }
+
+export function createConstructionHouseModelInstanceRuntime({
+  session = {},
+  getStoryState = () => ({}),
+  getNowSeconds = () => 0,
+  getSelectedRotationKind = () => null,
+  prepareDistance = Infinity,
+  getWorkbenchRotationPreviewYaw = () => 0,
+  isWorldPositionWithinRenderDistance = () => true,
+  applyTrainHouseDance = () => {},
+  applyPlacementSpawn = () => false,
+  applyRotationTint = () => {}
+} = {}) {
+  function syncCampfireTrainHouse(deltaTime = 0, nowSeconds = getNowSeconds()) {
+    return syncCampfireTrainHouseModelInstance({
+      session,
+      storyState: getStoryState(),
+      nowSeconds,
+      deltaTime,
+      getWorkbenchRotationPreviewYaw,
+      applyTrainHouseDance,
+      applyPlacementSpawn,
+      applyRotationTint
+    });
+  }
+
+  function syncGreenhouse(deltaTime = 0) {
+    return syncGreenhouseModelInstances({
+      session,
+      deltaTime,
+      applyPlacementSpawn
+    });
+  }
+
+  function syncLeafDen(deltaTime = 0) {
+    return syncLeafDenModelInstance({
+      session,
+      storyState: getStoryState(),
+      deltaTime,
+      getWorkbenchRotationPreviewYaw,
+      applyPlacementSpawn,
+      applyRotationTint
+    });
+  }
+
+  function ensurePlayerHouses() {
+    return ensurePlayerHouseModelInstances(session);
+  }
+
+  function syncPlayerHouses(deltaTime = 0, renderCenter = null) {
+    return syncPlayerHouseModelInstances({
+      session,
+      deltaTime,
+      renderCenter,
+      selectedRotationKind: getSelectedRotationKind(),
+      prepareDistance,
+      getWorkbenchRotationPreviewYaw,
+      isWorldPositionWithinRenderDistance,
+      applyPlacementSpawn,
+      applyRotationTint
+    });
+  }
+
+  return {
+    ensurePlayerHouses,
+    syncCampfireTrainHouse,
+    syncGreenhouse,
+    syncLeafDen,
+    syncPlayerHouses
+  };
+}

@@ -40,13 +40,7 @@ import {
 } from "./construction/freeBlockPlacementResult.js";
 import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
 import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
-import {
-  ensurePlayerHouseModelInstances as ensurePlayerHouseModelInstancesWithSession,
-  syncCampfireTrainHouseModelInstance as syncCampfireTrainHouseModelInstanceWithSession,
-  syncGreenhouseModelInstances as syncGreenhouseModelInstancesWithSession,
-  syncLeafDenModelInstance as syncLeafDenModelInstanceWithSession,
-  syncPlayerHouseModelInstances as syncPlayerHouseModelInstancesWithSession
-} from "./construction/constructionHouseModelInstances.js";
+import { createConstructionHouseModelInstanceRuntime } from "./construction/constructionHouseModelInstances.js";
 import { createConstructionHelperMotionRuntime } from "./construction/constructionHelperMotion.js";
 import {
   createConstructionPlacementFrameRuntime,
@@ -1021,6 +1015,18 @@ export function startGameLoop({
     getTargetSize: getWorkbenchRotationTargetSize,
     placementRotationStep: PLACEMENT_ROTATION_STEP
   });
+  const constructionHouseModelInstanceRuntime = createConstructionHouseModelInstanceRuntime({
+    session,
+    getStoryState: () => controls.storyState,
+    getNowSeconds: getRuntimeNowSeconds,
+    getSelectedRotationKind: () => workbenchRotationRuntime.getSelection()?.kind,
+    prepareDistance: PLAYER_CONSTRUCTION_MODEL_PREPARE_DISTANCE,
+    getWorkbenchRotationPreviewYaw,
+    isWorldPositionWithinRenderDistance,
+    applyTrainHouseDance,
+    applyPlacementSpawn: applyPlayerPlacementSpawnToModelInstance,
+    applyRotationTint: applyWorkbenchRotationSelectionTint
+  });
   const snowstormFogRuntime = createSnowstormFogRuntime({
     mount,
     getSnowstormFogIntensity,
@@ -1272,13 +1278,13 @@ export function startGameLoop({
     gameFlowValues,
     construction: {
       syncActiveRepairBoxHighlight,
-      syncGreenhouseModelInstance,
-      syncCampfireTrainHouseModelInstance,
+      syncGreenhouseModelInstance: constructionHouseModelInstanceRuntime.syncGreenhouse,
+      syncCampfireTrainHouseModelInstance: constructionHouseModelInstanceRuntime.syncCampfireTrainHouse,
       isLeafDenConstructionActive,
       syncLeafDenConstructionClouds,
       syncConstructionCloudBurstEffects,
-      syncLeafDenModelInstance,
-      syncPlayerHouseModelInstances
+      syncLeafDenModelInstance: constructionHouseModelInstanceRuntime.syncLeafDen,
+      syncPlayerHouseModelInstances: constructionHouseModelInstanceRuntime.syncPlayerHouses
     },
     applyInteractionObjectHighlight,
     getGameplayOpeningShipSceneObjects,
@@ -2553,27 +2559,6 @@ export function startGameLoop({
     { capture: true }
   );
 
-  function syncCampfireTrainHouseModelInstance(nowSeconds = getRuntimeNowSeconds(), deltaTime = 0) {
-    return syncCampfireTrainHouseModelInstanceWithSession({
-      session,
-      storyState: controls.storyState,
-      nowSeconds,
-      deltaTime,
-      getWorkbenchRotationPreviewYaw,
-      applyTrainHouseDance,
-      applyPlacementSpawn: applyPlayerPlacementSpawnToModelInstance,
-      applyRotationTint: applyWorkbenchRotationSelectionTint
-    });
-  }
-
-  function syncGreenhouseModelInstance(deltaTime = 0) {
-    return syncGreenhouseModelInstancesWithSession({
-      session,
-      deltaTime,
-      applyPlacementSpawn: applyPlayerPlacementSpawnToModelInstance
-    });
-  }
-
   function isLeafDenConstructionActive() {
     return leafDenConstructionPresentationRuntime.isActive();
   }
@@ -2596,35 +2581,6 @@ export function startGameLoop({
 
   function getConstructionCloudBurstBillboards(uvRect, nowSeconds = getRuntimeNowSeconds()) {
     return leafDenConstructionPresentationRuntime.getCloudBurstBillboards(uvRect, nowSeconds);
-  }
-
-  function syncLeafDenModelInstance(deltaTime = 0) {
-    return syncLeafDenModelInstanceWithSession({
-      session,
-      storyState: controls.storyState,
-      deltaTime,
-      getWorkbenchRotationPreviewYaw,
-      applyPlacementSpawn: applyPlayerPlacementSpawnToModelInstance,
-      applyRotationTint: applyWorkbenchRotationSelectionTint
-    });
-  }
-
-  function ensurePlayerHouseModelInstances() {
-    return ensurePlayerHouseModelInstancesWithSession(session);
-  }
-
-  function syncPlayerHouseModelInstances(deltaTime = 0, renderCenter = null) {
-    return syncPlayerHouseModelInstancesWithSession({
-      session,
-      deltaTime,
-      renderCenter,
-      selectedRotationKind: workbenchRotationRuntime.getSelection()?.kind,
-      prepareDistance: PLAYER_CONSTRUCTION_MODEL_PREPARE_DISTANCE,
-      getWorkbenchRotationPreviewYaw,
-      isWorldPositionWithinRenderDistance,
-      applyPlacementSpawn: applyPlayerPlacementSpawnToModelInstance,
-      applyRotationTint: applyWorkbenchRotationSelectionTint
-    });
   }
 
   function updateBulbasaurEncounter(deltaTime) {

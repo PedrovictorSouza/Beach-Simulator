@@ -360,6 +360,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move Thermal Cabin home-beat policy into the Train House runtime
   boundary.
+- Completed: move construction house model-instance wiring into the
+  `construction` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -8442,6 +8444,76 @@ The full suite completed with the existing Leafage Native Tree baseline:
   - `drops Wood when a Leafage Native tree is destroyed`
 
 Manual gameplay validation remains pending in this pass.
+
+### Construction House Model Instance Runtime Expansion
+
+Expanded `app/runtime/construction/constructionHouseModelInstances.js` with
+`createConstructionHouseModelInstanceRuntime(...)`.
+
+Classification: `construction`, specifically placed construction model-instance
+sync wiring.
+
+Study path:
+
+1. The existing pure functions still own the actual model rules for Campfire
+   Train House, Greenhouse, Leaf Den and player houses.
+2. The new runtime owns the dependency wiring that was still duplicated in
+   `gameLoop.js`: `session`, `storyState`, runtime seconds, selected rotation
+   kind, render-distance policy and spawn/tint/dance callbacks.
+3. `baseRenderSnapshotFrameRuntime` now receives methods from
+   `constructionHouseModelInstanceRuntime` instead of local wrappers.
+4. No model pose math, spawn-effect behavior, render-distance gating, tint
+   behavior or frame order changed.
+
+Removed from `gameLoop.js`:
+
+- local `syncCampfireTrainHouseModelInstance(...)` wrapper;
+- local `syncGreenhouseModelInstance(...)` wrapper;
+- local `syncLeafDenModelInstance(...)` wrapper;
+- local `ensurePlayerHouseModelInstances(...)` wrapper;
+- local `syncPlayerHouseModelInstances(...)` wrapper;
+- direct imports of the individual construction model sync functions.
+
+Kept in `gameLoop.js`:
+
+- composition of runtime dependencies;
+- base render frame ordering;
+- construction placement preview and rotation-specific wrappers not covered by
+  this model-instance runtime.
+
+Tests updated:
+
+- `tests/constructionHouseModelInstances.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionHouseModelInstances.test.js
+```
+
+The first run failed because `createConstructionHouseModelInstanceRuntime(...)`
+did not exist yet. After adding the runtime factory, the focused suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionHouseModelInstances.test.js
+npm test -- --run tests/constructionHouseModelInstances.test.js tests/baseRenderSnapshotFrame.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1885` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
 
 ### Leaf Den Construction State Boundary
 
