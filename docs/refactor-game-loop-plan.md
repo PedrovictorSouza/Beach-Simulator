@@ -374,6 +374,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move Workbench rotation target/feedback wiring into the
   `construction` boundary.
+- Completed: move Free Block build/preview/remove wiring into the
+  `construction` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
   `presentation` boundary.
 - Next: select the next small domain boundary without moving field moves,
@@ -3870,6 +3872,77 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Free Block Build Runtime Wiring
+
+Created `app/runtime/construction/freeBlockBuildRuntime.js` so the Free Block
+construction boundary owns the existing build target resolution, preview sync,
+placement result handling, Timburr impact placement, post-placement player
+displacement, removal drops and feedback callbacks.
+
+Boundary classification: `construction`, focused on Free Block build behavior
+and its integration points with foundation zones, companion blockers, player
+model sync and ground-action feedback.
+
+Removed from `gameLoop.js`:
+
+- local Free Block grid/controller wrappers;
+- local Free Block cell-world-position wrapper;
+- local Free Block feedback ground-cell wrapper;
+- local Free Block snapshot sync wrapper;
+- local post-placement player displacement wrapper;
+- local placement result side-effect wrapper;
+- local direct build-input placement wrapper;
+- local Free Block build-target wrapper;
+- local Free Block preview target/sync wrappers;
+- local Timburr Build Block impact-placement wrapper;
+- local nearby Free Block removal wrapper;
+- direct imports of Free Block preview/removal/placement-result internals.
+
+Kept in `gameLoop.js`:
+
+- `startGameLoop()` dependency wiring;
+- Build Block runtime callback wiring;
+- construction placement frame callback wiring;
+- destroy-action branch order;
+- Free Block tuning constants and HUD/audio callback sources.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `3754` lines.
+- After this cut, `app/runtime/gameLoop.js` is `3592` lines.
+
+Tests added:
+
+- `tests/freeBlockBuildRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/freeBlockBuildRuntime.test.js
+```
+
+The first run failed because `createFreeBlockBuildRuntime(...)` did not exist
+yet. After adding the runtime factory, the focused runtime test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/freeBlockBuildRuntime.test.js tests/freeBlockPreview.test.js tests/freeBlockPlacementResult.test.js tests/freeBlockRemoval.test.js tests/freeBlockBuildSessionRuntime.test.js tests/freeBlockBuildSystem.test.js tests/constructionPlacementFrameRuntime.test.js tests/buildBlockRuntime.test.js
+npm run build
+```
+
+Focused result:
+
+- `8` test files passed
+- `85` tests passed
+
+Full-suite validation was not repeated for this cut. The known baseline still
+has failures outside this boundary: the existing Leafage Native Tree failures
+and the isolated scene-flow failure tied to dirty `startScreen.js` / bootstrap
+work.
 
 Manual gameplay validation remains pending for this cut.
 

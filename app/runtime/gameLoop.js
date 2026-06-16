@@ -16,23 +16,9 @@ import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevea
 import { createSquirtleReassemblyRuntime } from "./companions/squirtleReassemblyRuntime.js";
 import {
   createFoundationBuildZoneRuntime,
-  createUnavailableFoundationBuildZoneValidation,
   getBuilderTutorialFoundationZoneSignature
 } from "./construction/foundationBuildZone.js";
-import {
-  tryRemoveNearbyFreeBlock as tryRemoveNearbyFreeBlockWithRuntime
-} from "./construction/freeBlockRemoval.js";
-import {
-  getFreeBlockPreviewTarget as getFreeBlockPreviewTargetWithRuntime,
-  resolveFreeBlockBuildTarget as resolveFreeBlockBuildTargetWithRuntime,
-  syncFreeBlockBuildPreview as syncFreeBlockBuildPreviewWithRuntime
-} from "./construction/freeBlockPreview.js";
-import {
-  applyFreeBlockPlacementResult,
-  applyTimburrBuildBlockImpact as applyTimburrBuildBlockImpactWithRuntime,
-  movePlayerAwayFromPlacedFreeBlock as movePlayerAwayFromPlacedFreeBlockWithRuntime,
-  tryPlaceFreeBlockFromBuildInput as tryPlaceFreeBlockFromBuildInputWithRuntime
-} from "./construction/freeBlockPlacementResult.js";
+import { createFreeBlockBuildRuntime } from "./construction/freeBlockBuildRuntime.js";
 import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
 import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
 import { createConstructionHouseModelInstanceRuntime } from "./construction/constructionHouseModelInstances.js";
@@ -63,7 +49,6 @@ import { createWorldObjectPlacementBlockerRuntime } from "./construction/worldOb
 import {
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
   doPlacementRectsOverlap,
-  getFreeBlockCellWorldPosition as getFreeBlockCellWorldPositionWithGrid,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
   getPlacementRect,
@@ -330,11 +315,7 @@ import {
   createPlayerConstructionTerrainColliders,
   isPositionInsideTerrainColliderFootprint
 } from "../gameplay/placementBlockers.js";
-import { createGridSystem } from "../gameplay/gridBuildingSystem.js";
-import {
-  FREE_BLOCK_TYPES,
-  resolveFreeBlockTargetCell
-} from "../gameplay/freeBlockBuildSystem.js";
+import { FREE_BLOCK_TYPES } from "../gameplay/freeBlockBuildSystem.js";
 import { evaluateHabitatSiteChoice } from "../gameplay/habitatSiteChoiceContract.js";
 import {
   COLONY_FEEDBACK_IDS,
@@ -677,7 +658,7 @@ export function startGameLoop({
   });
   const worldCellPlannerInteractionRuntime = createWorldCellPlannerInteractionRuntime({
     camera,
-    getGridConfig: () => getFreeBlockBuildGridConfig(),
+    getGridConfig: () => freeBlockBuildSessionRuntime.getGridConfig(),
     hud,
     maxDistancePx: WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX,
     rendering,
@@ -1149,7 +1130,7 @@ export function startGameLoop({
     session,
     controls,
     getTimburr: () => session.timburrEncounter,
-    resolveTarget: resolveFreeBlockBuildTarget,
+    resolveTarget: (...args) => freeBlockBuildRuntime.resolveBuildTarget(...args),
     getApproachPosition: ({ targetPosition, playerPosition }) =>
       fieldMoveApproachPositionRuntime.getTimburrBuildBlockApproachPosition(
         targetPosition,
@@ -1159,7 +1140,7 @@ export function startGameLoop({
     shouldCastFromBlockedApproach: shouldTimburrBuildBlockCastFromBlockedApproach,
     tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
     getModelYawToward: getRobotModelYawToward,
-    applyImpact: applyTimburrBuildBlockImpact,
+    applyImpact: (...args) => freeBlockBuildRuntime.applyTimburrImpact(...args),
     onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.builder),
     config: {
       modelFaceYawOffset: TIMBURR_MODEL_FACE_YAW_OFFSET
@@ -1201,7 +1182,7 @@ export function startGameLoop({
       updateLeafDenKitPlacementPreview,
       updateSolarStationSpawnEffect,
       syncSolarStationWorkbenchRotationVisual: workbenchRotationRuntime.syncSolarStationWorkbenchRotationVisualFromSources,
-      syncFreeBlockBuildPreview,
+      syncFreeBlockBuildPreview: (...args) => freeBlockBuildRuntime.syncPreview(...args),
       updateBuildBlockDebugOverlay: (debug) => buildBlockDebugOverlay.update(debug)
     }
   });
@@ -1437,6 +1418,31 @@ export function startGameLoop({
     callbacks: {
       getTerrainColliders: getPlayerConstructionTerrainColliders,
       getActorPosition: getActorDebugPosition
+    }
+  });
+  const freeBlockBuildRuntime = createFreeBlockBuildRuntime({
+    session,
+    controls,
+    freeBlockBuildSessionRuntime,
+    foundationBuildZoneRuntime,
+    companionConstructionBlockerRuntime,
+    playerModelRuntime,
+    groundActionFeedbackRuntime,
+    config: {
+      wallBlockType: FREE_BLOCK_TYPES.WALL,
+      dropSize: FREE_BLOCK_DROP_SIZE,
+      pickupRadius: FREE_BLOCK_DROP_PICKUP_RADIUS,
+      spread: FREE_BLOCK_DROP_SPREAD
+    },
+    callbacks: {
+      getTerrainColliders: getPlayerConstructionTerrainColliders,
+      isPositionInsideCollider: isPositionInsideTerrainColliderFootprint,
+      resolvePreviewValidity: resolveBuildBlockPreviewValidity,
+      resolveDisplacementPosition: resolveConstructionDisplacementPosition,
+      playPlacedSound: playInstanceObjectSfx,
+      playInvalidSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
+      playImpactSound: () => playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_IMPACT),
+      pushNotice: (notice) => hud?.pushNotice?.(notice)
     }
   });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
@@ -1787,7 +1793,7 @@ export function startGameLoop({
       typeof performance !== "undefined" && typeof performance.now === "function" ?
         performance.now() :
         Date.now();
-    if (tryRemoveNearbyFreeBlock(options?.playerPosition, nowMs)) {
+    if (freeBlockBuildRuntime.tryRemoveNearby(options?.playerPosition, nowMs)) {
       return true;
     }
 
@@ -1869,10 +1875,6 @@ export function startGameLoop({
     }
   }
 
-  function getFreeBlockBuildGridConfig() {
-    return freeBlockBuildSessionRuntime.getGridConfig();
-  }
-
   function isBuildBlockFieldMoveEquipped() {
     return Boolean(
       controls.playerSkills?.buildBlock &&
@@ -1881,175 +1883,11 @@ export function startGameLoop({
   }
 
   function getFreeBlockBuildCostMarker(previewTarget = null) {
-    const materialCost = getFreeBlockBuildController()?.getSelectedBlockMaterialCost?.();
+    const materialCost = freeBlockBuildRuntime.getController()?.getSelectedBlockMaterialCost?.();
     return buildFreeBlockBuildCostMarker({
       previewTarget,
       materialCost,
       inventory: controls.inventory
-    });
-  }
-
-  function getFreeBlockBuildController() {
-    return freeBlockBuildSessionRuntime.getController();
-  }
-
-  function getFreeBlockCellWorldPosition(cell, gridSystem = createGridSystem(getFreeBlockBuildGridConfig())) {
-    return getFreeBlockCellWorldPositionWithGrid({
-      cell,
-      gridSystem
-    });
-  }
-
-  function buildFreeBlockFeedbackGroundCell(result) {
-    return freeBlockBuildSessionRuntime.buildFeedbackGroundCell({ result });
-  }
-
-  function syncFreeBlockBuildSnapshot() {
-    return freeBlockBuildSessionRuntime.syncSnapshot();
-  }
-
-  function movePlayerAwayFromPlacedFreeBlock(targetCell, playerPosition = null) {
-    return movePlayerAwayFromPlacedFreeBlockWithRuntime({
-      playerCharacter: session.playerCharacter,
-      targetCell,
-      playerPosition,
-      gridSystem: createGridSystem(getFreeBlockBuildGridConfig()),
-      resolveDisplacementPosition: resolveConstructionDisplacementPosition,
-      isBlocked: companionConstructionBlockerRuntime.isBlocked,
-      syncPlayerModel: () => playerModelRuntime.sync(session, 0)
-    });
-  }
-
-  function handleFreeBlockPlacementResult(result, now) {
-    return applyFreeBlockPlacementResult({
-      result,
-      feedbackGroundCell: buildFreeBlockFeedbackGroundCell(result),
-      now,
-      wallBlockType: FREE_BLOCK_TYPES.WALL,
-      actions: {
-        triggerFeedback: (...args) => groundActionFeedbackRuntime.triggerFeedback(...args),
-        markFirstFreeBlockPlaced: () => {
-          controls.storyState.flags.firstFreeBlockPlaced = true;
-        },
-        onFoundationWallBuilt: (event) => controls.onFoundationWallBuilt?.(event),
-        syncFoundationCompletionEffects: foundationBuildZoneRuntime.syncCompletionEffects,
-        syncFreeBlockBuildSnapshot,
-        playPlacedSound: playInstanceObjectSfx,
-        playInvalidSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
-        pushNotice: (notice) => hud?.pushNotice?.(notice)
-      }
-    });
-  }
-
-  function tryPlaceFreeBlockFromBuildInput(now) {
-    const playerPosition = session.playerCharacter?.getPosition?.();
-    return tryPlaceFreeBlockFromBuildInputWithRuntime({
-      controller: getFreeBlockBuildController(),
-      placement: {
-        buildZoneUnavailable: foundationBuildZoneRuntime.isBuildZoneUnavailable(),
-        blockType: FREE_BLOCK_TYPES.WALL,
-        playerPosition,
-        playerYaw: session.playerModelInstance?.yaw,
-        inventory: controls.inventory,
-        getBuildZone: foundationBuildZoneRuntime.getActiveBuildZone,
-        canStack: foundationBuildZoneRuntime.canStack
-      },
-      effects: {
-        movePlayerAway: movePlayerAwayFromPlacedFreeBlock,
-        handlePlacementResult: handleFreeBlockPlacementResult
-      },
-      now
-    });
-  }
-
-  function resolveFreeBlockBuildTarget(playerPosition = null) {
-    const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
-    const playerYaw = session.playerModelInstance?.yaw;
-    return resolveFreeBlockBuildTargetWithRuntime({
-      controller: getFreeBlockBuildController(),
-      gridSystem,
-      playerPosition,
-      playerYaw,
-      buildZone: foundationBuildZoneRuntime.getActiveBuildZone(),
-      allowStacking: foundationBuildZoneRuntime.canStack(),
-      inventory: controls.inventory,
-      buildZoneUnavailable: foundationBuildZoneRuntime.isBuildZoneUnavailable(),
-      resolveRawTargetCell: () => resolveFreeBlockTargetCell({
-        gridSystem,
-        playerPosition,
-        playerYaw
-      }),
-      resolveUnavailableValidation: ({ targetCell }) =>
-        createUnavailableFoundationBuildZoneValidation({ targetCell }),
-      resolveTargetPosition: getFreeBlockCellWorldPosition,
-      getConstructionColliders: getPlayerConstructionTerrainColliders,
-      isPositionInsideCollider: isPositionInsideTerrainColliderFootprint,
-      buildState: session.freeBlockBuildState,
-      resolvePreviewValidity: resolveBuildBlockPreviewValidity
-    });
-  }
-
-  function getFreeBlockPreviewTarget(playerPosition = null) {
-    return getFreeBlockPreviewTargetWithRuntime({
-      action: session.timburrBuildBlockAction,
-      playerPosition,
-      resolveTarget: resolveFreeBlockBuildTarget
-    });
-  }
-
-  function syncFreeBlockBuildPreview({ active, playerPosition, nowSeconds = 0 } = {}) {
-    return syncFreeBlockBuildPreviewWithRuntime({
-      instance: session.freeBlockPreviewInstance,
-      active,
-      playerPosition,
-      nowSeconds,
-      getTarget: getFreeBlockPreviewTarget,
-      createGridSystem: () => createGridSystem(getFreeBlockBuildGridConfig())
-    });
-  }
-
-  function applyTimburrBuildBlockImpact(action, now) {
-    const playerPosition = session.playerCharacter?.getPosition?.();
-    return applyTimburrBuildBlockImpactWithRuntime({
-      action,
-      controller: getFreeBlockBuildController(),
-      placement: {
-        buildZoneUnavailable: foundationBuildZoneRuntime.isBuildZoneUnavailable(),
-        blockType: FREE_BLOCK_TYPES.WALL,
-        playerPosition,
-        inventory: controls.inventory,
-        getBuildZone: foundationBuildZoneRuntime.getActiveBuildZone,
-        canStack: foundationBuildZoneRuntime.canStack
-      },
-      effects: {
-        movePlayerAway: movePlayerAwayFromPlacedFreeBlock,
-        handlePlacementResult: handleFreeBlockPlacementResult
-      },
-      now
-    });
-  }
-
-  function tryRemoveNearbyFreeBlock(playerPosition, now) {
-    return tryRemoveNearbyFreeBlockWithRuntime({
-      playerPosition,
-      freeBlockInstances: session.freeBlockInstances,
-      inventory: controls.inventory,
-      getController: getFreeBlockBuildController,
-      getWoodDrops: () => {
-        session.woodDrops ||= [];
-        return session.woodDrops;
-      },
-      buildFeedbackGroundCell,
-      now,
-      dropSize: FREE_BLOCK_DROP_SIZE,
-      pickupRadius: FREE_BLOCK_DROP_PICKUP_RADIUS,
-      spread: FREE_BLOCK_DROP_SPREAD,
-      actions: {
-        syncSnapshot: syncFreeBlockBuildSnapshot,
-        triggerFeedback: (...args) => groundActionFeedbackRuntime.triggerFeedback(...args),
-        playImpactSound: () => playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_IMPACT),
-        pushNotice: (notice) => hud?.pushNotice?.(notice)
-      }
     });
   }
 
