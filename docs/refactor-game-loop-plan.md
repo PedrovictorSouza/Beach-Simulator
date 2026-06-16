@@ -222,6 +222,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move Free Block foundation progress/active-zone session policy into
   the `construction` boundary.
+- Completed: move Free Block foundation presentation builders into the
+  `construction` boundary.
 - Completed: move status popup frame writes into the `presentation` boundary.
 - Completed: move HUD snapshot frame writes into the `presentation` boundary.
 - Completed: move companion status billboard builders into the `companions`
@@ -4376,6 +4378,78 @@ npm test
 
 - `308` test files passed, `1` failed
 - `1875` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
+### Free Block Foundation Presentation Builder Extraction
+
+Expanded `app/runtime/construction/freeBlockBuildSessionRuntime.js`.
+
+Classification: `construction`, focused on Free Block foundation presentation
+data derived from the build grid/session state.
+
+Study path:
+
+1. `gameLoop.js` still owned the local wiring from Free Block session/grid state
+   into foundation ground-cell highlights, completion interior cells, build-zone
+   center position and Free Block feedback cells.
+2. Those objects are presentation data, but they are derived directly from the
+   Free Block build grid/config/session, so expanding the existing Free Block
+   session runtime avoided a new loose helper file.
+3. The runtime now exposes:
+   `getBuildZoneCenterPosition(...)`,
+   `buildFoundationBuildZoneGroundCells(...)`,
+   `buildFoundationCompletionInteriorGroundCells(...)` and
+   `buildFeedbackGroundCell(...)`.
+4. `gameLoop.js` keeps only visibility gating, effect timing and the call sites
+   that preserve frame order.
+
+Removed from `gameLoop.js`:
+
+- direct conversion of foundation build-zone cells into renderable ground-cell
+  highlight data;
+- direct conversion of completion interior cells into feedback cells;
+- direct Free Block build-zone center calculation from grid config;
+- direct Free Block placement feedback cell construction.
+
+Kept in `gameLoop.js`:
+
+- foundation visibility gating based on active quest/system quest;
+- completion effect trigger and cloud/feedback side effects;
+- direct player displacement math after placing a block;
+- frame order and all tuning values.
+
+Tests updated:
+
+- `tests/freeBlockBuildSessionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js
+```
+
+The first run failed because the new presentation-builder runtime methods were
+not exported yet. After adding them, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js tests/placementGeometry.test.js tests/foundationBuildZone.test.js tests/freeBlockBuildSystem.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1877` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
 

@@ -12,6 +12,12 @@ import {
   resolveActiveBuilderTutorialFoundationBuildZone,
   saveBuilderTutorialFoundationOriginCell
 } from "./foundationBuildZone.js";
+import {
+  buildFoundationBuildZoneGroundCells as buildFoundationBuildZoneGroundCellsWithGrid,
+  buildFoundationCompletionInteriorGroundCells as buildFoundationCompletionInteriorGroundCellsWithGrid,
+  buildFreeBlockFeedbackGroundCell,
+  getFreeBlockBuildZoneCenterPosition as getFreeBlockBuildZoneCenterPositionWithGrid
+} from "./placementGeometry.js";
 
 export function normalizeFreeBlockBuildGridConfig({
   sourceConfig = null,
@@ -161,6 +167,48 @@ export function createFreeBlockBuildSessionRuntime({
     return Boolean(targetSession.freeBlockBuildZoneUnavailable);
   }
 
+  function getBuildZoneCenterPosition({
+    buildZone = targetSession.activeFreeBlockBuildZone
+  } = {}) {
+    return getFreeBlockBuildZoneCenterPositionWithGrid({
+      buildZone,
+      gridConfig: getGridConfig()
+    });
+  }
+
+  function buildFoundationBuildZoneGroundCells({
+    buildZone = targetSession.activeFreeBlockBuildZone,
+    zoneUnavailable = isBuildZoneUnavailable(),
+    wallBlockType = initialBlockType
+  } = {}) {
+    getController();
+    return buildFoundationBuildZoneGroundCellsWithGrid({
+      buildZone,
+      gridSystem: createGridSystem(getGridConfig()),
+      buildState: targetSession.freeBlockBuildState,
+      zoneUnavailable,
+      wallBlockType
+    });
+  }
+
+  function buildFoundationCompletionInteriorGroundCells({
+    buildZone = targetSession.activeFreeBlockBuildZone
+  } = {}) {
+    return buildFoundationCompletionInteriorGroundCellsWithGrid({
+      buildZone,
+      gridSystem: createGridSystem(getGridConfig())
+    });
+  }
+
+  function buildFeedbackGroundCell({
+    result = null
+  } = {}) {
+    return buildFreeBlockFeedbackGroundCell({
+      result,
+      gridSystem: createGridSystem(getGridConfig())
+    });
+  }
+
   return {
     getGridConfig,
     getController,
@@ -169,6 +217,10 @@ export function createFreeBlockBuildSessionRuntime({
     getFoundationBuildZoneProgressCount,
     canStackFreeBlockPlacement,
     syncActiveBuildZone,
-    isBuildZoneUnavailable
+    isBuildZoneUnavailable,
+    getBuildZoneCenterPosition,
+    buildFoundationBuildZoneGroundCells,
+    buildFoundationCompletionInteriorGroundCells,
+    buildFeedbackGroundCell
   };
 }

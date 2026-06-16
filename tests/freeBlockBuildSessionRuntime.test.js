@@ -179,4 +179,88 @@ describe("free block build session runtime", () => {
     expect(session.freeBlockBuildZoneUnavailable).toBe(false);
     expect(flags.builderTutorialFoundationOriginCell).toEqual(buildZone.originCell);
   });
+
+  it("builds foundation ground cells through the session grid and build state", () => {
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 0, y: 0 },
+      width: 3,
+      height: 3
+    });
+    const session = {};
+    const runtime = createFreeBlockBuildSessionRuntime({
+      session,
+      defaultGridConfig: {
+        ...DEFAULT_GRID_CONFIG,
+        width: 8,
+        height: 8
+      }
+    });
+
+    runtime.getController();
+    session.freeBlockBuildState.placeBlock(buildZone.borderCells[0], {
+      blockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    const cells = runtime.buildFoundationBuildZoneGroundCells({
+      buildZone,
+      zoneUnavailable: false,
+      wallBlockType: FREE_BLOCK_TYPES.WALL
+    });
+
+    expect(cells).toHaveLength(buildZone.borderCells.length);
+    expect(cells[0]).toMatchObject({
+      id: "foundation-build-zone:0:0",
+      offset: [-127.5, 0.03, -127.5],
+      highlightTargetState: "leafage",
+      highlightAbilityId: "leafage"
+    });
+    expect(cells[1]).toMatchObject({
+      highlightTargetState: "valid",
+      highlightAbilityId: "build"
+    });
+  });
+
+  it("builds center, interior completion and feedback cells from session grid config", () => {
+    const buildZone = createRectangularFreeBlockBuildZone({
+      originCell: { x: 0, y: 0 },
+      width: 3,
+      height: 3
+    });
+    const runtime = createFreeBlockBuildSessionRuntime({
+      session: {},
+      defaultGridConfig: {
+        ...DEFAULT_GRID_CONFIG,
+        width: 8,
+        height: 8
+      }
+    });
+
+    expect(runtime.getBuildZoneCenterPosition({ buildZone })).toEqual([
+      -126.5,
+      0.03,
+      -126.5
+    ]);
+
+    expect(runtime.buildFoundationCompletionInteriorGroundCells({
+      buildZone
+    })).toEqual([
+      expect.objectContaining({
+        id: "foundation-complete-ground:1:1",
+        offset: [-126.5, 0.03, -126.5],
+        highlightAbilityId: "foundationComplete"
+      })
+    ]);
+
+    expect(runtime.buildFeedbackGroundCell({
+      result: {
+        placed: false,
+        targetCell: { x: 2, y: 3 }
+      }
+    })).toMatchObject({
+      id: "free-block-feedback:2:3",
+      offset: [-125.5, 0.03, -124.5],
+      highlightTargetState: "invalid",
+      highlightAbilityId: "invalid"
+    });
+  });
 });

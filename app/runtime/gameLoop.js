@@ -95,13 +95,9 @@ import {
   getWorldObjectPlacementBlockers as getWorldObjectPlacementBlockersWithConfig
 } from "./construction/worldObjectPlacementBlockers.js";
 import {
-  buildFoundationBuildZoneGroundCells as buildFoundationBuildZoneGroundCellsWithConfig,
-  buildFoundationCompletionInteriorGroundCells as buildFoundationCompletionInteriorGroundCellsWithConfig,
-  buildFreeBlockFeedbackGroundCell as buildFreeBlockFeedbackGroundCellWithConfig,
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
   doPlacementRectsOverlap,
   getFoundationBuildZoneWorldRect as getFoundationBuildZoneWorldRectWithGrid,
-  getFreeBlockBuildZoneCenterPosition as getFreeBlockBuildZoneCenterPositionWithConfig,
   getFreeBlockCellWorldPosition as getFreeBlockCellWorldPositionWithGrid,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
@@ -2181,10 +2177,7 @@ export function startGameLoop({
   }
 
   function getFreeBlockBuildZoneCenterPosition(buildZone = getActiveFreeBlockBuildZone()) {
-    return getFreeBlockBuildZoneCenterPositionWithConfig({
-      buildZone,
-      gridConfig: getFreeBlockBuildGridConfig()
-    });
+    return freeBlockBuildSessionRuntime.getBuildZoneCenterPosition({ buildZone });
   }
 
   function getFreeBlockBuildCostMarker(previewTarget = null) {
@@ -2217,16 +2210,9 @@ export function startGameLoop({
       return [];
     }
 
-    getFreeBlockBuildController();
-    const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
-    const buildState = session.freeBlockBuildState;
-    const zoneUnavailable = isFoundationBuildZoneUnavailable();
-
-    return buildFoundationBuildZoneGroundCellsWithConfig({
+    return freeBlockBuildSessionRuntime.buildFoundationBuildZoneGroundCells({
       buildZone,
-      gridSystem,
-      buildState,
-      zoneUnavailable,
+      zoneUnavailable: isFoundationBuildZoneUnavailable(),
       wallBlockType: FREE_BLOCK_TYPES.WALL
     });
   }
@@ -2237,11 +2223,7 @@ export function startGameLoop({
       return [];
     }
 
-    const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
-    return buildFoundationCompletionInteriorGroundCellsWithConfig({
-      buildZone,
-      gridSystem
-    });
+    return freeBlockBuildSessionRuntime.buildFoundationCompletionInteriorGroundCells({ buildZone });
   }
 
   function triggerFoundationBuildZoneCompleteEffects(now = performance.now()) {
@@ -2300,10 +2282,7 @@ export function startGameLoop({
   }
 
   function buildFreeBlockFeedbackGroundCell(result) {
-    return buildFreeBlockFeedbackGroundCellWithConfig({
-      result,
-      gridSystem: createGridSystem(getFreeBlockBuildGridConfig())
-    });
+    return freeBlockBuildSessionRuntime.buildFeedbackGroundCell({ result });
   }
 
   function syncFreeBlockBuildSnapshot() {
