@@ -53,7 +53,8 @@ import {
   createConstructionPlacementFrameRuntime,
   resolveActiveConstructionPlacementPreviews,
   updateLeafDenKitConstructionPlacementPreview,
-  updateRectangularConstructionPlacementPreview
+  updateRectangularConstructionPlacementPreview,
+  updateSolarStationConstructionPlacementPreview
 } from "./construction/constructionPlacementFrameRuntime.js";
 import {
   getNearestRotatableWorkbenchPlacement as getNearestRotatableWorkbenchPlacementFromTargets,
@@ -106,7 +107,6 @@ import {
   getPlacementCollisionSize,
   getPlacementRect,
   getRotatedPlacementSize as getRotatedPlacementSizeWithConfig,
-  getSnappedPlacementPreviewPosition,
   isWorldPositionOnFreeBlockCell,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
@@ -382,7 +382,6 @@ import {
   createPlayerConstructionTerrainColliders,
   isPositionInsideTerrainColliderFootprint
 } from "../gameplay/placementBlockers.js";
-import { resolveWorkbenchPlacementPreviewVisual } from "../gameplay/placementPreviewVisual.js";
 import { createGridSystem } from "../gameplay/gridBuildingSystem.js";
 import {
   createFreeBlockBuildController,
@@ -1571,64 +1570,22 @@ export function startGameLoop({
     });
   }
 
-  function getSnappedSolarStationPreviewPosition(preview) {
-    return getSnappedPlacementPreviewPosition(preview);
-  }
-
   function updateSolarStationPlacementPreview(timeSeconds = 0) {
-    const preview = session.strawBedPlacementPreview;
-    if (!preview?.active) {
-      if (
-        session.strawBedModelInstance &&
+    return updateSolarStationConstructionPlacementPreview({
+      preview: session.strawBedPlacementPreview,
+      instance: session.strawBedModelInstance,
+      timeSeconds,
+      gridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
+      syncPlacementPreview: (preview) =>
+        constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(
+          preview,
+          SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE
+        ),
+      isPlacementBlocked: (previewRect) =>
+        isSolarStationPlacementBlocked(session, controls.storyState, previewRect),
+      shouldHideInactiveInstance: () =>
         !controls.storyState.flags.strawBedPlacedInBulbasaurHabitat
-      ) {
-        session.strawBedModelInstance.active = false;
-      }
-      return null;
-    }
-
-    constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(
-      preview,
-      SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE
-    );
-
-    const snappedPosition = getSnappedSolarStationPreviewPosition(preview);
-    const previewRect = getPlacementRect(
-      snappedPosition,
-      getPlacementPreviewFootprintWorldSize(preview, SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT)
-    );
-    const hasCollision = isSolarStationPlacementBlocked(
-      session,
-      controls.storyState,
-      previewRect
-    );
-
-    preview.snappedPosition = snappedPosition;
-    preview.valid = !hasCollision;
-    preview.readyForConfirm = true;
-
-    if (session.strawBedModelInstance) {
-      const previewVisual = resolveWorkbenchPlacementPreviewVisual({
-        valid: preview.valid,
-        timeSeconds
-      });
-      const baseYaw =
-        session.strawBedModelInstance.solarStationBaseYaw ??
-        Number(session.strawBedModelInstance.yaw || 0);
-      session.strawBedModelInstance.solarStationBaseYaw = baseYaw;
-      session.strawBedModelInstance.offset = [
-        snappedPosition[0],
-        session.strawBedModelInstance.offset?.[1] ?? 0.02,
-        snappedPosition[2]
-      ];
-      session.strawBedModelInstance.yaw = baseYaw + Number(preview.yaw || 0);
-      session.strawBedModelInstance.active = true;
-      session.strawBedModelInstance.alpha = previewVisual.alpha;
-      session.strawBedModelInstance.tint = previewVisual.tint;
-      session.strawBedModelInstance.tintStrength = previewVisual.tintStrength;
-    }
-
-    return preview;
+    });
   }
 
   function cancelPendingWorkbenchPlacementIntentWithNotice() {

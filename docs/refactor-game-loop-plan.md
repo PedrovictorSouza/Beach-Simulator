@@ -3842,6 +3842,75 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Solar Station Placement Preview Frame Extraction
+
+Expanded the existing `constructionPlacementFrameRuntime` boundary in
+`app/runtime/construction/constructionPlacementFrameRuntime.js`.
+
+Classification: `construction`, focused on the Solar Station placement-preview
+frame rule.
+
+Study path:
+
+1. Solar Station preview still owned snap, placement rectangle construction,
+   collision validity and preview model-instance visual mutation directly in
+   `gameLoop.js`.
+2. `updateSolarStationConstructionPlacementPreview(...)` now owns that sequence.
+3. `gameLoop.js` keeps composition-only dependencies: session preview, model
+   instance, follow distance, placement blocker callback and inactive-instance
+   visibility policy.
+
+Removed from `gameLoop.js`:
+
+- local `getSnappedSolarStationPreviewPosition(...)`;
+- direct Solar Station preview `snappedPosition`, `valid` and
+  `readyForConfirm` mutation;
+- direct Solar Station preview rectangle/collision calculation;
+- direct `strawBedModelInstance` visual sync for placement preview frames;
+- now-unused placement preview visual import.
+
+Kept in `gameLoop.js`:
+
+- the `updateSolarStationPlacementPreview(...)` wrapper as composition glue;
+- tuning constants and story-state visibility policy;
+- Solar Station blocker wrapper and power-radius helpers used elsewhere;
+- frame order and placement control flow.
+
+Tests updated:
+
+- `tests/constructionPlacementFrameRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+```
+
+The first run failed because
+`updateSolarStationConstructionPlacementPreview(...)` did not exist yet. After
+adding the helper, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js tests/placementGeometry.test.js tests/placementPreviewVisual.test.js tests/solarStationPlacementBlockers.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1853` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Leaf Den Kit Placement Preview Frame Extraction
 
 Expanded the existing `constructionPlacementFrameRuntime` boundary in

@@ -1,6 +1,7 @@
 import { resolveWorkbenchPlacementPreviewVisual } from "../../gameplay/placementPreviewVisual.js";
 import {
   getPlacementPreviewFootprintWorldSize,
+  getPlacementRect,
   getRotatedPlacementSize,
   getSnappedPlacementPreviewPosition,
   hasFinitePlacementBounds
@@ -104,6 +105,57 @@ export function syncPlacementPreviewPositionToPlayer({
   }
 
   preview.position = nextPosition;
+  return preview;
+}
+
+export function updateSolarStationConstructionPlacementPreview({
+  preview = null,
+  instance = null,
+  timeSeconds = 0,
+  gridFootprint = { width: 1, height: 1 },
+  syncPlacementPreview = () => {},
+  isPlacementBlocked = () => false,
+  shouldHideInactiveInstance = () => Boolean(instance)
+} = {}) {
+  if (!preview?.active) {
+    if (instance && shouldHideInactiveInstance()) {
+      instance.active = false;
+    }
+    return null;
+  }
+
+  syncPlacementPreview(preview);
+
+  const snappedPosition = getSnappedPlacementPreviewPosition(preview);
+  const previewRect = getPlacementRect(
+    snappedPosition,
+    getPlacementPreviewFootprintWorldSize(preview, gridFootprint)
+  );
+  const hasCollision = isPlacementBlocked(previewRect);
+
+  preview.snappedPosition = snappedPosition;
+  preview.valid = !hasCollision;
+  preview.readyForConfirm = true;
+
+  if (instance) {
+    const previewVisual = resolveWorkbenchPlacementPreviewVisual({
+      valid: preview.valid,
+      timeSeconds
+    });
+    const baseYaw = instance.solarStationBaseYaw ?? Number(instance.yaw || 0);
+    instance.solarStationBaseYaw = baseYaw;
+    instance.offset = [
+      snappedPosition[0],
+      instance.offset?.[1] ?? 0.02,
+      snappedPosition[2]
+    ];
+    instance.yaw = baseYaw + Number(preview.yaw || 0);
+    instance.active = true;
+    instance.alpha = previewVisual.alpha;
+    instance.tint = previewVisual.tint;
+    instance.tintStrength = previewVisual.tintStrength;
+  }
+
   return preview;
 }
 

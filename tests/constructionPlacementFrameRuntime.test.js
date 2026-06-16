@@ -5,7 +5,8 @@ import {
   resolveActiveConstructionPlacementPreviews,
   syncPlacementPreviewPositionToPlayer,
   updateLeafDenKitConstructionPlacementPreview,
-  updateRectangularConstructionPlacementPreview
+  updateRectangularConstructionPlacementPreview,
+  updateSolarStationConstructionPlacementPreview
 } from "../app/runtime/construction/constructionPlacementFrameRuntime.js";
 
 function createRuntime({
@@ -109,6 +110,73 @@ describe("construction placement frame runtime", () => {
 
     expect(preview.followPlayerOffset).toEqual([1.5, 0, 0]);
     expect(preview.position).toEqual([3.5, 0.02, 3]);
+  });
+
+  it("updates Solar Station placement previews and their model instances", () => {
+    const isPlacementBlocked = vi.fn(() => true);
+    const preview = {
+      active: true,
+      position: [1, 0.02, 2],
+      gridStep: 1,
+      yaw: Math.PI * 0.5
+    };
+    const instance = {
+      offset: [0, 0.2, 0],
+      scale: 2,
+      yaw: 0.25
+    };
+
+    expect(updateSolarStationConstructionPlacementPreview({
+      preview,
+      instance,
+      timeSeconds: 0,
+      gridFootprint: { width: 4, height: 4 },
+      syncPlacementPreview: (activePreview) => {
+        activePreview.position = [4, 0.02, 6];
+      },
+      isPlacementBlocked
+    })).toBe(preview);
+
+    expect(isPlacementBlocked).toHaveBeenCalledWith({
+      minX: 2,
+      maxX: 6,
+      minZ: 4,
+      maxZ: 8
+    });
+    expect(preview).toMatchObject({
+      snappedPosition: [4, 0.02, 6],
+      valid: false,
+      readyForConfirm: true
+    });
+    expect(instance).toMatchObject({
+      solarStationBaseYaw: 0.25,
+      offset: [4, 0.2, 6],
+      scale: 2,
+      yaw: 0.25 + Math.PI * 0.5,
+      active: true,
+      tint: [1, 0.04, 0.02]
+    });
+    expect(instance.alpha).toBeCloseTo(0.46);
+    expect(instance.tintStrength).toBeCloseTo(0.79);
+  });
+
+  it("honors inactive Solar Station preview visibility policy", () => {
+    const hiddenInstance = { active: true };
+    const keptInstance = { active: true };
+
+    expect(updateSolarStationConstructionPlacementPreview({
+      preview: { active: false },
+      instance: hiddenInstance,
+      shouldHideInactiveInstance: () => true
+    })).toBeNull();
+    expect(hiddenInstance.active).toBe(false);
+
+    expect(updateSolarStationConstructionPlacementPreview({
+      preview: { active: false },
+      instance: keptInstance,
+      shouldHideInactiveInstance: () => false
+    })).toBeNull();
+    expect(keptInstance.active).toBe(true);
   });
 
   it("updates rectangular construction previews and their model instances", () => {
