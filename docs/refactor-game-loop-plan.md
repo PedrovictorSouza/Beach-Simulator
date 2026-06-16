@@ -3902,6 +3902,74 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Workbench Rotation Feedback Runtime Extraction
+
+Expanded `createWorkbenchRotationRuntime(...)` in
+`app/runtime/construction/workbenchRotationRuntime.js`.
+
+Classification: `construction`, focused on Workbench rotation feedback actions.
+
+Study path:
+
+1. `gameLoop.js` still owned the action wrappers for Workbench construction
+   rotation: select, clear, confirm and nearby rotate.
+2. Those wrappers mixed runtime state changes with fixed HUD/audio feedback
+   strings.
+3. The runtime now owns that feedback policy through
+   `selectWithFeedback(...)`, `clearWithFeedback(...)`,
+   `confirmWithFeedback(...)` and `rotateNearbyWithFeedback(...)`.
+4. `gameLoop.js` keeps only composition callbacks: current prompt text,
+   selected target lookup, Solar Station yaw sync, sound events and HUD notice
+   dispatch.
+
+Removed from `gameLoop.js`:
+
+- direct selected-construction notice assembly;
+- direct rotation-canceled notice dispatch;
+- direct rotation-confirmed notice dispatch;
+- direct nearby Workbench rotation step parsing and feedback dispatch.
+
+Kept in `gameLoop.js`:
+
+- thin wrappers used by existing frame/control flow;
+- selection target resolution;
+- audio/HUD callback wiring;
+- Solar Station-specific yaw sync callback.
+
+Tests updated:
+
+- `tests/workbenchRotationRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+```
+
+The first run failed because the feedback action methods did not exist yet.
+After adding them, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+npm test -- --run tests/workbenchRotationRuntime.test.js tests/workbenchRotationTargets.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1859` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Solar Station Workbench Rotation Visual Extraction
 
 Expanded the existing `createWorkbenchRotationRuntime(...)` boundary in

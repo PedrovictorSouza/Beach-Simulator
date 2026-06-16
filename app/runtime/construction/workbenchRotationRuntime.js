@@ -120,6 +120,79 @@ export function createWorkbenchRotationRuntime({
     return true;
   }
 
+  function selectWithFeedback(target, {
+    promptText = "",
+    playConfirmSound = () => {},
+    pushNotice = () => {}
+  } = {}) {
+    if (!select(target)) {
+      return false;
+    }
+
+    pushNotice(`${target.label} selected. ${promptText}.`);
+    playConfirmSound();
+    return true;
+  }
+
+  function clearWithFeedback({
+    playCancelSound = () => {},
+    pushNotice = () => {}
+  } = {}) {
+    if (!clear()) {
+      return false;
+    }
+
+    playCancelSound();
+    pushNotice("Rotation canceled.");
+    return true;
+  }
+
+  function confirmWithFeedback({
+    getSelectedTarget = () => null,
+    syncPlacementYaw,
+    playConfirmSound = () => {},
+    pushNotice = () => {}
+  } = {}) {
+    const target = getSelectedTarget();
+    if (!target?.placement) {
+      clear();
+      return false;
+    }
+
+    if (!confirm(target, { syncPlacementYaw })) {
+      return false;
+    }
+
+    playConfirmSound();
+    pushNotice(`${target.label} rotation set.`);
+    return true;
+  }
+
+  function rotateNearbyWithFeedback({
+    direction = 0,
+    getSelectedTarget = () => null,
+    playNavigateSound = () => {},
+    pushNotice = () => {}
+  } = {}) {
+    const steps = Math.trunc(Number(direction || 0));
+    if (steps === 0) {
+      return false;
+    }
+
+    const target = getSelectedTarget();
+    if (!target?.placement) {
+      return false;
+    }
+
+    if (!rotate(target, steps)) {
+      return false;
+    }
+
+    playNavigateSound();
+    pushNotice(`${target.label} preview rotated. X confirm.`);
+    return true;
+  }
+
   function syncSolarStationPlacementYaw({ instance = null, placement = null } = {}) {
     if (!instance || !Array.isArray(placement?.position)) {
       return false;
@@ -195,6 +268,10 @@ export function createWorkbenchRotationRuntime({
     rotate,
     confirm,
     applySelectionTint,
+    selectWithFeedback,
+    clearWithFeedback,
+    confirmWithFeedback,
+    rotateNearbyWithFeedback,
     syncSolarStationPlacementYaw,
     syncSolarStationWorkbenchRotationVisual,
     getGroundCell

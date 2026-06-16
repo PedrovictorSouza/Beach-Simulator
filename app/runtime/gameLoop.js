@@ -1694,45 +1694,35 @@ export function startGameLoop({
   }
 
   function selectWorkbenchConstructionForRotation(target) {
-    if (!workbenchRotationRuntime.select(target)) {
-      return false;
-    }
-
-    hud?.pushNotice?.(
-      `${target.label} selected. ${resolveWorkbenchRotationPrompt(getCurrentInputModalityState())}.`
-    );
-    playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM);
-    return true;
+    return workbenchRotationRuntime.selectWithFeedback(target, {
+      promptText: resolveWorkbenchRotationPrompt(getCurrentInputModalityState()),
+      playConfirmSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM),
+      pushNotice: (notice) => hud?.pushNotice?.(notice)
+    });
   }
 
   function clearWorkbenchConstructionRotationSelection() {
-    if (!workbenchRotationRuntime.clear()) {
-      return false;
-    }
-
-    playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-    hud?.pushNotice?.("Rotation canceled.");
-    return true;
+    return workbenchRotationRuntime.clearWithFeedback({
+      playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
+      pushNotice: (notice) => hud?.pushNotice?.(notice)
+    });
   }
 
   function confirmWorkbenchConstructionRotationSelection() {
-    const target = getSelectedRotatableWorkbenchPlacement();
-    if (!target?.placement) {
-      workbenchRotationRuntime.clear();
-      return false;
-    }
-
-    if (!workbenchRotationRuntime.confirm(target, {
-      syncPlacementYaw: target.kind === "solarStation" ?
-        syncSolarStationPlacementYaw :
-        undefined
-    })) {
-      return false;
-    }
-
-    playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM);
-    hud?.pushNotice?.(`${target.label} rotation set.`);
-    return true;
+    let selectedRotationTarget = null;
+    return workbenchRotationRuntime.confirmWithFeedback({
+      getSelectedTarget: () => {
+        selectedRotationTarget = getSelectedRotatableWorkbenchPlacement();
+        return selectedRotationTarget;
+      },
+      syncPlacementYaw: (placement) => {
+        if (selectedRotationTarget?.kind === "solarStation") {
+          syncSolarStationPlacementYaw(placement);
+        }
+      },
+      playConfirmSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM),
+      pushNotice: (notice) => hud?.pushNotice?.(notice)
+    });
   }
 
   function syncSolarStationPlacementYaw(placement) {
@@ -1753,23 +1743,12 @@ export function startGameLoop({
   }
 
   function rotateNearbyWorkbenchConstruction(direction) {
-    const steps = Math.trunc(Number(direction || 0));
-    if (steps === 0) {
-      return false;
-    }
-
-    const target = getSelectedRotatableWorkbenchPlacement();
-    if (!target?.placement) {
-      return false;
-    }
-
-    if (!workbenchRotationRuntime.rotate(target, steps)) {
-      return false;
-    }
-
-    playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE);
-    hud?.pushNotice?.(`${target.label} preview rotated. X confirm.`);
-    return true;
+    return workbenchRotationRuntime.rotateNearbyWithFeedback({
+      direction,
+      getSelectedTarget: getSelectedRotatableWorkbenchPlacement,
+      playNavigateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE),
+      pushNotice: (notice) => hud?.pushNotice?.(notice)
+    });
   }
 
   function getWorkbenchRotationGroundCell(target) {

@@ -96,6 +96,84 @@ describe("createWorkbenchRotationRuntime", () => {
     expect(runtime.getSelection()).toBeNull();
   });
 
+  it("runs selection, clear, confirm and nearby rotate feedback through runtime actions", () => {
+    const runtime = createRuntime();
+    const target = createTarget({ label: "Thermal Cabin" });
+    const playConfirmSound = vi.fn();
+    const playCancelSound = vi.fn();
+    const playNavigateSound = vi.fn();
+    const pushNotice = vi.fn();
+    const syncPlacementYaw = vi.fn();
+
+    expect(runtime.selectWithFeedback(target, {
+      promptText: "Rotate prompt",
+      playConfirmSound,
+      pushNotice
+    })).toBe(true);
+    expect(playConfirmSound).toHaveBeenCalledTimes(1);
+    expect(pushNotice).toHaveBeenCalledWith("Thermal Cabin selected. Rotate prompt.");
+
+    expect(runtime.rotateNearbyWithFeedback({
+      direction: 1,
+      getSelectedTarget: () => target,
+      playNavigateSound,
+      pushNotice
+    })).toBe(true);
+    expect(playNavigateSound).toHaveBeenCalledTimes(1);
+    expect(pushNotice).toHaveBeenCalledWith("Thermal Cabin preview rotated. X confirm.");
+
+    expect(runtime.confirmWithFeedback({
+      getSelectedTarget: () => target,
+      syncPlacementYaw,
+      playConfirmSound,
+      pushNotice
+    })).toBe(true);
+    expect(syncPlacementYaw).toHaveBeenCalledWith(target.placement);
+    expect(pushNotice).toHaveBeenCalledWith("Thermal Cabin rotation set.");
+    expect(runtime.getSelection()).toBeNull();
+
+    runtime.select(target);
+    expect(runtime.clearWithFeedback({
+      playCancelSound,
+      pushNotice
+    })).toBe(true);
+    expect(playCancelSound).toHaveBeenCalledTimes(1);
+    expect(pushNotice).toHaveBeenCalledWith("Rotation canceled.");
+  });
+
+  it("guards Workbench rotation feedback actions when no state changes", () => {
+    const runtime = createRuntime();
+    const playConfirmSound = vi.fn();
+    const playCancelSound = vi.fn();
+    const playNavigateSound = vi.fn();
+    const pushNotice = vi.fn();
+
+    expect(runtime.selectWithFeedback(null, {
+      playConfirmSound,
+      pushNotice
+    })).toBe(false);
+    expect(runtime.clearWithFeedback({
+      playCancelSound,
+      pushNotice
+    })).toBe(false);
+    expect(runtime.confirmWithFeedback({
+      getSelectedTarget: () => null,
+      playConfirmSound,
+      pushNotice
+    })).toBe(false);
+    expect(runtime.rotateNearbyWithFeedback({
+      direction: 0,
+      getSelectedTarget: () => createTarget(),
+      playNavigateSound,
+      pushNotice
+    })).toBe(false);
+
+    expect(playConfirmSound).not.toHaveBeenCalled();
+    expect(playCancelSound).not.toHaveBeenCalled();
+    expect(playNavigateSound).not.toHaveBeenCalled();
+    expect(pushNotice).not.toHaveBeenCalled();
+  });
+
   it("preserves tint and ground-cell preview calculations", () => {
     const runtime = createRuntime();
     const target = createTarget();
