@@ -24,18 +24,17 @@ import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuil
 import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
 import { createConstructionHouseModelInstanceRuntime } from "./construction/constructionHouseModelInstances.js";
 import { createConstructionHelperMotionRuntime } from "./construction/constructionHelperMotion.js";
+import { createConstructionPlacementControlRuntime } from "./construction/constructionPlacementControlRuntime.js";
 import { createConstructionPlacementPreviewRuntime } from "./construction/constructionPlacementPreviewRuntime.js";
 import {
   createConstructionPlacementFrameRuntime,
-  resolveActiveConstructionPlacementPreviews,
-  rotateActiveConstructionPlacementPreviews
+  resolveActiveConstructionPlacementPreviews
 } from "./construction/constructionPlacementFrameRuntime.js";
 import {
   cancelPendingWorkbenchPlacementIntent,
   hasPendingWorkbenchPlacementIntent
 } from "./construction/pendingPlacementIntent.js";
 import {
-  buildFreeBlockBuildCostMarker,
   getFreeBlockInvalidPlacementNotice
 } from "./construction/placementPreviewPrompts.js";
 import {
@@ -1180,6 +1179,21 @@ export function startGameLoop({
         constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(...args)
     }
   });
+  const constructionPlacementControlRuntime = createConstructionPlacementControlRuntime({
+    session,
+    controls,
+    config: {
+      placementRotationStep: PLACEMENT_ROTATION_STEP
+    },
+    callbacks: {
+      getSelectedBlockMaterialCost: () =>
+        freeBlockBuildRuntime.getController()?.getSelectedBlockMaterialCost?.(),
+      normalizePlacementYaw,
+      playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
+      playRotateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE),
+      pushNotice: (notice) => hud?.pushNotice?.(notice)
+    }
+  });
   const constructionPlacementFrameRuntime = createConstructionPlacementFrameRuntime({
     controls,
     getMovementAxes: () => camera.getMovementAxes(),
@@ -1188,14 +1202,17 @@ export function startGameLoop({
     placementContracts: PLACEMENT_CONTRACTS,
     workbenchRotationRuntime,
     callbacks: {
-      rotateActivePlacementPreview,
+      rotateActivePlacementPreview: (...args) =>
+        constructionPlacementControlRuntime.rotateActivePlacementPreview(...args),
       rotateNearbyWorkbenchConstruction: workbenchRotationRuntime.rotateNearbyTargetWithFeedback,
       hasActivePlacementPreview,
       hasPendingWorkbenchPlacementIntent,
       clearWorkbenchConstructionRotationSelection: workbenchRotationRuntime.clearSelectionWithFeedback,
       cancelActivePlacementPreviews,
-      cancelPendingWorkbenchPlacementIntentWithNotice,
-      isBuildBlockFieldMoveEquipped,
+      cancelPendingWorkbenchPlacementIntentWithNotice: () =>
+        constructionPlacementControlRuntime.cancelPendingWorkbenchPlacementIntentWithNotice(),
+      isBuildBlockFieldMoveEquipped: () =>
+        constructionPlacementControlRuntime.isBuildBlockFieldMoveEquipped(),
       startTimburrBuildBlockAction: (options) => buildBlockRuntime.startAction(options),
       playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
       pushNotice: (message) => hud?.pushNotice?.(message),
@@ -1571,33 +1588,6 @@ export function startGameLoop({
     });
   }
 
-  function cancelPendingWorkbenchPlacementIntentWithNotice() {
-    const canceledIntent = cancelPendingWorkbenchPlacementIntent(session);
-    if (!canceledIntent) {
-      return false;
-    }
-
-    playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-    hud?.pushNotice?.(`${canceledIntent.label || "Workbench object"} placement canceled.`);
-    return true;
-  }
-
-  function rotateActivePlacementPreview(direction) {
-    return rotateActiveConstructionPlacementPreviews({
-      direction,
-      previews: [
-        session.strawBedPlacementPreview,
-        session.greenhousePlacementPreview,
-        session.campfirePlacementPreview,
-        session.leafDenKitPlacementPreview
-      ],
-      rotationStep: PLACEMENT_ROTATION_STEP,
-      normalizePlacementYaw,
-      playRotateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE),
-      pushNotice: (notice) => hud?.pushNotice?.(notice)
-    });
-  }
-
   function hasCharmanderFireCarbon() {
     if (!canUseCharmanderFireWithCarbon({
       storyState: controls.storyState,
@@ -1722,22 +1712,6 @@ export function startGameLoop({
         session.bulbasaurEncounter,
         session.charmanderEncounter
       ]
-    });
-  }
-
-  function isBuildBlockFieldMoveEquipped() {
-    return Boolean(
-      controls.playerSkills?.buildBlock &&
-      controls.getActiveMoveId?.() === "buildBlock"
-    );
-  }
-
-  function getFreeBlockBuildCostMarker(previewTarget = null) {
-    const materialCost = freeBlockBuildRuntime.getController()?.getSelectedBlockMaterialCost?.();
-    return buildFreeBlockBuildCostMarker({
-      previewTarget,
-      materialCost,
-      inventory: controls.inventory
     });
   }
 
@@ -2128,7 +2102,7 @@ export function startGameLoop({
       activeMoveId === "fire"
     );
     const buildBlockEquipped = Boolean(
-      isBuildBlockFieldMoveEquipped()
+      constructionPlacementControlRuntime.isBuildBlockFieldMoveEquipped()
     );
     const { freeBlockPreviewTarget } = constructionPlacementFrameRuntime.updateFreeBlockPreview({
       now,
@@ -3057,7 +3031,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
       getLeppaTreeSurroundingGroundCells,
       getSquirtleWorldPosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
       isSquirtleWaterCharging: () => companionAbilityResourcesRuntime.isSquirtleWaterCharging(),
-      getFreeBlockBuildCostMarker,
+      getFreeBlockBuildCostMarker: constructionPlacementControlRuntime.getFreeBlockBuildCostMarker,
       getPeriodicChopperAttentionCue:
         companionWorldSpeechCueRuntime.getChopperAttentionCue,
       isLeafageInvalidTargetVisible: (frameNow) =>

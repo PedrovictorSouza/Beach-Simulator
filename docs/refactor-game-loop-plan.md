@@ -378,6 +378,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move construction placement preview wiring into the
   `construction` boundary.
+- Completed: move construction placement control wiring into the
+  `construction` boundary.
 - Completed: move player harvest/interact/destroy action side effects into the
   `player` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
@@ -3879,6 +3881,68 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Construction Placement Control Runtime Wiring
+
+Created `app/runtime/construction/constructionPlacementControlRuntime.js` so
+the construction boundary owns placement control helpers that were still
+implemented locally in `gameLoop.js`.
+
+Boundary classification: `construction`, focused on placement cancel/rotate,
+Build Block equipped state and Free Block cost marker wiring.
+
+Removed from `gameLoop.js`:
+
+- local pending Workbench placement cancel-with-notice wrapper;
+- local active placement preview rotation wrapper;
+- local Build Block equipped-state helper;
+- local Free Block cost-marker helper;
+- direct local imports of placement rotate and cost marker internals.
+
+Kept in `gameLoop.js`:
+
+- composition wiring;
+- placement frame runtime ordering;
+- active placement preview cancellation used by broader placement contracts;
+- Free Block invalid placement notice text for the primary-action branch.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `3283` lines.
+- After this cut, `app/runtime/gameLoop.js` is `3256` lines.
+
+Tests added:
+
+- `tests/constructionPlacementControlRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPlacementControlRuntime.test.js
+```
+
+The first run failed because `createConstructionPlacementControlRuntime(...)`
+did not exist yet. After adding the runtime under the existing `construction`
+boundary, the focused runtime test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementControlRuntime.test.js tests/constructionPlacementFrameRuntime.test.js tests/pendingPlacementIntent.test.js tests/placementPreviewPrompts.test.js tests/worldPromptFrameState.test.js tests/worldSpacePresentationFrameState.test.js
+npm run build
+```
+
+Focused result:
+
+- `6` test files passed
+- `37` tests passed
+
+Full-suite validation was not repeated for this cut. The known baseline still
+has failures outside this boundary: the existing Leafage Native Tree failures
+and the isolated scene-flow failure tied to dirty `startScreen.js` / bootstrap
+work.
 
 Manual gameplay validation remains pending for this cut.
 
