@@ -6,6 +6,7 @@ import { createCameraDebugFrameState } from "./camera/cameraDebugFrameState.js";
 import { createBeeFieldRuntime } from "./companions/beeFieldRuntime.js";
 import { createBulbasaurWorkbenchGuideRuntime } from "./companions/bulbasaurWorkbenchGuideRuntime.js";
 import { createCompanionEncounterRuntime } from "./companions/companionEncounterRuntime.js";
+import { createCompanionFacingRuntime } from "./companions/companionFacingRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
 import { createCompanionGroundPatrolFrameRuntime } from "./companions/companionGroundPatrolFrameRuntime.js";
 import { createCompanionIdleMotionRuntime } from "./companions/companionIdleMotionRuntime.js";
@@ -105,11 +106,7 @@ import {
 import { createLandscapeCutEffectRuntime } from "./landscapeCutEffectRuntime.js";
 import { updateLeppaTreeMusicNotes } from "./leppaTreeMusicNotes.js";
 import { getMissionTargetPositionsById as getMissionTargetPositionsByIdWithConfig } from "./missionTargetPositionLookup.js";
-import {
-  getLogicalFacingYaw as getModelLogicalFacingYaw,
-  getModelYawToward,
-  getYawToward
-} from "./modelFacing.js";
+import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
 import { createPlayerActionRuntime } from "../player/playerActionRuntime.js";
@@ -720,13 +717,21 @@ export function startGameLoop({
     }
   });
   const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime();
+  const companionFacingRuntime = createCompanionFacingRuntime({
+    session,
+    offsets: {
+      squirtle: SQUIRTLE_MODEL_FACE_YAW_OFFSET,
+      charmander: CHARMANDER_MODEL_FACE_YAW_OFFSET,
+      bulbasaur: BULBASAUR_MODEL_FACE_YAW_OFFSET
+    }
+  });
   const fieldMoveActorPositionRuntime = createFieldMoveActorPositionRuntime({
     getSquirtle: () => session.actTwoSquirtle,
     getCharmander: () => session.charmanderEncounter,
     getBulbasaur: () => session.bulbasaurEncounter,
-    getSquirtleYaw: getSquirtleLogicalFacingYaw,
-    getCharmanderYaw: getCharmanderLogicalFacingYaw,
-    getBulbasaurYaw: getBulbasaurLogicalFacingYaw
+    getSquirtleYaw: companionFacingRuntime.getSquirtleLogicalFacingYaw,
+    getCharmanderYaw: companionFacingRuntime.getCharmanderLogicalFacingYaw,
+    getBulbasaurYaw: companionFacingRuntime.getBulbasaurLogicalFacingYaw
   });
   const companionWorldSpeechCueRuntime = createCompanionWorldSpeechCueRuntime({
     chopperCueSchedule: {
@@ -802,14 +807,14 @@ export function startGameLoop({
     getPlayerYaw: () => session.playerModelInstance?.yaw,
     getFollowDirection: (yaw) => companionFollowDirectionRuntime.get(yaw),
     tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
-    getModelYawToward: getRobotModelYawToward,
+    getModelYawToward: companionFacingRuntime.getRobotModelYawToward,
     resolveFollowFormationIndex: getCompanionFollowFormationIndex,
     resolveFollowDistance: resolveCompanionFollowDistance,
     arriveDistance: COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE
   });
   const companionIdleMotionRuntime = createCompanionIdleMotionRuntime({
     getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
-    getModelYawToward: getRobotModelYawToward,
+    getModelYawToward: companionFacingRuntime.getRobotModelYawToward,
     attentionDistance: BOT_PLAYER_ATTENTION_DISTANCE,
     patrolSpeed: ROBOT_IDLE_PATROL_SPEED,
     patrolPauseDuration: ROBOT_IDLE_PATROL_PAUSE_DURATION,
@@ -819,7 +824,7 @@ export function startGameLoop({
     session,
     controls,
     workbenchPosition: WORKBENCH_POSITION,
-    getYawToward: getRobotModelYawToward,
+    getYawToward: companionFacingRuntime.getRobotModelYawToward,
     config: {
       start: BULBASAUR_WORKBENCH_GUIDE_START,
       speed: BULBASAUR_WORKBENCH_GUIDE_SPEED,
@@ -1042,14 +1047,14 @@ export function startGameLoop({
   const constructionHelperMotionRuntime = createConstructionHelperMotionRuntime({
     getLeafDenPosition: () => session.leafDen?.position,
     getNowSeconds: getRuntimeNowSeconds,
-    getYawToward: getRobotModelYawToward
+    getYawToward: companionFacingRuntime.getRobotModelYawToward
   });
   const npcConversationFocusRuntime = createNpcConversationFocusRuntime({
     controls,
     dialogueCamera,
     gameplayDialogue,
     getSquirtle: () => session.actTwoSquirtle,
-    getSquirtleModelYawToward,
+    getSquirtleModelYawToward: companionFacingRuntime.getSquirtleModelYawToward,
     getYawToward
   });
   const waterGunRuntime = createWaterGunRuntime({
@@ -1063,7 +1068,7 @@ export function startGameLoop({
         targetPosition,
         playerPosition
       ),
-    getModelYawToward: getSquirtleModelYawToward,
+    getModelYawToward: companionFacingRuntime.getSquirtleModelYawToward,
     tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
     isPositionBlocked: companionConstructionBlockerRuntime.isBlocked,
     syncSquirtle: () => companionModelSyncRuntime.syncSquirtle(),
@@ -1083,7 +1088,7 @@ export function startGameLoop({
         playerPosition
       ),
     getModelYawToward: (fromPosition, toPosition) =>
-      getRobotModelYawToward(
+      companionFacingRuntime.getRobotModelYawToward(
         fromPosition,
         toPosition,
         CHARMANDER_MODEL_FACE_YAW_OFFSET
@@ -1105,7 +1110,7 @@ export function startGameLoop({
         playerPosition
       ),
     getModelYawToward: (fromPosition, toPosition) =>
-      getRobotModelYawToward(
+      companionFacingRuntime.getRobotModelYawToward(
         fromPosition,
         toPosition,
         BULBASAUR_MODEL_FACE_YAW_OFFSET
@@ -1139,7 +1144,7 @@ export function startGameLoop({
     getApproachBlockers: companionConstructionBlockerRuntime.getBlockers,
     shouldCastFromBlockedApproach: shouldTimburrBuildBlockCastFromBlockedApproach,
     tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
-    getModelYawToward: getRobotModelYawToward,
+    getModelYawToward: companionFacingRuntime.getRobotModelYawToward,
     applyImpact: (...args) => freeBlockBuildRuntime.applyTimburrImpact(...args),
     onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.builder),
     config: {
@@ -1656,35 +1661,6 @@ export function startGameLoop({
         controls.clearMovementInput?.();
       }
     });
-  }
-
-  function getSquirtleModelYawToward(fromPosition, toPosition) {
-    return getModelYawToward(fromPosition, toPosition, SQUIRTLE_MODEL_FACE_YAW_OFFSET);
-  }
-
-  function getRobotModelYawToward(fromPosition, toPosition, modelFaceYawOffset) {
-    return getModelYawToward(fromPosition, toPosition, modelFaceYawOffset);
-  }
-
-  function getSquirtleLogicalFacingYaw() {
-    return getModelLogicalFacingYaw(
-      session.actTwoSquirtle?.modelInstance?.yaw,
-      SQUIRTLE_MODEL_FACE_YAW_OFFSET
-    );
-  }
-
-  function getCharmanderLogicalFacingYaw() {
-    return getModelLogicalFacingYaw(
-      session.charmanderEncounter?.modelInstance?.yaw,
-      CHARMANDER_MODEL_FACE_YAW_OFFSET
-    );
-  }
-
-  function getBulbasaurLogicalFacingYaw() {
-    return getModelLogicalFacingYaw(
-      session.bulbasaurEncounter?.modelInstance?.yaw,
-      BULBASAUR_MODEL_FACE_YAW_OFFSET
-    );
   }
 
   function getGroundCellCenterPosition(groundCell) {

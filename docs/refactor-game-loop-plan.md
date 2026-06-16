@@ -380,6 +380,7 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction` boundary.
 - Completed: move construction placement control wiring into the
   `construction` boundary.
+- Completed: move companion facing/yaw wiring into the `companions` boundary.
 - Completed: move player harvest/interact/destroy action side effects into the
   `player` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
@@ -3881,6 +3882,70 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Companion Facing Runtime Wiring
+
+Created `app/runtime/companions/companionFacingRuntime.js` so the companion
+boundary owns bot model-facing helpers that were still implemented locally in
+`gameLoop.js`.
+
+Boundary classification: `bot/companion motion`, focused on model yaw toward
+targets and logical facing yaw read from companion model instances.
+
+Removed from `gameLoop.js`:
+
+- local Hydro Bot model-yaw helper;
+- local generic robot model-yaw helper;
+- local Hydro Bot logical-facing helper;
+- local Charmander logical-facing helper;
+- local Bulbasaur logical-facing helper;
+- direct imports of companion-facing math internals from `modelFacing.js`.
+
+Kept in `gameLoop.js`:
+
+- composition wiring;
+- existing companion model-face yaw constants;
+- raw `getYawToward(...)` for NPC conversation facing, because that is not a
+  companion-specific rule.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` baseline was `3256`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is `3232`
+  lines.
+
+Tests added:
+
+- `tests/companionFacingRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionFacingRuntime.test.js
+```
+
+The first run failed because `createCompanionFacingRuntime(...)` did not exist
+yet. After adding the runtime under the existing `companions` boundary, the
+focused runtime test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionFacingRuntime.test.js tests/modelFacing.test.js tests/companionFollowMovementRuntime.test.js tests/companionIdleMotionRuntime.test.js tests/npcConversationFocusRuntime.test.js tests/waterGunRuntime.test.js tests/fireRuntime.test.js tests/leafageRuntime.test.js tests/buildBlockRuntime.test.js
+```
+
+Focused result:
+
+- `9` test files passed
+- `38` tests passed
+
+Full-suite validation was not repeated for this cut. The known baseline still
+has failures outside this boundary: the existing Leafage Native Tree failures
+and the isolated scene-flow failure tied to dirty `startScreen.js` / bootstrap
+work.
 
 Manual gameplay validation remains pending for this cut.
 
