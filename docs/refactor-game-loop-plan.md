@@ -199,6 +199,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   preserve the companion follow spacing contract.
 - Completed: move direct destroy/interact action request handling into the
   existing `player` action runtime.
+- Completed: move held Water Gun primary-action fallback handling into the
+  existing `player` action runtime.
 - Completed: move dialogue camera controller into the `camera` boundary.
 - Completed: move placement camera assist into the `camera` boundary.
 - Completed: move construction billboard builders into the `construction`
@@ -15448,6 +15450,88 @@ npm test
 ```
 
 `npm test` completed with `1939` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Held Water Gun Action Runtime Boundary
+
+Expanded the existing `app/player/playerActionRuntime.js` domain module with
+`createPlayerHeldWaterGunActionRuntime(...)`.
+
+Boundary classification: `player / gameplay action runtime`, focused on the
+held-primary-action Water Gun fallback that keeps Water Gun behavior active
+while the primary action is held and no new harvest request is being processed.
+
+Study path:
+
+1. `gameLoop.js` still owns the primary-action branch and frame order.
+2. When that branch does not run, `gameLoop.js` now delegates the held Water Gun
+   fallback to `playerHeldWaterGunActionRuntime.update(...)`.
+3. The runtime preserves the old checks for active primary input, Water Gun
+   equipped, player presence and flow blockers.
+4. The runtime preserves both fallback paths: ground-cell Water Gun action and
+   instant tree/palm Water Gun harvest with Squirtle stamina.
+
+Removed from `gameLoop.js`:
+
+- held primary-action Water Gun blocker checks;
+- held Water Gun nearby target query construction;
+- held Water Gun ground-cell `startAction(...)` fallback;
+- held Water Gun tree/palm instant stamina fallback.
+
+Kept in `gameLoop.js`:
+
+- primary-action target branching;
+- `performHarvestAction(...)` frame wrapper;
+- Water Gun runtime creation and composition-root wiring;
+- frame order around primary action, direct action, follower call and
+  simulation updates.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` version was `3029`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is expected
+  to be `2997` lines.
+
+Tests updated:
+
+- `tests/playerActionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+```
+
+The first run failed because `createPlayerHeldWaterGunActionRuntime(...)` did
+not exist yet. After adding the runtime, the focused player action runtime test
+passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+npm test -- --run tests/playerActionRuntime.test.js tests/playerActionContext.test.js tests/playerActionTargetContext.test.js tests/waterGunRuntime.test.js tests/gameLoopFramePolicies.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` was attempted for this cut, but the machine is currently low on
+disk space (`467MiB` available on `/System/Volumes/Data`) and Vitest hit
+`ENOSPC` while writing temporary SSR files. Before the ENOSPC failures, the run
+also showed the known baseline failures:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;

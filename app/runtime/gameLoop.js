@@ -120,6 +120,7 @@ import {
 import {
   createPlayerActionRuntime,
   createPlayerDirectActionRuntime,
+  createPlayerHeldWaterGunActionRuntime,
   createPlayerHarvestActionRuntime
 } from "../player/playerActionRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
@@ -1586,6 +1587,17 @@ export function startGameLoop({
     },
     soundEventIds: SOUND_EVENT_IDS
   });
+  const playerHeldWaterGunActionRuntime = createPlayerHeldWaterGunActionRuntime({
+    controls,
+    session,
+    gameplay,
+    playerActionTargetContext,
+    waterGunRuntime,
+    companionAbilityResourcesRuntime,
+    callbacks: {
+      triggerWaterGunSfxBurst
+    }
+  });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
     controls,
@@ -2446,56 +2458,12 @@ export function startGameLoop({
           allowPlacement: !gamepadPrimaryMoveRequested
         });
       }
-    } else if (
-      controls.isPrimaryActionActive?.() &&
-      waterGunEquipped &&
-      session.playerCharacter &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !pokedexModalOpen &&
-      !skillLearnActive &&
-      !scriptedInteractionActive &&
-      !dialogueActive
-    ) {
-      const playerPosition = session.playerCharacter.getPosition();
-      const waterGunTarget = gameplay.findNearbyActionTarget(
-        playerActionTargetContext.getNearbyActionTargetOptions({
-          playerPosition,
-          canPurifyGround: true,
-          canUseLeafage: false,
-          allowPlacement: false,
-          includeIceGroundInstances: false
-        })
-      );
-
-      if (waterGunTarget?.groundCell) {
-        const squirtleWaterGunResult = waterGunRuntime.startAction({
-          groundCell: waterGunTarget.groundCell,
-          playerPosition
-        });
-
-        if (squirtleWaterGunResult === "unavailable") {
-          triggerWaterGunSfxBurst();
-          performHarvestAction(playerPosition, {
-            useWaterGun: true,
-            forcedHarvestTarget: waterGunTarget
-          });
-        }
-      } else if (
-        waterGunTarget?.leppaTree?.action === "water" ||
-        waterGunTarget?.leppaTree?.action === "headbutt" ||
-        (
-          waterGunTarget?.palm
-        )
-      ) {
-        if (companionAbilityResourcesRuntime.consumeSquirtleWaterStaminaForInstantAction()) {
-          triggerWaterGunSfxBurst();
-          performHarvestAction(playerPosition, {
-            forcedHarvestTarget: waterGunTarget,
-            useWaterGun: true
-          });
-        }
-      }
+    } else {
+      playerHeldWaterGunActionRuntime.update({
+        flowState: frameFlowState,
+        performHarvestAction,
+        waterGunEquipped
+      });
     }
 
     const canProcessGameplayAction = resolveGameplayActionPermission({

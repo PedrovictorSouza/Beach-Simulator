@@ -290,3 +290,94 @@ export function createPlayerDirectActionRuntime({
     update
   };
 }
+
+function isHeldWaterGunFlowBlocked(flowState = {}) {
+  const {
+    cinematicActive = false,
+    tutorialActive = false,
+    pokedexModalOpen = false,
+    skillLearnActive = false,
+    scriptedInteractionActive = false,
+    dialogueActive = false
+  } = flowState;
+
+  return Boolean(
+    cinematicActive ||
+    tutorialActive ||
+    pokedexModalOpen ||
+    skillLearnActive ||
+    scriptedInteractionActive ||
+    dialogueActive
+  );
+}
+
+function isHeldWaterGunInstantTarget(target) {
+  return Boolean(
+    target?.leppaTree?.action === "water" ||
+    target?.leppaTree?.action === "headbutt" ||
+    target?.palm
+  );
+}
+
+export function createPlayerHeldWaterGunActionRuntime({
+  controls = {},
+  session = {},
+  gameplay = {},
+  playerActionTargetContext = {},
+  waterGunRuntime = {},
+  companionAbilityResourcesRuntime = {},
+  callbacks = {}
+} = {}) {
+  function update({
+    flowState = {},
+    performHarvestAction,
+    waterGunEquipped = false
+  } = {}) {
+    if (
+      !controls.isPrimaryActionActive?.() ||
+      !waterGunEquipped ||
+      !session.playerCharacter ||
+      isHeldWaterGunFlowBlocked(flowState)
+    ) {
+      return;
+    }
+
+    const playerPosition = session.playerCharacter.getPosition();
+    const waterGunTarget = gameplay.findNearbyActionTarget(
+      playerActionTargetContext.getNearbyActionTargetOptions({
+        playerPosition,
+        canPurifyGround: true,
+        canUseLeafage: false,
+        allowPlacement: false,
+        includeIceGroundInstances: false
+      })
+    );
+
+    if (waterGunTarget?.groundCell) {
+      const squirtleWaterGunResult = waterGunRuntime.startAction({
+        groundCell: waterGunTarget.groundCell,
+        playerPosition
+      });
+
+      if (squirtleWaterGunResult === "unavailable") {
+        callbacks.triggerWaterGunSfxBurst?.();
+        performHarvestAction?.(playerPosition, {
+          useWaterGun: true,
+          forcedHarvestTarget: waterGunTarget
+        });
+      }
+    } else if (isHeldWaterGunInstantTarget(waterGunTarget)) {
+      if (companionAbilityResourcesRuntime.consumeSquirtleWaterStaminaForInstantAction()) {
+        callbacks.triggerWaterGunSfxBurst?.();
+        performHarvestAction?.(playerPosition, {
+          forcedHarvestTarget: waterGunTarget,
+          useWaterGun: true
+        });
+      }
+    }
+  }
+
+  return {
+    update
+  };
+}

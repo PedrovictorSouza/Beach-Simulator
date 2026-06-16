@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createPlayerActionRuntime,
   createPlayerDirectActionRuntime,
+  createPlayerHeldWaterGunActionRuntime,
   createPlayerHarvestActionRuntime
 } from "../app/player/playerActionRuntime.js";
 
@@ -414,5 +415,135 @@ describe("createPlayerDirectActionRuntime", () => {
     expect(callbacks.playSoundEvent).not.toHaveBeenCalled();
     expect(playerActionRuntime.performDestroy).not.toHaveBeenCalled();
     expect(playerActionRuntime.performInteract).not.toHaveBeenCalled();
+  });
+});
+
+describe("createPlayerHeldWaterGunActionRuntime", () => {
+  function createHeldWaterGunRuntime({
+    flowState = {},
+    isPrimaryActionActive = true,
+    target = { groundCell: { id: "ground-cell" } },
+    startActionResult = "unavailable",
+    staminaResult = true,
+    waterGunEquipped = true
+  } = {}) {
+    const controls = {
+      isPrimaryActionActive: vi.fn(() => isPrimaryActionActive)
+    };
+    const session = {
+      playerCharacter: {
+        getPosition: vi.fn(() => [1, 0, 2])
+      }
+    };
+    const gameplay = {
+      findNearbyActionTarget: vi.fn(() => target)
+    };
+    const playerActionTargetContext = {
+      getNearbyActionTargetOptions: vi.fn((options) => ({
+        ...options,
+        normalized: true
+      }))
+    };
+    const waterGunRuntime = {
+      startAction: vi.fn(() => startActionResult)
+    };
+    const companionAbilityResourcesRuntime = {
+      consumeSquirtleWaterStaminaForInstantAction: vi.fn(() => staminaResult)
+    };
+    const callbacks = {
+      triggerWaterGunSfxBurst: vi.fn()
+    };
+    const performHarvestAction = vi.fn();
+    const runtime = createPlayerHeldWaterGunActionRuntime({
+      controls,
+      session,
+      gameplay,
+      playerActionTargetContext,
+      waterGunRuntime,
+      companionAbilityResourcesRuntime,
+      callbacks
+    });
+
+    runtime.update({
+      flowState,
+      performHarvestAction,
+      waterGunEquipped
+    });
+
+    return {
+      callbacks,
+      companionAbilityResourcesRuntime,
+      controls,
+      gameplay,
+      performHarvestAction,
+      playerActionTargetContext,
+      waterGunRuntime
+    };
+  }
+
+  it("continues a held Water Gun action against a ground cell target", () => {
+    const {
+      callbacks,
+      gameplay,
+      performHarvestAction,
+      playerActionTargetContext,
+      waterGunRuntime
+    } = createHeldWaterGunRuntime();
+
+    expect(playerActionTargetContext.getNearbyActionTargetOptions).toHaveBeenCalledWith({
+      playerPosition: [1, 0, 2],
+      canPurifyGround: true,
+      canUseLeafage: false,
+      allowPlacement: false,
+      includeIceGroundInstances: false
+    });
+    expect(gameplay.findNearbyActionTarget).toHaveBeenCalledWith(
+      expect.objectContaining({ normalized: true })
+    );
+    expect(waterGunRuntime.startAction).toHaveBeenCalledWith({
+      groundCell: { id: "ground-cell" },
+      playerPosition: [1, 0, 2]
+    });
+    expect(callbacks.triggerWaterGunSfxBurst).toHaveBeenCalledTimes(1);
+    expect(performHarvestAction).toHaveBeenCalledWith([1, 0, 2], {
+      forcedHarvestTarget: { groundCell: { id: "ground-cell" } },
+      useWaterGun: true
+    });
+  });
+
+  it("uses instant Water Gun stamina for held tree or palm targets", () => {
+    const {
+      callbacks,
+      companionAbilityResourcesRuntime,
+      performHarvestAction,
+      waterGunRuntime
+    } = createHeldWaterGunRuntime({
+      target: { leppaTree: { action: "headbutt" } }
+    });
+
+    expect(waterGunRuntime.startAction).not.toHaveBeenCalled();
+    expect(companionAbilityResourcesRuntime.consumeSquirtleWaterStaminaForInstantAction)
+      .toHaveBeenCalledTimes(1);
+    expect(callbacks.triggerWaterGunSfxBurst).toHaveBeenCalledTimes(1);
+    expect(performHarvestAction).toHaveBeenCalledWith([1, 0, 2], {
+      forcedHarvestTarget: { leppaTree: { action: "headbutt" } },
+      useWaterGun: true
+    });
+  });
+
+  it("skips held Water Gun work when flow blockers are active", () => {
+    const {
+      controls,
+      gameplay,
+      performHarvestAction,
+      waterGunRuntime
+    } = createHeldWaterGunRuntime({
+      flowState: { dialogueActive: true }
+    });
+
+    expect(controls.isPrimaryActionActive).toHaveBeenCalledTimes(1);
+    expect(gameplay.findNearbyActionTarget).not.toHaveBeenCalled();
+    expect(waterGunRuntime.startAction).not.toHaveBeenCalled();
+    expect(performHarvestAction).not.toHaveBeenCalled();
   });
 });
