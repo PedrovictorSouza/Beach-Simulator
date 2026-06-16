@@ -4037,6 +4037,71 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Free Block Removal Runtime Expansion
+
+Expanded `app/runtime/construction/freeBlockRemoval.js`.
+
+Classification: `construction`, focused on Free Block removal result handling.
+
+Study path:
+
+1. `gameLoop.js` still owned the full nearby Free Block removal flow after
+   detecting a target.
+2. That block mixed target removal, drop spawning, snapshot sync, tile feedback,
+   impact audio and HUD notice.
+3. `tryRemoveNearbyFreeBlock(...)` now owns the removal sequence in the Free
+   Block removal module.
+4. `gameLoop.js` keeps only composition callbacks for controller lookup,
+   persisted drops, feedback-cell creation, snapshot sync, audio and HUD.
+
+Removed from `gameLoop.js`:
+
+- direct nearby Free Block target lookup;
+- direct call to `removeBlockAtTarget(...)`;
+- direct Wood drop spawning;
+- direct removal feedback/audio/notice branching.
+
+Kept in `gameLoop.js`:
+
+- player/action timing for when removal is attempted;
+- session-backed Wood drop storage callback;
+- feedback cell builder callback;
+- wiring to existing snapshot, feedback, audio and HUD systems.
+
+Tests updated:
+
+- `tests/freeBlockRemoval.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/freeBlockRemoval.test.js
+```
+
+The first run failed because `tryRemoveNearbyFreeBlock(...)` was not exported
+yet. After adding it, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/freeBlockRemoval.test.js
+npm test -- --run tests/freeBlockRemoval.test.js tests/freeBlockPlacementResult.test.js tests/freeBlockBuildSystem.test.js tests/constructionPlacementFrameRuntime.test.js tests/placementGeometry.test.js tests/foundationBuildZone.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `307` test files passed, `1` failed
+- `1863` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Solar Station Workbench Rotation Visual Extraction
 
 Expanded the existing `createWorkbenchRotationRuntime(...)` boundary in

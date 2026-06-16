@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   findNearbyFreeBlockTarget,
   getNextFreeBlockWoodDropId,
-  spawnFreeBlockRemovalDrops
+  spawnFreeBlockRemovalDrops,
+  tryRemoveNearbyFreeBlock
 } from "../app/runtime/construction/freeBlockRemoval.js";
 
 describe("free block removal", () => {
@@ -115,5 +116,79 @@ describe("free block removal", () => {
       }
     ]);
     expect(woodDrops[1].size).not.toBe(dropSize);
+  });
+
+  it("removes a nearby block and applies drops, feedback and notice", () => {
+    const targetCell = { x: 2, y: 3, layer: 1 };
+    const woodDrops = [{ id: "wood-2" }];
+    const controller = {
+      removeBlockAtTarget: vi.fn(() => ({
+        removed: true,
+        materialCost: { itemId: "wood", quantity: 2 }
+      }))
+    };
+    const actions = {
+      syncSnapshot: vi.fn(),
+      triggerFeedback: vi.fn(),
+      playImpactSound: vi.fn(),
+      pushNotice: vi.fn()
+    };
+    const feedbackGroundCell = { id: "feedback-cell" };
+
+    expect(tryRemoveNearbyFreeBlock({
+      playerPosition: [0, 0, 0],
+      freeBlockInstances: [{
+        offset: [0.4, 0, 0.2],
+        freeBlockCell: targetCell
+      }],
+      inventory: { wood: 0 },
+      getController: () => controller,
+      getWoodDrops: () => woodDrops,
+      buildFeedbackGroundCell: vi.fn(() => feedbackGroundCell),
+      now: 789,
+      dropSize: [0.5, 0.5],
+      pickupRadius: 0.25,
+      spread: 0.1,
+      actions
+    })).toBe(true);
+
+    expect(controller.removeBlockAtTarget).toHaveBeenCalledWith({
+      targetCell,
+      inventory: { wood: 0 },
+      refundMaterial: false
+    });
+    expect(woodDrops).toHaveLength(3);
+    expect(actions.syncSnapshot).toHaveBeenCalledTimes(1);
+    expect(actions.triggerFeedback).toHaveBeenCalledWith(feedbackGroundCell, "build", 789);
+    expect(actions.playImpactSound).toHaveBeenCalledTimes(1);
+    expect(actions.pushNotice).toHaveBeenCalledWith("Block broken. Wood dropped.");
+  });
+
+  it("does not emit removal side effects when no block is removed", () => {
+    const controller = {
+      removeBlockAtTarget: vi.fn(() => ({ removed: false }))
+    };
+    const actions = {
+      syncSnapshot: vi.fn(),
+      triggerFeedback: vi.fn(),
+      playImpactSound: vi.fn(),
+      pushNotice: vi.fn()
+    };
+
+    expect(tryRemoveNearbyFreeBlock({
+      playerPosition: [0, 0, 0],
+      freeBlockInstances: [{
+        offset: [0.4, 0, 0.2],
+        freeBlockCell: { x: 1, y: 1 }
+      }],
+      getController: () => controller,
+      getWoodDrops: vi.fn(() => []),
+      actions
+    })).toBe(false);
+
+    expect(actions.syncSnapshot).not.toHaveBeenCalled();
+    expect(actions.triggerFeedback).not.toHaveBeenCalled();
+    expect(actions.playImpactSound).not.toHaveBeenCalled();
+    expect(actions.pushNotice).not.toHaveBeenCalled();
   });
 });

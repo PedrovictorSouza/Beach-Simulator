@@ -86,3 +86,59 @@ export function spawnFreeBlockRemovalDrops({
 
   return quantity;
 }
+
+export function tryRemoveNearbyFreeBlock({
+  playerPosition = null,
+  freeBlockInstances = [],
+  inventory = {},
+  getController = null,
+  getWoodDrops = null,
+  buildFeedbackGroundCell = null,
+  now = 0,
+  dropSize = [0.78, 0.78],
+  pickupRadius = 0.64,
+  spread = 0.22,
+  actions = {}
+} = {}) {
+  const target = findNearbyFreeBlockTarget({
+    playerPosition,
+    freeBlockInstances
+  });
+  if (!target) {
+    return false;
+  }
+
+  const controller = getController?.();
+  const result = controller?.removeBlockAtTarget?.({
+    targetCell: target.freeBlockCell,
+    inventory,
+    refundMaterial: false
+  });
+  if (!result?.removed) {
+    return false;
+  }
+
+  const woodDrops = getWoodDrops?.() || [];
+  const dropCount = spawnFreeBlockRemovalDrops({
+    result,
+    target,
+    woodDrops,
+    dropSize,
+    pickupRadius,
+    spread
+  });
+
+  actions.syncSnapshot?.();
+
+  const feedbackGroundCell = buildFeedbackGroundCell?.({
+    targetCell: target.freeBlockCell,
+    placed: true
+  });
+  if (feedbackGroundCell) {
+    actions.triggerFeedback?.(feedbackGroundCell, "build", now);
+  }
+
+  actions.playImpactSound?.();
+  actions.pushNotice?.(dropCount > 0 ? "Block broken. Wood dropped." : "Block removed.");
+  return true;
+}

@@ -31,8 +31,7 @@ import {
   shouldShowFoundationBuildZone as shouldShowFoundationBuildZoneWithState
 } from "./construction/foundationBuildZone.js";
 import {
-  findNearbyFreeBlockTarget,
-  spawnFreeBlockRemovalDrops as spawnFreeBlockRemovalDropsWithConfig
+  tryRemoveNearbyFreeBlock as tryRemoveNearbyFreeBlockWithRuntime
 } from "./construction/freeBlockRemoval.js";
 import {
   buildFreeBlockPreviewDebug,
@@ -2612,45 +2611,27 @@ export function startGameLoop({
   }
 
   function tryRemoveNearbyFreeBlock(playerPosition, now) {
-    const target = findNearbyFreeBlockTarget({
+    return tryRemoveNearbyFreeBlockWithRuntime({
       playerPosition,
-      freeBlockInstances: session.freeBlockInstances
-    });
-    if (!target) {
-      return false;
-    }
-
-    const controller = getFreeBlockBuildController();
-    const result = controller.removeBlockAtTarget({
-      targetCell: target.freeBlockCell,
+      freeBlockInstances: session.freeBlockInstances,
       inventory: controls.inventory,
-      refundMaterial: false
-    });
-
-    if (!result.removed) {
-      return false;
-    }
-
-    session.woodDrops ||= [];
-    const dropCount = spawnFreeBlockRemovalDropsWithConfig({
-      result,
-      target,
-      woodDrops: session.woodDrops,
+      getController: getFreeBlockBuildController,
+      getWoodDrops: () => {
+        session.woodDrops ||= [];
+        return session.woodDrops;
+      },
+      buildFeedbackGroundCell,
+      now,
       dropSize: FREE_BLOCK_DROP_SIZE,
       pickupRadius: FREE_BLOCK_DROP_PICKUP_RADIUS,
-      spread: FREE_BLOCK_DROP_SPREAD
+      spread: FREE_BLOCK_DROP_SPREAD,
+      actions: {
+        syncSnapshot: syncFreeBlockBuildSnapshot,
+        triggerFeedback: (...args) => groundActionFeedbackRuntime.triggerFeedback(...args),
+        playImpactSound: () => playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_IMPACT),
+        pushNotice: (notice) => hud?.pushNotice?.(notice)
+      }
     });
-    syncFreeBlockBuildSnapshot();
-    const feedbackGroundCell = buildFreeBlockFeedbackGroundCell({
-      targetCell: target.freeBlockCell,
-      placed: true
-    });
-    if (feedbackGroundCell) {
-      groundActionFeedbackRuntime.triggerFeedback(feedbackGroundCell, "build", now);
-    }
-    playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_IMPACT);
-    hud?.pushNotice?.(dropCount > 0 ? "Block broken. Wood dropped." : "Block removed.");
-    return true;
   }
 
   function isCompanionInFollowFormation(companionId) {
