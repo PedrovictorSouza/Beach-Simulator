@@ -207,6 +207,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `player` action runtime.
 - Completed: move primary player action fallback/feedback branch orchestration
   into the existing `player` action runtime.
+- Completed: move primary player action frame context preparation into the
+  existing `player` action runtime.
 - Completed: move dialogue camera controller into the `camera` boundary.
 - Completed: move placement camera assist into the `camera` boundary.
 - Completed: move construction billboard builders into the `construction`
@@ -15796,6 +15798,100 @@ npm test
 ```
 
 `npm test` completed with `1960` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Primary Action Frame Runtime Boundary
+
+Expanded `app/player/playerActionRuntime.js` with
+`createPlayerPrimaryActionFrameRuntime(...)`.
+
+Boundary classification: `player / gameplay action runtime`, focused on the
+frame-level preparation for a primary player action.
+
+Study path:
+
+1. `gameLoop.js` still computes active move equipment and the frame-level flow
+   blockers.
+2. `playerPrimaryActionFrameRuntime.update(...)` now consumes the harvest
+   request, checks action blockers, finds primary/auto/interact/rotation/destroy
+   targets and builds the context for `playerPrimaryActionRuntime.update(...)`.
+3. The runtime uses the existing `playerActionTargetContext` policies for target
+   intent, follow-up intent and secondary target queries.
+4. `startGameLoop()` remains the composition root; `gameLoop.js` injects
+   gameplay/session/context dependencies and does not own the detailed target
+   lookup sequence anymore.
+
+Removed from `gameLoop.js`:
+
+- direct `controls.consumeHarvestRequest()` handling;
+- harvest request source classification;
+- primary action target lookup;
+- primary action intent resolution;
+- ground feedback pulse trigger decision for primary actions;
+- Leafage auto Water Gun target lookup;
+- Leafage auto Grow target lookup;
+- follow-up intent resolution;
+- already-resolved field-move target lookup;
+- interact target query and lookup;
+- workbench rotation query calculation;
+- bag destroy target lookup;
+- Water Gun first-use prompt mutation for primary action.
+
+Kept in `gameLoop.js`:
+
+- active move/equipment calculation;
+- `syncFirstTaughtActionFreedomWindow(...)`, because that feeds render snapshot
+  state;
+- `performHarvestAction(...)` frame wrapper;
+- held Water Gun branch fallback when primary action was not handled;
+- composition of the player action runtimes.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` version was `2936`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is expected
+  to be `2782` lines.
+- The visible worktree may show `2783` lines while the unrelated
+  `shouldShowGroundCellHighlight` residual line is restored.
+
+Tests updated:
+
+- `tests/playerActionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+```
+
+The first run failed because `createPlayerPrimaryActionFrameRuntime(...)` did
+not exist yet. After adding it, one assertion exposed the preserved
+`gamepadPrimary` placement block behavior, so the test was corrected to expect
+`allowPlacement: false`. The focused test then passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+npm test -- --run tests/playerActionRuntime.test.js tests/playerActionContext.test.js tests/playerActionTargetContext.test.js tests/waterGunRuntime.test.js tests/leafageRuntime.test.js tests/gameLoopFramePolicies.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1963` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;

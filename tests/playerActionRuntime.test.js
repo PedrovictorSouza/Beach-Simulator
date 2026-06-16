@@ -7,6 +7,7 @@ import {
   createPlayerHarvestActionRuntime,
   createPlayerPrimaryActionRuntime,
   createPlayerPrimaryActionFallbackRuntime,
+  createPlayerPrimaryActionFrameRuntime,
   createPlayerPrimaryFieldMoveActionRuntime
 } from "../app/player/playerActionRuntime.js";
 
@@ -712,6 +713,184 @@ describe("createPlayerPrimaryActionFallbackRuntime", () => {
       primaryActionWantsFieldMove: true
     })).toBe(false);
     expect(performHarvestAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("createPlayerPrimaryActionFrameRuntime", () => {
+  function createPrimaryActionFrameRuntime({
+    harvestRequest = { source: "gamepadPrimary" },
+    primaryActionTarget = { groundCell: { id: "water-cell" } },
+    primaryInteractTarget = null,
+    selectedRotationTarget = null
+  } = {}) {
+    const controls = {
+      consumeHarvestRequest: vi.fn(() => harvestRequest),
+      playerSkills: {
+        leafage: true,
+        waterGun: true
+      }
+    };
+    const session = {
+      playerCharacter: {
+        getPosition: vi.fn(() => [1, 0, 2])
+      },
+      groundDeadInstances: [],
+      groundFlowerPatches: [],
+      groundGrassPatches: [],
+      groundPurifiedInstances: []
+    };
+    const gameplay = {
+      findNearbyActionTarget: vi.fn(() => primaryActionTarget),
+      findNearbyInteractable: vi.fn(() => primaryInteractTarget)
+    };
+    const playerActionTargetContext = {
+      getBagDestroyTargetArgs: vi.fn((playerPosition) => [playerPosition, [], {}, [], {}]),
+      getNearbyActionTargetOptions: vi.fn((options) => options),
+      getNearbyInteractableArgs: vi.fn((playerPosition) => [playerPosition])
+    };
+    const workbenchRotationRuntime = {
+      getNearestTarget: vi.fn(() => ({ id: "rotation-target" })),
+      getSelectedTargetFromSources: vi.fn(() => selectedRotationTarget)
+    };
+    const playerPrimaryActionRuntime = {
+      update: vi.fn()
+    };
+    const groundActionFeedbackRuntime = {
+      isPulseSource: vi.fn(() => true),
+      triggerPulse: vi.fn()
+    };
+    const callbacks = {
+      findAlreadyResolvedFieldMoveGroundCell: vi.fn(() => null),
+      findNearbyDestroyableInstantiatedObject: vi.fn(() => null),
+      markWaterGunFirstUsePrompt: vi.fn(),
+      playSoundEvent: vi.fn()
+    };
+    const performHarvestAction = vi.fn();
+    const runtime = createPlayerPrimaryActionFrameRuntime({
+      controls,
+      session,
+      gameplay,
+      playerActionTargetContext,
+      workbenchRotationRuntime,
+      playerPrimaryActionRuntime,
+      groundActionFeedbackRuntime,
+      callbacks,
+      soundEventIds: SOUND_EVENT_IDS
+    });
+
+    return {
+      callbacks,
+      controls,
+      gameplay,
+      groundActionFeedbackRuntime,
+      performHarvestAction,
+      playerActionTargetContext,
+      playerPrimaryActionRuntime,
+      runtime,
+      session,
+      workbenchRotationRuntime
+    };
+  }
+
+  it("builds primary action context and delegates frame side effects", () => {
+    const {
+      callbacks,
+      gameplay,
+      groundActionFeedbackRuntime,
+      performHarvestAction,
+      playerPrimaryActionRuntime,
+      runtime
+    } = createPrimaryActionFrameRuntime();
+
+    expect(runtime.update({
+      activeMoveId: "waterGun",
+      buildBlockEquipped: false,
+      dialogueActive: false,
+      fireEquipped: false,
+      leafageEquipped: false,
+      now: 1200,
+      performHarvestAction,
+      waterGunEquipped: true
+    })).toEqual(expect.objectContaining({
+      gamepadPrimaryMoveRequested: true,
+      handled: true,
+      harvestRequestSource: "gamepadPrimary",
+      harvestRequested: true,
+      leafagePrimaryMoveRequested: true
+    }));
+
+    expect(callbacks.playSoundEvent).toHaveBeenCalledWith("confirm");
+    expect(gameplay.findNearbyActionTarget).toHaveBeenCalledWith(expect.objectContaining({
+      allowPlacement: false,
+      canPurifyGround: true,
+      canUseFire: false,
+      canUseLeafage: false,
+      playerPosition: [1, 0, 2]
+    }));
+    expect(groundActionFeedbackRuntime.triggerPulse).toHaveBeenCalledWith("waterGun", 1200);
+    expect(callbacks.markWaterGunFirstUsePrompt).toHaveBeenCalledTimes(1);
+    expect(playerPrimaryActionRuntime.update).toHaveBeenCalledWith(expect.objectContaining({
+      gamepadPrimaryMoveRequested: true,
+      leafagePrimaryMoveRequested: true,
+      performHarvestAction,
+      playerPosition: [1, 0, 2],
+      primaryActionIsMove: true,
+      primaryActionWantsFieldMove: true,
+      waterGunEquipped: true
+    }));
+  });
+
+  it("consumes harvest request but skips action side effects while blocked", () => {
+    const {
+      callbacks,
+      gameplay,
+      playerPrimaryActionRuntime,
+      runtime
+    } = createPrimaryActionFrameRuntime();
+
+    expect(runtime.update({
+      cinematicActive: true,
+      now: 1200,
+      performHarvestAction: vi.fn(),
+      waterGunEquipped: true
+    })).toEqual(expect.objectContaining({
+      blocked: true,
+      handled: false,
+      harvestRequested: true
+    }));
+
+    expect(callbacks.playSoundEvent).not.toHaveBeenCalled();
+    expect(gameplay.findNearbyActionTarget).not.toHaveBeenCalled();
+    expect(playerPrimaryActionRuntime.update).not.toHaveBeenCalled();
+  });
+
+  it("finds interact and rotation candidates before delegating", () => {
+    const {
+      gameplay,
+      playerPrimaryActionRuntime,
+      runtime,
+      workbenchRotationRuntime
+    } = createPrimaryActionFrameRuntime({
+      harvestRequest: { source: "keyboardPrimary" },
+      primaryActionTarget: null,
+      primaryInteractTarget: { target: { id: "npc" } }
+    });
+
+    runtime.update({
+      activeMoveId: null,
+      dialogueActive: false,
+      now: 1200,
+      performHarvestAction: vi.fn()
+    });
+
+    expect(gameplay.findNearbyInteractable).toHaveBeenCalledWith([1, 0, 2]);
+    expect(workbenchRotationRuntime.getSelectedTargetFromSources).toHaveBeenCalledTimes(1);
+    expect(workbenchRotationRuntime.getNearestTarget).toHaveBeenCalledTimes(1);
+    expect(playerPrimaryActionRuntime.update).toHaveBeenCalledWith(expect.objectContaining({
+      primaryActionConfirmsRotation: false,
+      primaryActionRotationTarget: { id: "rotation-target" },
+      primaryInteractTarget: { target: { id: "npc" } }
+    }));
   });
 });
 

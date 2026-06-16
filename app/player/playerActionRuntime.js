@@ -3,6 +3,12 @@ import {
   getGardenProgressSnapshot,
   getTreeRevivalSnapshot
 } from "../runtime/fieldMoveRuntime/natureProgressSnapshots.js";
+import {
+  resolvePrimaryActionAutoTargetQueries,
+  resolvePrimaryActionSecondaryTargetQueries,
+  resolvePrimaryActionTargetFollowupIntent,
+  resolvePrimaryActionTargetIntent
+} from "./playerActionTargetContext.js";
 
 const DEFAULT_NO_REMOVABLE_PATCH_NOTICE =
   "No removable patch here. Move closer to planted grass or flowers.";
@@ -385,6 +391,281 @@ export function createPlayerPrimaryActionFallbackRuntime({
     tryBlockedFeedback,
     tryDefaultHarvestFallback,
     tryPlacementOrBagHarvest
+  };
+}
+
+export function createPlayerPrimaryActionFrameRuntime({
+  controls = {},
+  session = {},
+  gameplay = {},
+  playerActionTargetContext = {},
+  workbenchRotationRuntime = {},
+  playerPrimaryActionRuntime = {},
+  groundActionFeedbackRuntime = {},
+  callbacks = {},
+  soundEventIds = {}
+} = {}) {
+  function getHarvestRequestSource(harvestRequest) {
+    return typeof harvestRequest === "object" && harvestRequest !== null ?
+      harvestRequest.source :
+      null;
+  }
+
+  function isFlowBlocked({
+    cinematicActive = false,
+    tutorialActive = false,
+    skillLearnActive = false,
+    scriptedInteractionActive = false
+  } = {}) {
+    return Boolean(
+      cinematicActive ||
+      tutorialActive ||
+      skillLearnActive ||
+      scriptedInteractionActive
+    );
+  }
+
+  function findPrimaryActionTarget({
+    playerPosition,
+    waterGunEquipped,
+    leafageEquipped,
+    leafagePrimaryMoveRequested,
+    fireEquipped,
+    gamepadPrimaryMoveRequested,
+    buildBlockEquipped
+  }) {
+    return gameplay.findNearbyActionTarget?.(
+      playerActionTargetContext.getNearbyActionTargetOptions?.({
+        playerPosition,
+        canPurifyGround: waterGunEquipped,
+        canUseLeafage: leafageEquipped && leafagePrimaryMoveRequested,
+        canUseFire: fireEquipped,
+        allowPlacement: !gamepadPrimaryMoveRequested && !buildBlockEquipped
+      })
+    ) || null;
+  }
+
+  function findAutoActionTarget({ playerPosition, canPurifyGround, canUseLeafage }) {
+    return gameplay.findNearbyActionTarget?.(
+      playerActionTargetContext.getNearbyActionTargetOptions?.({
+        playerPosition,
+        canPurifyGround,
+        canUseLeafage,
+        canUseFire: false,
+        allowPlacement: false
+      })
+    ) || null;
+  }
+
+  function update({
+    activeMoveId = null,
+    buildBlockEquipped = false,
+    cinematicActive = false,
+    dialogueActive = false,
+    fireEquipped = false,
+    leafageEquipped = false,
+    now,
+    performHarvestAction,
+    scriptedInteractionActive = false,
+    skillLearnActive = false,
+    tutorialActive = false,
+    waterGunEquipped = false
+  } = {}) {
+    const harvestRequest = controls.consumeHarvestRequest?.();
+    const harvestRequested = Boolean(harvestRequest);
+    const harvestRequestSource = getHarvestRequestSource(harvestRequest);
+    const gamepadPrimaryMoveRequested = harvestRequestSource === "gamepadPrimary";
+    const leafagePrimaryMoveRequested =
+      harvestRequestSource === "gamepadPrimary" ||
+      harvestRequestSource === "gamepadBag";
+    const blocked = isFlowBlocked({
+      cinematicActive,
+      tutorialActive,
+      skillLearnActive,
+      scriptedInteractionActive
+    });
+
+    const frameState = {
+      blocked,
+      gamepadPrimaryMoveRequested,
+      handled: false,
+      harvestRequest,
+      harvestRequested,
+      harvestRequestSource,
+      leafagePrimaryMoveRequested
+    };
+
+    if (!harvestRequested || !session.playerCharacter || blocked) {
+      return frameState;
+    }
+
+    callbacks.playSoundEvent?.(soundEventIds.UI_CONFIRM);
+    const playerPosition = session.playerCharacter.getPosition?.();
+    const primaryActionTarget = findPrimaryActionTarget({
+      playerPosition,
+      waterGunEquipped,
+      leafageEquipped,
+      leafagePrimaryMoveRequested,
+      fireEquipped,
+      gamepadPrimaryMoveRequested,
+      buildBlockEquipped
+    });
+    const primaryActionIntent = resolvePrimaryActionTargetIntent({
+      target: primaryActionTarget,
+      harvestRequestSource,
+      waterGunEquipped,
+      leafageEquipped,
+      fireEquipped,
+      buildBlockEquipped,
+      leafagePrimaryMoveRequested,
+      gamepadPrimaryMoveRequested
+    });
+    const primaryActionWantsFieldMove = primaryActionIntent.wantsFieldMove;
+
+    if (
+      primaryActionWantsFieldMove &&
+      groundActionFeedbackRuntime.isPulseSource?.(harvestRequestSource)
+    ) {
+      groundActionFeedbackRuntime.triggerPulse?.(activeMoveId, now);
+    }
+
+    const primaryActionAutoTargetQueries = resolvePrimaryActionAutoTargetQueries({
+      target: primaryActionTarget,
+      targetIntent: primaryActionIntent,
+      waterGunEquipped,
+      waterGunSkillLearned: controls.playerSkills?.waterGun,
+      leafageEquipped,
+      leafageSkillLearned: controls.playerSkills?.leafage,
+      leafagePrimaryMoveRequested
+    });
+    const leafageAutoWaterGunTarget =
+      primaryActionAutoTargetQueries.shouldFindLeafageAutoWaterGunTarget ?
+        findAutoActionTarget({
+          playerPosition,
+          canPurifyGround: true,
+          canUseLeafage: false
+        }) :
+        null;
+    const leafageAutoGrowTarget =
+      primaryActionAutoTargetQueries.shouldFindLeafageAutoGrowTarget ?
+        findAutoActionTarget({
+          playerPosition,
+          canPurifyGround: false,
+          canUseLeafage: true
+        }) :
+        null;
+    const primaryActionFollowupIntent = resolvePrimaryActionTargetFollowupIntent({
+      target: primaryActionTarget,
+      targetIntent: primaryActionIntent,
+      leafageAutoWaterGunTarget,
+      leafageAutoGrowTarget,
+      leafageEquipped,
+      leafagePrimaryMoveRequested,
+      fireEquipped
+    });
+    const primaryActionAlreadyResolvedGroundCell =
+      primaryActionFollowupIntent.shouldFindAlreadyResolvedGroundCell ?
+        callbacks.findAlreadyResolvedFieldMoveGroundCell?.(playerPosition, {
+          waterGunEquipped,
+          leafageEquipped: leafageEquipped && leafagePrimaryMoveRequested,
+          fireEquipped,
+          groundDeadInstances: session.groundDeadInstances,
+          groundFlowerPatches: session.groundFlowerPatches,
+          groundGrassPatches: session.groundGrassPatches,
+          groundPurifiedInstances: session.groundPurifiedInstances
+        }) :
+        null;
+    const primaryActionRepeatedFieldMove = Boolean(primaryActionAlreadyResolvedGroundCell);
+    const primaryActionInteractTargetQueries = resolvePrimaryActionSecondaryTargetQueries({
+      harvestRequestSource,
+      dialogueActive,
+      targetIntent: primaryActionIntent,
+      followupIntent: primaryActionFollowupIntent,
+      repeatedFieldMove: primaryActionRepeatedFieldMove
+    });
+    const nearbyInteractableArgs =
+      playerActionTargetContext.getNearbyInteractableArgs?.(playerPosition) || [];
+    const primaryInteractTarget =
+      primaryActionInteractTargetQueries.shouldFindInteractTarget ?
+        gameplay.findNearbyInteractable?.(
+          ...nearbyInteractableArgs
+        ) :
+        null;
+    const primaryInteractTargetIsWorkbench = primaryInteractTarget?.target?.id === "workbench";
+    const primaryActionConfirmsRotation =
+      !primaryInteractTargetIsWorkbench &&
+      Boolean(workbenchRotationRuntime.getSelectedTargetFromSources?.());
+    const primaryActionSecondaryTargetQueries = resolvePrimaryActionSecondaryTargetQueries({
+      harvestRequestSource,
+      dialogueActive,
+      targetIntent: primaryActionIntent,
+      followupIntent: primaryActionFollowupIntent,
+      repeatedFieldMove: primaryActionRepeatedFieldMove,
+      primaryInteractTargetIsWorkbench,
+      primaryActionConfirmsRotation
+    });
+    const primaryActionRotationTarget =
+      primaryActionSecondaryTargetQueries.shouldFindRotationTarget ?
+        workbenchRotationRuntime.getNearestTarget?.() :
+        null;
+    const bagDestroyTargetArgs =
+      playerActionTargetContext.getBagDestroyTargetArgs?.(playerPosition) || [];
+    const primaryActionBagDestroyTarget =
+      primaryActionSecondaryTargetQueries.shouldFindBagDestroyTarget ?
+        callbacks.findNearbyDestroyableInstantiatedObject?.(
+          ...bagDestroyTargetArgs
+        ) :
+        null;
+
+    if (
+      waterGunEquipped &&
+      (
+        harvestRequestSource === "gamepadPrimary" ||
+        harvestRequestSource === "keyboardPrimary"
+      )
+    ) {
+      callbacks.markWaterGunFirstUsePrompt?.();
+    }
+
+    playerPrimaryActionRuntime.update?.({
+      buildBlockEquipped,
+      dialogueActive,
+      fireEquipped,
+      gamepadPrimaryMoveRequested,
+      lastBuildBlockInvalidReason: session.lastTimburrBuildBlockInvalidReason,
+      leafageAutoGrowTarget,
+      leafageAutoWaterGunTarget,
+      leafageEquipped,
+      leafagePrimaryMoveRequested,
+      now,
+      performHarvestAction,
+      playerPosition,
+      primaryActionAlreadyResolvedGroundCell,
+      primaryActionBagDestroyTarget,
+      primaryActionConfirmsRotation,
+      primaryActionIntent,
+      primaryActionInvalidFireUse: primaryActionFollowupIntent.invalidFireUse,
+      primaryActionInvalidLeafageUse: primaryActionFollowupIntent.invalidLeafageUse,
+      primaryActionIsBagHarvest: primaryActionIntent.isBagHarvest,
+      primaryActionIsMove: primaryActionIntent.isMove,
+      primaryActionIsPlacement: primaryActionIntent.isPlacement,
+      primaryActionPlacementBlocked: primaryActionIntent.placementBlocked,
+      primaryActionRepeatedFieldMove,
+      primaryActionRotationTarget,
+      primaryActionTarget,
+      primaryActionWantsFieldMove,
+      primaryInteractTarget,
+      waterGunEquipped
+    });
+
+    return {
+      ...frameState,
+      handled: true
+    };
+  }
+
+  return {
+    update
   };
 }
 

@@ -110,18 +110,13 @@ import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
 import { createPlayerActionContext } from "../player/playerActionContext.js";
-import {
-  createPlayerActionTargetContext,
-  resolvePrimaryActionAutoTargetQueries,
-  resolvePrimaryActionSecondaryTargetQueries,
-  resolvePrimaryActionTargetFollowupIntent,
-  resolvePrimaryActionTargetIntent
-} from "../player/playerActionTargetContext.js";
+import { createPlayerActionTargetContext } from "../player/playerActionTargetContext.js";
 import {
   createPlayerActionRuntime,
   createPlayerDirectActionRuntime,
   createPlayerHeldWaterGunActionRuntime,
   createPlayerHarvestActionRuntime,
+  createPlayerPrimaryActionFrameRuntime,
   createPlayerPrimaryActionRuntime,
   createPlayerPrimaryActionFallbackRuntime,
   createPlayerPrimaryFieldMoveActionRuntime
@@ -1648,6 +1643,24 @@ export function startGameLoop({
       leafDenBusy: LEAF_DEN_BUSY_NOTICE
     }
   });
+  const playerPrimaryActionFrameRuntime = createPlayerPrimaryActionFrameRuntime({
+    controls,
+    session,
+    gameplay,
+    playerActionTargetContext,
+    workbenchRotationRuntime,
+    playerPrimaryActionRuntime,
+    groundActionFeedbackRuntime,
+    callbacks: {
+      findAlreadyResolvedFieldMoveGroundCell,
+      findNearbyDestroyableInstantiatedObject,
+      markWaterGunFirstUsePrompt: () => {
+        controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
+      },
+      playSoundEvent
+    },
+    soundEventIds: SOUND_EVENT_IDS
+  });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
     controls,
@@ -2214,189 +2227,22 @@ export function startGameLoop({
       });
     }
 
-    const harvestRequest = controls.consumeHarvestRequest();
-    const harvestRequested = Boolean(harvestRequest);
-    const harvestRequestSource = typeof harvestRequest === "object" && harvestRequest !== null ?
-      harvestRequest.source :
-      null;
-    const gamepadPrimaryMoveRequested = harvestRequestSource === "gamepadPrimary";
-    const leafagePrimaryMoveRequested =
-      harvestRequestSource === "gamepadPrimary" ||
-      harvestRequestSource === "gamepadBag";
-
-    if (
-      harvestRequested &&
-      session.playerCharacter &&
-      !cinematicActive &&
-      !tutorialActive &&
-      !skillLearnActive &&
-      !scriptedInteractionActive
-    ) {
-      playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM);
-      const playerPosition = session.playerCharacter.getPosition();
-      const primaryActionTarget = gameplay.findNearbyActionTarget(
-        playerActionTargetContext.getNearbyActionTargetOptions({
-          playerPosition,
-          canPurifyGround: waterGunEquipped,
-          canUseLeafage: leafageEquipped && leafagePrimaryMoveRequested,
-          canUseFire: fireEquipped,
-          allowPlacement: !gamepadPrimaryMoveRequested && !buildBlockEquipped
-        })
-      );
-      const primaryActionIntent = resolvePrimaryActionTargetIntent({
-        target: primaryActionTarget,
-        harvestRequestSource,
-        waterGunEquipped,
-        leafageEquipped,
-        fireEquipped,
-        buildBlockEquipped,
-        leafagePrimaryMoveRequested,
-        gamepadPrimaryMoveRequested
-      });
-      const primaryActionWantsFieldMove = primaryActionIntent.wantsFieldMove;
-      if (
-        primaryActionWantsFieldMove &&
-        groundActionFeedbackRuntime.isPulseSource(harvestRequestSource)
-      ) {
-        groundActionFeedbackRuntime.triggerPulse(activeMoveId, now);
-      }
-      const primaryActionIsPlacement = primaryActionIntent.isPlacement;
-      const primaryActionPlacementBlocked = primaryActionIntent.placementBlocked;
-      const primaryActionIsMove = primaryActionIntent.isMove;
-      const primaryActionAutoTargetQueries = resolvePrimaryActionAutoTargetQueries({
-        target: primaryActionTarget,
-        targetIntent: primaryActionIntent,
-        waterGunEquipped,
-        waterGunSkillLearned: controls.playerSkills?.waterGun,
-        leafageEquipped,
-        leafageSkillLearned: controls.playerSkills?.leafage,
-        leafagePrimaryMoveRequested
-      });
-      const leafageAutoWaterGunTarget =
-        primaryActionAutoTargetQueries.shouldFindLeafageAutoWaterGunTarget ?
-          gameplay.findNearbyActionTarget(
-            playerActionTargetContext.getNearbyActionTargetOptions({
-              playerPosition,
-              canPurifyGround: true,
-              canUseLeafage: false,
-              canUseFire: false,
-              allowPlacement: false
-            })
-          ) :
-          null;
-      const leafageAutoGrowTarget =
-        primaryActionAutoTargetQueries.shouldFindLeafageAutoGrowTarget ?
-          gameplay.findNearbyActionTarget(
-            playerActionTargetContext.getNearbyActionTargetOptions({
-              playerPosition,
-              canPurifyGround: false,
-              canUseLeafage: true,
-              canUseFire: false,
-              allowPlacement: false
-            })
-          ) :
-          null;
-      const primaryActionFollowupIntent = resolvePrimaryActionTargetFollowupIntent({
-        target: primaryActionTarget,
-        targetIntent: primaryActionIntent,
-        leafageAutoWaterGunTarget,
-        leafageAutoGrowTarget,
-        leafageEquipped,
-        leafagePrimaryMoveRequested,
-        fireEquipped
-      });
-      const primaryActionInvalidLeafageUse = primaryActionFollowupIntent.invalidLeafageUse;
-      const primaryActionInvalidFireUse = primaryActionFollowupIntent.invalidFireUse;
-      const primaryActionAlreadyResolvedGroundCell =
-        primaryActionFollowupIntent.shouldFindAlreadyResolvedGroundCell ?
-          findAlreadyResolvedFieldMoveGroundCell(playerPosition, {
-            waterGunEquipped,
-            leafageEquipped: leafageEquipped && leafagePrimaryMoveRequested,
-            fireEquipped,
-            groundDeadInstances: session.groundDeadInstances,
-            groundFlowerPatches: session.groundFlowerPatches,
-            groundGrassPatches: session.groundGrassPatches,
-            groundPurifiedInstances: session.groundPurifiedInstances
-          }) :
-          null;
-      const primaryActionRepeatedFieldMove = Boolean(primaryActionAlreadyResolvedGroundCell);
-      const primaryActionInteractTargetQueries = resolvePrimaryActionSecondaryTargetQueries({
-        harvestRequestSource,
-        dialogueActive,
-        targetIntent: primaryActionIntent,
-        followupIntent: primaryActionFollowupIntent,
-        repeatedFieldMove: primaryActionRepeatedFieldMove
-      });
-      const primaryInteractTarget =
-        primaryActionInteractTargetQueries.shouldFindInteractTarget ?
-          gameplay.findNearbyInteractable(
-            ...playerActionTargetContext.getNearbyInteractableArgs(playerPosition)
-          ) :
-          null;
-      const primaryInteractTargetIsWorkbench = primaryInteractTarget?.target?.id === "workbench";
-      const primaryActionConfirmsRotation =
-        !primaryInteractTargetIsWorkbench &&
-        Boolean(workbenchRotationRuntime.getSelectedTargetFromSources());
-      const primaryActionSecondaryTargetQueries = resolvePrimaryActionSecondaryTargetQueries({
-        harvestRequestSource,
-        dialogueActive,
-        targetIntent: primaryActionIntent,
-        followupIntent: primaryActionFollowupIntent,
-        repeatedFieldMove: primaryActionRepeatedFieldMove,
-        primaryInteractTargetIsWorkbench,
-        primaryActionConfirmsRotation
-      });
-      const primaryActionRotationTarget =
-        primaryActionSecondaryTargetQueries.shouldFindRotationTarget ?
-          workbenchRotationRuntime.getNearestTarget() :
-          null;
-      const primaryActionBagDestroyTarget =
-        primaryActionSecondaryTargetQueries.shouldFindBagDestroyTarget ?
-          findNearbyDestroyableInstantiatedObject(
-            ...playerActionTargetContext.getBagDestroyTargetArgs(playerPosition)
-          ) :
-          null;
-      const primaryActionIsBagHarvest = primaryActionIntent.isBagHarvest;
-      if (
-        waterGunEquipped &&
-        (
-          harvestRequestSource === "gamepadPrimary" ||
-          harvestRequestSource === "keyboardPrimary"
-        )
-      ) {
-        controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
-      }
-
-      playerPrimaryActionRuntime.update({
-        buildBlockEquipped,
-        dialogueActive,
-        fireEquipped,
-        gamepadPrimaryMoveRequested,
-        lastBuildBlockInvalidReason: session.lastTimburrBuildBlockInvalidReason,
-        leafageAutoGrowTarget,
-        leafageAutoWaterGunTarget,
-        leafageEquipped,
-        leafagePrimaryMoveRequested,
-        now,
-        performHarvestAction,
-        playerPosition,
-        primaryActionAlreadyResolvedGroundCell,
-        primaryActionBagDestroyTarget,
-        primaryActionConfirmsRotation,
-        primaryActionIntent,
-        primaryActionInvalidFireUse,
-        primaryActionInvalidLeafageUse,
-        primaryActionIsBagHarvest,
-        primaryActionIsMove,
-        primaryActionIsPlacement,
-        primaryActionPlacementBlocked,
-        primaryActionRepeatedFieldMove,
-        primaryActionRotationTarget,
-        primaryActionTarget,
-        primaryActionWantsFieldMove,
-        primaryInteractTarget,
-        waterGunEquipped
-      });
+    const primaryActionFrame = playerPrimaryActionFrameRuntime.update({
+      activeMoveId,
+      buildBlockEquipped,
+      cinematicActive,
+      dialogueActive,
+      fireEquipped,
+      leafageEquipped,
+      now,
+      performHarvestAction,
+      scriptedInteractionActive,
+      skillLearnActive,
+      tutorialActive,
+      waterGunEquipped
+    });
+    if (primaryActionFrame.handled) {
+      // Primary action handled by the player action runtime.
     } else {
       playerHeldWaterGunActionRuntime.update({
         flowState: frameFlowState,
