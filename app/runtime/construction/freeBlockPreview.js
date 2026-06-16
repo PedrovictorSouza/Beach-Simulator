@@ -96,3 +96,147 @@ export function buildFreeBlockPreviewDebug({
     wood
   };
 }
+
+export function resolveFreeBlockBuildTarget({
+  controller = null,
+  gridSystem = null,
+  playerPosition = null,
+  playerYaw = null,
+  buildZone = null,
+  allowStacking = false,
+  inventory = {},
+  buildZoneUnavailable = false,
+  resolveRawTargetCell = null,
+  resolveUnavailableValidation = null,
+  resolveTargetPosition = null,
+  getConstructionColliders = null,
+  isPositionInsideCollider = null,
+  buildState = null,
+  resolvePreviewValidity = null
+} = {}) {
+  const rawTargetCell = resolveRawTargetCell?.({
+    gridSystem,
+    playerPosition,
+    playerYaw
+  }) || null;
+  const target = controller?.resolveSelectedBlockTarget?.({
+    playerPosition,
+    playerYaw,
+    buildZone,
+    allowStacking
+  });
+
+  if (!target?.targetCell) {
+    return null;
+  }
+
+  const validation = buildZoneUnavailable ?
+    resolveUnavailableValidation?.({ targetCell: target.targetCell }) :
+    controller?.validateSelectedBlockTarget?.({
+      targetCell: target.targetCell,
+      buildZone,
+      allowStacking,
+      inventory
+    }) || {
+      valid: true,
+      reason: null
+    };
+  const resolvedTargetCell = validation.targetCell || target.targetCell;
+  const targetPosition = resolveTargetPosition?.(resolvedTargetCell, gridSystem) || null;
+  const blockingColliderIds = (getConstructionColliders?.() || [])
+    .filter((collider) => isPositionInsideCollider?.(targetPosition, collider))
+    .map((collider) => collider.id || collider.kind || "unknown");
+  const rawTargetBlock = rawTargetCell ? buildState?.getBlockAtCell?.(rawTargetCell) : null;
+  const targetBlock = buildState?.getBlockAtCell?.(resolvedTargetCell) || null;
+  const previewValidity = resolvePreviewValidity?.({
+    validation,
+    blockingColliderIds
+  }) || {
+    valid: validation.valid !== false,
+    reason: validation.reason || null
+  };
+  const { valid, reason } = previewValidity;
+
+  return {
+    targetCell: resolvedTargetCell,
+    targetPosition,
+    valid,
+    reason,
+    debug: buildFreeBlockPreviewDebug({
+      rawTargetCell,
+      targetCell: resolvedTargetCell,
+      playerPosition,
+      targetPosition,
+      validation,
+      previewValidity,
+      blockingColliderIds,
+      rawTargetBlock,
+      targetBlock,
+      wood: inventory?.wood ?? 0,
+      gridSystem
+    })
+  };
+}
+
+export function getFreeBlockPreviewTarget({
+  action = null,
+  playerPosition = null,
+  resolveTarget = null
+} = {}) {
+  if (
+    action &&
+    !action.impactApplied &&
+    action.targetCell &&
+    Array.isArray(action.targetPosition)
+  ) {
+    return {
+      targetCell: action.targetCell,
+      targetPosition: action.targetPosition,
+      valid: true,
+      reason: null
+    };
+  }
+
+  return resolveTarget?.(playerPosition) || null;
+}
+
+export function syncFreeBlockBuildPreview({
+  instance = null,
+  active = false,
+  playerPosition = null,
+  nowSeconds = 0,
+  getTarget = null,
+  createGridSystem = null
+} = {}) {
+  if (!instance) {
+    return null;
+  }
+
+  if (!active || !Array.isArray(playerPosition)) {
+    return syncFreeBlockPreviewInstance({
+      instance,
+      active,
+      playerPosition
+    });
+  }
+
+  const target = getTarget?.(playerPosition);
+  if (!target?.targetCell || !Array.isArray(target.targetPosition)) {
+    return syncFreeBlockPreviewInstance({
+      instance,
+      active,
+      playerPosition,
+      target
+    });
+  }
+
+  const gridSystem = createGridSystem?.();
+  return syncFreeBlockPreviewInstance({
+    instance,
+    active,
+    playerPosition,
+    target,
+    cellSize: gridSystem?.cellSize,
+    nowSeconds
+  });
+}

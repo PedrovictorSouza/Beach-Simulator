@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   buildFreeBlockPreviewDebug,
+  getFreeBlockPreviewTarget,
+  resolveFreeBlockBuildTarget,
+  syncFreeBlockBuildPreview,
   syncFreeBlockPreviewInstance
 } from "../app/runtime/construction/freeBlockPreview.js";
 
@@ -146,6 +149,109 @@ describe("free block preview", () => {
       rawTargetBlockType: "wall",
       targetBlockType: null,
       wood: 6
+    });
+  });
+
+  it("uses a pending Timburr Build Block action as the preview target", () => {
+    expect(getFreeBlockPreviewTarget({
+      action: {
+        impactApplied: false,
+        targetCell: { x: 3, y: 4 },
+        targetPosition: [3.5, 0.03, 4.5]
+      },
+      resolveTarget: () => {
+        throw new Error("fallback should not be called");
+      }
+    })).toEqual({
+      targetCell: { x: 3, y: 4 },
+      targetPosition: [3.5, 0.03, 4.5],
+      valid: true,
+      reason: null
+    });
+  });
+
+  it("resolves a free block build preview target with validity debug", () => {
+    const rawTargetCell = { x: 1, y: 2 };
+    const targetCell = { x: 2, y: 3 };
+    const validation = { targetCell, reason: "duplicate-block" };
+    const targetBlock = { blockType: "wall" };
+    const gridSystem = {
+      worldToCell: () => rawTargetCell
+    };
+    const controller = {
+      resolveSelectedBlockTarget: () => ({ targetCell }),
+      validateSelectedBlockTarget: () => validation
+    };
+    const buildState = {
+      getBlockAtCell(cell) {
+        return cell === rawTargetCell ? { blockType: "block" } : targetBlock;
+      }
+    };
+
+    expect(resolveFreeBlockBuildTarget({
+      controller,
+      gridSystem,
+      playerPosition: [0, 0, 0],
+      playerYaw: 0,
+      buildZone: { id: "foundation" },
+      allowStacking: true,
+      inventory: { wood: 2 },
+      buildZoneUnavailable: false,
+      resolveRawTargetCell: () => rawTargetCell,
+      resolveTargetPosition: () => [2.5, 0.03, 3.5],
+      getConstructionColliders: () => [{ id: "greenhouse" }],
+      isPositionInsideCollider: () => true,
+      buildState,
+      resolvePreviewValidity: ({ validation: nextValidation, blockingColliderIds }) => ({
+        valid: false,
+        reason: nextValidation.reason,
+        blockedByConstruction: blockingColliderIds.length > 0
+      })
+    })).toEqual({
+      targetCell,
+      targetPosition: [2.5, 0.03, 3.5],
+      valid: false,
+      reason: "duplicate-block",
+      debug: {
+        rawTargetCell,
+        targetCell,
+        playerCell: rawTargetCell,
+        targetPosition: [2.5, 0.03, 3.5],
+        valid: false,
+        reason: "duplicate-block",
+        validationReason: "duplicate-block",
+        blockedByConstruction: true,
+        blockingColliderIds: ["greenhouse"],
+        rawTargetBlockType: "block",
+        targetBlockType: "wall",
+        wood: 2
+      }
+    });
+  });
+
+  it("syncs the free block preview through target and grid callbacks", () => {
+    const instance = {};
+    const target = {
+      targetCell: { x: 1, y: 2 },
+      targetPosition: [1.5, 0.03, 2.5],
+      valid: true,
+      reason: null
+    };
+
+    expect(syncFreeBlockBuildPreview({
+      instance,
+      active: true,
+      playerPosition: [0, 0, 0],
+      nowSeconds: 0,
+      getTarget: () => target,
+      createGridSystem: () => ({ cellSize: 2 })
+    })).toBe(target);
+
+    expect(instance).toMatchObject({
+      active: true,
+      offset: [1.5, 0.03, 2.5],
+      scale: 2,
+      freeBlockCell: { x: 1, y: 2 }
     });
   });
 });

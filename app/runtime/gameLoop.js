@@ -33,8 +33,9 @@ import {
   tryRemoveNearbyFreeBlock as tryRemoveNearbyFreeBlockWithRuntime
 } from "./construction/freeBlockRemoval.js";
 import {
-  buildFreeBlockPreviewDebug,
-  syncFreeBlockPreviewInstance
+  getFreeBlockPreviewTarget as getFreeBlockPreviewTargetWithRuntime,
+  resolveFreeBlockBuildTarget as resolveFreeBlockBuildTargetWithRuntime,
+  syncFreeBlockBuildPreview as syncFreeBlockBuildPreviewWithRuntime
 } from "./construction/freeBlockPreview.js";
 import {
   applyFreeBlockPlacementResult,
@@ -2420,124 +2421,48 @@ export function startGameLoop({
   }
 
   function resolveFreeBlockBuildTarget(playerPosition = null) {
-    const controller = getFreeBlockBuildController();
     const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
     const playerYaw = session.playerModelInstance?.yaw;
-    const rawTargetCell = resolveFreeBlockTargetCell({
+    return resolveFreeBlockBuildTargetWithRuntime({
+      controller: getFreeBlockBuildController(),
       gridSystem,
-      playerPosition,
-      playerYaw
-    });
-    const target = controller?.resolveSelectedBlockTarget?.({
       playerPosition,
       playerYaw,
       buildZone: getActiveFreeBlockBuildZone(),
-      allowStacking: canStackFreeBlockPlacement()
-    });
-
-    if (!target?.targetCell) {
-      return null;
-    }
-
-    const validation = isFoundationBuildZoneUnavailable() ?
-      createUnavailableFoundationBuildZoneValidation({
-        targetCell: target.targetCell
-      }) :
-      controller?.validateSelectedBlockTarget?.({
-        targetCell: target.targetCell,
-        buildZone: getActiveFreeBlockBuildZone(),
-        allowStacking: canStackFreeBlockPlacement(),
-        inventory: controls.inventory
-      }) || {
-        valid: true,
-        reason: null
-      };
-    const resolvedTargetCell = validation.targetCell || target.targetCell;
-    const targetPosition = getFreeBlockCellWorldPosition(resolvedTargetCell, gridSystem);
-    const constructionColliders = getPlayerConstructionTerrainColliders();
-    const blockingColliderIds = constructionColliders
-      .filter((collider) => isPositionInsideTerrainColliderFootprint(targetPosition, collider))
-      .map((collider) => collider.id || collider.kind || "unknown");
-    const rawTargetBlock = rawTargetCell ? session.freeBlockBuildState?.getBlockAtCell?.(rawTargetCell) : null;
-    const targetBlock = session.freeBlockBuildState?.getBlockAtCell?.(resolvedTargetCell) || null;
-    const previewValidity = resolveBuildBlockPreviewValidity({
-      validation,
-      blockingColliderIds
-    });
-    const { valid, reason } = previewValidity;
-
-    return {
-      targetCell: resolvedTargetCell,
-      targetPosition,
-      valid,
-      reason,
-      debug: buildFreeBlockPreviewDebug({
-        rawTargetCell,
-        targetCell: resolvedTargetCell,
+      allowStacking: canStackFreeBlockPlacement(),
+      inventory: controls.inventory,
+      buildZoneUnavailable: isFoundationBuildZoneUnavailable(),
+      resolveRawTargetCell: () => resolveFreeBlockTargetCell({
+        gridSystem,
         playerPosition,
-        targetPosition,
-        validation,
-        previewValidity,
-        blockingColliderIds,
-        rawTargetBlock,
-        targetBlock,
-        wood: controls.inventory?.wood ?? 0,
-        gridSystem
-      })
-    };
+        playerYaw
+      }),
+      resolveUnavailableValidation: ({ targetCell }) =>
+        createUnavailableFoundationBuildZoneValidation({ targetCell }),
+      resolveTargetPosition: getFreeBlockCellWorldPosition,
+      getConstructionColliders: getPlayerConstructionTerrainColliders,
+      isPositionInsideCollider: isPositionInsideTerrainColliderFootprint,
+      buildState: session.freeBlockBuildState,
+      resolvePreviewValidity: resolveBuildBlockPreviewValidity
+    });
   }
 
   function getFreeBlockPreviewTarget(playerPosition = null) {
-    const action = session.timburrBuildBlockAction;
-    if (
-      action &&
-      !action.impactApplied &&
-      action.targetCell &&
-      Array.isArray(action.targetPosition)
-    ) {
-      return {
-        targetCell: action.targetCell,
-        targetPosition: action.targetPosition,
-        valid: true,
-        reason: null
-      };
-    }
-
-    return resolveFreeBlockBuildTarget(playerPosition);
+    return getFreeBlockPreviewTargetWithRuntime({
+      action: session.timburrBuildBlockAction,
+      playerPosition,
+      resolveTarget: resolveFreeBlockBuildTarget
+    });
   }
 
   function syncFreeBlockBuildPreview({ active, playerPosition, nowSeconds = 0 } = {}) {
-    const instance = session.freeBlockPreviewInstance;
-    if (!instance) {
-      return null;
-    }
-
-    if (!active || !Array.isArray(playerPosition)) {
-      return syncFreeBlockPreviewInstance({
-        instance,
-        active,
-        playerPosition
-      });
-    }
-
-    const target = getFreeBlockPreviewTarget(playerPosition);
-    if (!target?.targetCell || !Array.isArray(target.targetPosition)) {
-      return syncFreeBlockPreviewInstance({
-        instance,
-        active,
-        playerPosition,
-        target
-      });
-    }
-
-    const gridSystem = createGridSystem(getFreeBlockBuildGridConfig());
-    return syncFreeBlockPreviewInstance({
-      instance,
+    return syncFreeBlockBuildPreviewWithRuntime({
+      instance: session.freeBlockPreviewInstance,
       active,
       playerPosition,
-      target,
-      cellSize: gridSystem.cellSize,
-      nowSeconds
+      nowSeconds,
+      getTarget: getFreeBlockPreviewTarget,
+      createGridSystem: () => createGridSystem(getFreeBlockBuildGridConfig())
     });
   }
 

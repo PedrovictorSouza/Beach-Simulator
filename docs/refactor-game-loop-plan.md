@@ -218,6 +218,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   boundary.
 - Completed: move supply counter prompt handling into the `presentation`
   boundary.
+- Completed: move Free Block preview target/sync flow into the `construction`
+  boundary.
 - Completed: move status popup frame writes into the `presentation` boundary.
 - Completed: move HUD snapshot frame writes into the `presentation` boundary.
 - Completed: move companion status billboard builders into the `companions`
@@ -4233,6 +4235,74 @@ npm test
 
 - `308` test files passed, `1` failed
 - `1869` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
+### Free Block Preview Flow Extraction
+
+Expanded `app/runtime/construction/freeBlockPreview.js`.
+
+Classification: `construction`, focused on Free Block preview target
+resolution, preview validity debug and preview instance sync.
+
+Study path:
+
+1. `gameLoop.js` still assembled Free Block preview target state directly:
+   selected-block target, validation, collider blockers, debug payload and
+   Timburr Build Block override.
+2. The existing `freeBlockPreview.js` boundary already owned preview instance
+   shape, so it was the right domain module to expand instead of creating a new
+   loose helper file.
+3. `resolveFreeBlockBuildTarget(...)`, `getFreeBlockPreviewTarget(...)` and
+   `syncFreeBlockBuildPreview(...)` now own the isolated preview policy.
+4. `gameLoop.js` keeps only composition callbacks for session, controls, grid,
+   controller lookup, build-zone state and existing frame timing.
+
+Removed from `gameLoop.js`:
+
+- direct Timburr Build Block preview target override;
+- direct Free Block selected-target validation/debug assembly;
+- direct construction-collider blocker mapping for the Free Block preview;
+- direct preview instance sync branch for active/inactive Free Block preview.
+
+Kept in `gameLoop.js`:
+
+- when the Free Block preview is updated in the frame;
+- access to session/control state through callbacks;
+- existing build-zone, inventory, target-cell and terrain-collider providers;
+- frame order and all tuning values.
+
+Tests updated:
+
+- `tests/freeBlockPreview.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/freeBlockPreview.test.js
+```
+
+The first run failed because the new preview flow functions were not exported
+yet. After adding them, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/freeBlockPreview.test.js
+npm test -- --run tests/freeBlockPreview.test.js tests/freeBlockBuildSessionRuntime.test.js tests/freeBlockBuildSystem.test.js tests/constructionPlacementFrameRuntime.test.js tests/groundCellHighlightFrameState.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1872` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
 
