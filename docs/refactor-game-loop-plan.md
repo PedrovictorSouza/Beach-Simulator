@@ -3908,6 +3908,84 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+### Ambient World Frame Runtime Boundary
+
+Expanded `app/runtime/world/worldSceneSyncRuntime.js` with
+`updateAmbientWorldFrame(...)` and moved `syncModelResourceInstances(...)` into
+the same world-domain module.
+
+Boundary classification: `world`, focused on per-frame ambient world
+simulation/sync that does not belong directly to `frame(now)`.
+
+Study path:
+
+1. `startGameLoop()` still wires dependencies as composition root.
+2. `frame(now)` still decides when ambient world simulation runs.
+3. `worldSceneSyncRuntime.updateAmbientWorldFrame(...)` now owns the local
+   ordering for transient notices, palm shake, resource node updates,
+   landscape-cut update, model-backed resource sync, cloud atmosphere,
+   snowstorm particles/fog, Leppa tree state, dance and music notes.
+4. Late-created dependencies, such as landscape cut and snowstorm fog, are
+   passed as callbacks and are only invoked during frame execution.
+
+Removed from `gameLoop.js`:
+
+- direct import/use of `updateSnowstormParticleField(...)`;
+- direct import/use of `updateLeppaTreeDance(...)`;
+- direct import/use of `updateLeppaTreeMusicNotes(...)`;
+- local `syncModelResourceInstances(...)`;
+- local `updateAmbientWorldSimulationFrame(...)`;
+- manual per-frame coordination of the ambient world simulation block.
+
+Kept in `gameLoop.js`:
+
+- temporal placement of ambient world update before companion frame update;
+- `landscapeCutEffectRuntime` and `snowstormFogRuntime` construction;
+- dependency wiring callbacks for landscape cut and snowstorm fog.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2535` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2494` lines.
+- No new file was created; the boundary was added to the existing
+  `world/worldSceneSyncRuntime.js` module.
+
+Tests updated:
+
+- `tests/worldSceneSyncRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/worldSceneSyncRuntime.test.js
+```
+
+The first run failed because `updateAmbientWorldFrame(...)` did not exist yet.
+After adding the runtime method, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/worldSceneSyncRuntime.test.js tests/leppaTreeDance.test.js tests/leppaTreeMusicNotes.test.js tests/snowstormParticleField.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1975` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Render Snapshot Completion Frame Runtime Boundary
 
 Expanded `app/runtime/presentation/baseRenderSnapshotFrame.js` with

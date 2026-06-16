@@ -101,7 +101,6 @@ import {
   getInteractionDebugColliders as getInteractionDebugCollidersWithConfig
 } from "./interactionDebugColliders.js";
 import { createLandscapeCutEffectRuntime } from "./landscapeCutEffectRuntime.js";
-import { updateLeppaTreeMusicNotes } from "./leppaTreeMusicNotes.js";
 import { getMissionTargetPositionsById as getMissionTargetPositionsByIdWithConfig } from "./missionTargetPositionLookup.js";
 import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
@@ -125,7 +124,6 @@ import { createPlayerResourceCollectionFrameRuntime } from "../player/playerReso
 import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createGameplayPromptPreparationFrameRuntime } from "./presentation/gameplayPromptTargetFrameState.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
-import { updateLeppaTreeDance } from "./presentation/leppaTreeDance.js";
 import {
   createBaseRenderSnapshotFrameRuntime,
   createRenderSnapshotCompletionFrameRuntime
@@ -244,10 +242,7 @@ import {
   restoreActiveZoomPresetOnMovement
 } from "./camera/cameraZoomPresetController.js";
 import { createPlacementCameraAssist } from "./camera/placementCameraAssist.js";
-import {
-  getSnowstormFogIntensity,
-  updateSnowstormParticleField
-} from "../session/snowstormParticleField.js";
+import { getSnowstormFogIntensity } from "../session/snowstormParticleField.js";
 import { PLAYER_SPEED } from "../session/configurePlayerSpawner.js";
 import {
   updateNatureRevivalEffects
@@ -474,26 +469,6 @@ function easeOutCubic(value) {
   return 1 - Math.pow(1 - progress, 3);
 }
 
-function syncModelResourceInstances(resourceNodes = [], storyState = {}, deltaTime = 0) {
-  for (const resourceNode of resourceNodes) {
-    if (!resourceNode?.usesModelInstance) {
-      continue;
-    }
-
-    resourceNode.offset = Array.isArray(resourceNode.position) ?
-      [...resourceNode.position] :
-      resourceNode.offset;
-    resourceNode.active =
-      Number(resourceNode.cooldown || 0) <= 0 &&
-      (typeof resourceNode.activeWhen !== "function" || resourceNode.activeWhen(storyState));
-
-    const spinYawSpeed = Number(resourceNode.spinYawSpeed || 0);
-    if (resourceNode.active && Number.isFinite(spinYawSpeed) && spinYawSpeed !== 0) {
-      resourceNode.yaw = Number(resourceNode.yaw || 0) + spinYawSpeed * Math.max(0, deltaTime);
-    }
-  }
-}
-
 function getRotatedPlacementSize(size = [1, 1], yaw = 0) {
   return getRotatedPlacementSizeWithConfig(size, yaw, {
     placementRotationStep: PLACEMENT_ROTATION_STEP
@@ -648,9 +623,15 @@ export function startGameLoop({
   const worldSceneSyncRuntime = createWorldSceneSyncRuntime({
     session,
     controls,
+    hud,
+    gameplay,
     config: {
       workbenchPosition: WORKBENCH_POSITION,
       workbenchInteractDistance: WORKBENCH_INTERACT_DISTANCE
+    },
+    ambient: {
+      updateLandscapeCutEffect: (deltaTime) => landscapeCutEffectRuntime.update(deltaTime),
+      updateSnowstormFog: ({ deltaTime }) => snowstormFogRuntime.update({ session, deltaTime })
     }
   });
   const movementQuestRuntime = createMovementQuestRuntime({
@@ -2111,28 +2092,6 @@ export function startGameLoop({
     gearPickupParticleRuntime.update(deltaTime);
   }
 
-  function updateAmbientWorldSimulationFrame({ deltaTime, now }) {
-    hud.updateTransientNotice(deltaTime);
-    gameplay.updatePalmShake(deltaTime, session.palmInstances);
-    gameplay.updateResourceNodes(deltaTime, session.resourceNodes);
-    gameplay.updateResourceNodes(deltaTime, session.woodDrops);
-    landscapeCutEffectRuntime.update(deltaTime);
-    syncModelResourceInstances(session.resourceNodes, controls.storyState, deltaTime);
-    session.updateCloudAtmosphere?.(deltaTime);
-    updateSnowstormParticleField(session.snowstorm, {
-      deltaTime,
-      playerPosition: session.playerCharacter?.getPosition?.() || null
-    });
-    snowstormFogRuntime.update({ session, deltaTime });
-    gameplay.syncLeppaTreeState?.(session.leppaTree, controls.storyState);
-    updateLeppaTreeDance({ leppaTree: session.leppaTree, now });
-    updateLeppaTreeMusicNotes({
-      leppaTree: session.leppaTree,
-      textures: session.leppaTreeMusicalNoteTextures,
-      deltaTime
-    });
-  }
-
   function updateGameplayPresentationFrame({
     now,
     deltaTime,
@@ -2319,7 +2278,7 @@ export function startGameLoop({
     });
 
     // Simulation updates.
-    updateAmbientWorldSimulationFrame({ deltaTime, now });
+    worldSceneSyncRuntime.updateAmbientWorldFrame({ deltaTime, now });
     const {
       chopperBulbasaurRepairBoxInvestigationTarget
     } = companionFrameRuntime.update({

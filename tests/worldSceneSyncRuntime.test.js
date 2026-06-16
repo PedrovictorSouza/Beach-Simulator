@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createWorldSceneSyncRuntime } from "../app/runtime/world/worldSceneSyncRuntime.js";
 
@@ -92,5 +92,101 @@ describe("createWorldSceneSyncRuntime", () => {
     expect(runtime.isPlayerNearWorldPosition([2, 0, 2], 1.01)).toBe(true);
     expect(runtime.isPlayerNearWorldPosition([4, 0, 2], 1.01)).toBe(false);
     expect(runtime.isPlayerNearWorldPosition(null, 1.01)).toBe(false);
+  });
+
+  it("updates ambient world systems for the current frame", () => {
+    const resourceNode = {
+      usesModelInstance: true,
+      position: [3, 0, 4],
+      cooldown: 0,
+      spinYawSpeed: 2,
+      yaw: 0.25,
+      activeWhen: (storyState) => storyState.flags.resourceActive
+    };
+    const session = {
+      playerCharacter: {
+        getPosition: vi.fn(() => [1, 0, 2])
+      },
+      palmInstances: [{ id: "palm" }],
+      resourceNodes: [resourceNode],
+      woodDrops: [{ id: "wood-drop" }],
+      snowstorm: { id: "snowstorm" },
+      leppaTree: { id: "leppa-tree" },
+      leppaTreeMusicalNoteTextures: ["note"],
+      updateCloudAtmosphere: vi.fn()
+    };
+    const controls = {
+      storyState: {
+        flags: {
+          resourceActive: true
+        }
+      }
+    };
+    const hud = {
+      updateTransientNotice: vi.fn()
+    };
+    const gameplay = {
+      updatePalmShake: vi.fn(),
+      updateResourceNodes: vi.fn(),
+      syncLeppaTreeState: vi.fn()
+    };
+    const updateLandscapeCutEffect = vi.fn();
+    const updateSnowstormFog = vi.fn();
+    const updateSnowstormParticleField = vi.fn();
+    const updateLeppaTreeDance = vi.fn();
+    const updateLeppaTreeMusicNotes = vi.fn();
+    const runtime = createWorldSceneSyncRuntime({
+      session,
+      controls,
+      hud,
+      gameplay,
+      ambient: {
+        updateLandscapeCutEffect,
+        updateSnowstormFog
+      },
+      sources: {
+        updateSnowstormParticleField,
+        updateLeppaTreeDance,
+        updateLeppaTreeMusicNotes
+      }
+    });
+
+    runtime.updateAmbientWorldFrame({
+      deltaTime: 0.5,
+      now: 1200
+    });
+
+    expect(hud.updateTransientNotice).toHaveBeenCalledWith(0.5);
+    expect(gameplay.updatePalmShake).toHaveBeenCalledWith(0.5, session.palmInstances);
+    expect(gameplay.updateResourceNodes).toHaveBeenNthCalledWith(1, 0.5, session.resourceNodes);
+    expect(gameplay.updateResourceNodes).toHaveBeenNthCalledWith(2, 0.5, session.woodDrops);
+    expect(updateLandscapeCutEffect).toHaveBeenCalledWith(0.5);
+    expect(resourceNode).toMatchObject({
+      offset: [3, 0, 4],
+      active: true,
+      yaw: 1.25
+    });
+    expect(session.updateCloudAtmosphere).toHaveBeenCalledWith(0.5);
+    expect(updateSnowstormParticleField).toHaveBeenCalledWith(session.snowstorm, {
+      deltaTime: 0.5,
+      playerPosition: [1, 0, 2]
+    });
+    expect(updateSnowstormFog).toHaveBeenCalledWith({
+      session,
+      deltaTime: 0.5
+    });
+    expect(gameplay.syncLeppaTreeState).toHaveBeenCalledWith(
+      session.leppaTree,
+      controls.storyState
+    );
+    expect(updateLeppaTreeDance).toHaveBeenCalledWith({
+      leppaTree: session.leppaTree,
+      now: 1200
+    });
+    expect(updateLeppaTreeMusicNotes).toHaveBeenCalledWith({
+      leppaTree: session.leppaTree,
+      textures: session.leppaTreeMusicalNoteTextures,
+      deltaTime: 0.5
+    });
   });
 });
