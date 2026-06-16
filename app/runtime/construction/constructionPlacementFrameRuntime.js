@@ -1,4 +1,10 @@
-import { hasFinitePlacementBounds } from "./placementGeometry.js";
+import { resolveWorkbenchPlacementPreviewVisual } from "../../gameplay/placementPreviewVisual.js";
+import {
+  getPlacementPreviewFootprintWorldSize,
+  getRotatedPlacementSize,
+  getSnappedPlacementPreviewPosition,
+  hasFinitePlacementBounds
+} from "./placementGeometry.js";
 
 function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -56,6 +62,84 @@ export function syncPlacementPreviewPositionToPlayer({
   }
 
   preview.position = nextPosition;
+  return preview;
+}
+
+export function updateRectangularConstructionPlacementPreview({
+  preview = null,
+  instance = null,
+  timeSeconds = 0,
+  fallbackFootprint = [1, 1],
+  gridFootprint = { width: 1, height: 1 },
+  getBlockers = () => [],
+  validatePlacement = () => ({ valid: true, reason: null }),
+  syncPlacementPreview = () => {},
+  modelStateKeys = {},
+  shouldHideInactiveInstance = () => Boolean(instance),
+  resetSwayStrength = false
+} = {}) {
+  if (!preview?.active) {
+    if (instance && shouldHideInactiveInstance()) {
+      instance.active = false;
+    }
+    return null;
+  }
+
+  syncPlacementPreview(preview);
+
+  const snappedPosition = getSnappedPlacementPreviewPosition(preview);
+  const previewCollisionSize = getPlacementPreviewFootprintWorldSize(
+    preview,
+    gridFootprint
+  );
+  const blockers = getBlockers();
+  const validation = validatePlacement({
+    position: snappedPosition,
+    size: previewCollisionSize,
+    blockers
+  });
+
+  preview.snappedPosition = snappedPosition;
+  preview.effectiveSize = getRotatedPlacementSize(
+    Array.isArray(preview.size) ?
+      preview.size :
+      fallbackFootprint,
+    preview.yaw
+  );
+  preview.valid = validation.valid;
+  preview.invalidReason = validation.valid ? null : validation.reason;
+  preview.readyForConfirm = true;
+
+  if (instance) {
+    const previewVisual = resolveWorkbenchPlacementPreviewVisual({
+      valid: preview.valid,
+      timeSeconds
+    });
+    const groundYKey = modelStateKeys.groundY || "placementGroundY";
+    const baseScaleKey = modelStateKeys.baseScale || "placementBaseScale";
+    const baseYawKey = modelStateKeys.baseYaw || "placementBaseYaw";
+    const groundY = instance[groundYKey] ?? Number(instance.offset?.[1] ?? snappedPosition[1] ?? 0.02);
+    const baseScale = instance[baseScaleKey] ?? Number(instance.scale || 1);
+    const baseYaw = instance[baseYawKey] ?? Number(instance.yaw || 0);
+    instance[groundYKey] = groundY;
+    instance[baseScaleKey] = baseScale;
+    instance[baseYawKey] = baseYaw;
+    instance.offset = [
+      snappedPosition[0],
+      groundY,
+      snappedPosition[2]
+    ];
+    instance.scale = baseScale;
+    instance.yaw = baseYaw + Number(preview.yaw || 0);
+    if (resetSwayStrength) {
+      instance.swayStrength = 0;
+    }
+    instance.alpha = previewVisual.alpha;
+    instance.tint = previewVisual.tint;
+    instance.tintStrength = previewVisual.tintStrength;
+    instance.active = true;
+  }
+
   return preview;
 }
 

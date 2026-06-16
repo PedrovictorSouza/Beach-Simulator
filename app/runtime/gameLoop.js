@@ -51,7 +51,8 @@ import {
 } from "./construction/constructionHelperMotion.js";
 import {
   createConstructionPlacementFrameRuntime,
-  resolveActiveConstructionPlacementPreviews
+  resolveActiveConstructionPlacementPreviews,
+  updateRectangularConstructionPlacementPreview
 } from "./construction/constructionPlacementFrameRuntime.js";
 import {
   getNearestRotatableWorkbenchPlacement as getNearestRotatableWorkbenchPlacementFromTargets,
@@ -1932,128 +1933,43 @@ export function startGameLoop({
   }
 
   function updateCampfirePlacementPreview(timeSeconds = 0) {
-    const preview = session.campfirePlacementPreview;
-    const instance = session.campfireTrainHouseModelInstance;
-    if (!preview?.active) {
-      if (instance && !controls.storyState.flags.campfireSpatOut) {
-        instance.active = false;
-      }
-      return null;
-    }
-
-    constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview);
-
-    const snappedPosition = getSnappedSolarStationPreviewPosition(preview);
-    const previewCollisionSize = getPlacementPreviewFootprintWorldSize(
-      preview,
-      TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT
-    );
-    const blockers = getSolarStationPlacementBlockers(session, controls.storyState);
-    const validation = validateBuildingKitPlacement({
-      position: snappedPosition,
-      size: previewCollisionSize,
-      blockers
+    return updateRectangularConstructionPlacementPreview({
+      preview: session.campfirePlacementPreview,
+      instance: session.campfireTrainHouseModelInstance,
+      timeSeconds,
+      fallbackFootprint: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+      gridFootprint: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
+      getBlockers: () => getSolarStationPlacementBlockers(session, controls.storyState),
+      validatePlacement: validateBuildingKitPlacement,
+      syncPlacementPreview: (preview) =>
+        constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview),
+      modelStateKeys: {
+        groundY: "trainHouseGroundY",
+        baseScale: "trainHouseBaseScale",
+        baseYaw: "trainHouseBaseYaw"
+      },
+      shouldHideInactiveInstance: () => !controls.storyState.flags.campfireSpatOut,
+      resetSwayStrength: true
     });
-
-    preview.snappedPosition = snappedPosition;
-    preview.effectiveSize = getRotatedPlacementSize(
-      Array.isArray(preview.size) ?
-        preview.size :
-        TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      preview.yaw
-    );
-    preview.valid = validation.valid;
-    preview.invalidReason = validation.valid ? null : validation.reason;
-    preview.readyForConfirm = true;
-
-    if (instance) {
-      const previewVisual = resolveWorkbenchPlacementPreviewVisual({
-        valid: preview.valid,
-        timeSeconds
-      });
-      const groundY = instance.trainHouseGroundY ?? Number(instance.offset?.[1] ?? snappedPosition[1] ?? 0.02);
-      const baseScale = instance.trainHouseBaseScale ?? Number(instance.scale || 1);
-      const baseYaw = instance.trainHouseBaseYaw ?? Number(instance.yaw || 0);
-      instance.trainHouseGroundY = groundY;
-      instance.trainHouseBaseScale = baseScale;
-      instance.trainHouseBaseYaw = baseYaw;
-      instance.offset = [
-        snappedPosition[0],
-        groundY,
-        snappedPosition[2]
-      ];
-      instance.scale = baseScale;
-      instance.yaw = baseYaw + Number(preview.yaw || 0);
-      instance.swayStrength = 0;
-      instance.alpha = previewVisual.alpha;
-      instance.tint = previewVisual.tint;
-      instance.tintStrength = previewVisual.tintStrength;
-      instance.active = true;
-    }
-
-    return preview;
   }
 
   function updateGreenhousePlacementPreview(timeSeconds = 0) {
-    const preview = session.greenhousePlacementPreview;
-    const instance = session.greenhouseModelInstance;
-    if (!preview?.active) {
-      if (instance) {
-        instance.active = false;
+    return updateRectangularConstructionPlacementPreview({
+      preview: session.greenhousePlacementPreview,
+      instance: session.greenhouseModelInstance,
+      timeSeconds,
+      fallbackFootprint: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+      gridFootprint: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
+      getBlockers: () => getSolarStationPlacementBlockers(session, controls.storyState),
+      validatePlacement: validateBuildingKitPlacement,
+      syncPlacementPreview: (preview) =>
+        constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview),
+      modelStateKeys: {
+        groundY: "greenhouseGroundY",
+        baseScale: "greenhouseBaseScale",
+        baseYaw: "greenhouseBaseYaw"
       }
-      return null;
-    }
-
-    constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(preview);
-
-    const snappedPosition = getSnappedSolarStationPreviewPosition(preview);
-    const previewCollisionSize = getPlacementPreviewFootprintWorldSize(
-      preview,
-      GREENHOUSE_PLACEMENT_GRID_FOOTPRINT
-    );
-    const blockers = getSolarStationPlacementBlockers(session, controls.storyState);
-    const validation = validateBuildingKitPlacement({
-      position: snappedPosition,
-      size: previewCollisionSize,
-      blockers
     });
-
-    preview.snappedPosition = snappedPosition;
-    preview.effectiveSize = getRotatedPlacementSize(
-      Array.isArray(preview.size) ?
-        preview.size :
-        GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      preview.yaw
-    );
-    preview.valid = validation.valid;
-    preview.invalidReason = validation.valid ? null : validation.reason;
-    preview.readyForConfirm = true;
-
-    if (instance) {
-      const previewVisual = resolveWorkbenchPlacementPreviewVisual({
-        valid: preview.valid,
-        timeSeconds
-      });
-      const groundY = instance.greenhouseGroundY ?? Number(instance.offset?.[1] ?? snappedPosition[1] ?? 0.02);
-      const baseScale = instance.greenhouseBaseScale ?? Number(instance.scale || 1);
-      const baseYaw = instance.greenhouseBaseYaw ?? Number(instance.yaw || 0);
-      instance.greenhouseGroundY = groundY;
-      instance.greenhouseBaseScale = baseScale;
-      instance.greenhouseBaseYaw = baseYaw;
-      instance.offset = [
-        snappedPosition[0],
-        groundY,
-        snappedPosition[2]
-      ];
-      instance.scale = baseScale;
-      instance.yaw = baseYaw + Number(preview.yaw || 0);
-      instance.alpha = previewVisual.alpha;
-      instance.tint = previewVisual.tint;
-      instance.tintStrength = previewVisual.tintStrength;
-      instance.active = true;
-    }
-
-    return preview;
   }
 
   function hasCharmanderFireCarbon() {

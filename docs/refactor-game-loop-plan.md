@@ -12656,3 +12656,74 @@ npm test
 - `1848` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Rectangular Construction Preview Frame Extraction
+
+Expanded the existing `constructionPlacementFrameRuntime` boundary again in
+`app/runtime/construction/constructionPlacementFrameRuntime.js`.
+
+Classification: `construction`, focused on the shared Campfire/Greenhouse
+placement-preview frame rule.
+
+Study path:
+
+1. Campfire and Greenhouse previews shared the same sequence in `gameLoop.js`:
+   sync preview to player, snap to placement grid, compute collision footprint,
+   validate against blockers, update preview state and sync the model instance
+   visual.
+2. `updateRectangularConstructionPlacementPreview(...)` now owns that shared
+   sequence.
+3. `gameLoop.js` keeps only the domain-specific configuration: which preview,
+   which instance, which footprints, which model-state keys and whether an
+   inactive preview should hide the model instance.
+
+Removed from `gameLoop.js`:
+
+- duplicated validation/snap/effective-size logic for Campfire and Greenhouse
+  previews;
+- duplicated model-instance visual sync for `trainHouse*` and `greenhouse*`
+  preview state;
+- direct `swayStrength = 0` detail for the Thermal Cabin preview.
+
+Kept in `gameLoop.js`:
+
+- per-feature wrapper functions `updateCampfirePlacementPreview(...)` and
+  `updateGreenhousePlacementPreview(...)`;
+- callbacks for blockers and `validateBuildingKitPlacement(...)`, avoiding a
+  new import from construction runtime into `world/islandWorld.js`;
+- Solar Station and House Kit preview rules, because they still have distinct
+  energy/site-choice behavior.
+
+Tests updated:
+
+- `tests/constructionPlacementFrameRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+```
+
+The first run failed because `updateRectangularConstructionPlacementPreview`
+did not exist yet. After adding the helper, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js
+npm test -- --run tests/constructionPlacementFrameRuntime.test.js tests/placementGeometry.test.js tests/placementPreviewVisual.test.js tests/placementPreviewPrompts.test.js tests/freeBlockPreview.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1850` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.

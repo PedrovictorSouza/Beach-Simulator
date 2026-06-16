@@ -3,7 +3,8 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createConstructionPlacementFrameRuntime,
   resolveActiveConstructionPlacementPreviews,
-  syncPlacementPreviewPositionToPlayer
+  syncPlacementPreviewPositionToPlayer,
+  updateRectangularConstructionPlacementPreview
 } from "../app/runtime/construction/constructionPlacementFrameRuntime.js";
 
 function createRuntime({
@@ -107,6 +108,95 @@ describe("construction placement frame runtime", () => {
 
     expect(preview.followPlayerOffset).toEqual([1.5, 0, 0]);
     expect(preview.position).toEqual([3.5, 0.02, 3]);
+  });
+
+  it("updates rectangular construction previews and their model instances", () => {
+    const validationCalls = [];
+    const blockers = [{ id: "blocking-object" }];
+    const preview = {
+      active: true,
+      position: [1, 0.02, 2],
+      size: [4, 2],
+      gridStep: 1,
+      yaw: Math.PI * 0.5
+    };
+    const instance = {
+      offset: [0, 0.1, 0],
+      scale: 2,
+      yaw: 0.25
+    };
+
+    expect(updateRectangularConstructionPlacementPreview({
+      preview,
+      instance,
+      timeSeconds: 0,
+      fallbackFootprint: [1.7, 1.45],
+      gridFootprint: { width: 2, height: 3 },
+      getBlockers: () => blockers,
+      validatePlacement: (payload) => {
+        validationCalls.push(payload);
+        return {
+          valid: false,
+          reason: "blocked"
+        };
+      },
+      syncPlacementPreview: (activePreview) => {
+        activePreview.position = [4, 0.02, 6];
+      },
+      modelStateKeys: {
+        groundY: "trainHouseGroundY",
+        baseScale: "trainHouseBaseScale",
+        baseYaw: "trainHouseBaseYaw"
+      },
+      resetSwayStrength: true
+    })).toBe(preview);
+
+    expect(validationCalls).toEqual([
+      {
+        position: [4, 0.02, 6],
+        size: [3, 2],
+        blockers
+      }
+    ]);
+    expect(preview).toMatchObject({
+      snappedPosition: [4, 0.02, 6],
+      effectiveSize: [2, 4],
+      valid: false,
+      invalidReason: "blocked",
+      readyForConfirm: true
+    });
+    expect(instance).toMatchObject({
+      trainHouseGroundY: 0.1,
+      trainHouseBaseScale: 2,
+      trainHouseBaseYaw: 0.25,
+      offset: [4, 0.1, 6],
+      scale: 2,
+      yaw: 0.25 + Math.PI * 0.5,
+      swayStrength: 0,
+      active: true,
+      tint: [1, 0.04, 0.02]
+    });
+    expect(instance.alpha).toBeCloseTo(0.46);
+    expect(instance.tintStrength).toBeCloseTo(0.79);
+  });
+
+  it("honors inactive rectangular construction preview visibility policy", () => {
+    const hiddenInstance = { active: true };
+    const keptInstance = { active: true };
+
+    expect(updateRectangularConstructionPlacementPreview({
+      preview: { active: false },
+      instance: hiddenInstance,
+      shouldHideInactiveInstance: () => true
+    })).toBeNull();
+    expect(hiddenInstance.active).toBe(false);
+
+    expect(updateRectangularConstructionPlacementPreview({
+      preview: { active: false },
+      instance: keptInstance,
+      shouldHideInactiveInstance: () => false
+    })).toBeNull();
+    expect(keptInstance.active).toBe(true);
   });
 
   it("keeps only placement previews whose session preview is still active", () => {
