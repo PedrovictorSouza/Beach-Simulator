@@ -381,6 +381,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: move construction placement control wiring into the
   `construction` boundary.
 - Completed: move companion facing/yaw wiring into the `companions` boundary.
+- Completed: move player action payload assembly into the `player` boundary.
 - Completed: move player harvest/interact/destroy action side effects into the
   `player` boundary.
 - Completed: move gameplay prompt/highlight target preparation into the
@@ -3882,6 +3883,70 @@ Results:
 - Production build passed.
 - Full suite completed with the existing Leafage Native Tree baseline:
   `1761` passed and `3` failed in `tests/gameplayInteractions.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Action Context Boundary
+
+Created `app/player/playerActionContext.js` so the player boundary owns the
+repeated payload assembly for harvest, interact and destroy actions.
+
+Boundary classification: `player / gameplay action runtime`, focused on
+assembling references from `session` and `controls` for existing player action
+runtime calls.
+
+Removed from `gameLoop.js`:
+
+- repeated `performHarvest(...)` option object assembly;
+- repeated `performDestroy(...)` option object assembly;
+- repeated `performInteract(...)` option object assembly;
+- direct duplication of the same `session` and `controls` references across the
+  primary action, destroy action and interact action branches.
+
+Kept in `gameLoop.js`:
+
+- action decision order;
+- harvest request source handling;
+- field-move fallback behavior;
+- counter prompts, audio, stamina recording and invalid target feedback;
+- NPC interaction callback wiring.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` baseline was `3232`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is `3157`
+  lines.
+
+Tests added:
+
+- `tests/playerActionContext.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionContext.test.js
+```
+
+The first run failed because `createPlayerActionContext(...)` did not exist yet.
+After adding the helper under the existing `player` boundary, the focused test
+passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionContext.test.js tests/playerActionRuntime.test.js tests/playerResourceCollectionFrame.test.js tests/playerMovementFrame.test.js
+```
+
+Focused result:
+
+- `4` test files passed
+- `12` tests passed
+
+Full-suite validation was not repeated for this cut. The known baseline still
+has failures outside this boundary: the existing Leafage Native Tree failures
+and the isolated scene-flow failure tied to dirty `startScreen.js` / bootstrap
+work.
 
 Manual gameplay validation remains pending for this cut.
 

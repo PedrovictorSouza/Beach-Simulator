@@ -109,6 +109,7 @@ import { getMissionTargetPositionsById as getMissionTargetPositionsByIdWithConfi
 import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
+import { createPlayerActionContext } from "../player/playerActionContext.js";
 import { createPlayerActionRuntime } from "../player/playerActionRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
@@ -1517,6 +1518,10 @@ export function startGameLoop({
       pushNotice: (notice) => hud?.pushNotice?.(notice)
     }
   });
+  const playerActionContext = createPlayerActionContext({
+    session,
+    controls
+  });
   const playerActionRuntime = createPlayerActionRuntime({
     session,
     controls,
@@ -2101,30 +2106,13 @@ export function startGameLoop({
       const previousWateredTreeCount = Number(controls.storyState.flags.wateredTreeCount || 0);
       const previousRestoredGrassCount = Number(controls.storyState.flags.restoredGrassCount || 0);
       const previousSupplyCounts = supplyCounterPromptController.snapshot(controls.inventory);
-      const result = playerActionRuntime.performHarvest({
+      const result = playerActionRuntime.performHarvest(playerActionContext.getHarvestOptions({
         playerPosition,
-        palmModel: session.palmModel,
-        palmInstances: session.palmInstances,
-        resourceNodes: session.resourceNodes,
-        leppaTree: session.leppaTree,
-        inventory: controls.inventory,
-        canPurifyGround: waterGunEquipped,
-        groundDeadInstances: session.groundDeadInstances,
-        iceGroundInstances: session.iceGroundInstances,
-        groundFlowerPatches: session.groundFlowerPatches,
-        groundGrassPatches: session.groundGrassPatches,
-        groundPurifiedInstances: session.groundPurifiedInstances,
-        storyState: controls.storyState,
-        leafDen: session.leafDen,
-        woodDrops: session.woodDrops,
-        leppaBerryDrops: session.leppaBerryDrops,
-        canUseLeafage: leafageEquipped && options.allowLeafage !== false,
-        canUseFire: fireEquipped && options.allowFire !== false,
-        useWaterGun: Boolean(options.useWaterGun),
-        useFire: Boolean(options.useFire),
-        forcedHarvestTarget: options.forcedHarvestTarget || null,
-        allowPlacement: options.allowPlacement !== false
-      }, {
+        waterGunEquipped,
+        leafageEquipped,
+        fireEquipped,
+        options
+      }), {
         actionType: options.useWaterGun ? "waterGun" : options.useFire ? "fire" : options.useLeafage ? "leafage" : "harvest"
       });
 
@@ -2417,24 +2405,7 @@ export function startGameLoop({
       } else if (primaryActionRotationTarget) {
         workbenchRotationRuntime.selectTargetWithFeedback(primaryActionRotationTarget);
       } else if (primaryActionBagDestroyTarget?.target) {
-        playerActionRuntime.performDestroy({
-          playerPosition,
-          npcActors: session.npcActors,
-          interactables: session.interactables,
-          storyState: controls.storyState,
-          inventory: controls.inventory,
-          woodDrops: session.woodDrops,
-          groundGrassPatches: session.groundGrassPatches,
-          groundFlowerPatches: session.groundFlowerPatches,
-          groundPurifiedInstances: session.groundPurifiedInstances,
-          logChair: session.logChair,
-          leafDen: session.leafDen,
-          leppaTree: session.leppaTree,
-          leppaBerryDrops: session.leppaBerryDrops,
-          timburrEncounter: session.timburrEncounter,
-          charmanderEncounter: session.charmanderEncounter,
-          bulbasaurEncounter: session.bulbasaurEncounter
-        });
+        playerActionRuntime.performDestroy(playerActionContext.getDestroyOptions(playerPosition));
       } else if (leafageAutoWaterGunTarget?.groundCell) {
         fieldMoveInvalidTargetPromptRuntime.resetLeafage();
         controls.setActiveMoveId?.("waterGun");
@@ -2560,25 +2531,9 @@ export function startGameLoop({
       } else if (isLeafDenBusyCompanionTarget(primaryInteractTarget?.target)) {
         hud?.pushNotice?.(LEAF_DEN_BUSY_NOTICE);
       } else if (primaryInteractTarget?.target) {
-        playerActionRuntime.performInteract({
-          playerPosition,
-          npcActors: session.npcActors,
-          interactables: session.interactables,
-          storyState: controls.storyState,
-          inventory: controls.inventory,
-          woodDrops: session.woodDrops,
-          groundGrassPatches: session.groundGrassPatches,
-          groundFlowerPatches: session.groundFlowerPatches,
-          groundPurifiedInstances: session.groundPurifiedInstances,
-          logChair: session.logChair,
-          leafDen: session.leafDen,
-          leppaTree: session.leppaTree,
-          leppaBerryDrops: session.leppaBerryDrops,
-          timburrEncounter: session.timburrEncounter,
-          charmanderEncounter: session.charmanderEncounter,
-          bulbasaurEncounter: session.bulbasaurEncounter,
+        playerActionRuntime.performInteract(playerActionContext.getInteractOptions(playerPosition, {
           onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart
-        });
+        }));
       } else if (!dialogueActive && !primaryActionWantsFieldMove) {
         performHarvestAction(playerPosition, {
           allowLeafage: false,
@@ -2661,24 +2616,9 @@ debugInteractionFlow("gameLoop.destroyAction.input", {
 });
 
 if (canProcessDestroyAction && destroyActionRequested) {
-  playerActionRuntime.performDestroy({
-    playerPosition: session.playerCharacter.getPosition(),
-    npcActors: session.npcActors,
-    interactables: session.interactables,
-    storyState: controls.storyState,
-    inventory: controls.inventory,
-    woodDrops: session.woodDrops,
-    groundGrassPatches: session.groundGrassPatches,
-    groundFlowerPatches: session.groundFlowerPatches,
-    groundPurifiedInstances: session.groundPurifiedInstances,
-    logChair: session.logChair,
-    leafDen: session.leafDen,
-    leppaTree: session.leppaTree,
-    leppaBerryDrops: session.leppaBerryDrops,
-    timburrEncounter: session.timburrEncounter,
-    charmanderEncounter: session.charmanderEncounter,
-    bulbasaurEncounter: session.bulbasaurEncounter
-  });
+  playerActionRuntime.performDestroy(
+    playerActionContext.getDestroyOptions(session.playerCharacter.getPosition())
+  );
 }
 
     if (
@@ -2686,25 +2626,10 @@ if (canProcessDestroyAction && destroyActionRequested) {
       canProcessGameplayAction
     ) {
       playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM);
-      playerActionRuntime.performInteract({
-        playerPosition: session.playerCharacter.getPosition(),
-        npcActors: session.npcActors,
-        interactables: session.interactables,
-        storyState: controls.storyState,
-        inventory: controls.inventory,
-        woodDrops: session.woodDrops,
-        groundGrassPatches: session.groundGrassPatches,
-        groundFlowerPatches: session.groundFlowerPatches,
-        groundPurifiedInstances: session.groundPurifiedInstances,
-        logChair: session.logChair,
-        leafDen: session.leafDen,
-        leppaTree: session.leppaTree,
-        leppaBerryDrops: session.leppaBerryDrops,
-        timburrEncounter: session.timburrEncounter,
-        charmanderEncounter: session.charmanderEncounter,
-        bulbasaurEncounter: session.bulbasaurEncounter,
-        onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart
-      });
+      playerActionRuntime.performInteract(playerActionContext.getInteractOptions(
+        session.playerCharacter.getPosition(),
+        { onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart }
+      ));
     }
 
     processFollowerCallFrame({
