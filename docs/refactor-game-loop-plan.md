@@ -12408,3 +12408,58 @@ npm test
 - `1839` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Tree Revival Leaf Burst Frame Runtime Extraction
+
+Created the `presentation/tree-revival-leaf-burst-frame` boundary with
+`app/runtime/presentation/treeRevivalLeafBurstFrameRuntime.js`.
+
+Study path:
+
+1. The existing `treeRevivalLeafBurstRuntime` still owns the particle state,
+   physics and billboard shape.
+2. The new presentation frame runtime owns the game-session presentation
+   composition: detecting newly revived palms/Leppa tree from a snapshot,
+   forwarding passive updates and appending the resulting billboards to the
+   render frame.
+3. `gameLoop.js` still owns harvest orchestration and garden progress checks;
+   it now delegates leaf-burst presentation details to the runtime.
+
+Removed from `gameLoop.js`:
+
+- `queueTreeRevivalLeafBurstsForNewlyRevivedTrees(...)`;
+- `appendTreeRevivalLeafBurstBillboards(...)`;
+- direct update of `treeRevivalLeafBurstRuntime` from the passive effect frame.
+
+Kept in `gameLoop.js`:
+
+- tree revival snapshot timing before harvest;
+- garden progress autosave notification;
+- the same passive effect and render-frame call sites.
+
+Tests added:
+
+- `tests/treeRevivalLeafBurstFrameRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/treeRevivalLeafBurstFrameRuntime.test.js
+npm test -- --run tests/treeRevivalLeafBurstFrameRuntime.test.js tests/treeRevivalLeafBurstRuntime.test.js tests/natureRevivalEffects.test.js
+npm test -- --run tests/gameplayInteractions.test.js -t "revives the Leppa tree|waters nearby trees|collects a Pulse Berry"
+npm run build
+npm test
+```
+
+The broader filtered run below also hit the existing Native Tree baseline:
+
+```sh
+npm test -- --run tests/treeRevivalLeafBurstFrameRuntime.test.js tests/treeRevivalLeafBurstRuntime.test.js tests/natureRevivalEffects.test.js tests/gameplayInteractions.test.js -t "revives|tree|rustling|Leafage"
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1842` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.

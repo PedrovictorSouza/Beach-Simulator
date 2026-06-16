@@ -201,6 +201,7 @@ import { createBaseRenderSnapshotFrameRuntime } from "./presentation/baseRenderS
 import { prepareRenderSnapshotContext as prepareRenderSnapshotContextWithSources } from "./presentation/renderSnapshotContext.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { createSupplyPickupFeedbackRuntime } from "./presentation/supplyPickupFeedbackRuntime.js";
+import { createTreeRevivalLeafBurstFrameRuntime } from "./presentation/treeRevivalLeafBurstFrameRuntime.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { resolveGameplayTargetFrameState } from "./presentation/gameplayTargetFrameState.js";
 import {
@@ -944,6 +945,12 @@ export function startGameLoop({
       sizeMin: TREE_REVIVAL_LEAF_BURST_SIZE_MIN,
       sizeMax: TREE_REVIVAL_LEAF_BURST_SIZE_MAX
     }
+  });
+  const treeRevivalLeafBurstFrameRuntime = createTreeRevivalLeafBurstFrameRuntime({
+    leafBurstRuntime: treeRevivalLeafBurstRuntime,
+    session,
+    getStoryState: () => controls.storyState,
+    rendering
   });
   const landscapeCutEffectRuntime = createLandscapeCutEffectRuntime({
     clamp01,
@@ -2225,47 +2232,6 @@ export function startGameLoop({
     ];
   }
 
-  function queueTreeRevivalLeafBurstsForNewlyRevivedTrees(snapshot) {
-    if (!snapshot) {
-      return;
-    }
-
-    for (const palmInstance of session.palmInstances || []) {
-      const wasAlive = snapshot.palmAliveById?.get(palmInstance?.id);
-      if (!wasAlive && palmInstance?.alive && Array.isArray(palmInstance.offset)) {
-        treeRevivalLeafBurstRuntime.queue(palmInstance.offset, palmInstance.id);
-      }
-    }
-
-    const leppaTreeRevived = Boolean(
-      session.leppaTree?.revived ||
-      controls.storyState?.flags?.leppaTreeRevived
-    );
-    if (
-      !snapshot.leppaTreeRevived &&
-      leppaTreeRevived &&
-      Array.isArray(session.leppaTree?.position)
-    ) {
-      treeRevivalLeafBurstRuntime.queue(
-        session.leppaTree.position,
-        session.leppaTree.id || "leppa-tree"
-      );
-    }
-  }
-
-  function appendTreeRevivalLeafBurstBillboards(nextFrame) {
-    const texture =
-      session.leavesTexture ||
-      session.greenGrassTexture ||
-      session.natureRevivalSparkTexture;
-
-    treeRevivalLeafBurstRuntime.appendBillboards({
-      billboards: nextFrame.render.genericBillboards,
-      texture,
-      uvRect: rendering.fullUvRect
-    });
-  }
-
   function performGameplayHarvestAction(options, autosaveContext = {}) {
     const treeRevivalSnapshot = getTreeRevivalSnapshot({
       session,
@@ -2282,7 +2248,7 @@ export function startGameLoop({
     });
 
     if (result) {
-      queueTreeRevivalLeafBurstsForNewlyRevivedTrees(treeRevivalSnapshot);
+      treeRevivalLeafBurstFrameRuntime.queueForNewlyRevivedTrees(treeRevivalSnapshot);
     }
 
     if (result && afterGardenProgress !== beforeGardenProgress) {
@@ -3676,7 +3642,7 @@ export function startGameLoop({
 
   function updatePassiveEffectFrames(deltaTime) {
     updateNatureRevivalEffects(session.natureRevivalEffects, deltaTime);
-    treeRevivalLeafBurstRuntime.update(deltaTime);
+    treeRevivalLeafBurstFrameRuntime.update(deltaTime);
     woodCollectPopRuntime.update(deltaTime);
     gearPickupParticleRuntime.update(deltaTime);
   }
@@ -4995,7 +4961,7 @@ if (canProcessDestroyAction && destroyActionRequested) {
         rendering.fullUvRect
       )
     );
-    appendTreeRevivalLeafBurstBillboards(nextFrame);
+    treeRevivalLeafBurstFrameRuntime.appendBillboards(nextFrame);
     if (rendering.debugColliders) {
       const debugColliders = [
         ...(session.elevatedTerrainColliders || []),
