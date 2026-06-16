@@ -18,7 +18,6 @@ import {
   buildFoundationBuildZoneBlockers as buildFoundationBuildZoneBlockersWithSources,
   canStackFreeBlockPlacement as canStackFreeBlockPlacementFromProgress,
   applyFoundationBuildZoneCompleteEffects,
-  createUnavailableFoundationBuildZonePlacementResult,
   createUnavailableFoundationBuildZoneValidation,
   findAvailableBuilderTutorialFoundationBuildZone as findAvailableBuilderTutorialFoundationBuildZoneWithConfig,
   getBuilderTutorialFoundationZoneSignature,
@@ -37,7 +36,11 @@ import {
   buildFreeBlockPreviewDebug,
   syncFreeBlockPreviewInstance
 } from "./construction/freeBlockPreview.js";
-import { applyFreeBlockPlacementResult } from "./construction/freeBlockPlacementResult.js";
+import {
+  applyFreeBlockPlacementResult,
+  applyTimburrBuildBlockImpact as applyTimburrBuildBlockImpactWithRuntime,
+  tryPlaceFreeBlockFromBuildInput as tryPlaceFreeBlockFromBuildInputWithRuntime
+} from "./construction/freeBlockPlacementResult.js";
 import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
 import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
 import {
@@ -2396,32 +2399,24 @@ export function startGameLoop({
   }
 
   function tryPlaceFreeBlockFromBuildInput(now) {
-    const controller = getFreeBlockBuildController();
-    if (!controller) {
-      return { handled: false };
-    }
-
     const playerPosition = session.playerCharacter?.getPosition?.();
-    const result = isFoundationBuildZoneUnavailable() ?
-      createUnavailableFoundationBuildZonePlacementResult({
-        blockType: FREE_BLOCK_TYPES.WALL
-      }) :
-      controller.placeSelectedBlockAtTarget({
+    return tryPlaceFreeBlockFromBuildInputWithRuntime({
+      controller: getFreeBlockBuildController(),
+      placement: {
+        buildZoneUnavailable: isFoundationBuildZoneUnavailable(),
+        blockType: FREE_BLOCK_TYPES.WALL,
         playerPosition,
-        buildZone: getActiveFreeBlockBuildZone(),
-        allowStacking: canStackFreeBlockPlacement(),
         playerYaw: session.playerModelInstance?.yaw,
-        inventory: controls.inventory
-      });
-    if (result.placed) {
-      movePlayerAwayFromPlacedFreeBlock(result.targetCell, playerPosition);
-    }
-    handleFreeBlockPlacementResult(result, now);
-
-    return {
-      handled: true,
-      result
-    };
+        inventory: controls.inventory,
+        getBuildZone: getActiveFreeBlockBuildZone,
+        canStack: canStackFreeBlockPlacement
+      },
+      effects: {
+        movePlayerAway: movePlayerAwayFromPlacedFreeBlock,
+        handlePlacementResult: handleFreeBlockPlacementResult
+      },
+      now
+    });
   }
 
   function resolveFreeBlockBuildTarget(playerPosition = null) {
@@ -2547,28 +2542,24 @@ export function startGameLoop({
   }
 
   function applyTimburrBuildBlockImpact(action, now) {
-    const controller = getFreeBlockBuildController();
-    if (!controller) {
-      return null;
-    }
-
     const playerPosition = session.playerCharacter?.getPosition?.();
-    const result = isFoundationBuildZoneUnavailable() ?
-      createUnavailableFoundationBuildZonePlacementResult({
+    return applyTimburrBuildBlockImpactWithRuntime({
+      action,
+      controller: getFreeBlockBuildController(),
+      placement: {
+        buildZoneUnavailable: isFoundationBuildZoneUnavailable(),
         blockType: FREE_BLOCK_TYPES.WALL,
-        targetCell: action.targetCell
-      }) :
-      controller.placeSelectedBlockAtTarget({
-        targetCell: action.targetCell,
-        buildZone: getActiveFreeBlockBuildZone(),
-        allowStacking: canStackFreeBlockPlacement(),
-        inventory: controls.inventory
-      });
-    if (result.placed) {
-      movePlayerAwayFromPlacedFreeBlock(result.targetCell, playerPosition);
-    }
-    handleFreeBlockPlacementResult(result, now);
-    return result;
+        playerPosition,
+        inventory: controls.inventory,
+        getBuildZone: getActiveFreeBlockBuildZone,
+        canStack: canStackFreeBlockPlacement
+      },
+      effects: {
+        movePlayerAway: movePlayerAwayFromPlacedFreeBlock,
+        handlePlacementResult: handleFreeBlockPlacementResult
+      },
+      now
+    });
   }
 
   function tryRemoveNearbyFreeBlock(playerPosition, now) {

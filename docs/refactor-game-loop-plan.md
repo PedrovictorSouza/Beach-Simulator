@@ -4169,6 +4169,73 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Free Block Placement Attempt Extraction
+
+Expanded `app/runtime/construction/freeBlockPlacementResult.js`.
+
+Classification: `construction`, focused on Free Block placement attempt/result
+flow.
+
+Study path:
+
+1. `gameLoop.js` still had two near-duplicate Free Block placement attempts:
+   direct build input and Timburr Build Block impact.
+2. Both branches handled controller placement, unavailable foundation results,
+   player displacement after placement and result application.
+3. `tryPlaceFreeBlockFromBuildInput(...)` and
+   `applyTimburrBuildBlockImpact(...)` now own those two attempt paths.
+4. `gameLoop.js` keeps only composition callbacks for controller lookup,
+   active build zone, stacking permission, player position, inventory and
+   result side effects.
+
+Removed from `gameLoop.js`:
+
+- direct unavailable-foundation placement result creation;
+- direct direct-input Free Block placement branch;
+- direct Timburr impact Free Block placement branch;
+- duplicated placed-block displacement/result application sequence.
+
+Kept in `gameLoop.js`:
+
+- when direct build input and Timburr impact are invoked;
+- `FREE_BLOCK_TYPES.WALL` as current build block type;
+- access to player/session/control context through callbacks;
+- preview and target resolution logic.
+
+Tests updated:
+
+- `tests/freeBlockPlacementResult.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/freeBlockPlacementResult.test.js
+```
+
+The first run failed because the new attempt functions were not exported yet.
+After adding them, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/freeBlockPlacementResult.test.js
+npm test -- --run tests/freeBlockPlacementResult.test.js tests/freeBlockBuildSessionRuntime.test.js tests/freeBlockBuildSystem.test.js tests/freeBlockRemoval.test.js tests/constructionPlacementFrameRuntime.test.js
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `308` test files passed, `1` failed
+- `1869` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.
+
 ### Solar Station Workbench Rotation Visual Extraction
 
 Expanded the existing `createWorkbenchRotationRuntime(...)` boundary in

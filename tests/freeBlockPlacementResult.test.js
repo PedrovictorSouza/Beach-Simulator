@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { applyFreeBlockPlacementResult } from "../app/runtime/construction/freeBlockPlacementResult.js";
+import {
+  applyFreeBlockPlacementResult,
+  applyTimburrBuildBlockImpact,
+  tryPlaceFreeBlockFromBuildInput
+} from "../app/runtime/construction/freeBlockPlacementResult.js";
 
 function createActions() {
   return {
@@ -80,5 +84,126 @@ describe("free block placement result", () => {
     expect(actions.syncFoundationCompletionEffects).not.toHaveBeenCalled();
     expect(actions.syncFreeBlockBuildSnapshot).not.toHaveBeenCalled();
     expect(actions.playPlacedSound).not.toHaveBeenCalled();
+  });
+
+  it("places a free block from build input and applies the result", () => {
+    const result = {
+      placed: true,
+      blockType: "wall",
+      targetCell: { x: 2, y: 3 },
+      block: { id: "wall-1" }
+    };
+    const controller = {
+      placeSelectedBlockAtTarget: vi.fn(() => result)
+    };
+    const effects = {
+      movePlayerAway: vi.fn(),
+      handlePlacementResult: vi.fn()
+    };
+    const buildZone = { id: "foundation" };
+
+    expect(tryPlaceFreeBlockFromBuildInput({
+      controller,
+      placement: {
+        playerPosition: [1, 0, 2],
+        playerYaw: 0.5,
+        inventory: { wood: 3 },
+        getBuildZone: () => buildZone,
+        canStack: () => true
+      },
+      effects,
+      now: 789
+    })).toEqual({
+      handled: true,
+      result
+    });
+
+    expect(controller.placeSelectedBlockAtTarget).toHaveBeenCalledWith({
+      playerPosition: [1, 0, 2],
+      buildZone,
+      allowStacking: true,
+      playerYaw: 0.5,
+      inventory: { wood: 3 }
+    });
+    expect(effects.movePlayerAway).toHaveBeenCalledWith(result.targetCell, [1, 0, 2]);
+    expect(effects.handlePlacementResult).toHaveBeenCalledWith(result, 789);
+  });
+
+  it("uses unavailable foundation placement without resolving the active build zone", () => {
+    const controller = {
+      placeSelectedBlockAtTarget: vi.fn()
+    };
+    const placement = {
+      buildZoneUnavailable: true,
+      getBuildZone: vi.fn(),
+      canStack: vi.fn()
+    };
+    const effects = {
+      movePlayerAway: vi.fn(),
+      handlePlacementResult: vi.fn()
+    };
+
+    const placementResult = tryPlaceFreeBlockFromBuildInput({
+      controller,
+      placement,
+      effects,
+      now: 123
+    });
+
+    expect(placementResult).toMatchObject({
+      handled: true,
+      result: {
+        placed: false,
+        reason: "blocked-cell",
+        blockType: "wall",
+        targetCell: null
+      }
+    });
+    expect(controller.placeSelectedBlockAtTarget).not.toHaveBeenCalled();
+    expect(placement.getBuildZone).not.toHaveBeenCalled();
+    expect(placement.canStack).not.toHaveBeenCalled();
+    expect(effects.movePlayerAway).not.toHaveBeenCalled();
+    expect(effects.handlePlacementResult).toHaveBeenCalledWith(placementResult.result, 123);
+  });
+
+  it("applies Timburr build block impact at the action target cell", () => {
+    const action = {
+      targetCell: { x: 4, y: 5 }
+    };
+    const result = {
+      placed: true,
+      blockType: "wall",
+      targetCell: action.targetCell,
+      block: { id: "wall-2" }
+    };
+    const controller = {
+      placeSelectedBlockAtTarget: vi.fn(() => result)
+    };
+    const effects = {
+      movePlayerAway: vi.fn(),
+      handlePlacementResult: vi.fn()
+    };
+
+    expect(applyTimburrBuildBlockImpact({
+      action,
+      controller,
+      placement: {
+        playerPosition: [0, 0, 0],
+        inventory: { wood: 1 },
+        getBuildZone: () => ({ id: "foundation" }),
+        canStack: () => false
+      },
+      effects,
+      now: 456
+    })).toBe(result);
+
+    expect(controller.placeSelectedBlockAtTarget).toHaveBeenCalledWith({
+      targetCell: action.targetCell,
+      buildZone: { id: "foundation" },
+      allowStacking: false,
+      inventory: { wood: 1 }
+    });
+    expect(effects.movePlayerAway).toHaveBeenCalledWith(result.targetCell, [0, 0, 0]);
+    expect(effects.handlePlacementResult).toHaveBeenCalledWith(result, 456);
   });
 });

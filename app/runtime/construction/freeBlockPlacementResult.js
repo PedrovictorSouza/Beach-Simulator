@@ -1,4 +1,17 @@
+import { createUnavailableFoundationBuildZonePlacementResult } from "./foundationBuildZone.js";
 import { getFreeBlockPlacementNotice } from "./placementPreviewPrompts.js";
+
+function applyPlacedFreeBlockSideEffects({
+  result = null,
+  playerPosition = null,
+  now = 0,
+  effects = {}
+} = {}) {
+  if (result?.placed) {
+    effects.movePlayerAway?.(result.targetCell, playerPosition);
+  }
+  effects.handlePlacementResult?.(result, now);
+}
 
 export function applyFreeBlockPlacementResult({
   result = null,
@@ -50,4 +63,87 @@ export function applyFreeBlockPlacementResult({
     foundationWallBuilt,
     notice
   };
+}
+
+export function tryPlaceFreeBlockFromBuildInput({
+  controller = null,
+  placement = {},
+  effects = {},
+  now = 0
+} = {}) {
+  if (!controller) {
+    return { handled: false };
+  }
+
+  const {
+    buildZoneUnavailable = false,
+    blockType = "wall",
+    playerPosition = null,
+    playerYaw = null,
+    inventory = {}
+  } = placement;
+
+  const result = buildZoneUnavailable ?
+    createUnavailableFoundationBuildZonePlacementResult({
+      blockType
+    }) :
+    controller.placeSelectedBlockAtTarget({
+      playerPosition,
+      buildZone: placement.getBuildZone?.(),
+      allowStacking: Boolean(placement.canStack?.()),
+      playerYaw,
+      inventory
+    });
+
+  applyPlacedFreeBlockSideEffects({
+    result,
+    playerPosition,
+    now,
+    effects
+  });
+
+  return {
+    handled: true,
+    result
+  };
+}
+
+export function applyTimburrBuildBlockImpact({
+  action = null,
+  controller = null,
+  placement = {},
+  effects = {},
+  now = 0
+} = {}) {
+  if (!controller) {
+    return null;
+  }
+
+  const {
+    buildZoneUnavailable = false,
+    blockType = "wall",
+    playerPosition = null,
+    inventory = {}
+  } = placement;
+
+  const result = buildZoneUnavailable ?
+    createUnavailableFoundationBuildZonePlacementResult({
+      blockType,
+      targetCell: action?.targetCell
+    }) :
+    controller.placeSelectedBlockAtTarget({
+      targetCell: action?.targetCell,
+      buildZone: placement.getBuildZone?.(),
+      allowStacking: Boolean(placement.canStack?.()),
+      inventory
+    });
+
+  applyPlacedFreeBlockSideEffects({
+    result,
+    playerPosition,
+    now,
+    effects
+  });
+
+  return result;
 }
