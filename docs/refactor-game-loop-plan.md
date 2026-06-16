@@ -12463,3 +12463,59 @@ npm test -- --run tests/treeRevivalLeafBurstFrameRuntime.test.js tests/treeReviv
 - `1842` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
 
 Manual gameplay validation remains pending for this cut.
+
+### Landscape Cut Effect Renderables Runtime Extraction
+
+Expanded the existing `presentation/landscape-cut-effect` responsibility in
+`app/runtime/landscapeCutEffectRuntime.js` without adding a new file.
+
+Study path:
+
+1. `landscapeCutEffectRuntime` already owned queued cut-effect state and pose
+   timing.
+2. It now also owns renderable projection for that effect: garden model
+   instances, native-tree model instances, tall/dead grass model instances and
+   billboard fallback.
+3. `gameLoop.js` still decides when an interaction should queue the effect and
+   still passes the current `session`, `nextFrame` and tall-grass helpers
+   explicitly.
+
+Removed from `gameLoop.js`:
+
+- `queueLandscapeCutEffect(...)`;
+- `appendLandscapeCutEffectRenderables(...)`;
+- direct branching over cut-effect render target types.
+
+Kept in `gameLoop.js`:
+
+- destroy/interact orchestration;
+- garden progress comparison;
+- explicit call to `landscapeCutEffectRuntime.appendRenderables(...)` in the
+  same render-frame point.
+
+Tests updated:
+
+- `tests/landscapeCutEffectRuntime.test.js`
+
+Passed:
+
+```sh
+npm test -- --run tests/landscapeCutEffectRuntime.test.js
+npm test -- --run tests/gameplayInteractions.test.js -t "destroys a nearby Leafage-instantiated object|destroys a nearby Leafage-instantiated flower|destroys restored|destroys dry grass"
+npm run build
+npm test
+```
+
+The broader filtered destroy run also hit one existing Native Tree baseline
+failure:
+
+```sh
+npm test -- --run tests/landscapeCutEffectRuntime.test.js tests/natureRenderFrame.test.js tests/gameplayInteractions.test.js -t "destroys|removable|Leafage-instantiated|destroy"
+```
+
+`npm test` completed with the existing Leafage Native Tree baseline:
+
+- `306` test files passed, `1` failed
+- `1844` tests passed, `3` failed in `tests/gameplayInteractions.test.js`
+
+Manual gameplay validation remains pending for this cut.

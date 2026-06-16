@@ -111,4 +111,82 @@ describe("createLandscapeCutEffectRuntime", () => {
     expect(getEffects(first)).toHaveLength(1);
     expect(getEffects(second)).toEqual([]);
   });
+
+  it("appends model renderables for active leafage landscape cut effects", () => {
+    const runtime = createRuntime();
+    const session = {
+      leafageGardenModel: "garden-model",
+      leafageGardenInstances: [],
+      leafageGardenModelScale: 2,
+      leafageGardenModelFaceYawOffset: 0.25
+    };
+    const nextFrame = {
+      render: {
+        grassBillboards: []
+      }
+    };
+
+    runtime.queue({
+      id: "garden-a",
+      state: "alive",
+      leafageObjectId: "garden1",
+      position: [1, 2, 3],
+      size: [4, 5]
+    });
+
+    runtime.appendRenderables({
+      nextFrame,
+      session,
+      getTallGrassYaw: () => 0.5,
+      getTallGrassInstanceScale: (_model, _patch, scale) => scale * 3
+    });
+
+    expect(session.leafageGardenInstances).toEqual([
+      {
+        id: "landscape-cut-garden-a-123.5-garden",
+        offset: [1, 2, 3],
+        scale: 6,
+        alpha: 1,
+        yaw: 0.75,
+        swayStrength: 0
+      }
+    ]);
+    expect(nextFrame.render.grassBillboards).toEqual([]);
+  });
+
+  it("falls back to grass billboards when no matching model instances exist", () => {
+    const runtime = createRuntime();
+    const session = {
+      deadGrassTexture: "dead-texture",
+      greenGrassTexture: "green-texture"
+    };
+    const nextFrame = {
+      render: {
+        grassBillboards: []
+      }
+    };
+
+    runtime.queue({
+      id: "dead-grass-a",
+      state: "dead",
+      position: [1, 2, 3],
+      size: [4, 5]
+    });
+
+    runtime.appendRenderables({
+      nextFrame,
+      session,
+      getTallGrassYaw: () => 0.5,
+      getTallGrassInstanceScale: (_model, _patch, scale) => scale * 3
+    });
+
+    expect(nextFrame.render.grassBillboards).toEqual([
+      {
+        texture: "dead-texture",
+        position: [1, 2, 3],
+        size: [4, 5],
+        alpha: 1
+      }
+    ]);
+  });
 });

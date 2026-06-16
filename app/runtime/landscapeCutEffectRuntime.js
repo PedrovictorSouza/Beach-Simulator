@@ -90,7 +90,130 @@ export function createLandscapeCutEffectRuntime({
     }
   }
 
+  function appendRenderables({
+    nextFrame,
+    session = {},
+    getTallGrassYaw = () => 0,
+    getTallGrassInstanceScale = (_model, _patch, scale) => scale
+  } = {}) {
+    if (!nextFrame?.render) {
+      return;
+    }
+
+    forEachEffect((effect, pose) => {
+      const groundGrassPatch = effect.patch;
+      if (!groundGrassPatch || !Array.isArray(groundGrassPatch.position)) {
+        return;
+      }
+
+      if (pose.alpha <= 0.01) {
+        return;
+      }
+
+      const offset = [
+        groundGrassPatch.position[0],
+        groundGrassPatch.position[1] + pose.yOffset,
+        groundGrassPatch.position[2]
+      ];
+      const yaw = getTallGrassYaw(groundGrassPatch);
+      const isLeafageGarden =
+        groundGrassPatch.state === "alive" &&
+        groundGrassPatch.leafageObjectId === "garden1";
+      const isLeafageNativeTree =
+        groundGrassPatch.state === "alive" &&
+        groundGrassPatch.leafageObjectId === "nativeTree";
+      const isTallGrass =
+        groundGrassPatch.state === "alive" &&
+        groundGrassPatch.leafageObjectId !== "garden1" &&
+        groundGrassPatch.leafageObjectId !== "nativeTree";
+
+      if (
+        isLeafageGarden &&
+        session.leafageGardenModel &&
+        Array.isArray(session.leafageGardenInstances)
+      ) {
+        session.leafageGardenInstances.push({
+          id: `${effect.id}-garden`,
+          offset,
+          scale: getTallGrassInstanceScale(
+            session.leafageGardenModel,
+            groundGrassPatch,
+            pose.scale
+          ) * (session.leafageGardenModelScale || 1),
+          alpha: pose.alpha,
+          yaw: yaw + (session.leafageGardenModelFaceYawOffset || 0),
+          swayStrength: 0
+        });
+      } else if (
+        isLeafageNativeTree &&
+        session.leafageNativeTreeModel &&
+        Array.isArray(session.leafageNativeTreeInstances)
+      ) {
+        session.leafageNativeTreeInstances.push({
+          id: `${effect.id}-native-tree`,
+          offset,
+          scale: getTallGrassInstanceScale(
+            session.leafageNativeTreeModel,
+            groundGrassPatch,
+            pose.scale
+          ) * (session.leafageNativeTreeModelScale || 1),
+          alpha: pose.alpha,
+          yaw: yaw + (session.leafageNativeTreeModelFaceYawOffset || 0),
+          swayStrength: 0
+        });
+      } else if (
+        isTallGrass &&
+        session.tallGrassModel &&
+        Array.isArray(session.tallGrassInstances)
+      ) {
+        session.tallGrassInstances.push({
+          id: `${effect.id}-tall-grass`,
+          offset,
+          scale: getTallGrassInstanceScale(
+            session.tallGrassModel,
+            groundGrassPatch,
+            pose.scale
+          ),
+          alpha: pose.alpha,
+          yaw,
+          swayStrength: 0
+        });
+      } else if (
+        session.deadGrassModel &&
+        Array.isArray(session.deadGrassInstances)
+      ) {
+        session.deadGrassInstances.push({
+          id: `${effect.id}-dead-grass`,
+          offset,
+          scale: getTallGrassInstanceScale(
+            session.deadGrassModel,
+            groundGrassPatch,
+            pose.scale
+          ),
+          alpha: pose.alpha,
+          yaw,
+          swayStrength: 0
+        });
+      } else {
+        const grassBillboardScaleX = Number(groundGrassPatch.size?.[0]) || 1;
+        const grassBillboardScaleY = Number(groundGrassPatch.size?.[1]) || grassBillboardScaleX;
+        nextFrame.render.grassBillboards.push({
+          texture: groundGrassPatch.state === "alive" ?
+            session.greenGrassTexture :
+            session.deadGrassTexture,
+          position: offset,
+          size: [
+            grassBillboardScaleX * pose.scale,
+            grassBillboardScaleY * pose.scale
+          ],
+          alpha: pose.alpha
+        });
+      }
+    });
+  }
+
   return {
+    appendRenderables,
     queue,
     update,
     forEachEffect
