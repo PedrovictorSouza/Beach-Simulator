@@ -121,7 +121,8 @@ import {
   createPlayerActionRuntime,
   createPlayerDirectActionRuntime,
   createPlayerHeldWaterGunActionRuntime,
-  createPlayerHarvestActionRuntime
+  createPlayerHarvestActionRuntime,
+  createPlayerPrimaryFieldMoveActionRuntime
 } from "../player/playerActionRuntime.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
@@ -1598,6 +1599,26 @@ export function startGameLoop({
       triggerWaterGunSfxBurst
     }
   });
+  const playerPrimaryFieldMoveActionRuntime = createPlayerPrimaryFieldMoveActionRuntime({
+    buildBlockRuntime,
+    waterGunRuntime,
+    leafageRuntime,
+    fireRuntime,
+    fieldMoveInvalidTargetPromptRuntime,
+    companionAbilityResourcesRuntime,
+    callbacks: {
+      getFreeBlockInvalidPlacementNotice,
+      playSoundEvent,
+      pushNotice: (notice) => hud?.pushNotice?.(notice),
+      triggerWaterGunSfxBurst
+    },
+    soundEventIds: SOUND_EVENT_IDS,
+    notices: {
+      buildLocked: `${SANDBOTS_BOT_NAMES.builder} has not learned Build yet.`,
+      buildUnavailable: `${SANDBOTS_BOT_NAMES.builder} needs to be nearby.`,
+      missingMaterial: "Need Wood"
+    }
+  });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
     controls,
@@ -2377,74 +2398,19 @@ export function startGameLoop({
           forcedHarvestTarget: primaryActionTarget
         });
       } else if (primaryActionIsMove && !dialogueActive) {
-        if (buildBlockEquipped && primaryActionWantsFieldMove) {
-          const timburrBuildBlockResult = buildBlockRuntime.startAction({
-            playerPosition
-          });
-
-          if (timburrBuildBlockResult === "locked") {
-            playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-            hud?.pushNotice?.(`${SANDBOTS_BOT_NAMES.builder} has not learned Build yet.`);
-          } else if (timburrBuildBlockResult === "unavailable") {
-            playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-            hud?.pushNotice?.(`${SANDBOTS_BOT_NAMES.builder} needs to be nearby.`);
-          } else if (timburrBuildBlockResult === "invalid") {
-            playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-            hud?.pushNotice?.(getFreeBlockInvalidPlacementNotice(session.lastTimburrBuildBlockInvalidReason));
-          } else if (timburrBuildBlockResult === "missing-material") {
-            playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-            hud?.pushNotice?.("Need Wood");
-          } else if (timburrBuildBlockResult === "busy") {
-            playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL);
-          }
-        } else if (waterGunEquipped && primaryActionTarget?.groundCell) {
-          const squirtleWaterGunResult = waterGunRuntime.startAction({
-            groundCell: primaryActionTarget.groundCell,
-            playerPosition
-          });
-
-          if (squirtleWaterGunResult === "unavailable") {
-            triggerWaterGunSfxBurst();
-            performHarvestAction(playerPosition, {
-              useWaterGun: true,
-              forcedHarvestTarget: primaryActionTarget
-            });
-          }
-        } else if (primaryActionIntent.isWaterGunTreeTarget) {
-          if (companionAbilityResourcesRuntime.consumeSquirtleWaterStaminaForInstantAction()) {
-            triggerWaterGunSfxBurst();
-            performHarvestAction(playerPosition, {
-              useWaterGun: true,
-              forcedHarvestTarget: primaryActionTarget
-            });
-          }
-        } else if (leafageEquipped && leafagePrimaryMoveRequested && primaryActionTarget?.leafageGroundCell) {
-          fieldMoveInvalidTargetPromptRuntime.resetLeafage();
-          const bulbasaurLeafageResult = leafageRuntime.startAction({
-            groundCell: primaryActionTarget.leafageGroundCell,
-            playerPosition
-          });
-
-          if (bulbasaurLeafageResult === "unavailable") {
-            performHarvestAction(playerPosition, {
-              useLeafage: true,
-              forcedHarvestTarget: primaryActionTarget
-            });
-          }
-        } else if (fireEquipped && primaryActionTarget?.fireGroundCell) {
-          fieldMoveInvalidTargetPromptRuntime.resetFire();
-          const charmanderFireResult = fireRuntime.startAction({
-            groundCell: primaryActionTarget.fireGroundCell,
-            playerPosition
-          });
-
-          if (charmanderFireResult === "unavailable") {
-            performHarvestAction(playerPosition, {
-              useFire: true,
-              forcedHarvestTarget: primaryActionTarget
-            });
-          }
-        }
+        playerPrimaryFieldMoveActionRuntime.update({
+          buildBlockEquipped,
+          fireEquipped,
+          lastBuildBlockInvalidReason: session.lastTimburrBuildBlockInvalidReason,
+          leafageEquipped,
+          leafagePrimaryMoveRequested,
+          performHarvestAction,
+          playerPosition,
+          primaryActionIntent,
+          primaryActionTarget,
+          primaryActionWantsFieldMove,
+          waterGunEquipped
+        });
       } else if (isLeafDenBusyCompanionTarget(primaryInteractTarget?.target)) {
         hud?.pushNotice?.(LEAF_DEN_BUSY_NOTICE);
       } else if (primaryInteractTarget?.target) {

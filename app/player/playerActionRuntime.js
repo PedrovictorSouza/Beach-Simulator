@@ -381,3 +381,115 @@ export function createPlayerHeldWaterGunActionRuntime({
     update
   };
 }
+
+export function createPlayerPrimaryFieldMoveActionRuntime({
+  buildBlockRuntime = {},
+  waterGunRuntime = {},
+  leafageRuntime = {},
+  fireRuntime = {},
+  fieldMoveInvalidTargetPromptRuntime = {},
+  companionAbilityResourcesRuntime = {},
+  callbacks = {},
+  soundEventIds = {},
+  notices = {}
+} = {}) {
+  function playCancel() {
+    callbacks.playSoundEvent?.(soundEventIds.UI_CANCEL);
+  }
+
+  function handleBuildBlockResult(result, lastBuildBlockInvalidReason) {
+    if (result === "locked") {
+      playCancel();
+      callbacks.pushNotice?.(notices.buildLocked);
+    } else if (result === "unavailable") {
+      playCancel();
+      callbacks.pushNotice?.(notices.buildUnavailable);
+    } else if (result === "invalid") {
+      playCancel();
+      callbacks.pushNotice?.(
+        callbacks.getFreeBlockInvalidPlacementNotice?.(lastBuildBlockInvalidReason)
+      );
+    } else if (result === "missing-material") {
+      playCancel();
+      callbacks.pushNotice?.(notices.missingMaterial);
+    } else if (result === "busy") {
+      playCancel();
+    }
+  }
+
+  function update({
+    buildBlockEquipped = false,
+    fireEquipped = false,
+    lastBuildBlockInvalidReason = null,
+    leafageEquipped = false,
+    leafagePrimaryMoveRequested = false,
+    performHarvestAction,
+    playerPosition,
+    primaryActionIntent = {},
+    primaryActionTarget = null,
+    primaryActionWantsFieldMove = false,
+    waterGunEquipped = false
+  } = {}) {
+    if (buildBlockEquipped && primaryActionWantsFieldMove) {
+      const timburrBuildBlockResult = buildBlockRuntime.startAction?.({
+        playerPosition
+      });
+      handleBuildBlockResult(timburrBuildBlockResult, lastBuildBlockInvalidReason);
+    } else if (waterGunEquipped && primaryActionTarget?.groundCell) {
+      const squirtleWaterGunResult = waterGunRuntime.startAction?.({
+        groundCell: primaryActionTarget.groundCell,
+        playerPosition
+      });
+
+      if (squirtleWaterGunResult === "unavailable") {
+        callbacks.triggerWaterGunSfxBurst?.();
+        performHarvestAction?.(playerPosition, {
+          useWaterGun: true,
+          forcedHarvestTarget: primaryActionTarget
+        });
+      }
+    } else if (primaryActionIntent.isWaterGunTreeTarget) {
+      if (companionAbilityResourcesRuntime.consumeSquirtleWaterStaminaForInstantAction?.()) {
+        callbacks.triggerWaterGunSfxBurst?.();
+        performHarvestAction?.(playerPosition, {
+          useWaterGun: true,
+          forcedHarvestTarget: primaryActionTarget
+        });
+      }
+    } else if (
+      leafageEquipped &&
+      leafagePrimaryMoveRequested &&
+      primaryActionTarget?.leafageGroundCell
+    ) {
+      fieldMoveInvalidTargetPromptRuntime.resetLeafage?.();
+      const bulbasaurLeafageResult = leafageRuntime.startAction?.({
+        groundCell: primaryActionTarget.leafageGroundCell,
+        playerPosition
+      });
+
+      if (bulbasaurLeafageResult === "unavailable") {
+        performHarvestAction?.(playerPosition, {
+          useLeafage: true,
+          forcedHarvestTarget: primaryActionTarget
+        });
+      }
+    } else if (fireEquipped && primaryActionTarget?.fireGroundCell) {
+      fieldMoveInvalidTargetPromptRuntime.resetFire?.();
+      const charmanderFireResult = fireRuntime.startAction?.({
+        groundCell: primaryActionTarget.fireGroundCell,
+        playerPosition
+      });
+
+      if (charmanderFireResult === "unavailable") {
+        performHarvestAction?.(playerPosition, {
+          useFire: true,
+          forcedHarvestTarget: primaryActionTarget
+        });
+      }
+    }
+  }
+
+  return {
+    update
+  };
+}

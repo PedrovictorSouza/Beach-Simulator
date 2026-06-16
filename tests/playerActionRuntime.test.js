@@ -4,7 +4,8 @@ import {
   createPlayerActionRuntime,
   createPlayerDirectActionRuntime,
   createPlayerHeldWaterGunActionRuntime,
-  createPlayerHarvestActionRuntime
+  createPlayerHarvestActionRuntime,
+  createPlayerPrimaryFieldMoveActionRuntime
 } from "../app/player/playerActionRuntime.js";
 
 const SOUND_EVENT_IDS = Object.freeze({
@@ -545,5 +546,201 @@ describe("createPlayerHeldWaterGunActionRuntime", () => {
     expect(gameplay.findNearbyActionTarget).not.toHaveBeenCalled();
     expect(waterGunRuntime.startAction).not.toHaveBeenCalled();
     expect(performHarvestAction).not.toHaveBeenCalled();
+  });
+});
+
+describe("createPlayerPrimaryFieldMoveActionRuntime", () => {
+  function createPrimaryFieldMoveRuntime({
+    buildBlockResult = null,
+    companionStaminaResult = true,
+    fireResult = "unavailable",
+    leafageResult = "unavailable",
+    waterGunResult = "unavailable"
+  } = {}) {
+    const buildBlockRuntime = {
+      startAction: vi.fn(() => buildBlockResult)
+    };
+    const waterGunRuntime = {
+      startAction: vi.fn(() => waterGunResult)
+    };
+    const leafageRuntime = {
+      startAction: vi.fn(() => leafageResult)
+    };
+    const fireRuntime = {
+      startAction: vi.fn(() => fireResult)
+    };
+    const fieldMoveInvalidTargetPromptRuntime = {
+      resetFire: vi.fn(),
+      resetLeafage: vi.fn()
+    };
+    const companionAbilityResourcesRuntime = {
+      consumeSquirtleWaterStaminaForInstantAction: vi.fn(() => companionStaminaResult)
+    };
+    const callbacks = {
+      getFreeBlockInvalidPlacementNotice: vi.fn((reason) => `Invalid: ${reason}`),
+      playSoundEvent: vi.fn(),
+      pushNotice: vi.fn(),
+      triggerWaterGunSfxBurst: vi.fn()
+    };
+    const performHarvestAction = vi.fn();
+    const runtime = createPlayerPrimaryFieldMoveActionRuntime({
+      buildBlockRuntime,
+      waterGunRuntime,
+      leafageRuntime,
+      fireRuntime,
+      fieldMoveInvalidTargetPromptRuntime,
+      companionAbilityResourcesRuntime,
+      callbacks,
+      soundEventIds: SOUND_EVENT_IDS,
+      notices: {
+        buildLocked: "Builder has not learned Build yet.",
+        buildUnavailable: "Builder needs to be nearby.",
+        missingMaterial: "Need Wood"
+      }
+    });
+
+    return {
+      buildBlockRuntime,
+      callbacks,
+      companionAbilityResourcesRuntime,
+      fieldMoveInvalidTargetPromptRuntime,
+      fireRuntime,
+      leafageRuntime,
+      performHarvestAction,
+      runtime,
+      waterGunRuntime
+    };
+  }
+
+  it("routes Build Block invalid feedback through the injected notice builder", () => {
+    const {
+      buildBlockRuntime,
+      callbacks,
+      performHarvestAction,
+      runtime
+    } = createPrimaryFieldMoveRuntime({ buildBlockResult: "invalid" });
+
+    runtime.update({
+      buildBlockEquipped: true,
+      lastBuildBlockInvalidReason: "blocked",
+      performHarvestAction,
+      playerPosition: [1, 0, 2],
+      primaryActionWantsFieldMove: true
+    });
+
+    expect(buildBlockRuntime.startAction).toHaveBeenCalledWith({
+      playerPosition: [1, 0, 2]
+    });
+    expect(callbacks.playSoundEvent).toHaveBeenCalledWith("cancel");
+    expect(callbacks.getFreeBlockInvalidPlacementNotice).toHaveBeenCalledWith("blocked");
+    expect(callbacks.pushNotice).toHaveBeenCalledWith("Invalid: blocked");
+    expect(performHarvestAction).not.toHaveBeenCalled();
+  });
+
+  it("falls back to harvest when Water Gun is unavailable for a ground target", () => {
+    const {
+      callbacks,
+      performHarvestAction,
+      runtime,
+      waterGunRuntime
+    } = createPrimaryFieldMoveRuntime({ waterGunResult: "unavailable" });
+    const primaryActionTarget = { groundCell: { id: "ground-cell" } };
+
+    runtime.update({
+      performHarvestAction,
+      playerPosition: [1, 0, 2],
+      primaryActionTarget,
+      waterGunEquipped: true
+    });
+
+    expect(waterGunRuntime.startAction).toHaveBeenCalledWith({
+      groundCell: { id: "ground-cell" },
+      playerPosition: [1, 0, 2]
+    });
+    expect(callbacks.triggerWaterGunSfxBurst).toHaveBeenCalledTimes(1);
+    expect(performHarvestAction).toHaveBeenCalledWith([1, 0, 2], {
+      forcedHarvestTarget: primaryActionTarget,
+      useWaterGun: true
+    });
+  });
+
+  it("uses instant Water Gun stamina for primary tree targets", () => {
+    const {
+      callbacks,
+      companionAbilityResourcesRuntime,
+      performHarvestAction,
+      runtime
+    } = createPrimaryFieldMoveRuntime({ companionStaminaResult: true });
+    const primaryActionTarget = { leppaTree: { action: "water" } };
+
+    runtime.update({
+      performHarvestAction,
+      playerPosition: [1, 0, 2],
+      primaryActionIntent: { isWaterGunTreeTarget: true },
+      primaryActionTarget
+    });
+
+    expect(companionAbilityResourcesRuntime.consumeSquirtleWaterStaminaForInstantAction)
+      .toHaveBeenCalledTimes(1);
+    expect(callbacks.triggerWaterGunSfxBurst).toHaveBeenCalledTimes(1);
+    expect(performHarvestAction).toHaveBeenCalledWith([1, 0, 2], {
+      forcedHarvestTarget: primaryActionTarget,
+      useWaterGun: true
+    });
+  });
+
+  it("routes Leafage primary field move fallback", () => {
+    const {
+      fieldMoveInvalidTargetPromptRuntime,
+      leafageRuntime,
+      performHarvestAction,
+      runtime
+    } = createPrimaryFieldMoveRuntime({ leafageResult: "unavailable" });
+    const primaryActionTarget = { leafageGroundCell: { id: "leafage-cell" } };
+
+    runtime.update({
+      leafageEquipped: true,
+      leafagePrimaryMoveRequested: true,
+      performHarvestAction,
+      playerPosition: [1, 0, 2],
+      primaryActionTarget
+    });
+
+    expect(fieldMoveInvalidTargetPromptRuntime.resetLeafage).toHaveBeenCalledTimes(1);
+    expect(leafageRuntime.startAction).toHaveBeenCalledWith({
+      groundCell: { id: "leafage-cell" },
+      playerPosition: [1, 0, 2]
+    });
+    expect(performHarvestAction).toHaveBeenCalledWith([1, 0, 2], {
+      forcedHarvestTarget: primaryActionTarget,
+      useLeafage: true
+    });
+  });
+
+  it("routes Fire primary field move fallback", () => {
+    const {
+      fieldMoveInvalidTargetPromptRuntime,
+      fireRuntime,
+      performHarvestAction,
+      runtime
+    } = createPrimaryFieldMoveRuntime({ fireResult: "unavailable" });
+    const primaryActionTarget = { fireGroundCell: { id: "fire-cell" } };
+
+    runtime.update({
+      fireEquipped: true,
+      performHarvestAction,
+      playerPosition: [1, 0, 2],
+      primaryActionTarget
+    });
+
+    expect(fieldMoveInvalidTargetPromptRuntime.resetFire).toHaveBeenCalledTimes(1);
+    expect(fireRuntime.startAction).toHaveBeenCalledWith({
+      groundCell: { id: "fire-cell" },
+      playerPosition: [1, 0, 2]
+    });
+    expect(performHarvestAction).toHaveBeenCalledWith([1, 0, 2], {
+      forcedHarvestTarget: primaryActionTarget,
+      useFire: true
+    });
   });
 });

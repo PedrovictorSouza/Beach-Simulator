@@ -201,6 +201,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   existing `player` action runtime.
 - Completed: move held Water Gun primary-action fallback handling into the
   existing `player` action runtime.
+- Completed: move primary field-move action dispatch into the existing
+  `player` action runtime.
 - Completed: move dialogue camera controller into the `camera` boundary.
 - Completed: move placement camera assist into the `camera` boundary.
 - Completed: move construction billboard builders into the `construction`
@@ -15532,6 +15534,87 @@ npm test
 disk space (`467MiB` available on `/System/Volumes/Data`) and Vitest hit
 `ENOSPC` while writing temporary SSR files. Before the ENOSPC failures, the run
 also showed the known baseline failures:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
+### Player Primary Field Move Action Runtime Boundary
+
+Expanded the existing `app/player/playerActionRuntime.js` domain module with
+`createPlayerPrimaryFieldMoveActionRuntime(...)`.
+
+Boundary classification: `player / gameplay action runtime`, focused on the
+field-move dispatch sub-branch inside the primary-action path.
+
+Study path:
+
+1. `gameLoop.js` still computes the primary action target, intent and
+   follow-up state.
+2. When the primary action is classified as a field move and dialogue is not
+   active, `gameLoop.js` delegates dispatch to
+   `playerPrimaryFieldMoveActionRuntime.update(...)`.
+3. The runtime preserves the old branch order: Build Block, Water Gun ground,
+   Water Gun tree/palm, Leafage and Fire.
+4. The runtime receives existing field-move runtimes explicitly; it does not
+   import field-move modules directly and does not own frame order.
+
+Removed from `gameLoop.js`:
+
+- Build Block primary-action result handling and notices;
+- Water Gun primary-action ground target fallback;
+- Water Gun primary-action tree/palm instant stamina fallback;
+- Leafage primary-action fallback;
+- Fire primary-action fallback.
+
+Kept in `gameLoop.js`:
+
+- primary-action target and intent resolution;
+- auto Leafage-to-Water Gun and auto Leafage-grow branches;
+- repeated/invalid target feedback branch;
+- placement, bag harvest, interact and fallback harvest branches;
+- `performHarvestAction(...)` frame wrapper and composition-root wiring.
+
+Line-count impact:
+
+- Before this cut, the committed `app/runtime/gameLoop.js` version was `2997`
+  lines.
+- After this cut, the committed `app/runtime/gameLoop.js` version is expected
+  to be `2963` lines.
+
+Tests updated:
+
+- `tests/playerActionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+```
+
+The first run failed because `createPlayerPrimaryFieldMoveActionRuntime(...)`
+did not exist yet. After adding the runtime, the focused player action runtime
+test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntime.test.js
+npm test -- --run tests/playerActionRuntime.test.js tests/playerActionContext.test.js tests/playerActionTargetContext.test.js tests/buildBlockRuntime.test.js tests/waterGunRuntime.test.js tests/leafageRuntime.test.js tests/fireRuntime.test.js tests/gameLoopFramePolicies.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1947` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;
