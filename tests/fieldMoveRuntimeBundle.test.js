@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createGameplayFieldMoveRuntimeBundle,
   createFieldMoveRuntimeBundle
 } from "../app/runtime/fieldMoveRuntime/fieldMoveRuntimeBundle.js";
 
@@ -183,5 +184,85 @@ describe("createFieldMoveRuntimeBundle", () => {
     });
     expect(callbacks.pushNotice)
       .toHaveBeenCalledWith("Thermal Bot needs Carbon to use Thermal Torch.");
+  });
+
+  it("wires gameplay field-move defaults", () => {
+    const getRobotModelYawToward = vi.fn(() => 0.75);
+    const pushNotice = vi.fn();
+    const session = {
+      bulbasaurEncounter: {
+        modelInstance: { active: false, yaw: 0 },
+        position: [0, 0.04, 0],
+        visible: true
+      },
+      charmanderEncounter: {
+        modelInstance: { active: false, yaw: 0 },
+        position: [0, 0.04, 0],
+        visible: true
+      },
+      groundDeadInstances: [],
+      bulbasaurLeafageAction: null,
+      charmanderFireAction: null,
+      playerCharacter: {
+        getPosition: vi.fn(() => [9, 0.04, 9])
+      }
+    };
+    const controls = {
+      inventory: {},
+      storyState: { flags: {} }
+    };
+    const runtimes = {
+      companionConstructionBlockerRuntime: {
+        cancelBlockedAction: vi.fn(),
+        isBlocked: vi.fn(() => false),
+        tryMove: vi.fn((companion, nextPosition) => {
+          companion.position = nextPosition;
+          return true;
+        })
+      },
+      companionFacingRuntime: {
+        getRobotModelYawToward,
+        getSquirtleModelYawToward: vi.fn(() => 0.5)
+      },
+      companionModelSyncRuntime: {
+        syncBulbasaur: vi.fn(),
+        syncCharmander: vi.fn()
+      },
+      fieldMoveApproachPositionRuntime: {
+        getBulbasaurLeafageApproachPosition: vi.fn(() => [0, 0.04, 0]),
+        getCharmanderFireApproachPosition: vi.fn(() => [0, 0.04, 0])
+      },
+      fieldMoveImpactRuntime: {
+        applyBulbasaurLeafageImpact: vi.fn(() => true),
+        applyCharmanderFireImpact: vi.fn(() => true)
+      },
+      leafDenConstructionPresentationRuntime: {
+        isActive: vi.fn(() => true)
+      }
+    };
+
+    const bundle = createGameplayFieldMoveRuntimeBundle({
+      controls,
+      session,
+      runtimes,
+      callbacks: {
+        canUseFireWithCarbon: vi.fn(() => true),
+        pushNotice
+      }
+    });
+
+    expect(bundle.fireRuntime.startAction({
+      groundCell: { id: "fire-ground", offset: [2, 0, 0] }
+    })).toBe("busy");
+    expect(pushNotice).toHaveBeenCalledWith("im busy, boss...");
+
+    expect(bundle.leafageRuntime.startAction({
+      groundCell: { id: "leafage-ground", offset: [1, 0, 0] }
+    })).toBe("started");
+    expect(getRobotModelYawToward).toHaveBeenCalledWith(
+      [0, 0.04, 0],
+      [1, 0.04, 0],
+      0
+    );
   });
 });

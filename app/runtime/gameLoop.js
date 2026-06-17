@@ -53,7 +53,7 @@ import {
   isDryGrassHydroMissionActive
 } from "./fieldMoveRuntime/fieldMoveGroundTargets.js";
 import { createFieldMoveImpactRuntime } from "./fieldMoveRuntime/fieldMoveImpactRuntime.js";
-import { createFieldMoveRuntimeBundle } from "./fieldMoveRuntime/fieldMoveRuntimeBundle.js";
+import { createGameplayFieldMoveRuntimeBundle } from "./fieldMoveRuntime/fieldMoveRuntimeBundle.js";
 import { createFieldMoveSupportRuntimeBundle } from "./fieldMoveRuntime/fieldMoveSupportRuntimeBundle.js";
 import { createGameplayGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import {
@@ -682,7 +682,7 @@ export function startGameLoop({
     fireRuntime,
     leafageRuntime,
     waterGunRuntime
-  } = createFieldMoveRuntimeBundle({
+  } = createGameplayFieldMoveRuntimeBundle({
     session,
     controls,
     runtimes: {
@@ -704,15 +704,7 @@ export function startGameLoop({
       pushNotice: (notice) => hud?.pushNotice?.(notice),
       shouldTimburrBuildBlockCastFromBlockedApproach
     },
-    botNames: SANDBOTS_BOT_NAMES,
-    modelFaceYawOffsets: {
-      bulbasaur: BULBASAUR_MODEL_FACE_YAW_OFFSET,
-      charmander: CHARMANDER_MODEL_FACE_YAW_OFFSET,
-      timburr: TIMBURR_MODEL_FACE_YAW_OFFSET
-    },
-    notices: {
-      leafDenBusy: LEAF_DEN_BUSY_NOTICE
-    }
+    botNames: SANDBOTS_BOT_NAMES
   });
   const {
     constructionPlacementControlRuntime,

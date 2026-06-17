@@ -119,6 +119,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction/` domain.
 - Completed: bundle Water Gun, Fire, Leafage and Build Block runtime wiring
   into the `fieldMoveRuntime/` domain.
+- Completed: move gameplay field-move defaults into the `fieldMoveRuntime/`
+  bundle.
 - Completed: bundle field-move support runtime wiring into the
   `fieldMoveRuntime/` domain.
 - Completed: gameplay opening boundary extraction.
@@ -241,6 +243,80 @@ npm test
   `tests/gameplayInteractions.test.js`;
 - the existing `1` scene-flow/start-screen failure in
   `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Field Move Defaults Boundary
+
+This cut moves gameplay-specific field-move defaults out of `gameLoop.js` and
+into the existing field-move runtime bundle.
+
+Boundary classification: `fieldMoves / gameplay action runtime`.
+
+What changed:
+
+- Added `createGameplayFieldMoveRuntimeBundle(...)` to
+  `app/runtime/fieldMoveRuntime/fieldMoveRuntimeBundle.js`.
+- Kept `createFieldMoveRuntimeBundle(...)` as the configurable lower-level
+  factory.
+- Moved default model-face yaw offsets for Fire, Leafage and Build Block out of
+  `app/runtime/gameLoop.js`.
+- Moved the default Leaf Den busy notice for field moves out of `gameLoop.js`.
+
+What stayed in `gameLoop.js`:
+
+- The shared face-yaw constants remain because companion facing still uses them.
+- The Leaf Den busy notice still feeds player action and construction
+  presentation paths.
+
+Why this boundary is safe:
+
+- No field-move timing, targeting, resource or impact rules changed.
+- No frame order changed.
+- Existing Water Gun, Fire, Leafage and Build Block runtimes remain unchanged.
+- The gameplay factory still allows model offset and notice overrides in tests.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1468` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1460` lines.
+
+Tests updated:
+
+- `tests/fieldMoveRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/fieldMoveRuntimeBundle.test.js
+```
+
+The first run failed because `createGameplayFieldMoveRuntimeBundle(...)` did not
+exist. After the factory was added and `gameLoop.js` was rewired, the focused
+field-move suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/fieldMoveRuntimeBundle.test.js tests/waterGunRuntime.test.js tests/fireRuntime.test.js tests/leafageRuntime.test.js tests/buildBlockRuntime.test.js tests/fieldMoveImpactRuntime.test.js
+git diff --check
+npm run build
+```
+
+`npm run build` passed with the existing Vite chunk-size warning.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2025` passed and `4` failed:
+
+- `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
+  baseline failures.
+- `tests/sceneFlowRuntimeCompletion.test.js`: the existing start-screen gameplay
+  opening baseline failure.
 
 Manual gameplay validation remains pending for this cut.
 

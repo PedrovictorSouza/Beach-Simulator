@@ -4,6 +4,30 @@ import { createFireRuntime } from "./fireRuntime.js";
 import { createLeafageRuntime } from "./leafageRuntime.js";
 import { createWaterGunRuntime } from "./waterGunRuntime.js";
 
+const GAMEPLAY_FIELD_MOVE_MODEL_FACE_YAW_OFFSET = 0;
+const GAMEPLAY_FIELD_MOVE_MODEL_FACE_YAW_OFFSETS = Object.freeze({
+  bulbasaur: GAMEPLAY_FIELD_MOVE_MODEL_FACE_YAW_OFFSET,
+  charmander: GAMEPLAY_FIELD_MOVE_MODEL_FACE_YAW_OFFSET,
+  timburr: GAMEPLAY_FIELD_MOVE_MODEL_FACE_YAW_OFFSET
+});
+const GAMEPLAY_FIELD_MOVE_NOTICES = Object.freeze({
+  leafDenBusy: "im busy, boss..."
+});
+
+export function createGameplayFieldMoveRuntimeBundle(options = {}) {
+  return createFieldMoveRuntimeBundle({
+    ...options,
+    modelFaceYawOffsets: {
+      ...GAMEPLAY_FIELD_MOVE_MODEL_FACE_YAW_OFFSETS,
+      ...options.modelFaceYawOffsets
+    },
+    notices: {
+      ...GAMEPLAY_FIELD_MOVE_NOTICES,
+      ...options.notices
+    }
+  });
+}
+
 export function createFieldMoveRuntimeBundle({
   session = {},
   controls = {},
