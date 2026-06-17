@@ -483,6 +483,82 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Gameplay Placement Preview Cancellation Boundary
+
+Expanded `app/runtime/construction/constructionPlacementControlRuntime.js` with
+`createGameplayPlacementPreviewCancellation(...)`.
+
+Boundary classification: `construction / placement`, focused on wiring
+gameplay placement-preview cancellation to the existing pure
+`cancelActivePlacementPreviews(...)` helper from placement contracts.
+
+Study path:
+
+1. `app/gameplay/contracts/placementRuntime.js` already owns the pure loop that
+   cancels active placement previews.
+2. The construction domain now owns the gameplay wiring around session,
+   story-state, HUD notice, cancel sound and pending Workbench intent.
+3. `startGameLoop()` creates one callback and passes it to the construction
+   placement runtime bundle.
+
+Removed from `gameLoop.js`:
+
+- direct import of `cancelPlacementPreview(...)`;
+- local `cancelActivePlacementPreviews()` loop over `PLACEMENT_CONTRACTS`;
+- local direct call to `cancelPendingWorkbenchPlacementIntent(...)` from the
+  cancellation implementation.
+
+Kept in `gameLoop.js`:
+
+- public re-export of `cancelPendingWorkbenchPlacementIntent(...)`;
+- `hasPendingWorkbenchPlacementIntent(...)` and
+  `hasActivePlacementPreview(...)` wiring, because frame/input policies still
+  need those callbacks.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1381` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1372` lines.
+
+Tests updated:
+
+- `tests/constructionPlacementControlRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPlacementControlRuntime.test.js
+```
+
+The first run failed because
+`createGameplayPlacementPreviewCancellation(...)` did not exist yet. After
+adding the factory, the focused placement tests passed. The first fixture also
+caught that only Workbench-sourced pending placement intents are canceled, so
+the test data was corrected to match existing behavior.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementControlRuntime.test.js tests/constructionPlacementRuntimeBundle.test.js tests/constructionPlacementFrameRuntime.test.js tests/pendingPlacementIntent.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2035` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## 2026-06-17 - Gameplay Companion Facing Defaults Boundary
 
 This cut moves gameplay-specific companion model-face yaw defaults out of

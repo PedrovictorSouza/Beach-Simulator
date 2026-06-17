@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createConstructionPlacementControlRuntime } from "../app/runtime/construction/constructionPlacementControlRuntime.js";
+import {
+  createConstructionPlacementControlRuntime,
+  createGameplayPlacementPreviewCancellation
+} from "../app/runtime/construction/constructionPlacementControlRuntime.js";
 
 function createRuntime() {
   const session = {
@@ -99,5 +102,39 @@ describe("createConstructionPlacementControlRuntime", () => {
       affordable: true,
       worldPosition: [1, 0.03, 2]
     });
+  });
+
+  it("creates a gameplay placement preview cancellation callback", () => {
+    const session = {
+      preview: { active: true },
+      model: { active: true, alpha: 0.5, tintStrength: 0.8 },
+      pendingPlacementIntent: { source: "workbench", itemId: "bench" }
+    };
+    const controls = { storyState: { flags: {} } };
+    const hud = { pushNotice: vi.fn() };
+    const playSoundEvent = vi.fn();
+    const cancelActivePreviews = createGameplayPlacementPreviewCancellation({
+      session,
+      controls,
+      hud,
+      playSoundEvent,
+      cancelSoundEventId: "ui-cancel",
+      placementContracts: [{
+        previewKey: "preview",
+        modelInstanceKey: "model",
+        label: "Preview"
+      }]
+    });
+
+    expect(cancelActivePreviews()).toBe(true);
+    expect(session.preview).toBeNull();
+    expect(session.pendingPlacementIntent).toBeNull();
+    expect(session.model).toMatchObject({
+      active: false,
+      alpha: 1,
+      tintStrength: 0
+    });
+    expect(playSoundEvent).toHaveBeenCalledWith("ui-cancel");
+    expect(hud.pushNotice).toHaveBeenCalledWith("Preview placement canceled.");
   });
 });

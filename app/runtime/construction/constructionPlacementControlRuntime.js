@@ -7,6 +7,31 @@ import {
 import {
   rotateActiveConstructionPlacementPreviews
 } from "./constructionPlacementFrameRuntime.js";
+import {
+  cancelActivePlacementPreviews
+} from "../../gameplay/contracts/placementRuntime.js";
+
+export function createGameplayPlacementPreviewCancellation({
+  session = {},
+  controls = {},
+  hud = {},
+  playSoundEvent = null,
+  cancelSoundEventId = null,
+  placementContracts = [],
+  cancelPendingIntent = cancelPendingWorkbenchPlacementIntent
+} = {}) {
+  return function cancelGameplayPlacementPreviews() {
+    return cancelActivePlacementPreviews({
+      session,
+      storyState: controls.storyState,
+      contracts: placementContracts,
+      playSoundEvent,
+      hud,
+      cancelPendingWorkbenchPlacementIntent: cancelPendingIntent,
+      cancelSoundEventId
+    });
+  };
+}
 
 export function createConstructionPlacementControlRuntime({
   session = {},

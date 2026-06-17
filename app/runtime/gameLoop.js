@@ -19,10 +19,12 @@ import {
   GAMEPLAY_CONSTRUCTION_CONFIG as CONSTRUCTION_CONFIG,
   createGameplayConstructionTerrainColliderProvider
 } from "./construction/constructionGameplayConfig.js";
+import {
+  createGameplayPlacementPreviewCancellation
+} from "./construction/constructionPlacementControlRuntime.js";
 import { createConstructionPlacementRuntimeBundle } from "./construction/constructionPlacementRuntimeBundle.js";
 import { createConstructionPresentationRuntimeBundle } from "./construction/constructionPresentationRuntimeBundle.js";
 import {
-  cancelPendingWorkbenchPlacementIntent,
   hasPendingWorkbenchPlacementIntent
 } from "./construction/pendingPlacementIntent.js";
 import {
@@ -209,7 +211,7 @@ import {
 } from "../story/sandbotsLexicon.js";
 import { resolvePsxDistanceFogSettings } from "../rendering/psxDistanceFogConfig.js";
 import { PLACEMENT_CONTRACTS } from "../gameplay/contracts/placementContracts.js";
-import { cancelPlacementPreview, hasActivePlacementPreview } from "../gameplay/contracts/placementRuntime.js";
+import { hasActivePlacementPreview } from "../gameplay/contracts/placementRuntime.js";
 import { createGameplayAudioRuntimeBundle } from "./audio/gameplayAudioRuntimeBundle.js";
 import {
   createGameplayOpeningPresentationFrameRuntime,
@@ -649,6 +651,14 @@ export function startGameLoop({
     },
     botNames: SANDBOTS_BOT_NAMES
   });
+  const cancelActivePlacementPreviews = createGameplayPlacementPreviewCancellation({
+    session,
+    controls,
+    hud,
+    playSoundEvent,
+    cancelSoundEventId: SOUND_EVENT_IDS.UI_CANCEL,
+    placementContracts: PLACEMENT_CONTRACTS
+  });
   const {
     constructionPlacementControlRuntime,
     constructionPlacementFrameRuntime,
@@ -954,25 +964,6 @@ export function startGameLoop({
       })
     }
   });
-
-  function cancelActivePlacementPreviews() {
-    let canceled = false;
-
-    for (const contract of PLACEMENT_CONTRACTS) {
-      canceled =
-        cancelPlacementPreview({
-          session,
-          storyState: controls.storyState,
-          contract,
-          playSoundEvent,
-          hud,
-          cancelPendingWorkbenchPlacementIntent,
-          cancelSoundEventId: SOUND_EVENT_IDS.UI_CANCEL
-        }) || canceled;
-    }
-
-    return canceled;
-  }
 
   function getRuntimeNowSeconds() {
     const nowMs =
