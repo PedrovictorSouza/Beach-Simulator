@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle world planner/event/scene-sync runtime wiring into the
+  `world/` domain.
 - Completed: bundle nature presentation/effects runtime wiring into the
   `presentation/` domain.
 - Completed: bundle companion presentation/model-sync runtime wiring into the
@@ -128,6 +130,82 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: World Runtime Bundle
+
+Created boundary:
+
+`app/runtime/world/worldRuntimeBundle.js`
+
+Boundary classification: `world`, focused on world-cell planner interaction,
+rustling-grass event timing and world scene synchronization composition.
+
+Why this cut:
+
+`gameLoop.js` was still directly wiring world-domain runtime factories for
+debug world-cell picking, rustling grass event advancement and world scene sync.
+Those are not frame lifecycle rules; the game loop only needs the resulting
+runtime handles and update order.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createWorldCellPlannerInteractionRuntime(...)`;
+- direct imports for `createRustlingGrassEventRuntime(...)`;
+- direct imports for `createWorldSceneSyncRuntime(...)`;
+- inline world runtime composition for planner picking, rustling events and
+  scene synchronization callbacks.
+
+Kept in `gameLoop.js`:
+
+- high-level dependency wiring for world runtime composition;
+- late-bound callbacks to snowstorm fog and landscape cut effects;
+- runtime handles still consumed by companion speech, frame updates and debug
+  planner flow.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2006` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1998` lines.
+- This is a small line-count drop, but it removes a world-domain composition
+  cluster and brings `gameLoop.js` below 2000 lines without reflow-only edits.
+
+Tests added:
+
+- `tests/worldRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/worldRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/world/worldRuntimeBundle.js` did not exist. After adding the
+domain factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/worldRuntimeBundle.test.js
+npm test -- --run tests/worldRuntimeBundle.test.js tests/worldSceneSyncRuntime.test.js tests/worldCellPlannerInteractionRuntime.test.js tests/rustlingGrassEventRuntime.test.js tests/worldCellPlannerPicking.test.js tests/companionWorldSpeechCueRuntime.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/world/worldRuntimeBundle.js tests/worldRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1999` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Nature Presentation Runtime Bundle
 

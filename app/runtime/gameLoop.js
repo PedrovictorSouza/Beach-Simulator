@@ -102,9 +102,7 @@ import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import { applyTrainHouseDance } from "./trainHouseDance.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createWorkbenchRotationRuntime } from "./construction/workbenchRotationRuntime.js";
-import { createRustlingGrassEventRuntime } from "./world/rustlingGrassEventRuntime.js";
-import { createWorldCellPlannerInteractionRuntime } from "./world/worldCellPlannerInteractionRuntime.js";
-import { createWorldSceneSyncRuntime } from "./world/worldSceneSyncRuntime.js";
+import { createWorldRuntimeBundle } from "./world/worldRuntimeBundle.js";
 
 export {
   resolveCompanionFollowDistance,
@@ -572,35 +570,29 @@ export function startGameLoop({
     defaultGridConfig: FREE_BLOCK_BUILD_GRID_CONFIG,
     initialBlockType: FREE_BLOCK_TYPES.WALL
   });
-  const worldCellPlannerInteractionRuntime = createWorldCellPlannerInteractionRuntime({
+  const {
+    rustlingGrassEventRuntime,
+    worldCellPlannerInteractionRuntime,
+    worldSceneSyncRuntime
+  } = createWorldRuntimeBundle({
     camera,
-    getGridConfig: () => freeBlockBuildSessionRuntime.getGridConfig(),
+    controls,
+    gameplay,
     hud,
-    maxDistancePx: WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX,
     rendering,
     session,
-    worldCanvas
-  });
-  const rustlingGrassEventRuntime = createRustlingGrassEventRuntime({
-    getStoryState: () => controls.storyState
-  });
-  const worldSceneSyncRuntime = createWorldSceneSyncRuntime({
-    session,
-    controls,
-    camera,
-    hud,
-    gameplay,
-    config: {
-      workbenchPosition: WORKBENCH_POSITION,
-      workbenchInteractDistance: WORKBENCH_INTERACT_DISTANCE
-    },
-    ambient: {
+    worldCanvas,
+    callbacks: {
+      clearInteractionObjectHighlights,
       updateLandscapeCutEffect: (deltaTime) => landscapeCutEffectRuntime.update(deltaTime),
       updateSnowstormFog: ({ deltaTime }) => snowstormFogRuntime.update({ session, deltaTime })
     },
-    sources: {
-      clearInteractionObjectHighlights
-    }
+    config: {
+      worldCellPlannerPickMaxDistancePx: WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX,
+      workbenchPosition: WORKBENCH_POSITION,
+      workbenchInteractDistance: WORKBENCH_INTERACT_DISTANCE
+    },
+    getGridConfig: () => freeBlockBuildSessionRuntime.getGridConfig()
   });
   const movementQuestRuntime = createMovementQuestRuntime({
     minimumMovementDistance: 0.0005,
