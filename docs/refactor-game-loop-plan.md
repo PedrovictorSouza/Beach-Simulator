@@ -105,6 +105,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `companions/` domain.
 - Completed: move gameplay companion motion defaults into the `companions/`
   motion bundle.
+- Completed: move gameplay companion frame defaults into the `companions/`
+  frame bundle.
 - Completed: bundle construction placement runtime wiring into the
   `construction/` domain.
 - Completed: move gameplay free-block build session grid defaults into the
@@ -239,6 +241,80 @@ npm test
   `tests/gameplayInteractions.test.js`;
 - the existing `1` scene-flow/start-screen failure in
   `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Companion Frame Defaults Boundary
+
+This cut moves gameplay-specific companion frame/encounter defaults out of
+`gameLoop.js` and into the existing companions frame bundle.
+
+Boundary classification: `companions / frame runtime`.
+
+What changed:
+
+- Added `createGameplayCompanionFrameRuntimeBundle(...)` to
+  `app/runtime/companions/companionFrameRuntimeBundle.js`.
+- Kept `createCompanionFrameRuntimeBundle(...)` as the configurable lower-level
+  factory.
+- Moved Charmander/Timburr follow defaults, companion encounter face-yaw defaults
+  and the companion guide position out of `app/runtime/gameLoop.js`.
+- `startGameLoop()` now wires companion frame runtime with dependencies,
+  callbacks and runtimes only.
+
+What stayed in `gameLoop.js`:
+
+- The face-yaw constants still exist because camera/field-move actor positioning
+  also reads them directly.
+
+Why this boundary is safe:
+
+- No follow distance/speed or facing values changed.
+- No frame order changed.
+- Existing encounter/frame runtimes remain unchanged.
+- The gameplay factory still allows config override for focused tests.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1484` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1468` lines.
+
+Tests updated:
+
+- `tests/companionFrameRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionFrameRuntimeBundle.test.js
+```
+
+The first run failed because `createGameplayCompanionFrameRuntimeBundle(...)`
+did not exist. After the factory was added and `gameLoop.js` was rewired, the
+focused companion frame suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionFrameRuntimeBundle.test.js tests/companionFrameRuntime.test.js tests/companionEncounterRuntime.test.js tests/companionFollowMotion.test.js
+git diff --check
+npm run build
+```
+
+`npm run build` passed with the existing Vite chunk-size warning.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2024` passed and `4` failed:
+
+- `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
+  baseline failures.
+- `tests/sceneFlowRuntimeCompletion.test.js`: the existing start-screen gameplay
+  opening baseline failure.
 
 Manual gameplay validation remains pending for this cut.
 

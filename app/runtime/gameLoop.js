@@ -6,7 +6,7 @@ import {
 import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createGameplayCameraRuntimeBundle } from "./camera/gameplayCameraRuntimeBundle.js";
 import { createCompanionFacingRuntime } from "./companions/companionFacingRuntime.js";
-import { createCompanionFrameRuntimeBundle } from "./companions/companionFrameRuntimeBundle.js";
+import { createGameplayCompanionFrameRuntimeBundle } from "./companions/companionFrameRuntimeBundle.js";
 import { createGameplayCompanionMotionRuntimeBundle } from "./companions/companionMotionRuntimeBundle.js";
 import { createGameplayCompanionPresentationRuntimeBundle } from "./companions/companionPresentationRuntimeBundle.js";
 import { createGameplayCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
@@ -166,7 +166,6 @@ import {
   restoreActiveZoomPresetOnMovement
 } from "./camera/cameraZoomPresetController.js";
 import { getSnowstormFogIntensity } from "../session/snowstormParticleField.js";
-import { PLAYER_SPEED } from "../session/configurePlayerSpawner.js";
 import { updateIntroRoomFrame } from "../scenes/introRoom/introRoomSequence.js";
 import { SOUND_EVENT_IDS } from "./soundEventRuntime.js";
 import {
@@ -178,7 +177,6 @@ import {
   LEAVES_ITEM_ID,
   LEPPA_BERRY_ITEM_ID,
   POKEMON_TALK_INTERACT_DISTANCE,
-  RUINED_POKEMON_CENTER_GUIDE_POSITION,
   RUINED_POKEMON_CENTER_POSITION,
   WORKBENCH_INTERACT_DISTANCE,
   WORKBENCH_POSITION
@@ -245,10 +243,6 @@ const LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER = 3;
 const LEAF_DEN_BUSY_NOTICE = "im busy, boss...";
 const SOLAR_STATION_FIELD_MARKED_TILE_LIMIT = 81;
 const SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT = 1200;
-const CHARMANDER_FOLLOW_SPEED = PLAYER_SPEED;
-const CHARMANDER_FOLLOW_DISTANCE = 1.28;
-const TIMBURR_FOLLOW_SPEED = PLAYER_SPEED;
-const TIMBURR_FOLLOW_DISTANCE = 1.62;
 const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
 const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
@@ -909,23 +903,13 @@ export function startGameLoop({
   });
   const {
     companionFrameRuntime
-  } = createCompanionFrameRuntimeBundle({
+  } = createGameplayCompanionFrameRuntimeBundle({
     session,
     controls,
     rendering,
     audio,
     callbacks: {
       isGameplayActive: () => isGameFlow(gameFlowValues.GAMEPLAY)
-    },
-    config: {
-      bulbasaurModelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET,
-      charmanderModelFaceYawOffset: CHARMANDER_MODEL_FACE_YAW_OFFSET,
-      timburrModelFaceYawOffset: TIMBURR_MODEL_FACE_YAW_OFFSET,
-      charmanderFollowSpeed: CHARMANDER_FOLLOW_SPEED,
-      charmanderFollowDistance: CHARMANDER_FOLLOW_DISTANCE,
-      guidePosition: RUINED_POKEMON_CENTER_GUIDE_POSITION,
-      timburrFollowSpeed: TIMBURR_FOLLOW_SPEED,
-      timburrFollowDistance: TIMBURR_FOLLOW_DISTANCE
     },
     runtimes: {
       beeFieldRuntime,

@@ -1,5 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCompanionFrameRuntimeBundle } from "../app/runtime/companions/companionFrameRuntimeBundle.js";
+import {
+  createGameplayCompanionFrameRuntimeBundle,
+  createCompanionFrameRuntimeBundle
+} from "../app/runtime/companions/companionFrameRuntimeBundle.js";
+import { PLAYER_SPEED } from "../app/session/configurePlayerSpawner.js";
+import { RUINED_POKEMON_CENTER_GUIDE_POSITION } from "../gameplayContent.js";
 
 describe("createCompanionFrameRuntimeBundle", () => {
   it("wires companion encounter and frame callbacks through companion-domain runtimes", () => {
@@ -180,5 +185,40 @@ describe("createCompanionFrameRuntimeBundle", () => {
       .toHaveBeenCalledWith(1.3, { active: true });
     expect(companionGroundPatrolFrameRuntime.updateBulbasaur)
       .toHaveBeenCalledWith(1.4, { active: true });
+  });
+
+  it("wires gameplay companion frame defaults", () => {
+    const companionEncounterRuntime = {
+      updateBulbasaur: vi.fn(),
+      updateCharmander: vi.fn(),
+      updateTimburr: vi.fn()
+    };
+    const companionFrameRuntime = { update: vi.fn() };
+    const createEncounterRuntime = vi.fn(() => companionEncounterRuntime);
+    const createFrameRuntime = vi.fn(() => companionFrameRuntime);
+    const controls = { storyState: { flags: {} } };
+    const session = {};
+
+    createGameplayCompanionFrameRuntimeBundle({
+      controls,
+      createEncounterRuntime,
+      createFrameRuntime,
+      session
+    });
+
+    expect(createEncounterRuntime).toHaveBeenCalledWith(expect.objectContaining({
+      config: {
+        bulbasaurModelFaceYawOffset: 0,
+        charmanderFollowDistance: 1.28,
+        charmanderFollowSpeed: PLAYER_SPEED,
+        charmanderModelFaceYawOffset: 0,
+        timburrFollowDistance: 1.62,
+        timburrFollowSpeed: PLAYER_SPEED,
+        timburrModelFaceYawOffset: 0
+      }
+    }));
+    expect(createFrameRuntime).toHaveBeenCalledWith(expect.objectContaining({
+      guidePosition: RUINED_POKEMON_CENTER_GUIDE_POSITION
+    }));
   });
 });

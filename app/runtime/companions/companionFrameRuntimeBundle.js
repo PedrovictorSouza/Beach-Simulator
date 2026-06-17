@@ -1,5 +1,28 @@
 import { createCompanionEncounterRuntime } from "./companionEncounterRuntime.js";
 import { createCompanionFrameRuntime } from "./companionFrameRuntime.js";
+import { PLAYER_SPEED } from "../../session/configurePlayerSpawner.js";
+import { RUINED_POKEMON_CENTER_GUIDE_POSITION } from "../../../gameplayContent.js";
+
+const GAMEPLAY_COMPANION_FRAME_CONFIG = Object.freeze({
+  bulbasaurModelFaceYawOffset: 0,
+  charmanderFollowDistance: 1.28,
+  charmanderFollowSpeed: PLAYER_SPEED,
+  charmanderModelFaceYawOffset: 0,
+  guidePosition: RUINED_POKEMON_CENTER_GUIDE_POSITION,
+  timburrFollowDistance: 1.62,
+  timburrFollowSpeed: PLAYER_SPEED,
+  timburrModelFaceYawOffset: 0
+});
+
+export function createGameplayCompanionFrameRuntimeBundle(options = {}) {
+  return createCompanionFrameRuntimeBundle({
+    ...options,
+    config: {
+      ...GAMEPLAY_COMPANION_FRAME_CONFIG,
+      ...options.config
+    }
+  });
+}
 
 export function createCompanionFrameRuntimeBundle({
   audio = {},
