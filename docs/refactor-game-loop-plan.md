@@ -97,6 +97,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `companions/` domain.
 - Completed: bundle construction placement runtime wiring into the
   `construction/` domain.
+- Completed: bundle construction blocker runtime wiring into the
+  `construction/` domain.
 - Completed: bundle Water Gun, Fire, Leafage and Build Block runtime wiring
   into the `fieldMoveRuntime/` domain.
 - Completed: gameplay opening boundary extraction.
@@ -214,6 +216,82 @@ npm test
 ```
 
 `npm test` completed with `2007` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Construction Blocker Runtime Bundle
+
+Created boundary:
+
+`app/runtime/construction/constructionBlockerRuntimeBundle.js`
+
+Boundary classification: `construction`, focused on construction-related
+placement and movement blockers.
+
+Why this cut:
+
+`gameLoop.js` still directly created three construction blocker runtimes and
+owned tree/leppa blocker tuning that only existed to configure those runtimes.
+The construction domain now owns that wiring and the blocker defaults, while
+`startGameLoop()` keeps only high-level dependencies and footprints shared with
+other construction systems.
+
+Moved out of `gameLoop.js`:
+
+- direct import/use of `createCompanionConstructionBlockerRuntime(...)`;
+- direct import/use of `createWorldObjectPlacementBlockerRuntime(...)`;
+- direct import/use of `createSolarStationPlacementBlockerRuntime(...)`;
+- direct import/use of `createPlayerConstructionPlacementBlockers(...)`;
+- tree/leppa placement blocker tuning constants.
+
+Kept in `gameLoop.js`:
+
+- construction footprint constants reused by placement, workbench rotation and
+  terrain collider creation;
+- callbacks for terrain colliders, cancel sound and placement geometry;
+- the three runtime handles consumed by later construction, companion and
+  placement wiring.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1877` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1865` lines.
+
+Tests added:
+
+- `tests/constructionBlockerRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionBlockerRuntimeBundle.test.js
+```
+
+The first run failed because
+`app/runtime/construction/constructionBlockerRuntimeBundle.js` did not exist.
+After adding the construction-domain factory and integrating it into
+`gameLoop.js`, the focused tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionBlockerRuntimeBundle.test.js tests/placementBlockers.test.js tests/worldObjectPlacementBlockers.test.js tests/solarStationPlacementBlockers.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/construction/constructionBlockerRuntimeBundle.js tests/constructionBlockerRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2008` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;

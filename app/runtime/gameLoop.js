@@ -21,6 +21,7 @@ import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuil
 import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
 import { createConstructionHouseModelInstanceRuntime } from "./construction/constructionHouseModelInstances.js";
 import { createConstructionHelperMotionRuntime } from "./construction/constructionHelperMotion.js";
+import { createConstructionBlockerRuntimeBundle } from "./construction/constructionBlockerRuntimeBundle.js";
 import { createConstructionPlacementRuntimeBundle } from "./construction/constructionPlacementRuntimeBundle.js";
 import {
   cancelPendingWorkbenchPlacementIntent,
@@ -33,8 +34,6 @@ import {
   applyPlayerPlacementSpawnToModelInstance,
   updateSolarStationSpawnEffect
 } from "./construction/playerPlacementSpawnEffect.js";
-import { createSolarStationPlacementBlockerRuntime } from "./construction/solarStationPlacementBlockers.js";
-import { createWorldObjectPlacementBlockerRuntime } from "./construction/worldObjectPlacementBlockers.js";
 import {
   buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
   doPlacementRectsOverlap,
@@ -218,8 +217,6 @@ import {
 } from "./interactionObjectHighlight.js";
 import { syncFirstTaughtActionFreedomWindow } from "../story/earlyFreedomWindow.js";
 import {
-  createCompanionConstructionBlockerRuntime,
-  createPlayerConstructionPlacementBlockers,
   createPlayerConstructionTerrainColliders,
   isPositionInsideTerrainColliderFootprint
 } from "../gameplay/placementBlockers.js";
@@ -274,12 +271,6 @@ const WORKBENCH_OBJECT_ROTATE_DISTANCE = 3.2;
 const WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN = 1.425;
 const LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER = 3;
 const LEAF_DEN_BUSY_NOTICE = "im busy, boss...";
-const TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE = 0.68;
-const DEAD_TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE = 1.15;
-const TREE_PLACEMENT_BLOCKER_MIN_SIZE = 0.9;
-const DEAD_TREE_PLACEMENT_BLOCKER_MIN_SIZE = 1.35;
-const LEPPA_TREE_PLACEMENT_BLOCKER_SIZE = [2.35, 2.35];
-const LEPPA_TREE_PLACEMENT_BLOCKER_DEFAULT_CELL_SIZE = 1.425;
 const SOLAR_STATION_FIELD_MARKED_TILE_LIMIT = 81;
 const SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT = 1200;
 const BULBASAUR_WORKBENCH_GUIDE_START = [8.55, 0.02, -5.7];
@@ -654,36 +645,33 @@ export function startGameLoop({
       bulbasaurHintText: BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT
     }
   });
-  const companionConstructionBlockerRuntime = createCompanionConstructionBlockerRuntime({
-    getColliders: getPlayerConstructionTerrainColliders,
-    playBlockedSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
-    pushNotice: (message) => hud?.pushNotice?.(message)
-  });
-  const worldObjectPlacementBlockerRuntime = createWorldObjectPlacementBlockerRuntime({
+  const {
+    companionConstructionBlockerRuntime,
+    solarStationPlacementBlockerRuntime,
+    worldObjectPlacementBlockerRuntime
+  } = createConstructionBlockerRuntimeBundle({
+    controls,
+    hud,
     session,
     treeFootprint,
-    treeFootprintScale: TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
-    deadTreeFootprintScale: DEAD_TREE_PLACEMENT_BLOCKER_FOOTPRINT_SCALE,
-    treeMinSize: TREE_PLACEMENT_BLOCKER_MIN_SIZE,
-    deadTreeMinSize: DEAD_TREE_PLACEMENT_BLOCKER_MIN_SIZE,
-    leppaTreeBlockerSize: LEPPA_TREE_PLACEMENT_BLOCKER_SIZE,
-    leppaTreeDefaultCellSize: LEPPA_TREE_PLACEMENT_BLOCKER_DEFAULT_CELL_SIZE
-  });
-  const solarStationPlacementBlockerRuntime = createSolarStationPlacementBlockerRuntime({
-    session,
-    getStoryState: () => controls.storyState,
-    footprints: {
-      greenhouse: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-      trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
-      houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT
+    callbacks: {
+      getTerrainColliders: getPlayerConstructionTerrainColliders,
+      playBlockedSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL)
     },
-    createPlayerConstructionPlacementBlockers,
-    getWorldObjectPlacementBlockers: worldObjectPlacementBlockerRuntime.getBlockers,
-    getPlacementCollisionSize,
-    getPlacementRect,
-    doPlacementRectsOverlap
+    config: {
+      footprints: {
+        greenhouse: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+        solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
+        trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+        houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
+        houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT
+      }
+    },
+    geometry: {
+      getPlacementCollisionSize,
+      getPlacementRect,
+      doPlacementRectsOverlap
+    }
   });
   const fieldMoveApproachPositionRuntime = createFieldMoveApproachPositionRuntime({
     getSquirtlePosition: () =>
