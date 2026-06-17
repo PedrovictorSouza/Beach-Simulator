@@ -12,16 +12,12 @@ import { createCompanionPresentationRuntimeBundle } from "./companions/companion
 import { createCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
-import {
-  createFoundationBuildZoneRuntime,
-  getBuilderTutorialFoundationZoneSignature
-} from "./construction/foundationBuildZone.js";
-import { createFreeBlockBuildRuntime } from "./construction/freeBlockBuildRuntime.js";
 import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
 import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
 import { createConstructionHouseModelInstanceRuntime } from "./construction/constructionHouseModelInstances.js";
 import { createConstructionHelperMotionRuntime } from "./construction/constructionHelperMotion.js";
 import { createConstructionBlockerRuntimeBundle } from "./construction/constructionBlockerRuntimeBundle.js";
+import { createConstructionBuildRuntimeBundle } from "./construction/constructionBuildRuntimeBundle.js";
 import { createConstructionPlacementRuntimeBundle } from "./construction/constructionPlacementRuntimeBundle.js";
 import {
   cancelPendingWorkbenchPlacementIntent,
@@ -310,9 +306,6 @@ const FIELD_TOOL_TARGET_PULSE_MIN_SCALE = 0.7;
 const FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS = 0.4;
 const TREE_REVIVAL_LEAF_BURST_COUNT = 18;
 const TREE_REVIVAL_LEAF_BURST_DURATION = 1.65;
-const FREE_BLOCK_DROP_SIZE = Object.freeze([0.78, 0.78]);
-const FREE_BLOCK_DROP_PICKUP_RADIUS = 0.64;
-const FREE_BLOCK_DROP_SPREAD = 0.22;
 const BULBASAUR_INTERACTION_GIZMO_DOT_COUNT = 36;
 const BULBASAUR_INTERACTION_GIZMO_DOT_SIZE = 0.16;
 const BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG = Object.freeze({
@@ -921,7 +914,9 @@ export function startGameLoop({
       companionModelSyncRuntime,
       fieldMoveApproachPositionRuntime,
       fieldMoveImpactRuntime,
-      freeBlockBuildRuntime,
+      get freeBlockBuildRuntime() {
+        return freeBlockBuildRuntime;
+      },
       leafDenConstructionPresentationRuntime
     },
     callbacks: {
@@ -1263,41 +1258,25 @@ export function startGameLoop({
     fieldToolTargetPulseMinScale: FIELD_TOOL_TARGET_PULSE_MIN_SCALE,
     fieldToolTargetPulseFlashBrightness: FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS
   });
-  const foundationBuildZoneRuntime = createFoundationBuildZoneRuntime({
-    session,
+  const {
+    foundationBuildZoneCameraFocusRuntime,
+    foundationBuildZoneRuntime,
+    freeBlockBuildRuntime
+  } = createConstructionBuildRuntimeBundle({
     controls,
     rendering,
-    freeBlockBuildSessionRuntime,
-    worldObjectPlacementBlockerRuntime,
-    groundActionFeedbackRuntime,
-    config: {
-      wallBlockType: FREE_BLOCK_TYPES.WALL
-    },
-    callbacks: {
-      getTerrainColliders: getPlayerConstructionTerrainColliders,
-      getActorPosition: getActorDebugPosition
-    }
-  });
-  const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime({
-    foundationBuildZoneRuntime,
-    getZoneSignature: getBuilderTutorialFoundationZoneSignature
-  });
-  const freeBlockBuildRuntime = createFreeBlockBuildRuntime({
     session,
-    controls,
-    freeBlockBuildSessionRuntime,
-    foundationBuildZoneRuntime,
-    companionConstructionBlockerRuntime,
-    playerModelRuntime,
-    groundActionFeedbackRuntime,
-    config: {
-      wallBlockType: FREE_BLOCK_TYPES.WALL,
-      dropSize: FREE_BLOCK_DROP_SIZE,
-      pickupRadius: FREE_BLOCK_DROP_PICKUP_RADIUS,
-      spread: FREE_BLOCK_DROP_SPREAD
+    runtimes: {
+      companionConstructionBlockerRuntime,
+      freeBlockBuildSessionRuntime,
+      groundActionFeedbackRuntime,
+      playerModelRuntime,
+      worldObjectPlacementBlockerRuntime
     },
     callbacks: {
+      createFoundationBuildZoneCameraFocusRuntime,
       getTerrainColliders: getPlayerConstructionTerrainColliders,
+      getActorPosition: getActorDebugPosition,
       isPositionInsideCollider: isPositionInsideTerrainColliderFootprint,
       resolvePreviewValidity: resolveBuildBlockPreviewValidity,
       resolveDisplacementPosition: resolveConstructionDisplacementPosition,
@@ -1305,8 +1284,12 @@ export function startGameLoop({
       playInvalidSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
       playImpactSound: () => playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_IMPACT),
       pushNotice: (notice) => hud?.pushNotice?.(notice)
+    },
+    config: {
+      wallBlockType: FREE_BLOCK_TYPES.WALL
     }
   });
+
   const {
     playerActionFrameRuntime,
     playerActionRuntime

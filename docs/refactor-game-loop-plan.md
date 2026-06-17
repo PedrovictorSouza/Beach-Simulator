@@ -99,6 +99,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction/` domain.
 - Completed: bundle construction blocker runtime wiring into the
   `construction/` domain.
+- Completed: bundle construction build/foundation runtime wiring into the
+  `construction/` domain.
 - Completed: bundle Water Gun, Fire, Leafage and Build Block runtime wiring
   into the `fieldMoveRuntime/` domain.
 - Completed: gameplay opening boundary extraction.
@@ -216,6 +218,92 @@ npm test
 ```
 
 `npm test` completed with `2007` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Construction Build Runtime Bundle
+
+Created boundary:
+
+`app/runtime/construction/constructionBuildRuntimeBundle.js`
+
+Boundary classification: `construction`, focused on Build Block, foundation
+build zone and foundation camera-focus wiring.
+
+Why this cut:
+
+`gameLoop.js` still directly created the foundation build zone runtime, the
+foundation camera-focus runtime and the free-block build runtime. Those three
+objects are one construction workflow: choose/build a foundation zone, focus the
+camera once when that zone becomes relevant, and place/remove free blocks in the
+zone. The new bundle keeps `startGameLoop()` as composition root, but moves the
+construction-specific wiring and free-block drop defaults out of `gameLoop.js`.
+
+Moved out of `gameLoop.js`:
+
+- direct import/use of `createFoundationBuildZoneRuntime(...)`;
+- direct import/use of `createFreeBlockBuildRuntime(...)`;
+- direct import/use of `getBuilderTutorialFoundationZoneSignature(...)`;
+- foundation build-zone runtime construction;
+- foundation camera-focus runtime construction;
+- free-block build runtime construction;
+- free-block removal drop tuning constants.
+
+Kept in `gameLoop.js`:
+
+- creation of `groundActionFeedbackRuntime`, because it is still shared beyond
+  construction;
+- high-level callbacks for terrain colliders, placement validity, displacement,
+  SFX and HUD notices;
+- existing `freeBlockBuildRuntime` consumers and frame order.
+
+Implementation note:
+
+`createFieldMoveRuntimeBundle(...)` now receives `freeBlockBuildRuntime` through
+a getter so the field-move bundle does not evaluate that runtime before the
+construction build bundle is created. This resolves a composition-time TDZ risk
+without moving frame execution or changing field-move behavior.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1865` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1848` lines.
+
+Tests added:
+
+- `tests/constructionBuildRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionBuildRuntimeBundle.test.js
+```
+
+The first run failed because
+`app/runtime/construction/constructionBuildRuntimeBundle.js` did not exist.
+After adding the construction-domain factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionBuildRuntimeBundle.test.js
+npm test -- --run tests/constructionBuildRuntimeBundle.test.js tests/freeBlockBuildRuntime.test.js tests/foundationBuildZone.test.js tests/foundationBuildZoneCameraFocusRuntime.test.js tests/fieldMoveRuntimeBundle.test.js tests/constructionPlacementRuntimeBundle.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/construction/constructionBuildRuntimeBundle.js tests/constructionBuildRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2009` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;
