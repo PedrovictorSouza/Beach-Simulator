@@ -405,6 +405,84 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Gameplay Interaction Debug Collider Presentation Boundary
+
+Created `app/runtime/presentation/interactionDebugColliders.js` and converted
+the old `app/runtime/interactionDebugColliders.js` file into a compatibility
+re-export.
+
+Boundary classification: `presentation / debug helpers`, focused on preparing
+debug collider geometry for interaction overlays without keeping gameplay
+distance defaults or debug-collider provider wiring inside `gameLoop.js`.
+
+Study path:
+
+1. The collider implementation now lives under the presentation domain.
+2. `createGameplayInteractionDebugColliderProvider(...)` supplies gameplay
+   default interaction radii for Pokemon, Workbench and Grow Bot debug areas.
+3. `startGameLoop()` still wires `session`, `rendering` and current
+   `controls.storyState` as composition root.
+4. The old root import path remains valid through re-export for callers not yet
+   migrated.
+
+Removed from `gameLoop.js`:
+
+- import alias `getInteractionDebugCollidersWithConfig`;
+- local `getInteractionDebugColliders()` wrapper;
+- direct use of `BULBASAUR_TALK_INTERACT_DISTANCE`;
+- now-unused `RUINED_POKEMON_CENTER_POSITION` import left over from the mission
+  target lookup extraction.
+
+Kept in `gameLoop.js`:
+
+- callback wiring into `createRenderSnapshotRuntimeBundle(...)`;
+- `getActorDebugPosition(...)`, because construction build/debug callbacks
+  still use actor position lookup directly.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1388` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1381` lines.
+
+Tests updated:
+
+- `tests/interactionDebugColliders.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/interactionDebugColliders.test.js
+```
+
+The first run failed because
+`app/runtime/presentation/interactionDebugColliders.js` did not exist yet.
+After moving the implementation into the presentation domain, adding the
+gameplay provider factory and keeping the old path as a re-export, the focused
+tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/interactionDebugColliders.test.js tests/renderSnapshotRuntimeBundle.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2034` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## 2026-06-17 - Gameplay Companion Facing Defaults Boundary
 
 This cut moves gameplay-specific companion model-face yaw defaults out of

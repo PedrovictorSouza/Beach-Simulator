@@ -2,9 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createDebugAreaCollider,
+  createGameplayInteractionDebugColliderProvider,
   getActorDebugPosition,
   getInteractionDebugColliders
-} from "../app/runtime/interactionDebugColliders.js";
+} from "../app/runtime/presentation/interactionDebugColliders.js";
 
 describe("interaction debug colliders", () => {
   it("creates area colliders on the ground plane", () => {
@@ -83,5 +84,35 @@ describe("interaction debug colliders", () => {
     expect(rendering.isNpcActive).toHaveBeenCalledWith(npc, storyState);
     expect(npc.character.getPosition).toHaveBeenCalledTimes(1);
     expect(session.npcActors).toHaveLength(2);
+  });
+
+  it("creates a gameplay collider provider with lazy story-state reads", () => {
+    const session = { npcActors: [] };
+    const storyState = { flags: { debug: true } };
+    const rendering = {};
+    const colliders = [{ id: "debug-collider" }];
+    const calls = [];
+    const getDebugColliders = createGameplayInteractionDebugColliderProvider({
+      session,
+      getStoryState: () => storyState,
+      rendering,
+      getColliders: (options) => {
+        calls.push(options);
+        return colliders;
+      }
+    });
+
+    expect(calls).toEqual([]);
+    expect(getDebugColliders()).toBe(colliders);
+    expect(calls).toEqual([
+      expect.objectContaining({
+        session,
+        storyState,
+        rendering,
+        pokemonTalkInteractDistance: expect.any(Number),
+        workbenchInteractDistance: expect.any(Number),
+        bulbasaurTalkInteractDistance: expect.any(Number)
+      })
+    ]);
   });
 });

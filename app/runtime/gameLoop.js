@@ -61,9 +61,9 @@ import { createGameplayFieldMoveRuntimeBundle } from "./fieldMoveRuntime/fieldMo
 import { createFieldMoveSupportRuntimeBundle } from "./fieldMoveRuntime/fieldMoveSupportRuntimeBundle.js";
 import { createGameplayGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import {
+  createGameplayInteractionDebugColliderProvider,
   getActorDebugPosition,
-  getInteractionDebugColliders as getInteractionDebugCollidersWithConfig
-} from "./interactionDebugColliders.js";
+} from "./presentation/interactionDebugColliders.js";
 import { createGameplayMissionTargetPositionProvider } from "./missions/missionTargetPositionLookup.js";
 import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
@@ -179,12 +179,10 @@ import {
   LEAVES_ITEM_ID,
   LEPPA_BERRY_ITEM_ID,
   POKEMON_TALK_INTERACT_DISTANCE,
-  RUINED_POKEMON_CENTER_POSITION,
   WORKBENCH_INTERACT_DISTANCE,
   WORKBENCH_POSITION
 } from "../../gameplayContent.js";
 import {
-  BULBASAUR_TALK_INTERACT_DISTANCE,
   findNearbyDestroyableInstantiatedObject,
   getLeppaTreeSurroundingGroundCells,
   treeFootprint,
@@ -759,6 +757,12 @@ export function startGameLoop({
       treeRevivalLeafBurstFrameRuntime
     }
   });
+  const getInteractionDebugColliders =
+    createGameplayInteractionDebugColliderProvider({
+      session,
+      getStoryState: () => controls.storyState,
+      rendering
+    });
   const getMissionTargetPositionsById =
     createGameplayMissionTargetPositionProvider({
       session,
@@ -1127,17 +1131,6 @@ export function startGameLoop({
 
   function playGrowBotRevealSfx() {
     audio.playGrowBotReveal();
-  }
-
-  function getInteractionDebugColliders() {
-    return getInteractionDebugCollidersWithConfig({
-      session,
-      storyState: controls.storyState,
-      rendering,
-      pokemonTalkInteractDistance: POKEMON_TALK_INTERACT_DISTANCE,
-      workbenchInteractDistance: WORKBENCH_INTERACT_DISTANCE,
-      bulbasaurTalkInteractDistance: BULBASAUR_TALK_INTERACT_DISTANCE
-    });
   }
 
   function updateFoundationBuildZoneCameraFocus(now) {
