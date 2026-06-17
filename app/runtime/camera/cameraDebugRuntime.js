@@ -1,5 +1,14 @@
 import { createCameraDebugFrameState } from "./cameraDebugFrameState.js";
 
+export function isCameraDebugEnabled(globalObject = globalThis) {
+  try {
+    return new URLSearchParams(globalObject.location?.search || "")
+      .get("cameraDebug") === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function createCameraDebugRuntime({
   enabled = false,
   mount,

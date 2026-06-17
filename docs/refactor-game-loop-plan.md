@@ -77,6 +77,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: bundle companion encounter/frame runtime wiring into the
   `companions/` domain.
 - Completed: bundle gameplay camera runtime wiring into the `camera/` domain.
+- Completed: move camera debug query-string policy into the `camera/` domain.
 - Completed: bundle player model, movement and resource collection runtime
   wiring into the `player/` domain.
 - Completed: bundle render snapshot runtime wiring into the `presentation/`
@@ -383,6 +384,72 @@ npm test
 ```
 
 `npm test` completed with `2027` passed and `4` failed:
+
+- `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
+  baseline failures.
+- `tests/sceneFlowRuntimeCompletion.test.js`: the existing start-screen gameplay
+  opening baseline failure.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Camera Debug Query Policy Boundary
+
+This cut moves the `cameraDebug=1` query-string policy out of `gameLoop.js` and
+into the `camera/` domain.
+
+Boundary classification: `camera runtime/debug`.
+
+What changed:
+
+- Added `isCameraDebugEnabled(...)` to
+  `app/runtime/camera/cameraDebugRuntime.js`.
+- Updated `createGameplayCameraRuntimeBundle(...)` to default `enabledDebug`
+  from the camera debug runtime.
+- Removed `CAMERA_DEBUG_ENABLED` and URL parsing from `app/runtime/gameLoop.js`.
+- Kept the explicit `enabledDebug` override available for tests and callers.
+
+Why this boundary is safe:
+
+- The query-string condition stayed exactly `cameraDebug=1`.
+- `startGameLoop()` still wires the camera bundle in the same order.
+- Camera debug listener registration remains inside the camera runtime bundle.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1420` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1409` lines.
+
+Tests updated:
+
+- `tests/cameraDebugRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/cameraDebugRuntime.test.js
+```
+
+The first run failed because `isCameraDebugEnabled(...)` did not exist. After
+the helper was added and the camera bundle was rewired, the focused camera suite
+passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/cameraDebugRuntime.test.js tests/gameplayCameraRuntimeBundle.test.js tests/gameplayCameraFrameRuntime.test.js
+git diff --check
+npm run build
+```
+
+`npm run build` passed with the existing Vite chunk-size warning.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2030` passed and `4` failed:
 
 - `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
   baseline failures.

@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { createCameraDebugRuntime } from "../app/runtime/camera/cameraDebugRuntime.js";
+import {
+  createCameraDebugRuntime,
+  isCameraDebugEnabled
+} from "../app/runtime/camera/cameraDebugRuntime.js";
 
 const previousDocument = globalThis.document;
 
@@ -9,6 +12,14 @@ afterEach(() => {
 });
 
 describe("createCameraDebugRuntime", () => {
+  it("detects camera debug mode from the location query string", () => {
+    expect(isCameraDebugEnabled({ location: { search: "?cameraDebug=1" } }))
+      .toBe(true);
+    expect(isCameraDebugEnabled({ location: { search: "?cameraDebug=0" } }))
+      .toBe(false);
+    expect(isCameraDebugEnabled({ location: null })).toBe(false);
+  });
+
   it("does not attach listeners or access document while disabled", () => {
     const globalObject = {
       addEventListener: vi.fn()

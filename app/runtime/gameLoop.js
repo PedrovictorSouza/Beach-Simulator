@@ -233,16 +233,6 @@ const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
 const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
 const SNOWSTORM_FOG_OPACITY_EASE = 6.2;
 const REPAIR_BOX_PROMPT_DISTANCE = 2.8;
-const CAMERA_DEBUG_ENABLED = (() => {
-  try {
-    return new URLSearchParams(globalThis.location?.search || "").get("cameraDebug") === "1";
-  } catch {
-    return false;
-  }
-})();
-
-
-
 function debugInteractionFlow(node, payload = {}) {
   if (!globalThis.__DEBUG_INTERACTION_FLOW__) {
     return;
@@ -356,7 +346,6 @@ export function startGameLoop({
     cameraOrbit,
     cameraZoomPresets,
     controls,
-    enabledDebug: CAMERA_DEBUG_ENABLED,
     gameplay,
     mount,
     session

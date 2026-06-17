@@ -1,4 +1,7 @@
-import { createCameraDebugRuntime } from "./cameraDebugRuntime.js";
+import {
+  createCameraDebugRuntime,
+  isCameraDebugEnabled
+} from "./cameraDebugRuntime.js";
 import { createCameraZoomPresetController } from "./cameraZoomPresetController.js";
 import { createFoundationBuildZoneCameraFocusRuntime } from "./foundationBuildZoneCameraFocusRuntime.js";
 import { createGameplayCameraFrameRuntime } from "./gameplayCameraFrameRuntime.js";
@@ -10,7 +13,7 @@ export function createGameplayCameraRuntimeBundle({
   cameraOrbit = null,
   cameraZoomPresets = [],
   controls = {},
-  enabledDebug = false,
+  enabledDebug = isCameraDebugEnabled(),
   factories = {},
   gameplay = {},
   mount = null,
