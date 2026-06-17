@@ -89,6 +89,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   domain.
 - Completed: bundle supply counter/pickup feedback runtime wiring into the
   `presentation/` domain.
+- Completed: move gameplay supply feedback defaults into the `presentation/`
+  supply feedback bundle.
 - Completed: bundle world planner/event/scene-sync runtime wiring into the
   `world/` domain.
 - Completed: bundle nature presentation/effects runtime wiring into the
@@ -226,6 +228,74 @@ npm test
 ```
 
 `npm test` completed with `2007` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Supply Feedback Boundary
+
+This cut moves gameplay-specific supply pickup feedback defaults out of
+`gameLoop.js` and into the existing presentation supply feedback bundle.
+
+Boundary classification: `presentation / feedback runtime`.
+
+What changed:
+
+- Added `createGameplaySupplyFeedbackRuntimeBundle(...)` to
+  `app/runtime/presentation/supplyFeedbackRuntimeBundle.js`.
+- Kept `createSupplyFeedbackRuntimeBundle(...)` as the configurable lower-level
+  factory.
+- Moved the default fly-item id list (`wood`, Gear, Leaves, Carbon) out of
+  `app/runtime/gameLoop.js`.
+- Stopped passing `PLAYER_COUNTER_PROMPT_DURATION_MS` through `gameLoop.js`;
+  the gameplay supply bundle now imports the same tuning value directly.
+
+Why this boundary is safe:
+
+- No prompt text changed.
+- No pickup item ids changed.
+- Counter prompt duration still uses `PLAYER_COUNTER_PROMPT_DURATION_MS`.
+- The public bundle return shape is unchanged.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1635` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1629` lines.
+
+Tests updated:
+
+- `tests/supplyFeedbackRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/supplyFeedbackRuntimeBundle.test.js
+```
+
+The first run failed because
+`createGameplaySupplyFeedbackRuntimeBundle(...)` did not exist. After the
+factory was added and `gameLoop.js` was rewired, focused presentation feedback
+tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/supplyFeedbackRuntimeBundle.test.js tests/supplyPickupFeedbackRuntime.test.js tests/playerCounterPromptRuntime.test.js tests/supplyCounterPrompt.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2020` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;

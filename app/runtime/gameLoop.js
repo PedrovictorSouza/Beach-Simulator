@@ -73,7 +73,7 @@ import {
   createGameplayRenderSnapshotFrameRuntime,
   createRenderSnapshotRuntimeBundle
 } from "./presentation/renderSnapshotRuntimeBundle.js";
-import { createSupplyFeedbackRuntimeBundle } from "./presentation/supplyFeedbackRuntimeBundle.js";
+import { createGameplaySupplyFeedbackRuntimeBundle } from "./presentation/supplyFeedbackRuntimeBundle.js";
 import { createNaturePresentationRuntimeBundle } from "./presentation/naturePresentationRuntimeBundle.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
@@ -126,7 +126,6 @@ import {
   LANDSCAPE_CUT_EFFECT_LERP_PORTION,
   LANDSCAPE_CUT_EFFECT_LIFT,
   LANDSCAPE_CUT_EFFECT_POP_SCALE,
-  PLAYER_COUNTER_PROMPT_DURATION_MS,
   TREE_REVIVAL_LEAF_BURST_BASE_HEIGHT,
   TREE_REVIVAL_LEAF_BURST_DRIFT,
   TREE_REVIVAL_LEAF_BURST_GRAVITY,
@@ -241,7 +240,6 @@ import {
 } from "./input/createGameplayInputRuntime.js";
 
 
-const SUPPLY_PICKUP_FLY_ITEM_IDS = Object.freeze(["wood", GEAR_ITEM_ID, LEAVES_ITEM_ID, CARBON_ITEM_ID]);
 const GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT = [2.85, 1.7];
 const WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX = 72;
 const GREENHOUSE_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 5, height: 3 });
@@ -480,19 +478,15 @@ export function startGameLoop({
     queueChangedSupplyPickupFlyItems,
     queueSupplyPickupFlyItems,
     supplyCounterPromptController
-  } = createSupplyFeedbackRuntimeBundle({
+  } = createGameplaySupplyFeedbackRuntimeBundle({
     audio,
     camera,
     controls,
     gameplay,
     getNowMs: getRuntimeNowMs,
     hud,
-    itemIds: SUPPLY_PICKUP_FLY_ITEM_IDS,
     session,
-    worldCanvas,
-    config: {
-      playerCounterPromptDurationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
-    }
+    worldCanvas
   });
   const freeBlockBuildSessionRuntime = createGameplayFreeBlockBuildSessionRuntime({
     session

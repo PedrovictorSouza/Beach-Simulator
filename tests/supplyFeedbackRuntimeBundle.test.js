@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createGameplaySupplyFeedbackRuntimeBundle,
   createSupplyFeedbackRuntimeBundle
 } from "../app/runtime/presentation/supplyFeedbackRuntimeBundle.js";
 
@@ -49,5 +50,42 @@ describe("createSupplyFeedbackRuntimeBundle", () => {
     expect(bundle.queueSupplyPickupFlyItems).toBe(
       bundle.supplyPickupFeedbackRuntime.queueFlyItems
     );
+  });
+
+  it("wires gameplay pickup item ids and counter prompt timing by default", () => {
+    const audio = {
+      playWoodGrab: vi.fn()
+    };
+    const controls = {
+      inventory: {
+        gear: 2,
+        wood: 1
+      }
+    };
+    const hud = {
+      pushNotice: vi.fn(),
+      syncInventoryUi: vi.fn()
+    };
+    const bundle = createGameplaySupplyFeedbackRuntimeBundle({
+      audio,
+      controls,
+      gameplay: {
+        getItemLabel: (itemId) => itemId
+      },
+      hud,
+      session: {},
+      getNowMs: () => 500
+    });
+
+    expect(bundle.queueChangedSupplyPickupFlyItems({ gear: 1 }, { gear: 2 }))
+      .toBe(true);
+
+    bundle.pushSupplyResourceCollectFeedback({
+      itemId: "wood",
+      count: 1
+    });
+
+    expect(bundle.playerCounterPromptRuntime.get(1999)).toContain("wood");
+    expect(bundle.playerCounterPromptRuntime.get(2000)).toBeNull();
   });
 });
