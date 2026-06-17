@@ -26,9 +26,24 @@ export function createFoundationBuildZoneCameraFocusPose({
 
 export function createFoundationBuildZoneCameraFocusRuntime({
   durationMs = FOUNDATION_BUILD_ZONE_CAMERA_FOCUS_DURATION_MS,
-  focusFlag = FOUNDATION_BUILD_ZONE_CAMERA_FOCUS_FLAG
+  focusFlag = FOUNDATION_BUILD_ZONE_CAMERA_FOCUS_FLAG,
+  foundationBuildZoneRuntime = null,
+  gameplay = null,
+  controls = null,
+  camera = null,
+  cameraOrbit = null,
+  getZoneSignature = () => null,
+  createFocusPose = createFoundationBuildZoneCameraFocusPose,
+  transitionDuration = 0.45
 } = {}) {
   let focus = null;
+
+  function isFoundationBuildMissionActive() {
+    return Boolean(foundationBuildZoneRuntime?.shouldShow?.(
+      gameplay?.getActiveQuest?.(controls?.storyState) || null,
+      gameplay?.getActiveSystemQuest?.() || null
+    ));
+  }
 
   function update({
     now,
@@ -69,7 +84,57 @@ export function createFoundationBuildZoneCameraFocusRuntime({
     return true;
   }
 
+  function updateFrame({ now } = {}) {
+    const missionActive = isFoundationBuildMissionActive();
+    if (!missionActive) {
+      return update({
+        now,
+        missionActive: false
+      });
+    }
+
+    const buildZone = foundationBuildZoneRuntime?.getActiveBuildZone?.() || null;
+    const zoneAvailable = Boolean(
+      buildZone && !foundationBuildZoneRuntime?.isBuildZoneUnavailable?.()
+    );
+    if (!zoneAvailable) {
+      return update({
+        now,
+        missionActive: true,
+        zoneAvailable: false
+      });
+    }
+
+    return update({
+      now,
+      missionActive: true,
+      zoneAvailable: true,
+      zoneSignature: getZoneSignature(buildZone),
+      flags: controls?.storyState?.flags || {},
+      startFocus: () => {
+        const pose = createFocusPose({
+          position: foundationBuildZoneRuntime?.getBuildZoneCenterPosition?.(buildZone),
+          direction: cameraOrbit?.getDirection?.() || camera?.getPose?.()?.direction
+        });
+        if (!pose) {
+          return false;
+        }
+
+        camera?.startPoseTransition?.(pose, { duration: transitionDuration });
+        if (pose.direction) {
+          cameraOrbit?.sync?.(pose.direction);
+        }
+        return true;
+      },
+      onFocusStarted: () => {
+        controls?.clearPendingActions?.();
+        controls?.clearMovementInput?.();
+      }
+    });
+  }
+
   return {
-    update
+    update,
+    updateFrame
   };
 }

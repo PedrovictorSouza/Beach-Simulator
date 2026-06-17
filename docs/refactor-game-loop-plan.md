@@ -3908,6 +3908,85 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+## Cut: Foundation Build Zone Camera Focus Frame Rule
+
+Created/extended boundary:
+
+`app/runtime/camera/foundationBuildZoneCameraFocusRuntime.js`
+
+Boundary classification: `camera runtime/debug`, specifically the
+construction-camera focus rule for the foundation build zone.
+
+Why this cut:
+
+The `gameLoop.js` still owned the detailed rule for the foundation build-zone
+camera focus: checking mission state, reading the active zone, deriving the
+zone signature, creating the camera pose, starting the pose transition,
+syncing camera orbit and clearing player input. That is domain behavior, not
+frame lifecycle.
+
+Moved out of `gameLoop.js`:
+
+- foundation-build mission active lookup for the camera focus;
+- active build-zone availability check for the camera focus;
+- build-zone signature lookup for the one-shot focus flag;
+- focus pose creation from the build-zone center and camera direction;
+- camera pose transition start;
+- camera orbit sync after focus starts;
+- pending action and movement input clearing after focus starts.
+
+Kept in `gameLoop.js`:
+
+- dependency wiring in `startGameLoop()`;
+- the `updateFoundationBuildZoneCameraFocus(now)` orchestration callback used
+  by `createGameLoopFrameRuntime(...)`;
+- the frame order where the focus update happens.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2381` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2335` lines.
+- This removed roughly 50 lines of camera/construction rule code from
+  `gameLoop.js` without creating a new file.
+
+Tests updated:
+
+- `tests/foundationBuildZoneCameraFocusRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js
+```
+
+The first run failed as expected because `runtime.updateFrame(...)` did not
+exist. After implementing `updateFrame(...)` inside the existing camera runtime,
+the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js
+npm test -- --run tests/foundationBuildZoneCameraFocusRuntime.test.js tests/gameLoopFrameRuntime.test.js tests/foundationBuildZone.test.js tests/camera.test.js tests/gameplayCameraDirector.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1990` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## Passive Nature Effect Frame Runtime Boundary
 
 Date: 2026-06-16

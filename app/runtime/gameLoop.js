@@ -60,10 +60,7 @@ import {
   resolveCompanionFollowSpeed
 } from "./companions/companionFollowMotion.js";
 import { createCompanionRenderFrameRuntime } from "./companions/companionPresentationFrame.js";
-import {
-  createFoundationBuildZoneCameraFocusPose,
-  createFoundationBuildZoneCameraFocusRuntime
-} from "./camera/foundationBuildZoneCameraFocusRuntime.js";
+import { createFoundationBuildZoneCameraFocusRuntime } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
 import { createGameplayCameraFrameRuntime } from "./camera/gameplayCameraFrameRuntime.js";
 import {
   resolveGameplayActionPermission,
@@ -708,7 +705,6 @@ export function startGameLoop({
     getEncounterRepairBoxPosition,
     clamp: clamp01
   });
-  const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime();
   const companionFacingRuntime = createCompanionFacingRuntime({
     session,
     offsets: {
@@ -1594,6 +1590,14 @@ export function startGameLoop({
       getActorPosition: getActorDebugPosition
     }
   });
+  const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime({
+    foundationBuildZoneRuntime,
+    gameplay,
+    controls,
+    camera,
+    cameraOrbit,
+    getZoneSignature: getBuilderTutorialFoundationZoneSignature
+  });
   const freeBlockBuildRuntime = createFreeBlockBuildRuntime({
     session,
     controls,
@@ -1889,58 +1893,8 @@ export function startGameLoop({
     waterGunSfxBurstRuntime.trigger(getRuntimeNowSeconds(), duration);
   }
 
-  function isFoundationBuildMissionActive() {
-    return foundationBuildZoneRuntime.shouldShow(
-      gameplay.getActiveQuest?.(controls.storyState) || null,
-      gameplay.getActiveSystemQuest?.() || null
-    );
-  }
-
   function updateFoundationBuildZoneCameraFocus(now) {
-    const missionActive = isFoundationBuildMissionActive();
-    if (!missionActive) {
-      return foundationBuildZoneCameraFocusRuntime.update({
-        now,
-        missionActive: false
-      });
-    }
-
-    const buildZone = foundationBuildZoneRuntime.getActiveBuildZone();
-    const zoneAvailable = Boolean(buildZone && !foundationBuildZoneRuntime.isBuildZoneUnavailable());
-    if (!zoneAvailable) {
-      return foundationBuildZoneCameraFocusRuntime.update({
-        now,
-        missionActive: true,
-        zoneAvailable: false
-      });
-    }
-
-    return foundationBuildZoneCameraFocusRuntime.update({
-      now,
-      missionActive: true,
-      zoneAvailable: true,
-      zoneSignature: getBuilderTutorialFoundationZoneSignature(buildZone),
-      flags: controls.storyState?.flags || {},
-      startFocus: () => {
-        const pose = createFoundationBuildZoneCameraFocusPose({
-          position: foundationBuildZoneRuntime.getBuildZoneCenterPosition(buildZone),
-          direction: cameraOrbit.getDirection?.() || camera.getPose?.()?.direction
-        });
-        if (!pose) {
-          return false;
-        }
-
-        camera.startPoseTransition?.(pose, { duration: 0.45 });
-        if (pose.direction) {
-          cameraOrbit.sync?.(pose.direction);
-        }
-        return true;
-      },
-      onFocusStarted: () => {
-        controls.clearPendingActions?.();
-        controls.clearMovementInput?.();
-      }
-    });
+    return foundationBuildZoneCameraFocusRuntime.updateFrame({ now });
   }
 
   function getGroundCellCenterPosition(groundCell) {
