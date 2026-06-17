@@ -105,6 +105,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction/` domain.
 - Completed: bundle Water Gun, Fire, Leafage and Build Block runtime wiring
   into the `fieldMoveRuntime/` domain.
+- Completed: bundle field-move support runtime wiring into the
+  `fieldMoveRuntime/` domain.
 - Completed: gameplay opening boundary extraction.
 - Completed: `loopState` migration consistency pass.
 - Completed: add `createGameLoopState()` contract tests.
@@ -220,6 +222,91 @@ npm test
 ```
 
 `npm test` completed with `2007` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Field Move Support Runtime Bundle
+
+Created boundary:
+
+`app/runtime/fieldMoveRuntime/fieldMoveSupportRuntimeBundle.js`
+
+Boundary classification: `fieldMoves`, focused on support runtimes shared by
+Water Gun, Leafage, Fire and Build Block.
+
+Why this cut:
+
+`gameLoop.js` still directly created multiple field-move support runtimes in
+different places: invalid-target prompts, actor source positions and companion
+approach positions. These are not frame lifecycle concerns; they are stable
+field-move support services. The new bundle keeps the actual ability runtimes
+separate, but moves their shared support wiring into the field-move domain.
+
+Moved out of `gameLoop.js`:
+
+- direct import/use of `createFieldMoveInvalidTargetPromptRuntime(...)`;
+- direct import/use of `createFieldMoveActorPositionRuntime(...)`;
+- direct import/use of `createFieldMoveApproachPositionRuntime(...)`;
+- invalid-target prompt duration constants for Leafage and Fire;
+- direct wiring for Squirtle/Charmander/Bulbasaur/Timburr actor and approach
+  position sources.
+
+Kept in `gameLoop.js`:
+
+- creation of the main `createFieldMoveRuntimeBundle(...)`, because it still
+  connects field moves to companions, construction, resources and action
+  impact;
+- creation of `createFieldMoveImpactRuntime(...)`, because it depends on
+  later player-action and feedback systems;
+- high-level references passed to companion speech, presentation and prompt
+  preparation.
+
+Ordering note:
+
+`companionWorldSpeechCueRuntime` now initializes after the field-move support
+bundle because it consumes `fieldMoveActorPositionRuntime`. This changes only
+composition ordering inside `startGameLoop()`, not frame ordering.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1840` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1820` lines.
+
+Tests added:
+
+- `tests/fieldMoveSupportRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/fieldMoveSupportRuntimeBundle.test.js
+```
+
+The first run failed because
+`app/runtime/fieldMoveRuntime/fieldMoveSupportRuntimeBundle.js` did not exist.
+After adding the field-move-domain factory and correcting the test expectation
+to match the existing Leafage stand-distance tuning, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/fieldMoveSupportRuntimeBundle.test.js tests/fieldMoveActorPositions.test.js tests/fieldMoveApproachPositions.test.js tests/fieldMoveInvalidTargetPromptRuntime.test.js tests/fieldMoveRuntimeBundle.test.js tests/companionPresentationRuntimeBundle.test.js tests/playerActionRuntimeBundle.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/fieldMoveRuntime/fieldMoveSupportRuntimeBundle.js tests/fieldMoveSupportRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2011` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;

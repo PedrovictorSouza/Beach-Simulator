@@ -42,7 +42,6 @@ import {
   resolvePlayerMovementPermission,
   resolveWorldSpaceUiVisibility
 } from "./gameLoopFramePolicies.js";
-import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
 import { resolveConstructionDisplacementPosition } from "./fieldMoveRuntime/buildBlockRuntime.js";
 export {
   resolveConstructionDisplacementPosition,
@@ -55,8 +54,7 @@ import {
 } from "./fieldMoveRuntime/fieldMoveGroundTargets.js";
 import { createFieldMoveImpactRuntime } from "./fieldMoveRuntime/fieldMoveImpactRuntime.js";
 import { createFieldMoveRuntimeBundle } from "./fieldMoveRuntime/fieldMoveRuntimeBundle.js";
-import { createFieldMoveApproachPositionRuntime } from "./fieldMoveRuntime/fieldMoveApproachPositions.js";
-import { createFieldMoveActorPositionRuntime } from "./fieldMoveRuntime/fieldMoveActorPositions.js";
+import { createFieldMoveSupportRuntimeBundle } from "./fieldMoveRuntime/fieldMoveSupportRuntimeBundle.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import {
   getActorDebugPosition,
@@ -296,8 +294,6 @@ const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
 const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
 const SNOWSTORM_FOG_OPACITY_EASE = 6.2;
-const LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS = 1600;
-const FIRE_INVALID_TARGET_PROMPT_DURATION_MS = 1600;
 const GROUND_ACTION_FEEDBACK_DURATION_MS = 1000;
 const FIELD_TOOL_TARGET_PULSE_DURATION_MS = 500;
 const FIELD_TOOL_TARGET_PULSE_MIN_SCALE = 0.7;
@@ -515,10 +511,6 @@ export function startGameLoop({
       playerCounterPromptDurationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
     }
   });
-  const fieldMoveInvalidTargetPromptRuntime = createFieldMoveInvalidTargetPromptRuntime({
-    leafageDurationMs: LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS,
-    fireDurationMs: FIRE_INVALID_TARGET_PROMPT_DURATION_MS
-  });
   const freeBlockBuildSessionRuntime = createFreeBlockBuildSessionRuntime({
     session,
     defaultGridConfig: FREE_BLOCK_BUILD_GRID_CONFIG,
@@ -603,38 +595,6 @@ export function startGameLoop({
       bulbasaur: BULBASAUR_MODEL_FACE_YAW_OFFSET
     }
   });
-  const fieldMoveActorPositionRuntime = createFieldMoveActorPositionRuntime({
-    getSquirtle: () => session.actTwoSquirtle,
-    getCharmander: () => session.charmanderEncounter,
-    getBulbasaur: () => session.bulbasaurEncounter,
-    getSquirtleYaw: companionFacingRuntime.getSquirtleLogicalFacingYaw,
-    getCharmanderYaw: companionFacingRuntime.getCharmanderLogicalFacingYaw,
-    getBulbasaurYaw: companionFacingRuntime.getBulbasaurLogicalFacingYaw
-  });
-  const companionWorldSpeechCueRuntime = createCompanionWorldSpeechCueRuntime({
-    chopperCueSchedule: {
-      initialDelayMs: CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS,
-      repeatMs: CHOPPER_ATTENTION_CUE_REPEAT_MS,
-      durationMs: CHOPPER_ATTENTION_CUE_DURATION_MS
-    },
-    companionLostHintSchedule: {
-      initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
-      repeatMs: COMPANION_LOST_HINT_REPEAT_MS,
-      durationMs: COMPANION_LOST_HINT_DURATION_MS
-    },
-    getFlags: () => controls.storyState?.flags || {},
-    getPlayerSkills: () => controls.playerSkills || {},
-    getBulbasaurPosition: () => session.bulbasaurEncounter?.position,
-    getSquirtlePosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
-    isPlayerNearWorldPosition: worldSceneSyncRuntime.isPlayerNearWorldPosition,
-    config: {
-      chopperInteractDistance: POKEMON_TALK_INTERACT_DISTANCE + 0.45,
-      chopperCueText: CHOPPER_ATTENTION_CUE_TEXT,
-      restoreTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
-      squirtleHintText: SQUIRTLE_WATER_GUN_HINT_TEXT,
-      bulbasaurHintText: BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT
-    }
-  });
   const {
     companionConstructionBlockerRuntime,
     solarStationPlacementBlockerRuntime,
@@ -663,18 +623,38 @@ export function startGameLoop({
       doPlacementRectsOverlap
     }
   });
-  const fieldMoveApproachPositionRuntime = createFieldMoveApproachPositionRuntime({
-    getSquirtlePosition: () =>
-      session.actTwoSquirtle?.position ||
-      session.actTwoSquirtle?.modelInstance?.offset,
-    getBulbasaurPosition: () =>
-      session.bulbasaurEncounter?.position ||
-      session.bulbasaurEncounter?.modelInstance?.offset,
-    getCharmanderPosition: () =>
-      session.charmanderEncounter?.position ||
-      session.charmanderEncounter?.modelInstance?.offset,
-    getTimburrPosition: () => session.timburrEncounter?.position,
-    isBuildBlockApproachBlocked: companionConstructionBlockerRuntime.isBlocked
+  const {
+    fieldMoveActorPositionRuntime,
+    fieldMoveApproachPositionRuntime,
+    fieldMoveInvalidTargetPromptRuntime
+  } = createFieldMoveSupportRuntimeBundle({
+    session,
+    companionFacingRuntime,
+    companionConstructionBlockerRuntime
+  });
+  const companionWorldSpeechCueRuntime = createCompanionWorldSpeechCueRuntime({
+    chopperCueSchedule: {
+      initialDelayMs: CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS,
+      repeatMs: CHOPPER_ATTENTION_CUE_REPEAT_MS,
+      durationMs: CHOPPER_ATTENTION_CUE_DURATION_MS
+    },
+    companionLostHintSchedule: {
+      initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
+      repeatMs: COMPANION_LOST_HINT_REPEAT_MS,
+      durationMs: COMPANION_LOST_HINT_DURATION_MS
+    },
+    getFlags: () => controls.storyState?.flags || {},
+    getPlayerSkills: () => controls.playerSkills || {},
+    getBulbasaurPosition: () => session.bulbasaurEncounter?.position,
+    getSquirtlePosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
+    isPlayerNearWorldPosition: worldSceneSyncRuntime.isPlayerNearWorldPosition,
+    config: {
+      chopperInteractDistance: POKEMON_TALK_INTERACT_DISTANCE + 0.45,
+      chopperCueText: CHOPPER_ATTENTION_CUE_TEXT,
+      restoreTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
+      squirtleHintText: SQUIRTLE_WATER_GUN_HINT_TEXT,
+      bulbasaurHintText: BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT
+    }
   });
   const {
     bulbasaurWorkbenchGuideRuntime,
