@@ -6,12 +6,10 @@ import {
 import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
 import { createBeeFieldRuntime } from "./companions/beeFieldRuntime.js";
-import { createBulbasaurWorkbenchGuideRuntime } from "./companions/bulbasaurWorkbenchGuideRuntime.js";
 import { createCompanionEncounterRuntime } from "./companions/companionEncounterRuntime.js";
 import { createCompanionFacingRuntime } from "./companions/companionFacingRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
-import { createCompanionGroundPatrolFrameRuntime } from "./companions/companionGroundPatrolFrameRuntime.js";
-import { createCompanionIdleMotionRuntime } from "./companions/companionIdleMotionRuntime.js";
+import { createCompanionMotionRuntimeBundle } from "./companions/companionMotionRuntimeBundle.js";
 import { createCompanionModelSyncRuntime } from "./companions/companionModelSyncRuntime.js";
 import { createCompanionRepairBoxModelRuntime } from "./companions/companionRepairBoxModelRuntime.js";
 import { createCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
@@ -50,12 +48,6 @@ import {
   getRotatedPlacementSize as getRotatedPlacementSizeWithConfig,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
-import { createCompanionFollowDirectionRuntime } from "./companions/companionFollowDirectionRuntime.js";
-import { createCompanionFollowMovementRuntime } from "./companions/companionFollowMovementRuntime.js";
-import {
-  resolveCompanionFollowDistance,
-  resolveCompanionFollowSpeed
-} from "./companions/companionFollowMotion.js";
 import { createCompanionRenderFrameRuntime } from "./companions/companionPresentationFrame.js";
 import { createFoundationBuildZoneCameraFocusRuntime } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
 import { createGameplayCameraFrameRuntime } from "./camera/gameplayCameraFrameRuntime.js";
@@ -724,25 +716,6 @@ export function startGameLoop({
       bulbasaurHintText: BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT
     }
   });
-  const companionFollowDirectionRuntime = createCompanionFollowDirectionRuntime({
-    getFlags: () => controls.storyState?.flags || {},
-    getCompanions: () => ({
-      squirtle: session.actTwoSquirtle,
-      bulbasaur: session.bulbasaurEncounter,
-      charmander: session.charmanderEncounter,
-      timburr: session.timburrEncounter
-    }),
-    getActions: () => ({
-      squirtleWaterGun: session.squirtleWaterGunAction,
-      bulbasaurLeafage: session.bulbasaurLeafageAction,
-      charmanderFire: session.charmanderFireAction,
-      timburrBuildBlock: session.timburrBuildBlockAction
-    }),
-    getBlockers: () => ({
-      squirtleWaterGunQueueActive: waterGunRuntime.getQueue().length > 0,
-      bulbasaurWorkbenchGuideActive: bulbasaurWorkbenchGuideRuntime.isActive()
-    })
-  });
   const companionConstructionBlockerRuntime = createCompanionConstructionBlockerRuntime({
     getColliders: getPlayerConstructionTerrainColliders,
     playBlockedSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
@@ -787,59 +760,45 @@ export function startGameLoop({
     getTimburrPosition: () => session.timburrEncounter?.position,
     isBuildBlockApproachBlocked: companionConstructionBlockerRuntime.isBlocked
   });
-  const companionFollowMovementRuntime = createCompanionFollowMovementRuntime({
-    getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
-    getPlayerYaw: () => session.playerModelInstance?.yaw,
-    getFollowDirection: (yaw) => companionFollowDirectionRuntime.get(yaw),
-    tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
-    getModelYawToward: companionFacingRuntime.getRobotModelYawToward,
-    resolveFollowFormationIndex: companionFollowDirectionRuntime.resolveFormationIndex,
-    resolveFollowDistance: resolveCompanionFollowDistance,
-    arriveDistance: COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE
-  });
-  const companionIdleMotionRuntime = createCompanionIdleMotionRuntime({
-    getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
-    getModelYawToward: companionFacingRuntime.getRobotModelYawToward,
-    attentionDistance: BOT_PLAYER_ATTENTION_DISTANCE,
-    patrolSpeed: ROBOT_IDLE_PATROL_SPEED,
-    patrolPauseDuration: ROBOT_IDLE_PATROL_PAUSE_DURATION,
-    patrolArriveDistance: ROBOT_IDLE_PATROL_ARRIVE_DISTANCE
-  });
-  const bulbasaurWorkbenchGuideRuntime = createBulbasaurWorkbenchGuideRuntime({
-    session,
+  const {
+    bulbasaurWorkbenchGuideRuntime,
+    companionFollowDirectionRuntime,
+    companionFollowMovementRuntime,
+    companionGroundPatrolFrameRuntime,
+    companionIdleMotionRuntime
+  } = createCompanionMotionRuntimeBundle({
     controls,
-    workbenchPosition: WORKBENCH_POSITION,
-    getYawToward: companionFacingRuntime.getRobotModelYawToward,
-    config: {
-      start: BULBASAUR_WORKBENCH_GUIDE_START,
-      speed: BULBASAUR_WORKBENCH_GUIDE_SPEED,
-      waypointDistance: BULBASAUR_WORKBENCH_GUIDE_WAYPOINT_DISTANCE,
-      rampColliderId: BULBASAUR_WORKBENCH_GUIDE_RAMP_COLLIDER_ID,
-      rampApproachMargin: BULBASAUR_WORKBENCH_GUIDE_RAMP_APPROACH_MARGIN,
-      sideApproachMargin: BULBASAUR_WORKBENCH_GUIDE_SIDE_APPROACH_MARGIN,
-      modelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET
-    }
-  });
-  const companionGroundPatrolFrameRuntime = createCompanionGroundPatrolFrameRuntime({
     session,
-    controls,
-    followMovement: companionFollowMovementRuntime,
-    idleMotion: companionIdleMotionRuntime,
-    getSquirtleWaterGunQueue: () => waterGunRuntime.getQueue(),
-    isBulbasaurWorkbenchGuideActive: () => bulbasaurWorkbenchGuideRuntime.isActive(),
-    resolveFollowFormationIndex: companionFollowDirectionRuntime.resolveFormationIndex,
-    resolveFollowDistance: resolveCompanionFollowDistance,
-    syncSquirtleModelInstance: () => companionModelSyncRuntime.syncSquirtle(),
-    syncBulbasaurModelInstance: () => companionModelSyncRuntime.syncBulbasaur(),
+    runtimes: {
+      companionConstructionBlockerRuntime,
+      companionFacingRuntime
+    },
+    callbacks: {
+      getSquirtleWaterGunQueue: () => waterGunRuntime.getQueue(),
+      syncSquirtleModelInstance: () => companionModelSyncRuntime.syncSquirtle(),
+      syncBulbasaurModelInstance: () => companionModelSyncRuntime.syncBulbasaur()
+    },
     config: {
-      squirtleFollowSpeed: SQUIRTLE_FOLLOW_SPEED,
-      squirtleFollowDistance: SQUIRTLE_FOLLOW_DISTANCE,
-      squirtleModelFaceYawOffset: SQUIRTLE_MODEL_FACE_YAW_OFFSET,
-      squirtleIdlePatrolRadius: SQUIRTLE_IDLE_PATROL_RADIUS,
+      arriveDistance: COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE,
       bulbasaurFollowSpeed: BULBASAUR_FOLLOW_SPEED,
       bulbasaurFollowDistance: BULBASAUR_FOLLOW_DISTANCE,
+      bulbasaurIdlePatrolRadius: BULBASAUR_IDLE_PATROL_RADIUS,
       bulbasaurModelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET,
-      bulbasaurIdlePatrolRadius: BULBASAUR_IDLE_PATROL_RADIUS
+      bulbasaurWorkbenchGuideRampApproachMargin: BULBASAUR_WORKBENCH_GUIDE_RAMP_APPROACH_MARGIN,
+      bulbasaurWorkbenchGuideRampColliderId: BULBASAUR_WORKBENCH_GUIDE_RAMP_COLLIDER_ID,
+      bulbasaurWorkbenchGuideSideApproachMargin: BULBASAUR_WORKBENCH_GUIDE_SIDE_APPROACH_MARGIN,
+      bulbasaurWorkbenchGuideSpeed: BULBASAUR_WORKBENCH_GUIDE_SPEED,
+      bulbasaurWorkbenchGuideStart: BULBASAUR_WORKBENCH_GUIDE_START,
+      bulbasaurWorkbenchGuideWaypointDistance: BULBASAUR_WORKBENCH_GUIDE_WAYPOINT_DISTANCE,
+      botPlayerAttentionDistance: BOT_PLAYER_ATTENTION_DISTANCE,
+      robotIdlePatrolArriveDistance: ROBOT_IDLE_PATROL_ARRIVE_DISTANCE,
+      robotIdlePatrolPauseDuration: ROBOT_IDLE_PATROL_PAUSE_DURATION,
+      robotIdlePatrolSpeed: ROBOT_IDLE_PATROL_SPEED,
+      squirtleFollowSpeed: SQUIRTLE_FOLLOW_SPEED,
+      squirtleFollowDistance: SQUIRTLE_FOLLOW_DISTANCE,
+      squirtleIdlePatrolRadius: SQUIRTLE_IDLE_PATROL_RADIUS,
+      squirtleModelFaceYawOffset: SQUIRTLE_MODEL_FACE_YAW_OFFSET,
+      workbenchPosition: WORKBENCH_POSITION
     }
   });
   const runBreadcrumbPromptRuntime = createRunBreadcrumbPromptRuntime({

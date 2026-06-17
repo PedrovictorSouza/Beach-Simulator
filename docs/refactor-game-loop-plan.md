@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle companion motion/follow/patrol runtime wiring into the
+  `companions/` domain.
 - Completed: bundle construction placement runtime wiring into the
   `construction/` domain.
 - Completed: bundle Water Gun, Fire, Leafage and Build Block runtime wiring
@@ -122,6 +124,86 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Companion Motion Runtime Bundle
+
+Created boundary:
+
+`app/runtime/companions/companionMotionRuntimeBundle.js`
+
+Boundary classification: `companions`, focused on companion movement,
+follow-direction, idle patrol, Bulbasaur guide motion and Squirtle/Bulbasaur
+ground patrol composition.
+
+Why this cut:
+
+`gameLoop.js` was still directly wiring a chain of companion motion runtimes:
+follow direction, follow movement, idle motion, Bulbasaur Workbench guide and
+ground patrol. Those dependencies are companion-domain internals, while the
+game loop only needs the resulting runtime handles for frame orchestration and
+for other already-isolated systems.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createCompanionFollowDirectionRuntime(...)`;
+- direct imports for `createCompanionFollowMovementRuntime(...)`;
+- direct imports for `createCompanionIdleMotionRuntime(...)`;
+- direct imports for `createBulbasaurWorkbenchGuideRuntime(...)`;
+- direct imports for `createCompanionGroundPatrolFrameRuntime(...)`;
+- inline wiring among companion follow, idle, guide and patrol runtimes.
+
+Kept in `gameLoop.js`:
+
+- high-level dependency wiring for companion motion;
+- the public runtime variables consumed by player movement, field moves,
+  companion encounter and companion frame systems;
+- frame order, movement tuning, formation rules and model sync side effects.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2103` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2062` lines.
+- This removes roughly 40 lines from `gameLoop.js` while keeping the code
+  inside the existing `companions/` module boundary.
+
+Tests added:
+
+- `tests/companionMotionRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionMotionRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/companions/companionMotionRuntimeBundle.js` did not exist. After
+adding the domain factory and correcting the test expectation to match the
+existing follow-position convention, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionMotionRuntimeBundle.test.js
+npm test -- --run tests/companionMotionRuntimeBundle.test.js tests/companionFollowDirectionRuntime.test.js tests/companionFollowMovementRuntime.test.js tests/companionIdleMotionRuntime.test.js tests/bulbasaurWorkbenchGuideRuntime.test.js tests/companionGroundPatrolFrameRuntime.test.js tests/companionEncounterRuntime.test.js tests/playerMovementFrame.test.js tests/playerActionRuntimeBundle.test.js tests/fieldMoveRuntimeBundle.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/companions/companionMotionRuntimeBundle.js tests/companionMotionRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1996` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Construction Placement Runtime Bundle
 
