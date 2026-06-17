@@ -94,6 +94,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   supply feedback bundle.
 - Completed: bundle world planner/event/scene-sync runtime wiring into the
   `world/` domain.
+- Completed: move snowstorm fog runtime implementation and gameplay defaults
+  into the `world/` domain.
 - Completed: bundle nature presentation/effects runtime wiring into the
   `presentation/` domain.
 - Completed: move gameplay nature presentation/effect tuning into the
@@ -384,6 +386,76 @@ npm test
 ```
 
 `npm test` completed with `2027` passed and `4` failed:
+
+- `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
+  baseline failures.
+- `tests/sceneFlowRuntimeCompletion.test.js`: the existing start-screen gameplay
+  opening baseline failure.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - World Snowstorm Fog Boundary
+
+This cut moves the snowstorm fog runtime implementation and gameplay defaults
+from the runtime root into the `world/` domain.
+
+Boundary classification: `world / weather presentation`.
+
+What changed:
+
+- Added `app/runtime/world/snowstormFogRuntime.js`.
+- Added `createGameplaySnowstormFogRuntime(...)` with the existing gameplay
+  defaults for max opacity, opacity easing and snowstorm intensity lookup.
+- Converted `app/runtime/snowstormFogRuntime.js` into a compatibility re-export.
+- Rewired `gameLoop.js` to construct the gameplay snowstorm fog runtime from
+  the `world/` domain.
+- Removed snowstorm fog tuning constants and the direct
+  `getSnowstormFogIntensity` import from `gameLoop.js`.
+
+Why this boundary is safe:
+
+- The DOM overlay implementation was copied unchanged.
+- Numeric defaults stayed `0.54` for max opacity and `6.2` for opacity easing.
+- Existing imports from `app/runtime/snowstormFogRuntime.js` remain compatible.
+- The frame order did not change; world ambient updates still call
+  `snowstormFogRuntime.update(...)` through the existing callback.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1409` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1403` lines.
+
+Tests updated:
+
+- `tests/snowstormFogRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/snowstormFogRuntime.test.js
+```
+
+The first run failed because `app/runtime/world/snowstormFogRuntime.js` did not
+exist. After moving the runtime and adding the gameplay factory, the focused
+world/weather suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/snowstormFogRuntime.test.js tests/snowstormParticleField.test.js tests/worldRuntimeBundle.test.js
+git diff --check
+npm run build
+```
+
+`npm run build` passed with the existing Vite chunk-size warning.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2031` passed and `4` failed:
 
 - `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
   baseline failures.

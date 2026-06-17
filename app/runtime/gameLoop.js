@@ -80,7 +80,7 @@ import { createGameplaySupplyFeedbackRuntimeBundle } from "./presentation/supply
 import { createGameplayNaturePresentationRuntimeBundle } from "./presentation/naturePresentationRuntimeBundle.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
-import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
+import { createGameplaySnowstormFogRuntime } from "./world/snowstormFogRuntime.js";
 import { applyTrainHouseDance } from "./trainHouseDance.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
 import { createConstructionWorkbenchRotationRuntime } from "./construction/workbenchRotationRuntime.js";
@@ -167,7 +167,6 @@ import { createFrameSnapshotController } from "./frameSnapshotController.js";
 import {
   restoreActiveZoomPresetOnMovement
 } from "./camera/cameraZoomPresetController.js";
-import { getSnowstormFogIntensity } from "../session/snowstormParticleField.js";
 import { updateIntroRoomFrame } from "../scenes/introRoom/introRoomSequence.js";
 import { SOUND_EVENT_IDS } from "./soundEventRuntime.js";
 import {
@@ -230,8 +229,6 @@ const WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX = 72;
 const LEAF_DEN_BUSY_NOTICE = "im busy, boss...";
 const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
-const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
-const SNOWSTORM_FOG_OPACITY_EASE = 6.2;
 const REPAIR_BOX_PROMPT_DISTANCE = 2.8;
 function debugInteractionFlow(node, payload = {}) {
   if (!globalThis.__DEBUG_INTERACTION_FLOW__) {
@@ -538,11 +535,8 @@ export function startGameLoop({
       getNowSeconds: getRuntimeNowSeconds
     }
   });
-  const snowstormFogRuntime = createSnowstormFogRuntime({
+  const snowstormFogRuntime = createGameplaySnowstormFogRuntime({
     mount,
-    getSnowstormFogIntensity,
-    maxOpacity: SNOWSTORM_FOG_MAX_OPACITY,
-    opacityEase: SNOWSTORM_FOG_OPACITY_EASE,
     clamp01
   });
 

@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { describe, expect, it, vi } from "vitest";
 
-import { createSnowstormFogRuntime } from "../app/runtime/snowstormFogRuntime.js";
+import {
+  createGameplaySnowstormFogRuntime,
+  createSnowstormFogRuntime
+} from "../app/runtime/world/snowstormFogRuntime.js";
 
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));
@@ -17,6 +20,29 @@ function createSession(snowstorm = {}) {
 }
 
 describe("createSnowstormFogRuntime", () => {
+  it("wires gameplay snowstorm fog defaults", () => {
+    const mount = document.createElement("div");
+    const getSnowstormFogIntensity = vi.fn(() => 0.5);
+    const runtime = createGameplaySnowstormFogRuntime({
+      mount,
+      clamp01,
+      getSnowstormFogIntensity
+    });
+
+    runtime.update({
+      session: createSession({ elapsed: 2 }),
+      deltaTime: Number.POSITIVE_INFINITY
+    });
+
+    const element = mount.querySelector("[data-snowstorm-fog]");
+
+    expect(getSnowstormFogIntensity).toHaveBeenCalledWith(
+      expect.objectContaining({ elapsed: 2 }),
+      [4, 0, 7]
+    );
+    expect(Number(element.style.opacity)).toBeCloseTo(0.27);
+  });
+
   it("creates and updates the snowstorm overlay with the existing visual calculation", () => {
     const mount = document.createElement("div");
     const getSnowstormFogIntensity = vi.fn(() => 0.5);
