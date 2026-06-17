@@ -230,6 +230,80 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+## 2026-06-17 - Gameplay Opening Presentation Frame Boundary
+
+This cut moves the remaining opening-presentation helper out of
+`gameLoop.js` and into the opening domain module. It supersedes the earlier
+internal `updateGameplayPresentationFrame(...)` helper that still lived inside
+`startGameLoop()`.
+
+Boundary classification: `camera / opening runtime` with presentation-frame
+handoff.
+
+What changed:
+
+- Added `createGameplayOpeningPresentationFrameRuntime(...)` to
+  `app/runtime/opening/createGameplayOpeningRuntime.js`.
+- Removed the private `updateGameplayPresentationFrame(...)` function from
+  `app/runtime/gameLoop.js`.
+- `startGameLoop()` now wires the opening presentation runtime with explicit
+  callbacks for frame audio, gameplay-flow state and dialogue state.
+- `frame(now)` now delegates opening ship audio, frame audio ordering, HUD
+  reveal and opening presentation flow-state merging to
+  `gameplayOpeningPresentationFrameRuntime.update(...)`.
+
+Why this boundary is safe:
+
+- The runtime preserves the exact existing order:
+  `updateShipAudio(...)`, `updateFrameAudio(...)`, `updateHudReveal(...)`.
+- It does not move camera update order or `requestAnimationFrame(frame)`.
+- It does not change gameplay tuning, cinematic timing, HUD text or snapshot
+  shape.
+- Dependencies that belong to `startGameLoop()` remain passed explicitly as
+  callbacks.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1704` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1679` lines.
+
+Tests updated:
+
+- `tests/gameplayOpeningShip.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/gameplayOpeningShip.test.js
+```
+
+The first run failed because
+`createGameplayOpeningPresentationFrameRuntime(...)` did not exist. After the
+factory was added and wired into `gameLoop.js`, the focused coverage passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameplayOpeningShip.test.js tests/gameplayAudioRuntimeBundle.test.js tests/gameplayCameraFrameRuntime.test.js tests/gameLoopFrameRuntime.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2016` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## 2026-06-17 - Gameplay Presentation Snapshot Frame Boundary
 
 This cut continues the presentation/render-helper extraction without changing

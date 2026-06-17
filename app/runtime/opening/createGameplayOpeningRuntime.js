@@ -22,6 +22,52 @@ export const GAMEPLAY_OPENING_PHASES = Object.freeze({
   DONE: "done"
 });
 
+export function createGameplayOpeningPresentationFrameRuntime({
+  openingRuntime,
+  updateFrameAudio = () => {},
+  isGameplayActive = () => false,
+  isDialogueActive = () => false
+} = {}) {
+  function update({
+    now,
+    deltaTime,
+    playerMovedThisFrame,
+    gameplayOpeningCameraFrame,
+    flowState = {},
+    cinematicActive = false,
+    tutorialActive = false
+  } = {}) {
+    openingRuntime.updateShipAudio(now);
+
+    updateFrameAudio({
+      deltaTime,
+      gameplayOpeningCameraFrame,
+      now,
+      playerMovedThisFrame
+    });
+
+    openingRuntime.updateHudReveal({
+      now,
+      gameplayActive: isGameplayActive()
+    });
+
+    return {
+      gameplayOpeningCameraFrame: openingRuntime.getCameraFrame(),
+      gameplayOpeningHudHidden: openingRuntime.isHudHidden(),
+      currentFlowState: {
+        ...flowState,
+        cinematicActive,
+        tutorialActive,
+        dialogueActive: isDialogueActive()
+      }
+    };
+  }
+
+  return {
+    update
+  };
+}
+
 function getEstablishingShotsDuration(shots) {
   return shots.reduce(
     (duration, shot) => Math.max(duration, Number(shot?.end) || 0),

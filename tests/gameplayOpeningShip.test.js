@@ -1,9 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   createGameplayOpeningShipState,
   getGameplayOpeningShipDynamicBarrier,
   getGameplayOpeningShipSceneObjects
 } from "../app/session/gameplayOpeningShip.js";
+import {
+  createGameplayOpeningPresentationFrameRuntime
+} from "../app/runtime/opening/createGameplayOpeningRuntime.js";
 
 describe("gameplay opening ship", () => {
   it("exposes a player-blocking barrier only after the ship has landed", () => {
@@ -66,5 +69,63 @@ describe("gameplay opening ship", () => {
       .toEqual([true, true, true]);
     expect(sceneObjects[1].instances[0].offset[0]).toBeGreaterThan(8);
     expect(sceneObjects[2].instances[0].offset[0]).toBeLessThan(4);
+  });
+
+  it("coordinates opening presentation updates before exposing frame state", () => {
+    const order = [];
+    const openingRuntime = {
+      updateShipAudio: vi.fn(() => order.push("shipAudio")),
+      updateHudReveal: vi.fn(() => order.push("hudReveal")),
+      getCameraFrame: vi.fn(() => ({ phase: "player-exit" })),
+      isHudHidden: vi.fn(() => false)
+    };
+    const updateFrameAudio = vi.fn(() => order.push("frameAudio"));
+    const isGameplayActive = vi.fn(() => true);
+    const isDialogueActive = vi.fn(() => true);
+    const runtime = createGameplayOpeningPresentationFrameRuntime({
+      openingRuntime,
+      updateFrameAudio,
+      isGameplayActive,
+      isDialogueActive
+    });
+    const gameplayOpeningCameraFrame = { phase: "ship-landed" };
+    const flowState = {
+      introActive: false,
+      pokedexModalOpen: false
+    };
+
+    const frame = runtime.update({
+      now: 1234,
+      deltaTime: 0.016,
+      playerMovedThisFrame: true,
+      gameplayOpeningCameraFrame,
+      flowState,
+      cinematicActive: false,
+      tutorialActive: true
+    });
+
+    expect(order).toEqual(["shipAudio", "frameAudio", "hudReveal"]);
+    expect(openingRuntime.updateShipAudio).toHaveBeenCalledWith(1234);
+    expect(updateFrameAudio).toHaveBeenCalledWith({
+      deltaTime: 0.016,
+      gameplayOpeningCameraFrame,
+      now: 1234,
+      playerMovedThisFrame: true
+    });
+    expect(openingRuntime.updateHudReveal).toHaveBeenCalledWith({
+      now: 1234,
+      gameplayActive: true
+    });
+    expect(frame).toEqual({
+      gameplayOpeningCameraFrame: { phase: "player-exit" },
+      gameplayOpeningHudHidden: false,
+      currentFlowState: {
+        introActive: false,
+        pokedexModalOpen: false,
+        cinematicActive: false,
+        tutorialActive: true,
+        dialogueActive: true
+      }
+    });
   });
 });

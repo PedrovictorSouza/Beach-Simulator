@@ -231,7 +231,10 @@ import { resolvePsxDistanceFogSettings } from "../rendering/psxDistanceFogConfig
 import { PLACEMENT_CONTRACTS } from "../gameplay/contracts/placementContracts.js";
 import { cancelPlacementPreview, hasActivePlacementPreview } from "../gameplay/contracts/placementRuntime.js";
 import { createGameplayAudioRuntimeBundle } from "./audio/gameplayAudioRuntimeBundle.js";
-import { createGameplayOpeningRuntime } from "./opening/createGameplayOpeningRuntime.js";
+import {
+  createGameplayOpeningPresentationFrameRuntime,
+  createGameplayOpeningRuntime
+} from "./opening/createGameplayOpeningRuntime.js";
 import {
   createGameplayInputFrameRuntime,
   createGameplayInputRuntime
@@ -1153,6 +1156,13 @@ export function startGameLoop({
     gameplayUiVisibility,
     audio
   });
+  const gameplayOpeningPresentationFrameRuntime =
+    createGameplayOpeningPresentationFrameRuntime({
+      openingRuntime: gameplayOpeningRuntime,
+      updateFrameAudio,
+      isGameplayActive: () => isGameFlow(gameFlowValues.GAMEPLAY),
+      isDialogueActive: () => gameplayDialogue.isActive()
+    });
   const gameplayCameraFrameRuntime = createGameplayCameraFrameRuntime({
     tutorial: actTwoTutorial,
     openingRuntime: gameplayOpeningRuntime,
@@ -1443,41 +1453,6 @@ export function startGameLoop({
     { capture: true }
   );
 
-  function updateGameplayPresentationFrame({
-    now,
-    deltaTime,
-    playerMovedThisFrame,
-    gameplayOpeningCameraFrame,
-    frameFlowState,
-    cinematicActive,
-    tutorialActive
-  }) {
-    gameplayOpeningRuntime.updateShipAudio(now);
-
-    updateFrameAudio({
-      deltaTime,
-      gameplayOpeningCameraFrame,
-      now,
-      playerMovedThisFrame
-    });
-
-    gameplayOpeningRuntime.updateHudReveal({
-      now,
-      gameplayActive: isGameFlow(gameFlowValues.GAMEPLAY)
-    });
-
-    return {
-      gameplayOpeningCameraFrame: gameplayOpeningRuntime.getCameraFrame(),
-      gameplayOpeningHudHidden: gameplayOpeningRuntime.isHudHidden(),
-      currentFlowState: {
-        ...frameFlowState,
-        cinematicActive,
-        tutorialActive,
-        dialogueActive: gameplayDialogue.isActive()
-      }
-    };
-  }
-
   function frame(now) {
     // Timing and flow state.
     const {
@@ -1661,12 +1636,12 @@ export function startGameLoop({
     });
     gameplayOpeningCameraFrame = gameplayCameraFrame.gameplayOpeningCameraFrame;
 
-    const gameplayPresentationFrame = updateGameplayPresentationFrame({
+    const gameplayPresentationFrame = gameplayOpeningPresentationFrameRuntime.update({
       now,
       deltaTime,
       playerMovedThisFrame,
       gameplayOpeningCameraFrame,
-      frameFlowState,
+      flowState: frameFlowState,
       cinematicActive,
       tutorialActive
     });
