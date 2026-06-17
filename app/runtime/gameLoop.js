@@ -253,8 +253,7 @@ import {
 import { resolvePsxDistanceFogSettings } from "../rendering/psxDistanceFogConfig.js";
 import { PLACEMENT_CONTRACTS } from "../gameplay/contracts/placementContracts.js";
 import { cancelPlacementPreview, hasActivePlacementPreview } from "../gameplay/contracts/placementRuntime.js";
-import { createGameplayAudioRuntime } from "./gameplayAudioRuntime.js";
-import { createTrainHouseMusicRuntime } from "./audio/trainHouseMusicRuntime.js";
+import { createGameplayAudioRuntimeBundle } from "./audio/gameplayAudioRuntimeBundle.js";
 import { createGameplayOpeningRuntime } from "./opening/createGameplayOpeningRuntime.js";
 import {
   createGameplayInputFrameRuntime,
@@ -518,22 +517,14 @@ export function startGameLoop({
     })
   });
   cameraDebugRuntime.attachGlobalListeners();
-  const getSfxVolumeScale = () => gameplay?.audioMixRuntime?.getSfxVolumeScale?.() ?? 1;
-  const getMusicVolumeScale = () => gameplay?.audioMixRuntime?.getMusicVolumeScale?.() ?? 1;
-  const playSoundEvent = (eventId, options) => {
-    gameplay?.playSoundEvent?.(eventId, options);
-  };
-  const audio = createGameplayAudioRuntime({
-    getSfxVolumeScale,
-    getMusicVolumeScale,
-    playSoundEvent
-  });
-  const trainHouseMusicRuntime = createTrainHouseMusicRuntime({
+  const {
     audio,
-    getPlayerPosition: () => session.playerCharacter?.getPosition?.() || null,
-    getStoryState: () => controls.storyState,
-    getTrainHousePosition: () => session.campfire?.position || null,
-    getMusicRuntime: () => gameplay.musicRuntime
+    playSoundEvent,
+    updateFrameAudio
+  } = createGameplayAudioRuntimeBundle({
+    controls,
+    gameplay,
+    session
   });
   const {
     playerCounterPromptRuntime,
@@ -1607,12 +1598,12 @@ export function startGameLoop({
   }) {
     gameplayOpeningRuntime.updateShipAudio(now);
 
-    audio.updatePlayerDriving({
-      active: playerMovedThisFrame || gameplayOpeningCameraFrame?.phase === "player-exit"
+    updateFrameAudio({
+      deltaTime,
+      gameplayOpeningCameraFrame,
+      now,
+      playerMovedThisFrame
     });
-    const nowSeconds = now * 0.001;
-    trainHouseMusicRuntime.update(nowSeconds);
-    gameplay.musicRuntime?.update?.(deltaTime, { nowSeconds });
 
     gameplayOpeningRuntime.updateHudReveal({
       now,

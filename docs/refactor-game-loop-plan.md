@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle gameplay audio and frame music updates into the `audio/`
+  domain.
 - Completed: bundle supply counter/pickup feedback runtime wiring into the
   `presentation/` domain.
 - Completed: bundle world planner/event/scene-sync runtime wiring into the
@@ -132,6 +134,86 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Gameplay Audio Runtime Bundle
+
+Created boundary:
+
+`app/runtime/audio/gameplayAudioRuntimeBundle.js`
+
+Boundary classification: `audio`, focused on gameplay sound-event dispatch,
+mix-volume access, player-driving loop updates and Thermal Cabin music updates.
+
+Why this cut:
+
+`gameLoop.js` was still directly creating gameplay audio, wiring audio mix
+volume getters, creating the Thermal Cabin music runtime and updating both
+player-driving audio and music runtime state during the presentation frame. The
+frame should keep the timing call, but audio-specific wiring and frame audio
+updates belong to the audio domain.
+
+Moved out of `gameLoop.js`:
+
+- direct import for `createGameplayAudioRuntime(...)`;
+- direct import for `createTrainHouseMusicRuntime(...)`;
+- local `getSfxVolumeScale(...)` and `getMusicVolumeScale(...)` closures;
+- local `playSoundEvent(...)` dispatch closure;
+- direct Thermal Cabin music runtime creation;
+- direct player-driving audio update;
+- direct Thermal Cabin music update and music runtime tick.
+
+Kept in `gameLoop.js`:
+
+- high-level audio dependency creation through
+  `createGameplayAudioRuntimeBundle(...)`;
+- `audio` and `playSoundEvent` handles consumed by existing runtimes;
+- the frame-order position of audio updates inside
+  `updateGameplayPresentationFrame(...)`;
+- the public re-export of `resolveTrainHouseMusicVolume(...)` for existing
+  tests/importers.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1992` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1983` lines.
+
+Tests added:
+
+- `tests/gameplayAudioRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/gameplayAudioRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/audio/gameplayAudioRuntimeBundle.js` did not exist. After adding
+the audio-domain factory and integrating it into `gameLoop.js`, the focused
+tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameplayAudioRuntimeBundle.test.js tests/trainHouseRuntime.test.js tests/audioMixRuntime.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/audio/gameplayAudioRuntimeBundle.js tests/gameplayAudioRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2002` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Supply Feedback Runtime Bundle
 
