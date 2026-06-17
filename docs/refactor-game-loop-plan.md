@@ -4250,6 +4250,92 @@ Still pending:
 
 - manual gameplay validation.
 
+## Companion Follow Formation Runtime Boundary
+
+Date: 2026-06-16
+
+Boundary classification: `companions / bot motion`, inside the existing
+`app/runtime/companions/companionFollowDirectionRuntime.js` module.
+
+Goal:
+
+- remove companion follow-formation state assembly from `gameLoop.js`;
+- keep companion movement and ground patrol runtimes receiving a simple
+  formation resolver callback;
+- avoid creating a new file;
+- preserve existing follow order, active-move priority and blocker rules.
+
+What moved:
+
+- collection of story flags used by follow formation;
+- collection of Squirtle, Bulbasaur, Charmander and Timburr companion state;
+- collection of active companion action state;
+- collection of follow blockers for Squirtle Water Gun queue and Bulbasaur
+  Workbench guide;
+- call to `resolveCompanionFollowFormationIndexFromState(...)` with fallback
+  index `0`.
+
+New owner:
+
+- `createCompanionFollowDirectionRuntime(...).resolveFormationIndex(...)`.
+
+Kept in `gameLoop.js`:
+
+- dependency wiring for session, story state, active actions and blockers;
+- passing `resolveFormationIndex` into companion movement and ground patrol
+  frame runtimes.
+
+Why this is safe:
+
+- the pure formation resolver in `companionFollowMotion.js` is unchanged;
+- follow distance/speed tuning is unchanged;
+- movement and patrol runtimes still call a callback with the same signature.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` had `2409` lines.
+- After this cut, `app/runtime/gameLoop.js` has `2402` lines.
+
+Tests added:
+
+- `tests/companionFollowDirectionRuntime.test.js` now verifies that the
+  runtime resolves formation indices from injected runtime state and preserves
+  the existing fallback to `0` when a companion is excluded from formation.
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionFollowDirectionRuntime.test.js
+```
+
+The first run failed because `runtime.resolveFormationIndex` did not exist yet.
+After implementing the method, the focused companion tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionFollowDirectionRuntime.test.js tests/companionFollowMotion.test.js tests/companionFollowMovementRuntime.test.js tests/companionGroundPatrolFrameRuntime.test.js tests/playerMovementFrame.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1985` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` existing scene-flow failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Still pending:
+
+- manual gameplay validation.
+
 ### Early Gameplay Control Frame Runtime Boundary
 
 Expanded `app/runtime/gameLoopFrameRuntime.js` with

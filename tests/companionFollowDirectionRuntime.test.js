@@ -41,4 +41,46 @@ describe("createCompanionFollowDirectionRuntime", () => {
     expect(first.get()).toEqual([1, 0]);
     expect(second.get()).toEqual([0, -1]);
   });
+
+  it("resolves follow formation index from runtime state dependencies", () => {
+    const runtime = createCompanionFollowDirectionRuntime({
+      getFlags: () => ({
+        squirtleFollowing: true,
+        bulbasaurFollowing: true
+      }),
+      getCompanions: () => ({
+        squirtle: {
+          visible: true,
+          position: [1, 0, 0],
+          recovered: true,
+          assemblyState: "assembled"
+        },
+        bulbasaur: {
+          visible: true,
+          position: [0, 0, 1],
+          revealBoxOpening: { active: false }
+        }
+      }),
+      getActions: () => ({}),
+      getBlockers: () => ({
+        squirtleWaterGunQueueActive: false,
+        bulbasaurWorkbenchGuideActive: false
+      })
+    });
+
+    expect(runtime.resolveFormationIndex("squirtle")).toBe(0);
+    expect(runtime.resolveFormationIndex("bulbasaur")).toBe(1);
+    expect(runtime.resolveFormationIndex("charmander")).toBe(0);
+  });
+
+  it("falls back to formation index zero when runtime state excludes the companion", () => {
+    const runtime = createCompanionFollowDirectionRuntime({
+      getFlags: () => ({}),
+      getCompanions: () => ({}),
+      getActions: () => ({}),
+      getBlockers: () => ({})
+    });
+
+    expect(runtime.resolveFormationIndex("squirtle", "waterGun")).toBe(0);
+  });
 });

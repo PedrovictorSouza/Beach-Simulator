@@ -1,4 +1,11 @@
-export function createCompanionFollowDirectionRuntime() {
+import { resolveCompanionFollowFormationIndexFromState } from "./companionFollowMotion.js";
+
+export function createCompanionFollowDirectionRuntime({
+  getFlags = () => ({}),
+  getCompanions = () => ({}),
+  getActions = () => ({}),
+  getBlockers = () => ({})
+} = {}) {
   let direction = null;
 
   function update(deltaX, deltaZ) {
@@ -24,8 +31,20 @@ export function createCompanionFollowDirectionRuntime() {
     return [0, -1];
   }
 
+  function resolveFormationIndex(companionId, activeMoveId = null) {
+    return resolveCompanionFollowFormationIndexFromState({
+      companionId,
+      activeMoveId,
+      flags: getFlags(),
+      companions: getCompanions(),
+      actions: getActions(),
+      blockers: getBlockers()
+    }) ?? 0;
+  }
+
   return {
     get,
+    resolveFormationIndex,
     update
   };
 }

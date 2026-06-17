@@ -56,7 +56,6 @@ import {
 import { createCompanionFollowDirectionRuntime } from "./companions/companionFollowDirectionRuntime.js";
 import { createCompanionFollowMovementRuntime } from "./companions/companionFollowMovementRuntime.js";
 import {
-  resolveCompanionFollowFormationIndexFromState,
   resolveCompanionFollowDistance,
   resolveCompanionFollowSpeed
 } from "./companions/companionFollowMotion.js";
@@ -750,7 +749,25 @@ export function startGameLoop({
       bulbasaurHintText: BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT
     }
   });
-  const companionFollowDirectionRuntime = createCompanionFollowDirectionRuntime();
+  const companionFollowDirectionRuntime = createCompanionFollowDirectionRuntime({
+    getFlags: () => controls.storyState?.flags || {},
+    getCompanions: () => ({
+      squirtle: session.actTwoSquirtle,
+      bulbasaur: session.bulbasaurEncounter,
+      charmander: session.charmanderEncounter,
+      timburr: session.timburrEncounter
+    }),
+    getActions: () => ({
+      squirtleWaterGun: session.squirtleWaterGunAction,
+      bulbasaurLeafage: session.bulbasaurLeafageAction,
+      charmanderFire: session.charmanderFireAction,
+      timburrBuildBlock: session.timburrBuildBlockAction
+    }),
+    getBlockers: () => ({
+      squirtleWaterGunQueueActive: waterGunRuntime.getQueue().length > 0,
+      bulbasaurWorkbenchGuideActive: bulbasaurWorkbenchGuideRuntime.isActive()
+    })
+  });
   const companionConstructionBlockerRuntime = createCompanionConstructionBlockerRuntime({
     getColliders: getPlayerConstructionTerrainColliders,
     playBlockedSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
@@ -801,7 +818,7 @@ export function startGameLoop({
     getFollowDirection: (yaw) => companionFollowDirectionRuntime.get(yaw),
     tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
     getModelYawToward: companionFacingRuntime.getRobotModelYawToward,
-    resolveFollowFormationIndex: getCompanionFollowFormationIndex,
+    resolveFollowFormationIndex: companionFollowDirectionRuntime.resolveFormationIndex,
     resolveFollowDistance: resolveCompanionFollowDistance,
     arriveDistance: COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE
   });
@@ -835,7 +852,7 @@ export function startGameLoop({
     idleMotion: companionIdleMotionRuntime,
     getSquirtleWaterGunQueue: () => waterGunRuntime.getQueue(),
     isBulbasaurWorkbenchGuideActive: () => bulbasaurWorkbenchGuideRuntime.isActive(),
-    resolveFollowFormationIndex: getCompanionFollowFormationIndex,
+    resolveFollowFormationIndex: companionFollowDirectionRuntime.resolveFormationIndex,
     resolveFollowDistance: resolveCompanionFollowDistance,
     syncSquirtleModelInstance: () => companionModelSyncRuntime.syncSquirtle(),
     syncBulbasaurModelInstance: () => companionModelSyncRuntime.syncBulbasaur(),
@@ -1951,30 +1968,6 @@ export function startGameLoop({
         session.charmanderEncounter
       ]
     });
-  }
-
-  function getCompanionFollowFormationIndex(companionId, activeMoveId = null) {
-    return resolveCompanionFollowFormationIndexFromState({
-      companionId,
-      activeMoveId,
-      flags: controls.storyState?.flags || {},
-      companions: {
-        squirtle: session.actTwoSquirtle,
-        bulbasaur: session.bulbasaurEncounter,
-        charmander: session.charmanderEncounter,
-        timburr: session.timburrEncounter
-      },
-      actions: {
-        squirtleWaterGun: session.squirtleWaterGunAction,
-        bulbasaurLeafage: session.bulbasaurLeafageAction,
-        charmanderFire: session.charmanderFireAction,
-        timburrBuildBlock: session.timburrBuildBlockAction
-      },
-      blockers: {
-        squirtleWaterGunQueueActive: waterGunRuntime.getQueue().length > 0,
-        bulbasaurWorkbenchGuideActive: bulbasaurWorkbenchGuideRuntime.isActive()
-      }
-    }) ?? 0;
   }
 
   function startNextQueuedSquirtleWaterGunAction() {
