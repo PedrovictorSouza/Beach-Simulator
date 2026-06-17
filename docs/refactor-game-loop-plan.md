@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle Water Gun, Fire, Leafage and Build Block runtime wiring
+  into the `fieldMoveRuntime/` domain.
 - Completed: gameplay opening boundary extraction.
 - Completed: `loopState` migration consistency pass.
 - Completed: add `createGameLoopState()` contract tests.
@@ -118,6 +120,87 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Field Move Runtime Bundle
+
+Created boundary:
+
+`app/runtime/fieldMoveRuntime/fieldMoveRuntimeBundle.js`
+
+Boundary classification: `fieldMoves`, focused on constructing the four field
+move runtimes currently used by gameplay: Water Gun, Fire, Leafage and Build
+Block.
+
+Why this cut:
+
+`gameLoop.js` was still wiring detailed field-move internals directly:
+companion lookup, approach positions, companion blocker callbacks, model sync,
+impact callbacks, model yaw offsets, bot names and the Fire Carbon validation
+notice. That made the frame hub depend on low-level field-move details.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createWaterGunRuntime(...)`;
+- direct imports for `createFireRuntime(...)`;
+- direct imports for `createLeafageRuntime(...)`;
+- direct imports for `createBuildBlockRuntime(...)`;
+- Water Gun action wiring;
+- Fire action wiring;
+- Leafage action wiring;
+- Build Block action wiring;
+- Fire Carbon validation helper and notice;
+- shared ground-cell center helper for these field-move runtimes.
+
+Kept in `gameLoop.js`:
+
+- high-level dependency wiring for the field move bundle;
+- public runtime variables consumed by companion frame/player action systems;
+- frame timing and update order.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2220` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2142` lines.
+- This removes roughly 80 lines from `gameLoop.js` while keeping the domain
+  implementation inside the existing `fieldMoveRuntime/` module boundary.
+
+Tests added:
+
+- `tests/fieldMoveRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/fieldMoveRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/fieldMoveRuntime/fieldMoveRuntimeBundle.js` did not exist. After
+adding the domain factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/fieldMoveRuntimeBundle.test.js
+npm test -- --run tests/fieldMoveRuntimeBundle.test.js tests/waterGunRuntime.test.js tests/fireRuntime.test.js tests/leafageRuntime.test.js tests/buildBlockRuntime.test.js tests/playerActionRuntimeBundle.test.js tests/playerActionRuntime.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1994` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 - Completed: integrate the wood collect pop runtime.
 - Completed: prepare the isolated gear pickup particle runtime core.
 - Completed: integrate the gear pickup particle runtime.

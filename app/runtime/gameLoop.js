@@ -68,10 +68,7 @@ import {
   resolveWorldSpaceUiVisibility
 } from "./gameLoopFramePolicies.js";
 import { createFieldMoveInvalidTargetPromptRuntime } from "./fieldMoveInvalidTargetPromptRuntime.js";
-import {
-  createBuildBlockRuntime,
-  resolveConstructionDisplacementPosition
-} from "./fieldMoveRuntime/buildBlockRuntime.js";
+import { resolveConstructionDisplacementPosition } from "./fieldMoveRuntime/buildBlockRuntime.js";
 export {
   resolveConstructionDisplacementPosition,
   resolveTimburrBuildBlockApproachPosition
@@ -86,9 +83,7 @@ import {
   isDryGrassHydroMissionActive
 } from "./fieldMoveRuntime/fieldMoveGroundTargets.js";
 import { createFieldMoveImpactRuntime } from "./fieldMoveRuntime/fieldMoveImpactRuntime.js";
-import { createFireRuntime } from "./fieldMoveRuntime/fireRuntime.js";
-import { createLeafageRuntime } from "./fieldMoveRuntime/leafageRuntime.js";
-import { createWaterGunRuntime } from "./fieldMoveRuntime/waterGunRuntime.js";
+import { createFieldMoveRuntimeBundle } from "./fieldMoveRuntime/fieldMoveRuntimeBundle.js";
 import { createFieldMoveApproachPositionRuntime } from "./fieldMoveRuntime/fieldMoveApproachPositions.js";
 import { createFieldMoveActorPositionRuntime } from "./fieldMoveRuntime/fieldMoveActorPositions.js";
 import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
@@ -253,7 +248,6 @@ import {
   treeFootprint,
   validateBuildingKitPlacement
 } from "../../world/islandWorld.js";
-import { canUseCharmanderFireWithCarbon } from "../../world/gameplayInteractions.js";
 import {
   BULBASAUR_IDLE_PATROL_RADIUS,
   SQUIRTLE_IDLE_PATROL_RADIUS
@@ -1072,88 +1066,37 @@ export function startGameLoop({
     getSquirtleModelYawToward: companionFacingRuntime.getSquirtleModelYawToward,
     getYawToward
   });
-  const waterGunRuntime = createWaterGunRuntime({
-    session,
-    resources: companionAbilityResourcesRuntime,
-    getSquirtle: () => session.actTwoSquirtle,
-    getPlayerPosition: () => session.playerCharacter?.getPosition?.() || null,
-    getGroundCellCenterPosition,
-    getApproachPosition: ({ targetPosition, playerPosition }) =>
-      fieldMoveApproachPositionRuntime.getSquirtleWaterGunApproachPosition(
-        targetPosition,
-        playerPosition
-      ),
-    getModelYawToward: companionFacingRuntime.getSquirtleModelYawToward,
-    tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
-    isPositionBlocked: companionConstructionBlockerRuntime.isBlocked,
-    syncSquirtle: () => companionModelSyncRuntime.syncSquirtle(),
-    applyImpact: (action) => fieldMoveImpactRuntime.applySquirtleWaterGunImpact(action),
-    onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.hydro)
-  });
-  const fireRuntime = createFireRuntime({
-    session,
-    getCharmander: () => session.charmanderEncounter,
-    isBusy: leafDenConstructionPresentationRuntime.isActive,
-    onBusy: () => hud?.pushNotice?.(LEAF_DEN_BUSY_NOTICE),
-    hasFireCarbon: hasCharmanderFireCarbon,
-    getGroundCellCenterPosition,
-    getApproachPosition: ({ targetPosition, playerPosition }) =>
-      fieldMoveApproachPositionRuntime.getCharmanderFireApproachPosition(
-        targetPosition,
-        playerPosition
-      ),
-    getModelYawToward: (fromPosition, toPosition) =>
-      companionFacingRuntime.getRobotModelYawToward(
-        fromPosition,
-        toPosition,
-        CHARMANDER_MODEL_FACE_YAW_OFFSET
-      ),
-    tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
-    isPositionBlocked: companionConstructionBlockerRuntime.isBlocked,
-    syncCharmander: () => companionModelSyncRuntime.syncCharmander(),
-    applyImpact: (action) => fieldMoveImpactRuntime.applyCharmanderFireImpact(action),
-    onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.thermal)
-  });
-  const leafageRuntime = createLeafageRuntime({
-    session,
-    getBulbasaur: () => session.bulbasaurEncounter,
-    isBusy: () => bulbasaurWorkbenchGuideRuntime.isActive(),
-    getGroundCellCenterPosition,
-    getApproachPosition: ({ targetPosition, playerPosition }) =>
-      fieldMoveApproachPositionRuntime.getBulbasaurLeafageApproachPosition(
-        targetPosition,
-        playerPosition
-      ),
-    getModelYawToward: (fromPosition, toPosition) =>
-      companionFacingRuntime.getRobotModelYawToward(
-        fromPosition,
-        toPosition,
-        BULBASAUR_MODEL_FACE_YAW_OFFSET
-      ),
-    tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
-    isPositionBlocked: companionConstructionBlockerRuntime.isBlocked,
-    syncBulbasaur: () => companionModelSyncRuntime.syncBulbasaur(),
-    applyImpact: (action) => fieldMoveImpactRuntime.applyBulbasaurLeafageImpact(action),
-    onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.grow)
-  });
-  const buildBlockRuntime = createBuildBlockRuntime({
+  const {
+    buildBlockRuntime,
+    fireRuntime,
+    leafageRuntime,
+    waterGunRuntime
+  } = createFieldMoveRuntimeBundle({
     session,
     controls,
-    getTimburr: () => session.timburrEncounter,
-    resolveTarget: (...args) => freeBlockBuildRuntime.resolveBuildTarget(...args),
-    getApproachPosition: ({ targetPosition, playerPosition }) =>
-      fieldMoveApproachPositionRuntime.getTimburrBuildBlockApproachPosition(
-        targetPosition,
-        playerPosition
-      ),
-    getApproachBlockers: companionConstructionBlockerRuntime.getBlockers,
-    shouldCastFromBlockedApproach: shouldTimburrBuildBlockCastFromBlockedApproach,
-    tryMoveCompanionToPosition: companionConstructionBlockerRuntime.tryMove,
-    getModelYawToward: companionFacingRuntime.getRobotModelYawToward,
-    applyImpact: (...args) => freeBlockBuildRuntime.applyTimburrImpact(...args),
-    onBlocked: () => companionConstructionBlockerRuntime.cancelBlockedAction(SANDBOTS_BOT_NAMES.builder),
-    config: {
-      modelFaceYawOffset: TIMBURR_MODEL_FACE_YAW_OFFSET
+    runtimes: {
+      bulbasaurWorkbenchGuideRuntime,
+      companionAbilityResourcesRuntime,
+      companionConstructionBlockerRuntime,
+      companionFacingRuntime,
+      companionModelSyncRuntime,
+      fieldMoveApproachPositionRuntime,
+      fieldMoveImpactRuntime,
+      freeBlockBuildRuntime,
+      leafDenConstructionPresentationRuntime
+    },
+    callbacks: {
+      pushNotice: (notice) => hud?.pushNotice?.(notice),
+      shouldTimburrBuildBlockCastFromBlockedApproach
+    },
+    botNames: SANDBOTS_BOT_NAMES,
+    modelFaceYawOffsets: {
+      bulbasaur: BULBASAUR_MODEL_FACE_YAW_OFFSET,
+      charmander: CHARMANDER_MODEL_FACE_YAW_OFFSET,
+      timburr: TIMBURR_MODEL_FACE_YAW_OFFSET
+    },
+    notices: {
+      leafDenBusy: LEAF_DEN_BUSY_NOTICE
     }
   });
   const solarStationPowerRadiusRuntime = createSolarStationPowerRadiusRuntime({
@@ -1777,33 +1720,12 @@ export function startGameLoop({
     });
   }
 
-  function hasCharmanderFireCarbon() {
-    if (!canUseCharmanderFireWithCarbon({
-      storyState: controls.storyState,
-      inventory: controls.inventory
-    })) {
-      hud.pushNotice(`${SANDBOTS_BOT_NAMES.thermal || "Thermal Bot"} needs Carbon to use Thermal Torch.`);
-      return false;
-    }
-
-    return true;
-  }
-
   function triggerWaterGunSfxBurst(duration = SQUIRTLE_WATER_GUN_SPRAY_DURATION) {
     waterGunSfxBurstRuntime.trigger(getRuntimeNowSeconds(), duration);
   }
 
   function updateFoundationBuildZoneCameraFocus(now) {
     return foundationBuildZoneCameraFocusRuntime.updateFrame({ now });
-  }
-
-  function getGroundCellCenterPosition(groundCell) {
-    const offset = groundCell?.offset || [0, 0, 0];
-    return [
-      offset[0] || 0,
-      (offset[1] || 0) + 0.04,
-      offset[2] || 0
-    ];
   }
 
   function getEncounterRepairBoxPosition(encounter) {
