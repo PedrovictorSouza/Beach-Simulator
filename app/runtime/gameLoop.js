@@ -82,10 +82,7 @@ import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
 import { createGameplayPromptPreparationRuntimeBundle } from "./presentation/gameplayPromptPreparationRuntimeBundle.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
-import {
-  createBaseRenderSnapshotFrameRuntime,
-  createRenderSnapshotCompletionFrameRuntime
-} from "./presentation/baseRenderSnapshotFrame.js";
+import { createRenderSnapshotRuntimeBundle } from "./presentation/renderSnapshotRuntimeBundle.js";
 import { createSupplyFeedbackRuntimeBundle } from "./presentation/supplyFeedbackRuntimeBundle.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { createNaturePresentationRuntimeBundle } from "./presentation/naturePresentationRuntimeBundle.js";
@@ -1054,35 +1051,31 @@ export function startGameLoop({
       companionWorldSpeechCueRuntime.consumeChopperAttentionCueSoundCycle(...args),
     playChopperVoice: () => playSoundEvent(SOUND_EVENT_IDS.CHOPPER_VOICE)
   });
-  const baseRenderSnapshotFrameRuntime = createBaseRenderSnapshotFrameRuntime({
+  const {
+    baseRenderSnapshotFrameRuntime,
+    renderSnapshotCompletionFrameRuntime
+  } = createRenderSnapshotRuntimeBundle({
     camera,
-    worldCanvas,
-    session,
     controls,
     gameFlowValues,
-    construction: {
-      syncActiveRepairBoxHighlight: () =>
-        companionRepairBoxModelRuntime.syncSessionActiveHighlight(session),
-      syncGreenhouseModelInstance: constructionHouseModelInstanceRuntime.syncGreenhouse,
-      syncCampfireTrainHouseModelInstance: constructionHouseModelInstanceRuntime.syncCampfireTrainHouse,
-      isLeafDenConstructionActive: leafDenConstructionPresentationRuntime.isActive,
-      syncLeafDenConstructionClouds: leafDenConstructionPresentationRuntime.syncConstructionClouds,
-      syncConstructionCloudBurstEffects: leafDenConstructionPresentationRuntime.syncCloudBurstEffects,
-      syncLeafDenModelInstance: constructionHouseModelInstanceRuntime.syncLeafDen,
-      syncPlayerHouseModelInstances: constructionHouseModelInstanceRuntime.syncPlayerHouses
-    },
-    applyInteractionObjectHighlight,
-    getGameplayOpeningShipSceneObjects,
-    getSquirtleAssemblySceneObjects: (sceneObjects, squirtle) =>
-      squirtleReassemblyRuntime.getSceneObjects(sceneObjects, squirtle),
-    resolvePsxDistanceFogSettings
-  });
-  const renderSnapshotCompletionFrameRuntime = createRenderSnapshotCompletionFrameRuntime({
-    session,
-    controls,
     rendering,
-    treeRevivalLeafBurstFrameRuntime,
-    getInteractionDebugColliders
+    session,
+    worldCanvas,
+    construction: {
+      companionRepairBoxModelRuntime,
+      constructionHouseModelInstanceRuntime,
+      leafDenConstructionPresentationRuntime
+    },
+    callbacks: {
+      applyInteractionObjectHighlight,
+      getGameplayOpeningShipSceneObjects,
+      getInteractionDebugColliders,
+      resolvePsxDistanceFogSettings
+    },
+    runtimes: {
+      squirtleReassemblyRuntime,
+      treeRevivalLeafBurstFrameRuntime
+    }
   });
   const playerModelRuntime = createPlayerModelRuntime({
     moveValueToward,

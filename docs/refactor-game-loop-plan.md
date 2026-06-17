@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle render snapshot runtime wiring into the `presentation/`
+  domain.
 - Completed: bundle gameplay prompt preparation wiring into the `presentation/`
   domain.
 - Completed: bundle gameplay audio and frame music updates into the `audio/`
@@ -136,6 +138,83 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Render Snapshot Runtime Bundle
+
+Created boundary:
+
+`app/runtime/presentation/renderSnapshotRuntimeBundle.js`
+
+Boundary classification: `presentation`, focused on render snapshot runtime
+wiring.
+
+Why this cut:
+
+`gameLoop.js` was still directly creating the base render snapshot runtime and
+the render snapshot completion runtime, including construction model sync
+callbacks, repair-box highlight sync, Squirtle assembly scene-object wiring,
+debug-collider collection and tree-revival billboard completion. Those are
+render snapshot presentation dependencies, while the game loop only needs the
+two runtime handles and keeps their update order.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createBaseRenderSnapshotFrameRuntime(...)` and
+  `createRenderSnapshotCompletionFrameRuntime(...)`;
+- construction presentation callback mapping for render snapshot preparation;
+- repair-box highlight sync mapping;
+- Squirtle assembly scene-object callback mapping;
+- completion runtime wiring for debug colliders and tree-revival billboards.
+
+Kept in `gameLoop.js`:
+
+- high-level creation through `createRenderSnapshotRuntimeBundle(...)`;
+- existing update calls and frame order for base and completion render snapshot
+  runtimes;
+- existing render snapshot data shape.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1951` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1944` lines.
+
+Tests added:
+
+- `tests/renderSnapshotRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/renderSnapshotRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/presentation/renderSnapshotRuntimeBundle.js` did not exist. After
+adding the presentation-domain factory and integrating it into `gameLoop.js`,
+the focused tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/renderSnapshotRuntimeBundle.test.js tests/baseRenderSnapshotFrame.test.js tests/renderSnapshotContext.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/presentation/renderSnapshotRuntimeBundle.js tests/renderSnapshotRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2004` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Gameplay Prompt Preparation Runtime Bundle
 
