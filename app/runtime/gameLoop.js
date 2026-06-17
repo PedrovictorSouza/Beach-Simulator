@@ -631,6 +631,7 @@ export function startGameLoop({
   const worldSceneSyncRuntime = createWorldSceneSyncRuntime({
     session,
     controls,
+    camera,
     hud,
     gameplay,
     config: {
@@ -640,6 +641,9 @@ export function startGameLoop({
     ambient: {
       updateLandscapeCutEffect: (deltaTime) => landscapeCutEffectRuntime.update(deltaTime),
       updateSnowstormFog: ({ deltaTime }) => snowstormFogRuntime.update({ session, deltaTime })
+    },
+    sources: {
+      clearInteractionObjectHighlights
     }
   });
   const movementQuestRuntime = createMovementQuestRuntime({
@@ -2046,14 +2050,6 @@ export function startGameLoop({
     };
   }
 
-  function updateFrameSceneSync(deltaTime) {
-    camera.resizeCanvases();
-    camera.update(deltaTime);
-    clearInteractionObjectHighlights(session);
-    worldSceneSyncRuntime.syncWorkbenchInteractable();
-    worldSceneSyncRuntime.syncPokemonCenterWorkshopVisualState();
-  }
-
   function frame(now) {
     // Timing and flow state.
     const {
@@ -2081,7 +2077,7 @@ export function startGameLoop({
       return;
     }
 
-    updateFrameSceneSync(deltaTime);
+    worldSceneSyncRuntime.updateEarlySceneFrame(deltaTime);
 
     // Opening, input blockers and camera controls.
     let {

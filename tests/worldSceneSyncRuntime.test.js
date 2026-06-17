@@ -84,6 +84,61 @@ describe("createWorldSceneSyncRuntime", () => {
     ]);
   });
 
+  it("updates early scene sync systems for the current frame", () => {
+    const session = {
+      interactables: [
+        {
+          id: "workbench",
+          position: [0, 0, 0],
+          interactDistance: 0
+        }
+      ],
+      pokemonCenterWorkshopAssembledInstance: {
+        active: false
+      },
+      pokemonCenterWorkshopDismantledInstances: [
+        { active: true }
+      ]
+    };
+    const camera = {
+      resizeCanvases: vi.fn(),
+      update: vi.fn()
+    };
+    const clearInteractionObjectHighlights = vi.fn();
+    const runtime = createWorldSceneSyncRuntime({
+      session,
+      controls: {
+        storyState: {
+          flags: {
+            challengesUnlocked: true
+          }
+        }
+      },
+      camera,
+      config: {
+        workbenchPosition: [4, 0, 5],
+        workbenchInteractDistance: 1.75
+      },
+      sources: {
+        clearInteractionObjectHighlights
+      }
+    });
+
+    runtime.updateEarlySceneFrame(0.25);
+
+    expect(camera.resizeCanvases).toHaveBeenCalledOnce();
+    expect(camera.update).toHaveBeenCalledWith(0.25);
+    expect(clearInteractionObjectHighlights).toHaveBeenCalledWith(session);
+    expect(session.interactables[0]).toMatchObject({
+      position: [4, 0, 5],
+      interactDistance: 1.75
+    });
+    expect(session.pokemonCenterWorkshopAssembledInstance.active).toBe(true);
+    expect(session.pokemonCenterWorkshopDismantledInstances).toEqual([
+      { active: false }
+    ]);
+  });
+
   it("checks player distance against a world position", () => {
     const { runtime } = createRuntime({
       playerPosition: [1, 0.04, 2]

@@ -4164,6 +4164,92 @@ Still pending:
 
 - manual gameplay validation.
 
+## Early World Scene Sync Runtime Boundary
+
+Date: 2026-06-16
+
+Boundary classification: `world / frame lifecycle`, inside the existing
+`app/runtime/world/worldSceneSyncRuntime.js` module.
+
+Goal:
+
+- remove early scene-sync implementation from `gameLoop.js`;
+- keep the same frame order after pause handling and before opening/input
+  blockers;
+- avoid creating a new file;
+- keep camera canvas/update, interaction highlight clearing, Workbench
+  interactable sync and Pokemon Center workshop visual sync grouped in one
+  world scene-sync call.
+
+What moved:
+
+- `camera.resizeCanvases()`;
+- `camera.update(deltaTime)`;
+- `clearInteractionObjectHighlights(session)`;
+- `syncWorkbenchInteractable()`;
+- `syncPokemonCenterWorkshopVisualState()`.
+
+New owner:
+
+- `createWorldSceneSyncRuntime(...).updateEarlySceneFrame(deltaTime)`.
+
+Kept in `gameLoop.js`:
+
+- dependency wiring for `camera` and `clearInteractionObjectHighlights`;
+- the temporal call site, now as
+  `worldSceneSyncRuntime.updateEarlySceneFrame(deltaTime)`.
+
+Why this is safe:
+
+- the same five operations run in the same order as before;
+- `deltaTime` is passed unchanged to `camera.update(...)`;
+- no workbench, Pokemon Center, camera or interaction-highlight tuning changed.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` had `2413` lines.
+- After this cut, `app/runtime/gameLoop.js` has `2409` lines.
+
+Tests added:
+
+- `tests/worldSceneSyncRuntime.test.js` now verifies that
+  `updateEarlySceneFrame(deltaTime)` resizes/updates the camera, clears
+  interaction highlights and syncs Workbench/Pokemon Center scene state.
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/worldSceneSyncRuntime.test.js
+```
+
+The first run failed because `runtime.updateEarlySceneFrame` did not exist yet.
+After implementing the method and rewiring `gameLoop.js`, focused tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/worldSceneSyncRuntime.test.js tests/interactionObjectHighlight.test.js tests/camera.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1983` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` existing scene-flow failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Still pending:
+
+- manual gameplay validation.
+
 ### Early Gameplay Control Frame Runtime Boundary
 
 Expanded `app/runtime/gameLoopFrameRuntime.js` with

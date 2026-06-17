@@ -25,6 +25,7 @@ export function syncModelResourceInstances(resourceNodes = [], storyState = {}, 
 export function createWorldSceneSyncRuntime({
   session = {},
   controls = {},
+  camera = {},
   config = {},
   hud = {},
   gameplay = {},
@@ -39,7 +40,8 @@ export function createWorldSceneSyncRuntime({
     updateSnowstormParticleField: updateSnowstormParticleFieldSource = updateSnowstormParticleField,
     updateLeppaTreeDance: updateLeppaTreeDanceSource = updateLeppaTreeDance,
     updateLeppaTreeMusicNotes: updateLeppaTreeMusicNotesSource = updateLeppaTreeMusicNotes,
-    syncModelResourceInstances: syncModelResourceInstancesSource = syncModelResourceInstances
+    syncModelResourceInstances: syncModelResourceInstancesSource = syncModelResourceInstances,
+    clearInteractionObjectHighlights = () => {}
   } = sources;
 
   function syncInteractablePosition(interactableId, position) {
@@ -86,6 +88,14 @@ export function createWorldSceneSyncRuntime({
     ) <= distance;
   }
 
+  function updateEarlySceneFrame(deltaTime = 0) {
+    camera.resizeCanvases?.();
+    camera.update?.(deltaTime);
+    clearInteractionObjectHighlights(session);
+    syncWorkbenchInteractable();
+    syncPokemonCenterWorkshopVisualState();
+  }
+
   function updateAmbientWorldFrame({ deltaTime = 0, now = 0 } = {}) {
     hud.updateTransientNotice?.(deltaTime);
     gameplay.updatePalmShake?.(deltaTime, session.palmInstances);
@@ -111,6 +121,7 @@ export function createWorldSceneSyncRuntime({
   return {
     isPlayerNearWorldPosition,
     syncInteractablePosition,
+    updateEarlySceneFrame,
     updateAmbientWorldFrame,
     syncPokemonCenterWorkshopVisualState,
     syncWorkbenchInteractable
