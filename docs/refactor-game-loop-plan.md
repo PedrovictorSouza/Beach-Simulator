@@ -99,6 +99,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `companions/` domain.
 - Completed: bundle construction placement runtime wiring into the
   `construction/` domain.
+- Completed: move gameplay free-block build session grid defaults into the
+  `construction/` domain.
 - Completed: bundle construction blocker runtime wiring into the
   `construction/` domain.
 - Completed: bundle construction build/foundation runtime wiring into the
@@ -224,6 +226,76 @@ npm test
 ```
 
 `npm test` completed with `2007` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Free Block Build Session Boundary
+
+This cut moves the default gameplay free-block build grid configuration out of
+`gameLoop.js` and into the construction runtime module that owns free-block
+session state.
+
+Boundary classification: `construction`.
+
+What changed:
+
+- Added `createGameplayFreeBlockBuildSessionRuntime(...)` to
+  `app/runtime/construction/freeBlockBuildSessionRuntime.js`.
+- Kept `createFreeBlockBuildSessionRuntime(...)` as the configurable lower-level
+  runtime factory.
+- Moved `FREE_BLOCK_BUILD_GRID_CONFIG` out of `app/runtime/gameLoop.js`.
+- `startGameLoop()` now creates the gameplay free-block session runtime with
+  only the `session` dependency.
+
+Why this boundary is safe:
+
+- The default grid values did not change.
+- The initial block type remains `FREE_BLOCK_TYPES.WALL`.
+- Existing lower-level tests still cover custom grid config normalization and
+  session-backed controller behavior.
+- `gameLoop.js` still owns ordering and passes the resulting runtime to world,
+  construction build and placement wiring.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1644` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1635` lines.
+
+Tests updated:
+
+- `tests/freeBlockBuildSessionRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js
+```
+
+The first run failed because
+`createGameplayFreeBlockBuildSessionRuntime(...)` did not exist. After the
+factory was added and `gameLoop.js` was rewired, focused construction tests
+passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/freeBlockBuildSessionRuntime.test.js tests/freeBlockBuildRuntime.test.js tests/constructionPlacementRuntimeBundle.test.js tests/constructionBuildRuntimeBundle.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2019` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;

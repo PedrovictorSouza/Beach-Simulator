@@ -19,6 +19,14 @@ import {
   getFreeBlockBuildZoneCenterPosition as getFreeBlockBuildZoneCenterPositionWithGrid
 } from "./placementGeometry.js";
 
+const GAMEPLAY_FREE_BLOCK_BUILD_GRID_CONFIG = Object.freeze({
+  cellSize: 1,
+  origin: Object.freeze({ x: -128, y: 0, z: -128 }),
+  width: 256,
+  height: 256,
+  visualOffsetY: 0.03
+});
+
 export function normalizeFreeBlockBuildGridConfig({
   sourceConfig = null,
   defaultGridConfig
@@ -43,6 +51,16 @@ export function normalizeFreeBlockBuildGridConfig({
     height: Math.max(1, Math.trunc(Number(config.height || fallback.height))),
     visualOffsetY: Number(config.visualOffsetY ?? fallback.visualOffsetY)
   };
+}
+
+export function createGameplayFreeBlockBuildSessionRuntime({
+  session = null
+} = {}) {
+  return createFreeBlockBuildSessionRuntime({
+    session,
+    defaultGridConfig: GAMEPLAY_FREE_BLOCK_BUILD_GRID_CONFIG,
+    initialBlockType: FREE_BLOCK_TYPES.WALL
+  });
 }
 
 export function createFreeBlockBuildSessionRuntime({

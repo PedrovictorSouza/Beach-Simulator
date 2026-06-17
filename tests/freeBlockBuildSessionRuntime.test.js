@@ -5,6 +5,7 @@ import {
   FREE_BLOCK_TYPES
 } from "../app/gameplay/freeBlockBuildSystem.js";
 import {
+  createGameplayFreeBlockBuildSessionRuntime,
   createFreeBlockBuildSessionRuntime,
   normalizeFreeBlockBuildGridConfig
 } from "../app/runtime/construction/freeBlockBuildSessionRuntime.js";
@@ -18,6 +19,14 @@ const DEFAULT_GRID_CONFIG = Object.freeze({
 });
 
 describe("free block build session runtime", () => {
+  it("creates the gameplay session runtime with the default build grid", () => {
+    const runtime = createGameplayFreeBlockBuildSessionRuntime({
+      session: {}
+    });
+
+    expect(runtime.getGridConfig()).toEqual(DEFAULT_GRID_CONFIG);
+  });
+
   it("normalizes grid config from session sources with default fallbacks", () => {
     expect(normalizeFreeBlockBuildGridConfig({
       sourceConfig: {

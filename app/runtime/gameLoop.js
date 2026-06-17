@@ -12,7 +12,7 @@ import { createCompanionPresentationRuntimeBundle } from "./companions/companion
 import { createGameplayCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
-import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
+import { createGameplayFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
 import { createConstructionBlockerRuntimeBundle } from "./construction/constructionBlockerRuntimeBundle.js";
 import { createConstructionBuildRuntimeBundle } from "./construction/constructionBuildRuntimeBundle.js";
 import { createConstructionPlacementRuntimeBundle } from "./construction/constructionPlacementRuntimeBundle.js";
@@ -252,13 +252,6 @@ const TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT = [1.7, 1.45];
 const TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 3, height: 3 });
 const LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT = [1.95, 1.45];
 const LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 3, height: 3 });
-const FREE_BLOCK_BUILD_GRID_CONFIG = Object.freeze({
-  cellSize: 1,
-  origin: Object.freeze({ x: -128, y: 0, z: -128 }),
-  width: 256,
-  height: 256,
-  visualOffsetY: 0.03
-});
 const LEAF_DEN_BUILT_ROTATION_FOOTPRINT = [
   LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[0] * 2,
   LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[1] * 2
@@ -501,10 +494,8 @@ export function startGameLoop({
       playerCounterPromptDurationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
     }
   });
-  const freeBlockBuildSessionRuntime = createFreeBlockBuildSessionRuntime({
-    session,
-    defaultGridConfig: FREE_BLOCK_BUILD_GRID_CONFIG,
-    initialBlockType: FREE_BLOCK_TYPES.WALL
+  const freeBlockBuildSessionRuntime = createGameplayFreeBlockBuildSessionRuntime({
+    session
   });
   const {
     rustlingGrassEventRuntime,
