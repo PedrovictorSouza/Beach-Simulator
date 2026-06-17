@@ -272,6 +272,13 @@ Ordering note:
 bundle because it consumes `fieldMoveActorPositionRuntime`. This changes only
 composition ordering inside `startGameLoop()`, not frame ordering.
 
+Follow-up composition fix:
+
+`createFieldMoveRuntimeBundle(...)` now receives `fieldMoveImpactRuntime`
+through a getter, matching the existing lazy `freeBlockBuildRuntime` handoff.
+This removes a composition-time TDZ risk while preserving the same runtime call
+sites and frame order.
+
 Line-count impact:
 
 - Before this cut, committed `app/runtime/gameLoop.js` was `1840` lines.
@@ -296,6 +303,7 @@ Passed:
 
 ```sh
 npm test -- --run tests/fieldMoveSupportRuntimeBundle.test.js tests/fieldMoveActorPositions.test.js tests/fieldMoveApproachPositions.test.js tests/fieldMoveInvalidTargetPromptRuntime.test.js tests/fieldMoveRuntimeBundle.test.js tests/companionPresentationRuntimeBundle.test.js tests/playerActionRuntimeBundle.test.js
+npm test -- --run tests/fieldMoveRuntimeBundle.test.js tests/fieldMoveImpactRuntime.test.js tests/playerActionRuntimeBundle.test.js tests/playerActionRuntime.test.js
 git diff --check -- app/runtime/gameLoop.js app/runtime/fieldMoveRuntime/fieldMoveSupportRuntimeBundle.js tests/fieldMoveSupportRuntimeBundle.test.js docs/refactor-game-loop-plan.md
 npm run build
 ```

@@ -885,7 +885,9 @@ export function startGameLoop({
       companionFacingRuntime,
       companionModelSyncRuntime,
       fieldMoveApproachPositionRuntime,
-      fieldMoveImpactRuntime,
+      get fieldMoveImpactRuntime() {
+        return fieldMoveImpactRuntime;
+      },
       get freeBlockBuildRuntime() {
         return freeBlockBuildRuntime;
       },
