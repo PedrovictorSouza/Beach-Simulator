@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createGroundActionFeedbackRuntime } from "../app/runtime/groundActionFeedbackRuntime.js";
+import {
+  createGameplayGroundActionFeedbackRuntime,
+  createGroundActionFeedbackRuntime
+} from "../app/runtime/groundActionFeedbackRuntime.js";
 
 function clamp01(value) {
   return Math.min(1, Math.max(0, value));
@@ -112,5 +115,29 @@ describe("createGroundActionFeedbackRuntime", () => {
     });
     expect(runtime.getPulseFrame(groundCell, 600)).toBeNull();
     expect(runtime.getPulseFrame(groundCell, 601)).toBeNull();
+  });
+});
+
+describe("createGameplayGroundActionFeedbackRuntime", () => {
+  it("uses gameplay feedback tuning and plays the invalid target sound", () => {
+    const playInvalidSfx = vi.fn();
+    const runtime = createGameplayGroundActionFeedbackRuntime({
+      clamp01,
+      playInvalidSfx
+    });
+    const groundCell = createGroundCell("ground-invalid");
+
+    runtime.triggerInvalid(groundCell, 100);
+
+    expect(playInvalidSfx).toHaveBeenCalledOnce();
+    expect(runtime.getFeedbackFrame({ session: {}, now: 599 })).toMatchObject({
+      abilityId: "invalid",
+      groundCell: {
+        id: "ground-invalid",
+        highlightTargetState: "invalid",
+        highlightAbilityId: "invalid"
+      }
+    });
+    expect(runtime.getFeedbackFrame({ session: {}, now: 1100 })).toBeNull();
   });
 });

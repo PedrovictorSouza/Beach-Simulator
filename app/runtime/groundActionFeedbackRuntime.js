@@ -1,3 +1,23 @@
+const GAMEPLAY_GROUND_ACTION_FEEDBACK_DURATION_MS = 1000;
+const GAMEPLAY_FIELD_TOOL_TARGET_PULSE_DURATION_MS = 500;
+const GAMEPLAY_FIELD_TOOL_TARGET_PULSE_MIN_SCALE = 0.7;
+const GAMEPLAY_FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS = 0.4;
+
+export function createGameplayGroundActionFeedbackRuntime({
+  clamp01,
+  playInvalidSfx = () => {}
+}) {
+  return createGroundActionFeedbackRuntime({
+    clamp01,
+    playInvalidSfx,
+    feedbackDurationMs: GAMEPLAY_GROUND_ACTION_FEEDBACK_DURATION_MS,
+    fieldToolTargetPulseDurationMs: GAMEPLAY_FIELD_TOOL_TARGET_PULSE_DURATION_MS,
+    fieldToolTargetPulseMinScale: GAMEPLAY_FIELD_TOOL_TARGET_PULSE_MIN_SCALE,
+    fieldToolTargetPulseFlashBrightness:
+      GAMEPLAY_FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS
+  });
+}
+
 export function createGroundActionFeedbackRuntime({
   clamp01,
   playInvalidSfx,

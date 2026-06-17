@@ -55,7 +55,7 @@ import {
 import { createFieldMoveImpactRuntime } from "./fieldMoveRuntime/fieldMoveImpactRuntime.js";
 import { createFieldMoveRuntimeBundle } from "./fieldMoveRuntime/fieldMoveRuntimeBundle.js";
 import { createFieldMoveSupportRuntimeBundle } from "./fieldMoveRuntime/fieldMoveSupportRuntimeBundle.js";
-import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
+import { createGameplayGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import {
   getActorDebugPosition,
   getInteractionDebugColliders as getInteractionDebugCollidersWithConfig
@@ -297,10 +297,6 @@ const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
 const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
 const SNOWSTORM_FOG_OPACITY_EASE = 6.2;
-const GROUND_ACTION_FEEDBACK_DURATION_MS = 1000;
-const FIELD_TOOL_TARGET_PULSE_DURATION_MS = 500;
-const FIELD_TOOL_TARGET_PULSE_MIN_SCALE = 0.7;
-const FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS = 0.4;
 const TREE_REVIVAL_LEAF_BURST_COUNT = 18;
 const TREE_REVIVAL_LEAF_BURST_DURATION = 1.65;
 const BULBASAUR_INTERACTION_GIZMO_DOT_COUNT = 36;
@@ -1224,17 +1220,9 @@ export function startGameLoop({
     audio.playInstanceObject();
   }
 
-  function playFieldMoveInvalidSfx() {
-    audio.playFieldMoveInvalid();
-  }
-
-  const groundActionFeedbackRuntime = createGroundActionFeedbackRuntime({
+  const groundActionFeedbackRuntime = createGameplayGroundActionFeedbackRuntime({
     clamp01,
-    playInvalidSfx: playFieldMoveInvalidSfx,
-    feedbackDurationMs: GROUND_ACTION_FEEDBACK_DURATION_MS,
-    fieldToolTargetPulseDurationMs: FIELD_TOOL_TARGET_PULSE_DURATION_MS,
-    fieldToolTargetPulseMinScale: FIELD_TOOL_TARGET_PULSE_MIN_SCALE,
-    fieldToolTargetPulseFlashBrightness: FIELD_TOOL_TARGET_PULSE_FLASH_BRIGHTNESS
+    playInvalidSfx: () => audio.playFieldMoveInvalid()
   });
   const {
     foundationBuildZoneCameraFocusRuntime,

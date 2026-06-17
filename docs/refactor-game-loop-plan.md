@@ -83,6 +83,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   domain.
 - Completed: bundle gameplay prompt preparation wiring into the `presentation/`
   domain.
+- Completed: move gameplay ground-action feedback tuning into the feedback
+  runtime boundary.
 - Completed: bundle gameplay audio and frame music updates into the `audio/`
   domain.
 - Completed: bundle supply counter/pickup feedback runtime wiring into the
@@ -222,6 +224,76 @@ npm test
 ```
 
 `npm test` completed with `2007` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Ground Action Feedback Boundary
+
+This cut moves gameplay-specific tile feedback and field-tool pulse tuning out
+of `gameLoop.js` and into the existing feedback runtime module.
+
+Boundary classification: `feedback runtime`.
+
+What changed:
+
+- Added `createGameplayGroundActionFeedbackRuntime(...)` to
+  `app/runtime/groundActionFeedbackRuntime.js`.
+- Kept `createGroundActionFeedbackRuntime(...)` as the configurable lower-level
+  runtime factory.
+- Moved gameplay feedback duration and field-tool pulse constants out of
+  `app/runtime/gameLoop.js`.
+- Removed the local `playFieldMoveInvalidSfx()` helper from `gameLoop.js`.
+- `startGameLoop()` now wires the gameplay feedback runtime with only
+  `clamp01` and `audio.playFieldMoveInvalid()`.
+
+Why this boundary is safe:
+
+- No field-move rules moved.
+- No feedback duration, pulse scale or brightness values changed.
+- Invalid target feedback still plays the same `audio.playFieldMoveInvalid()`
+  side effect as before.
+- Existing runtime methods consumed by construction, player actions and prompt
+  preparation are unchanged.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1656` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1644` lines.
+
+Tests updated:
+
+- `tests/groundActionFeedbackRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/groundActionFeedbackRuntime.test.js
+```
+
+The first run failed because
+`createGameplayGroundActionFeedbackRuntime(...)` did not exist. After the
+factory was added and `gameLoop.js` was rewired, focused tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/groundActionFeedbackRuntime.test.js tests/actionFeedbackContracts.test.js tests/gameplayPromptPreparationRuntimeBundle.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2018` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;
