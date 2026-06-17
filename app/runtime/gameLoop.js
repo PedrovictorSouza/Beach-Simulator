@@ -74,7 +74,7 @@ import {
   createRenderSnapshotRuntimeBundle
 } from "./presentation/renderSnapshotRuntimeBundle.js";
 import { createGameplaySupplyFeedbackRuntimeBundle } from "./presentation/supplyFeedbackRuntimeBundle.js";
-import { createNaturePresentationRuntimeBundle } from "./presentation/naturePresentationRuntimeBundle.js";
+import { createGameplayNaturePresentationRuntimeBundle } from "./presentation/naturePresentationRuntimeBundle.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
@@ -122,16 +122,6 @@ export {
 } from "./construction/pendingPlacementIntent.js";
 
 import {
-  LANDSCAPE_CUT_EFFECT_DURATION,
-  LANDSCAPE_CUT_EFFECT_LERP_PORTION,
-  LANDSCAPE_CUT_EFFECT_LIFT,
-  LANDSCAPE_CUT_EFFECT_POP_SCALE,
-  TREE_REVIVAL_LEAF_BURST_BASE_HEIGHT,
-  TREE_REVIVAL_LEAF_BURST_DRIFT,
-  TREE_REVIVAL_LEAF_BURST_GRAVITY,
-  TREE_REVIVAL_LEAF_BURST_HEIGHT_RANGE,
-  TREE_REVIVAL_LEAF_BURST_SIZE_MAX,
-  TREE_REVIVAL_LEAF_BURST_SIZE_MIN,
   WORKBENCH_GREEN_ARROW_BASE_SCALE,
   WORKBENCH_GREEN_ARROW_BOB_HEIGHT,
   WORKBENCH_GREEN_ARROW_BOB_SPEED,
@@ -275,21 +265,10 @@ const SQUIRTLE_FOLLOW_DISTANCE = 1.18;
 const BULBASAUR_FOLLOW_SPEED = PLAYER_SPEED;
 const BULBASAUR_FOLLOW_DISTANCE = 1.46;
 const COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE = 0.08;
-const WOOD_COLLECT_POP_DURATION = 0.34;
-const WOOD_COLLECT_POP_LIFT = 0.24;
-const WOOD_COLLECT_POP_SCALE = 1.65;
-const GEAR_PICKUP_PARTICLE_COUNT = 12;
-const GEAR_PICKUP_PARTICLE_DURATION = 0.62;
-const GEAR_PICKUP_PARTICLE_BASE_HEIGHT = 0.42;
-const GEAR_PICKUP_PARTICLE_LIFT = 0.78;
-const GEAR_PICKUP_PARTICLE_RADIUS = 0.72;
-const GEAR_PICKUP_PARTICLE_SIZE = 0.32;
 const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
 const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
 const SNOWSTORM_FOG_OPACITY_EASE = 6.2;
-const TREE_REVIVAL_LEAF_BURST_COUNT = 18;
-const TREE_REVIVAL_LEAF_BURST_DURATION = 1.65;
 const BULBASAUR_INTERACTION_GIZMO_DOT_COUNT = 36;
 const BULBASAUR_INTERACTION_GIZMO_DOT_SIZE = 0.16;
 const BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG = Object.freeze({
@@ -525,7 +504,7 @@ export function startGameLoop({
     naturePresentationFrameRuntime,
     treeRevivalLeafBurstFrameRuntime,
     woodCollectPopRuntime
-  } = createNaturePresentationRuntimeBundle({
+  } = createGameplayNaturePresentationRuntimeBundle({
     camera,
     controls,
     rendering,
@@ -537,29 +516,6 @@ export function startGameLoop({
       clamp01,
       easeOutCubic,
       lerp
-    },
-    config: {
-      gearPickupParticleBaseHeight: GEAR_PICKUP_PARTICLE_BASE_HEIGHT,
-      gearPickupParticleCount: GEAR_PICKUP_PARTICLE_COUNT,
-      gearPickupParticleDuration: GEAR_PICKUP_PARTICLE_DURATION,
-      gearPickupParticleLift: GEAR_PICKUP_PARTICLE_LIFT,
-      gearPickupParticleRadius: GEAR_PICKUP_PARTICLE_RADIUS,
-      gearPickupParticleSize: GEAR_PICKUP_PARTICLE_SIZE,
-      landscapeCutEffectDuration: LANDSCAPE_CUT_EFFECT_DURATION,
-      landscapeCutEffectLerpPortion: LANDSCAPE_CUT_EFFECT_LERP_PORTION,
-      landscapeCutEffectLift: LANDSCAPE_CUT_EFFECT_LIFT,
-      landscapeCutEffectPopScale: LANDSCAPE_CUT_EFFECT_POP_SCALE,
-      treeRevivalLeafBurstBaseHeight: TREE_REVIVAL_LEAF_BURST_BASE_HEIGHT,
-      treeRevivalLeafBurstCount: TREE_REVIVAL_LEAF_BURST_COUNT,
-      treeRevivalLeafBurstDrift: TREE_REVIVAL_LEAF_BURST_DRIFT,
-      treeRevivalLeafBurstDuration: TREE_REVIVAL_LEAF_BURST_DURATION,
-      treeRevivalLeafBurstGravity: TREE_REVIVAL_LEAF_BURST_GRAVITY,
-      treeRevivalLeafBurstHeightRange: TREE_REVIVAL_LEAF_BURST_HEIGHT_RANGE,
-      treeRevivalLeafBurstSizeMax: TREE_REVIVAL_LEAF_BURST_SIZE_MAX,
-      treeRevivalLeafBurstSizeMin: TREE_REVIVAL_LEAF_BURST_SIZE_MIN,
-      woodCollectPopDuration: WOOD_COLLECT_POP_DURATION,
-      woodCollectPopLift: WOOD_COLLECT_POP_LIFT,
-      woodCollectPopScale: WOOD_COLLECT_POP_SCALE
     }
   });
   const companionFacingRuntime = createCompanionFacingRuntime({

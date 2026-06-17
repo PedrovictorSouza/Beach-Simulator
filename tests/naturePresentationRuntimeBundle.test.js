@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  createGameplayNaturePresentationRuntimeBundle,
   createNaturePresentationRuntimeBundle
 } from "../app/runtime/presentation/naturePresentationRuntimeBundle.js";
 
@@ -80,6 +81,36 @@ describe("createNaturePresentationRuntimeBundle", () => {
       .toHaveLength(4);
     expect(bundle.treeRevivalLeafBurstFrameRuntime)
       .toHaveProperty("queueForNewlyRevivedTrees");
+    expect(bundle.landscapeCutEffectRuntime).toHaveProperty("queue");
+  });
+
+  it("wires gameplay nature effect tuning by default", () => {
+    const bundle = createGameplayNaturePresentationRuntimeBundle({
+      camera: {},
+      controls: {
+        storyState: {
+          flags: {}
+        }
+      },
+      rendering: {
+        fullUvRect: [0, 0, 1, 1]
+      },
+      session: {},
+      callbacks: {
+        getEncounterRepairBoxPosition: () => null
+      },
+      math: {
+        clamp01,
+        easeOutCubic: (value) => value,
+        lerp: (start, end, progress) => start + (end - start) * progress
+      }
+    });
+
+    bundle.gearPickupParticleRuntime.trigger([[1, 2, 3]]);
+
+    expect(bundle.gearPickupParticleRuntime.getBillboards("spark", [0, 0, 1, 1]))
+      .toHaveLength(12);
+    expect(bundle.woodCollectPopRuntime).toHaveProperty("trigger");
     expect(bundle.landscapeCutEffectRuntime).toHaveProperty("queue");
   });
 });

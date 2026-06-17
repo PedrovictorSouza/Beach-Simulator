@@ -95,6 +95,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `world/` domain.
 - Completed: bundle nature presentation/effects runtime wiring into the
   `presentation/` domain.
+- Completed: move gameplay nature presentation/effect tuning into the
+  `presentation/` nature bundle.
 - Completed: bundle companion presentation/model-sync runtime wiring into the
   `companions/` domain.
 - Completed: bundle companion motion/follow/patrol runtime wiring into the
@@ -233,6 +235,78 @@ npm test
   `tests/gameplayInteractions.test.js`;
 - the existing `1` scene-flow/start-screen failure in
   `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Nature Presentation Effects Boundary
+
+This cut moves gameplay-specific nature presentation/effect tuning out of
+`gameLoop.js` and into the existing nature presentation runtime bundle.
+
+Boundary classification: `presentation / nature effects`.
+
+What changed:
+
+- Added `createGameplayNaturePresentationRuntimeBundle(...)` to
+  `app/runtime/presentation/naturePresentationRuntimeBundle.js`.
+- Kept `createNaturePresentationRuntimeBundle(...)` as the configurable
+  lower-level factory.
+- Moved wood collect pop tuning, gear pickup particle tuning, tree revival leaf
+  burst count/duration and landscape/tree tuning handoff out of
+  `app/runtime/gameLoop.js`.
+- `startGameLoop()` now wires nature presentation with dependencies only:
+  camera, controls, rendering, session, callbacks and math helpers.
+
+Why this boundary is safe:
+
+- No visual tuning values changed.
+- No frame order changed.
+- Existing lower-level effect runtimes remain unchanged.
+- The gameplay factory still allows config override for focused tests or future
+  controlled changes.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1629` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1585` lines.
+
+Tests updated:
+
+- `tests/naturePresentationRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/naturePresentationRuntimeBundle.test.js
+```
+
+The first run failed because
+`createGameplayNaturePresentationRuntimeBundle(...)` did not exist. After the
+factory was added and `gameLoop.js` was rewired, focused presentation/nature
+tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/naturePresentationRuntimeBundle.test.js tests/gearPickupParticleRuntime.test.js tests/woodCollectPopRuntime.test.js tests/treeRevivalLeafBurstRuntime.test.js tests/landscapeCutEffectRuntime.test.js tests/natureRenderFrame.test.js
+git diff --check
+npm run build
+```
+
+`npm run build` passed with the existing Vite chunk-size warning.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2021` passed and `4` failed:
+
+- `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
+  baseline failures.
+- `tests/sceneFlowRuntimeCompletion.test.js`: the existing start-screen gameplay
+  opening baseline failure.
 
 Manual gameplay validation remains pending for this cut.
 
