@@ -3908,6 +3908,93 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+## Cut: Player Action Runtime Bundle
+
+Created boundary:
+
+`app/player/playerActionRuntimeBundle.js`
+
+Boundary classification: `player / gameplay action runtime`, focused on
+constructing the player action runtime graph: action context, target context,
+harvest action, direct action, held Water Gun action, primary action fallback,
+primary field move action, primary action frame and top-level player action
+frame runtime.
+
+Why this cut:
+
+`gameLoop.js` was still instantiating every internal player-action runtime
+directly. That kept player action composition spread across the frame hub and
+made `gameLoop.js` depend on many low-level player factories. The new bundle
+keeps `startGameLoop()` as the place where game systems are wired, but moves
+the internal player/action graph into the `player/` domain.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createPlayerActionContext(...)`;
+- direct imports for `createPlayerActionTargetContext(...)`;
+- direct imports and inline construction of:
+  - `createPlayerActionRuntime(...)`;
+  - `createPlayerHarvestActionRuntime(...)`;
+  - `createPlayerDirectActionRuntime(...)`;
+  - `createPlayerHeldWaterGunActionRuntime(...)`;
+  - `createPlayerPrimaryActionFallbackRuntime(...)`;
+  - `createPlayerPrimaryFieldMoveActionRuntime(...)`;
+  - `createPlayerPrimaryActionRuntime(...)`;
+  - `createPlayerPrimaryActionFrameRuntime(...)`;
+  - `createPlayerActionFrameRuntime(...)`.
+
+Kept in `gameLoop.js`:
+
+- high-level dependency wiring for the player action bundle;
+- the public player action runtime used by field-move impact callbacks;
+- the public player action frame runtime used by `frame(now)`;
+- timing/order of player action updates inside `frame(now)`.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2321` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2220` lines.
+- This removed roughly 100 lines from `gameLoop.js` and replaced many
+  low-level player imports with one domain-level import.
+
+Tests added:
+
+- `tests/playerActionRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/player/playerActionRuntimeBundle.js` did not exist. After adding the
+domain factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntimeBundle.test.js
+npm test -- --run tests/playerActionRuntimeBundle.test.js tests/playerActionRuntime.test.js tests/playerActionContext.test.js tests/playerActionTargetContext.test.js tests/playerMovementFrame.test.js tests/buildBlockRuntime.test.js tests/waterGunRuntime.test.js tests/leafageRuntime.test.js tests/fireRuntime.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1992` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## Cut: Companion Repair Box Highlight Session Adapter
 
 Extended boundary:

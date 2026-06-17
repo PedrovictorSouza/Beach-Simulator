@@ -102,19 +102,7 @@ import { getMissionTargetPositionsById as getMissionTargetPositionsByIdWithConfi
 import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
-import { createPlayerActionContext } from "../player/playerActionContext.js";
-import { createPlayerActionTargetContext } from "../player/playerActionTargetContext.js";
-import {
-  createPlayerActionRuntime,
-  createPlayerActionFrameRuntime,
-  createPlayerDirectActionRuntime,
-  createPlayerHeldWaterGunActionRuntime,
-  createPlayerHarvestActionRuntime,
-  createPlayerPrimaryActionFrameRuntime,
-  createPlayerPrimaryActionRuntime,
-  createPlayerPrimaryActionFallbackRuntime,
-  createPlayerPrimaryFieldMoveActionRuntime
-} from "../player/playerActionRuntime.js";
+import { createPlayerActionRuntimeBundle } from "../player/playerActionRuntimeBundle.js";
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
@@ -1624,96 +1612,47 @@ export function startGameLoop({
       pushNotice: (notice) => hud?.pushNotice?.(notice)
     }
   });
-  const playerActionContext = createPlayerActionContext({
-    session,
-    controls
-  });
-  const playerActionTargetContext = createPlayerActionTargetContext({
-    session,
-    controls
-  });
-  const playerActionRuntime = createPlayerActionRuntime({
-    session,
+  const {
+    playerActionFrameRuntime,
+    playerActionRuntime
+  } = createPlayerActionRuntimeBundle({
     controls,
+    session,
     gameplay,
-    freeBlockBuildRuntime,
+    runtimes: {
+      buildBlockRuntime,
+      bulbasaurWorkbenchGuideRuntime,
+      companionAbilityResourcesRuntime,
+      constructionPlacementControlRuntime,
+      fieldMoveInvalidTargetPromptRuntime,
+      fireRuntime,
+      freeBlockBuildRuntime,
+      groundActionFeedbackRuntime,
+      leafageRuntime,
+      playerCounterPromptRuntime,
+      supplyCounterPromptController,
+      waterGunRuntime,
+      workbenchRotationRuntime
+    },
     callbacks: {
       debugInteractionFlow,
+      findAlreadyResolvedFieldMoveGroundCell,
       findNearbyDestroyableInstantiatedObject,
-      getNowMs: getRuntimeNowMs,
-      playSoundEvent,
-      pushNotice: (notice) => hud?.pushNotice?.(notice),
-      queueLandscapeCutEffect: (patch) => landscapeCutEffectRuntime.queue(patch),
-      queueTreeRevivalLeafBurst: (snapshot) =>
-        treeRevivalLeafBurstFrameRuntime.queueForNewlyRevivedTrees(snapshot)
-    },
-    soundEventIds: SOUND_EVENT_IDS,
-    notices: {
-      noRemovablePatch: "No removable patch here. Move closer to planted grass or flowers."
-    }
-  });
-  const playerHarvestActionRuntime = createPlayerHarvestActionRuntime({
-    controls,
-    playerActionContext,
-    playerActionRuntime,
-    playerCounterPromptRuntime,
-    supplyCounterPromptController,
-    companionAbilityResourcesRuntime,
-    groundActionFeedbackRuntime,
-    callbacks: {
-      playTreeBirthSfx,
-      queueChangedSupplyPickupFlyItems
-    },
-    config: {
-      restoredGrassMissionTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
-      treeRevivalTargetCount: 5
-    }
-  });
-  const playerDirectActionRuntime = createPlayerDirectActionRuntime({
-    controls,
-    session,
-    playerActionContext,
-    playerActionRuntime,
-    callbacks: {
-      debugInteractionFlow,
-      onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart,
-      playSoundEvent
-    },
-    soundEventIds: SOUND_EVENT_IDS
-  });
-  const playerHeldWaterGunActionRuntime = createPlayerHeldWaterGunActionRuntime({
-    controls,
-    session,
-    gameplay,
-    playerActionTargetContext,
-    waterGunRuntime,
-    companionAbilityResourcesRuntime,
-    callbacks: {
-      triggerWaterGunSfxBurst
-    }
-  });
-  const playerPrimaryActionFallbackRuntime = createPlayerPrimaryActionFallbackRuntime({
-    groundActionFeedbackRuntime,
-    fieldMoveInvalidTargetPromptRuntime,
-    callbacks: {
-      playSoundEvent
-    },
-    soundEventIds: SOUND_EVENT_IDS
-  });
-  const playerPrimaryFieldMoveActionRuntime = createPlayerPrimaryFieldMoveActionRuntime({
-    buildBlockRuntime,
-    waterGunRuntime,
-    leafageRuntime,
-    fireRuntime,
-    fieldMoveInvalidTargetPromptRuntime,
-    companionAbilityResourcesRuntime,
-    callbacks: {
       getFreeBlockInvalidPlacementNotice,
+      getNowMs: getRuntimeNowMs,
+      isBusyCompanionTarget: leafDenConstructionPresentationRuntime.isBusyCompanionTarget,
       markWaterGunFirstUsePrompt: () => {
         controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
       },
+      onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart,
       playSoundEvent,
+      playTreeBirthSfx,
       pushNotice: (notice) => hud?.pushNotice?.(notice),
+      queueChangedSupplyPickupFlyItems,
+      queueLandscapeCutEffect: (patch) => landscapeCutEffectRuntime.queue(patch),
+      queueTreeRevivalLeafBurst: (snapshot) =>
+        treeRevivalLeafBurstFrameRuntime.queueForNewlyRevivedTrees(snapshot),
+      resolveGameplayActionPermission,
       setActiveMoveId: (moveId) => controls.setActiveMoveId?.(moveId),
       triggerWaterGunSfxBurst
     },
@@ -1721,53 +1660,13 @@ export function startGameLoop({
     notices: {
       buildLocked: `${SANDBOTS_BOT_NAMES.builder} has not learned Build yet.`,
       buildUnavailable: `${SANDBOTS_BOT_NAMES.builder} needs to be nearby.`,
-      missingMaterial: "Need Wood"
-    }
-  });
-  const playerPrimaryActionRuntime = createPlayerPrimaryActionRuntime({
-    workbenchRotationRuntime,
-    playerActionRuntime,
-    playerActionContext,
-    playerPrimaryActionFallbackRuntime,
-    playerPrimaryFieldMoveActionRuntime,
-    callbacks: {
-      isBusyCompanionTarget: leafDenConstructionPresentationRuntime.isBusyCompanionTarget,
-      onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart,
-      pushNotice: (notice) => hud?.pushNotice?.(notice)
+      leafDenBusy: LEAF_DEN_BUSY_NOTICE,
+      missingMaterial: "Need Wood",
+      noRemovablePatch: "No removable patch here. Move closer to planted grass or flowers."
     },
-    notices: {
-      leafDenBusy: LEAF_DEN_BUSY_NOTICE
-    }
-  });
-  const playerPrimaryActionFrameRuntime = createPlayerPrimaryActionFrameRuntime({
-    controls,
-    session,
-    gameplay,
-    playerActionTargetContext,
-    workbenchRotationRuntime,
-    playerPrimaryActionRuntime,
-    groundActionFeedbackRuntime,
-    callbacks: {
-      findAlreadyResolvedFieldMoveGroundCell,
-      findNearbyDestroyableInstantiatedObject,
-      markWaterGunFirstUsePrompt: () => {
-        controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
-      },
-      playSoundEvent
-    },
-    soundEventIds: SOUND_EVENT_IDS
-  });
-  const playerActionFrameRuntime = createPlayerActionFrameRuntime({
-    controls,
-    session,
-    playerHarvestActionRuntime,
-    playerPrimaryActionFrameRuntime,
-    playerHeldWaterGunActionRuntime,
-    playerDirectActionRuntime,
-    constructionPlacementControlRuntime,
-    bulbasaurWorkbenchGuideRuntime,
-    callbacks: {
-      resolveGameplayActionPermission
+    config: {
+      restoredGrassMissionTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
+      treeRevivalTargetCount: 5
     }
   });
   const gameplayPromptPreparationFrameRuntime = createGameplayPromptPreparationFrameRuntime({
