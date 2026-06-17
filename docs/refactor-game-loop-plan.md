@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle gameplay prompt preparation wiring into the `presentation/`
+  domain.
 - Completed: bundle gameplay audio and frame music updates into the `audio/`
   domain.
 - Completed: bundle supply counter/pickup feedback runtime wiring into the
@@ -134,6 +136,87 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Gameplay Prompt Preparation Runtime Bundle
+
+Created boundary:
+
+`app/runtime/presentation/gameplayPromptPreparationRuntimeBundle.js`
+
+Boundary classification: `presentation`, focused on preparing gameplay prompt,
+target and ground-highlight frame state.
+
+Why this cut:
+
+`gameLoop.js` was still directly wiring prompt preparation with field-move
+target resolvers, workbench rotation callbacks, Water Gun pending cells,
+foundation build-zone cells, solar-station power-radius cells and ground action
+feedback frames. That wiring is presentation-frame preparation, while the game
+loop only needs a runtime with an `update(...)` method.
+
+Moved out of `gameLoop.js`:
+
+- direct import for `createGameplayPromptPreparationFrameRuntime(...)`;
+- direct imports for free-roam, boulder-shaded and grow-first habitat field
+  move target resolvers;
+- prompt counter callback wiring;
+- workbench rotation prompt/ground-cell callback wiring;
+- Water Gun pending ground-cell callback wiring;
+- session-backed field-move guidance resolver wiring;
+- foundation build-zone, solar-station power-radius and ground-action feedback
+  callback wiring.
+
+Kept in `gameLoop.js`:
+
+- high-level creation of the prompt preparation runtime through
+  `createGameplayPromptPreparationRuntimeBundle(...)`;
+- existing local callbacks that are also used by other presentation systems,
+  such as `getLeppaTreeSurroundingGroundCells(...)` and
+  `isOpeningLeppaTreeRequestActive(...)`;
+- the frame-order position where prompt preparation runs.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1983` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1951` lines.
+
+Tests added:
+
+- `tests/gameplayPromptPreparationRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/gameplayPromptPreparationRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/presentation/gameplayPromptPreparationRuntimeBundle.js` did not
+exist. After adding the presentation-domain factory and integrating it into
+`gameLoop.js`, the focused tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameplayPromptPreparationRuntimeBundle.test.js tests/gameplayPromptTargetFrameState.test.js tests/gameLoopGroundCellHighlightWiring.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/presentation/gameplayPromptPreparationRuntimeBundle.js tests/gameplayPromptPreparationRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2003` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Gameplay Audio Runtime Bundle
 

@@ -61,9 +61,6 @@ export {
 import {
   BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
   findAlreadyResolvedFieldMoveGroundCell,
-  getBoulderShadedTaskGroundCells,
-  getFreeRoamRestorationGroundCells,
-  getGrowFirstHabitatTaskGroundCells,
   isDryGrassHydroMissionActive
 } from "./fieldMoveRuntime/fieldMoveGroundTargets.js";
 import { createFieldMoveImpactRuntime } from "./fieldMoveRuntime/fieldMoveImpactRuntime.js";
@@ -83,7 +80,7 @@ import { createPlayerActionRuntimeBundle } from "../player/playerActionRuntimeBu
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
-import { createGameplayPromptPreparationFrameRuntime } from "./presentation/gameplayPromptTargetFrameState.js";
+import { createGameplayPromptPreparationRuntimeBundle } from "./presentation/gameplayPromptPreparationRuntimeBundle.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
 import {
   createBaseRenderSnapshotFrameRuntime,
@@ -1453,57 +1450,28 @@ export function startGameLoop({
       treeRevivalTargetCount: 5
     }
   });
-  const gameplayPromptPreparationFrameRuntime = createGameplayPromptPreparationFrameRuntime({
+  const gameplayPromptPreparationFrameRuntime = createGameplayPromptPreparationRuntimeBundle({
     controls,
     session,
     gameplay,
-    getCurrentInputModalityState,
-    getPlayerCounterPromptText: (frameNow) => playerCounterPromptRuntime.get(frameNow),
-    getSelectedRotatableWorkbenchPlacement: workbenchRotationRuntime.getSelectedTargetFromSources,
-    getNearestRotatableWorkbenchPlacement: workbenchRotationRuntime.getNearestTarget,
+    input: {
+      getCurrentInputModalityState
+    },
+    runtimes: {
+      foundationBuildZoneRuntime,
+      groundActionFeedbackRuntime,
+      playerCounterPromptRuntime,
+      solarStationPowerRadiusRuntime,
+      waterGunRuntime,
+      workbenchRotationRuntime
+    },
+    targetResolvers: {
+      buildSolarStationFieldMarkedGroundCells,
+      getLeppaTreeSurroundingGroundCells,
+      getWorldCellPlannerSelectedGroundCell,
+      isOpeningLeppaTreeRequestActive
+    },
     debug: debugInteractionFlow,
-    getPendingSquirtleWaterGunGroundCells: () => waterGunRuntime.getPendingGroundCells(),
-    getFreeRoamRestorationGroundCells: (options) => getFreeRoamRestorationGroundCells({
-      ...options,
-      groundDeadInstances: session.groundDeadInstances,
-      groundFlowerPatches: session.groundFlowerPatches,
-      groundGrassPatches: session.groundGrassPatches,
-      groundPurifiedInstances: session.groundPurifiedInstances,
-      iceGroundInstances: session.iceGroundInstances
-    }),
-    getLeppaTreeSurroundingGroundCells,
-    isOpeningLeppaTreeRequestActive,
-    buildSolarStationFieldMarkedGroundCells,
-    getBoulderShadedTaskGroundCells: (storyState) => getBoulderShadedTaskGroundCells({
-      storyState,
-      challengeBoulder: session.challengeBoulder,
-      groundDeadInstances: session.groundDeadInstances,
-      groundFlowerPatches: session.groundFlowerPatches,
-      groundGrassPatches: session.groundGrassPatches,
-      groundPurifiedInstances: session.groundPurifiedInstances
-    }),
-    getGrowFirstHabitatTaskGroundCells: (options) => getGrowFirstHabitatTaskGroundCells({
-      ...options,
-      referencePosition:
-        session.bulbasaurEncounter?.position ||
-        session.bulbasaurEncounter?.repairPosition ||
-        session.playerCharacter?.getPosition?.() ||
-        null,
-      groundFlowerPatches: session.groundFlowerPatches,
-      groundGrassPatches: session.groundGrassPatches,
-      groundPurifiedInstances: session.groundPurifiedInstances
-    }),
-    buildFoundationBuildZoneGroundCells: foundationBuildZoneRuntime.buildGroundCells,
-    getWorldCellPlannerSelectedGroundCell,
-    getWorkbenchRotationGroundCell: workbenchRotationRuntime.getGroundCell,
-    buildSolarStationPreviewPowerRadiusGroundCells: (_session, preview) =>
-      solarStationPowerRadiusRuntime.buildPreviewPowerRadiusGroundCells(preview),
-    buildPlacedSolarStationPowerRadiusGroundCells: () =>
-      solarStationPowerRadiusRuntime.buildPlacedPowerRadiusGroundCells(),
-    getGroundActionFeedbackFrame: (frameNow) =>
-      groundActionFeedbackRuntime.getFeedbackFrame({ session, now: frameNow }),
-    getFieldToolTargetPulseFrame: (groundCell, frameNow) =>
-      groundActionFeedbackRuntime.getPulseFrame(groundCell, frameNow)
   });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
