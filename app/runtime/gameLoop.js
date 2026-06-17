@@ -4,7 +4,7 @@ import {
   createGameLoopFrameRuntime
 } from "./gameLoopFrameRuntime.js";
 import { isRevealBoxBotVisible } from "./botRevealMotion.js";
-import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
+import { createGameplayCameraRuntimeBundle } from "./camera/gameplayCameraRuntimeBundle.js";
 import { createCompanionEncounterRuntime } from "./companions/companionEncounterRuntime.js";
 import { createCompanionFacingRuntime } from "./companions/companionFacingRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
@@ -45,8 +45,6 @@ import {
   getRotatedPlacementSize as getRotatedPlacementSizeWithConfig,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
-import { createFoundationBuildZoneCameraFocusRuntime } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
-import { createGameplayCameraFrameRuntime } from "./camera/gameplayCameraFrameRuntime.js";
 import {
   resolveGameplayActionPermission,
   resolvePlayerMovementPermission,
@@ -184,14 +182,11 @@ export {
 
 import { createFrameSnapshotController } from "./frameSnapshotController.js";
 import {
-  createCameraZoomPresetController,
   restoreActiveZoomPresetOnMovement
 } from "./camera/cameraZoomPresetController.js";
-import { createPlacementCameraAssist } from "./camera/placementCameraAssist.js";
 import { getSnowstormFogIntensity } from "../session/snowstormParticleField.js";
 import { PLAYER_SPEED } from "../session/configurePlayerSpawner.js";
 import { updateIntroRoomFrame } from "../scenes/introRoom/introRoomSequence.js";
-import { createGameplayCameraDirector } from "./gameplayCameraDirector.js";
 import { SOUND_EVENT_IDS } from "./soundEventRuntime.js";
 import {
   getGameplayOpeningShipSceneObjects
@@ -494,21 +489,23 @@ export function startGameLoop({
         Date.now(),
     maxDeltaTime: 0.033
   });
-  const cameraDebugRuntime = createCameraDebugRuntime({
-    enabled: CAMERA_DEBUG_ENABLED,
+  const {
+    cameraDebugRuntime,
+    cameraZoomPresetController,
+    createFoundationBuildZoneCameraFocusRuntime,
+    createGameplayCameraFrameRuntime,
+    gameplayCameraDirector,
+    placementCameraAssist
+  } = createGameplayCameraRuntimeBundle({
+    camera,
+    cameraOrbit,
+    cameraZoomPresets,
+    controls,
+    enabledDebug: CAMERA_DEBUG_ENABLED,
+    gameplay,
     mount,
-    readFrameState: ({ now }) => ({
-      paused: Boolean(controls.isPaused?.()),
-      gameplayCameraState: gameplayCameraDirector.getState(now),
-      cameraPose: camera.getPose?.() || null,
-      systemQuestId: gameplay.getActiveSystemQuest?.()?.id || null,
-      uiQuestId: gameplay.getActiveQuest?.(controls.storyState)?.id || null,
-      playerPosition: session.playerCharacter?.getPosition?.() || null,
-      shipVisible: session.gameplayOpeningShip?.visible,
-      shipPosition: session.gameplayOpeningShip?.position
-    })
+    session
   });
-  cameraDebugRuntime.attachGlobalListeners();
   const {
     audio,
     playSoundEvent,
@@ -837,24 +834,10 @@ export function startGameLoop({
     hud
   });
 
-  const cameraZoomPresetController = createCameraZoomPresetController({
-    camera,
-    presets: cameraZoomPresets
-  });
-  const placementCameraAssist = createPlacementCameraAssist({
-    camera,
-    getGameplayPreset: () => cameraZoomPresetController.getCurrentPreset?.()
-  });
-  //
-
   // Controladores de sistemas relacionados ao gameplay.
   function getCurrentInputModalityState() {
     return gameplayInputRuntime.getFrame()?.inputModalityState || null;
   }
-  const gameplayCameraDirector = createGameplayCameraDirector({
-    camera,
-    cameraOrbit
-  });
   const fpsPanelController = createFpsPanelController(fpsPanel);
   const inputModalityPanelController = createInputModalityPanelController(inputModalityPanel);
   const waterGunSfxBurstRuntime = createWaterGunSfxBurstRuntime();
@@ -1219,17 +1202,10 @@ export function startGameLoop({
     audio
   });
   const gameplayCameraFrameRuntime = createGameplayCameraFrameRuntime({
-    camera,
-    cameraOrbit,
-    cameraZoomPresetController,
-    controls,
     tutorial: actTwoTutorial,
-    session,
     openingRuntime: gameplayOpeningRuntime,
-    callbacks: {
-      isGameplayFlow: () => isGameFlow(gameFlowValues.GAMEPLAY),
-      onCycleCameraZoom: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE)
-    }
+    isGameplayFlow: () => isGameFlow(gameFlowValues.GAMEPLAY),
+    playNavigateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE)
   });
   const readGameLoopFlowState = createGameLoopFlowStateReader({
     isGameFlow,
@@ -1338,10 +1314,6 @@ export function startGameLoop({
   });
   const foundationBuildZoneCameraFocusRuntime = createFoundationBuildZoneCameraFocusRuntime({
     foundationBuildZoneRuntime,
-    gameplay,
-    controls,
-    camera,
-    cameraOrbit,
     getZoneSignature: getBuilderTutorialFoundationZoneSignature
   });
   const freeBlockBuildRuntime = createFreeBlockBuildRuntime({

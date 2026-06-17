@@ -74,6 +74,7 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle gameplay camera runtime wiring into the `camera/` domain.
 - Completed: bundle player model, movement and resource collection runtime
   wiring into the `player/` domain.
 - Completed: bundle render snapshot runtime wiring into the `presentation/`
@@ -140,6 +141,86 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Gameplay Camera Runtime Bundle
+
+Created boundary:
+
+`app/runtime/camera/gameplayCameraRuntimeBundle.js`
+
+Boundary classification: `camera`, focused on gameplay camera runtime wiring.
+
+Why this cut:
+
+`gameLoop.js` was still directly creating several camera-domain collaborators:
+camera debug, zoom presets, placement camera assist, gameplay camera director,
+gameplay camera frame runtime and foundation build-zone camera focus. The frame
+still owns update order, but camera-specific factory wiring now lives under the
+`camera/` domain.
+
+Moved out of `gameLoop.js`:
+
+- direct import for `createCameraDebugRuntime(...)`;
+- direct import for `createCameraZoomPresetController(...)`;
+- direct import for `createPlacementCameraAssist(...)`;
+- direct import for `createGameplayCameraDirector(...)`;
+- direct import for `createGameplayCameraFrameRuntime(...)`;
+- direct import for `createFoundationBuildZoneCameraFocusRuntime(...)`;
+- camera debug frame-state reader wiring;
+- placement camera assist gameplay preset callback wiring;
+- gameplay camera frame callback wiring for gameplay flow and zoom-cycle sound;
+- foundation build-zone camera focus dependency wiring.
+
+Kept in `gameLoop.js`:
+
+- high-level creation through `createGameplayCameraRuntimeBundle(...)`;
+- frame-order calls to camera input/follow updates;
+- `restoreActiveZoomPresetOnMovement(...)` export/import because player movement
+  still uses that behavior through the player bundle;
+- foundation build-zone focus update call through the existing frame runtime.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1927` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1899` lines.
+
+Tests added:
+
+- `tests/gameplayCameraRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/gameplayCameraRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/camera/gameplayCameraRuntimeBundle.js` did not exist. After adding
+the camera-domain factory and integrating it into `gameLoop.js`, the focused
+tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/gameplayCameraRuntimeBundle.test.js tests/cameraDebugRuntime.test.js tests/cameraZoomPresetController.test.js tests/placementCameraAssist.test.js tests/gameplayCameraFrameRuntime.test.js tests/foundationBuildZoneCameraFocusRuntime.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/camera/gameplayCameraRuntimeBundle.js tests/gameplayCameraRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2006` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Player Frame Runtime Bundle
 
