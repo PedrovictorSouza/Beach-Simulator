@@ -17,10 +17,15 @@ function defaultNowMs() {
   return Date.now();
 }
 
+function defaultNowSeconds() {
+  return 0;
+}
+
 export function createLeafDenConstructionPresentationRuntime({
   session = {},
   getStoryState = () => ({}),
-  getNowMs = defaultNowMs
+  getNowMs = defaultNowMs,
+  getNowSeconds = defaultNowSeconds
 } = {}) {
   function getStoryStateValue() {
     return getStoryState?.() || {};
@@ -51,7 +56,7 @@ export function createLeafDenConstructionPresentationRuntime({
     return getActiveConstructionCloudBursts(session, nowMs);
   }
 
-  function syncCloudBurstEffects(nowSeconds = 0) {
+  function syncCloudBurstEffects(nowSeconds = getNowSeconds()) {
     return syncConstructionCloudBurstEffects({
       session,
       nowMs: getNowMs(),
@@ -59,7 +64,7 @@ export function createLeafDenConstructionPresentationRuntime({
     });
   }
 
-  function syncConstructionClouds(nowSeconds = 0) {
+  function syncConstructionClouds(nowSeconds = getNowSeconds()) {
     return syncLeafDenConstructionClouds({
       session,
       active: isActive(),
@@ -68,7 +73,7 @@ export function createLeafDenConstructionPresentationRuntime({
     });
   }
 
-  function getConstructionBillboards(uvRect, nowSeconds = 0) {
+  function getConstructionBillboards(uvRect, nowSeconds = getNowSeconds()) {
     return getLeafDenConstructionBillboards({
       active: isActive(),
       leafDen: session.leafDen,
@@ -81,7 +86,7 @@ export function createLeafDenConstructionPresentationRuntime({
     });
   }
 
-  function getCloudBurstBillboards(uvRect, nowSeconds = 0) {
+  function getCloudBurstBillboards(uvRect, nowSeconds = getNowSeconds()) {
     return getConstructionCloudBurstBillboards({
       bursts: getActiveCloudBursts(),
       starTexture: session.logChairStarTexture || session.natureRevivalSparkTexture,

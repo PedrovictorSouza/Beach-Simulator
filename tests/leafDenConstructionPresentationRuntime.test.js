@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { createLeafDenConstructionPresentationRuntime } from "../app/runtime/construction/leafDenConstructionPresentationRuntime.js";
 
@@ -34,7 +34,8 @@ function createRuntime(overrides = {}) {
   const runtime = createLeafDenConstructionPresentationRuntime({
     session,
     getStoryState: () => storyState,
-    getNowMs: () => 2000
+    getNowMs: () => 2000,
+    getNowSeconds: overrides.getNowSeconds
   });
 
   return {
@@ -100,5 +101,23 @@ describe("createLeafDenConstructionPresentationRuntime", () => {
 
     expect(runtime.isActive()).toBe(false);
     expect(runtime.getConstructionBillboards("uv", 1.25)).toEqual([]);
+  });
+
+  it("uses its injected seconds clock when frame seconds are omitted", () => {
+    const getNowSeconds = vi.fn(() => 1.25);
+    const { runtime } = createRuntime({
+      getNowSeconds
+    });
+
+    expect(runtime.getConstructionBillboards("uv")).toEqual(
+      runtime.getConstructionBillboards("uv", 1.25)
+    );
+    expect(runtime.getCloudBurstBillboards("uv")).toEqual(
+      runtime.getCloudBurstBillboards("uv", 1.25)
+    );
+    runtime.syncConstructionClouds();
+    runtime.syncCloudBurstEffects();
+
+    expect(getNowSeconds).toHaveBeenCalledTimes(4);
   });
 });

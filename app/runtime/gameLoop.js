@@ -1072,7 +1072,8 @@ export function startGameLoop({
   });
   const leafDenConstructionPresentationRuntime = createLeafDenConstructionPresentationRuntime({
     session,
-    getStoryState: () => controls.storyState
+    getStoryState: () => controls.storyState,
+    getNowSeconds: getRuntimeNowSeconds
   });
   const constructionHelperMotionRuntime = createConstructionHelperMotionRuntime({
     getLeafDenPosition: () => session.leafDen?.position,
@@ -1108,7 +1109,7 @@ export function startGameLoop({
   const fireRuntime = createFireRuntime({
     session,
     getCharmander: () => session.charmanderEncounter,
-    isBusy: isLeafDenConstructionActive,
+    isBusy: leafDenConstructionPresentationRuntime.isActive,
     onBusy: () => hud?.pushNotice?.(LEAF_DEN_BUSY_NOTICE),
     hasFireCarbon: hasCharmanderFireCarbon,
     getGroundCellCenterPosition,
@@ -1298,9 +1299,9 @@ export function startGameLoop({
       syncActiveRepairBoxHighlight,
       syncGreenhouseModelInstance: constructionHouseModelInstanceRuntime.syncGreenhouse,
       syncCampfireTrainHouseModelInstance: constructionHouseModelInstanceRuntime.syncCampfireTrainHouse,
-      isLeafDenConstructionActive,
-      syncLeafDenConstructionClouds,
-      syncConstructionCloudBurstEffects,
+      isLeafDenConstructionActive: leafDenConstructionPresentationRuntime.isActive,
+      syncLeafDenConstructionClouds: leafDenConstructionPresentationRuntime.syncConstructionClouds,
+      syncConstructionCloudBurstEffects: leafDenConstructionPresentationRuntime.syncCloudBurstEffects,
       syncLeafDenModelInstance: constructionHouseModelInstanceRuntime.syncLeafDen,
       syncPlayerHouseModelInstances: constructionHouseModelInstanceRuntime.syncPlayerHouses
     },
@@ -1369,7 +1370,7 @@ export function startGameLoop({
     constructionHelperMotionRuntime,
     companionFollowMovementRuntime,
     callbacks: {
-      isLeafDenConstructionActive
+      isLeafDenConstructionActive: leafDenConstructionPresentationRuntime.isActive
     },
     config: {
       bulbasaurModelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET,
@@ -1725,7 +1726,7 @@ export function startGameLoop({
     playerPrimaryActionFallbackRuntime,
     playerPrimaryFieldMoveActionRuntime,
     callbacks: {
-      isBusyCompanionTarget: isLeafDenBusyCompanionTarget,
+      isBusyCompanionTarget: leafDenConstructionPresentationRuntime.isBusyCompanionTarget,
       onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart,
       pushNotice: (notice) => hud?.pushNotice?.(notice)
     },
@@ -1983,30 +1984,6 @@ export function startGameLoop({
     worldCellPlannerInteractionRuntime.handlePointerDown,
     { capture: true }
   );
-
-  function isLeafDenConstructionActive() {
-    return leafDenConstructionPresentationRuntime.isActive();
-  }
-
-  function isLeafDenBusyCompanionTarget(target) {
-    return leafDenConstructionPresentationRuntime.isBusyCompanionTarget(target);
-  }
-
-  function syncConstructionCloudBurstEffects(nowSeconds = getRuntimeNowSeconds()) {
-    return leafDenConstructionPresentationRuntime.syncCloudBurstEffects(nowSeconds);
-  }
-
-  function syncLeafDenConstructionClouds(nowSeconds = getRuntimeNowSeconds()) {
-    return leafDenConstructionPresentationRuntime.syncConstructionClouds(nowSeconds);
-  }
-
-  function getLeafDenConstructionBillboards(uvRect, nowSeconds = getRuntimeNowSeconds()) {
-    return leafDenConstructionPresentationRuntime.getConstructionBillboards(uvRect, nowSeconds);
-  }
-
-  function getConstructionCloudBurstBillboards(uvRect, nowSeconds = getRuntimeNowSeconds()) {
-    return leafDenConstructionPresentationRuntime.getCloudBurstBillboards(uvRect, nowSeconds);
-  }
 
   function updateGameplayPresentationFrame({
     now,
@@ -2382,8 +2359,10 @@ export function startGameLoop({
       activeQuest,
       campfirePlacementPreview,
       getMissionTargetPositionsById,
-      getLeafDenConstructionBillboards,
-      getConstructionCloudBurstBillboards,
+      getLeafDenConstructionBillboards:
+        leafDenConstructionPresentationRuntime.getConstructionBillboards,
+      getConstructionCloudBurstBillboards:
+        leafDenConstructionPresentationRuntime.getCloudBurstBillboards,
       clamp: clamp01
     });
 

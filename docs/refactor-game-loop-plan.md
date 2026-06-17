@@ -4336,6 +4336,95 @@ Still pending:
 
 - manual gameplay validation.
 
+## Leaf Den Construction Presentation Runtime Boundary
+
+Date: 2026-06-16
+
+Boundary classification: `construction / presentation`, inside the existing
+`app/runtime/construction/leafDenConstructionPresentationRuntime.js` module.
+
+Goal:
+
+- remove Leaf Den construction callback wrappers from `gameLoop.js`;
+- keep `startGameLoop()` as the composition root for runtime dependencies;
+- let the Leaf Den construction presentation runtime own its frame-seconds
+  default;
+- avoid creating a new file.
+
+What moved:
+
+- defaulting Leaf Den construction billboard time to `getRuntimeNowSeconds()`;
+- defaulting Leaf Den construction cloud sync time to `getRuntimeNowSeconds()`;
+- direct callback ownership for active state, busy companion target, cloud sync
+  and billboard builders.
+
+Removed from `gameLoop.js`:
+
+- `isLeafDenConstructionActive()`;
+- `isLeafDenBusyCompanionTarget(target)`;
+- `syncConstructionCloudBurstEffects(nowSeconds)`;
+- `syncLeafDenConstructionClouds(nowSeconds)`;
+- `getLeafDenConstructionBillboards(uvRect, nowSeconds)`;
+- `getConstructionCloudBurstBillboards(uvRect, nowSeconds)`.
+
+Kept in `gameLoop.js`:
+
+- dependency wiring for `session`, `controls.storyState` and
+  `getRuntimeNowSeconds`;
+- passing Leaf Den runtime methods into Fire, companion encounter, player
+  primary action, base render snapshot and world object billboard frame.
+
+Why this is safe:
+
+- the pure Leaf Den construction state, cloud and billboard helpers are
+  unchanged;
+- call sites keep the same method signatures;
+- no construction timing, texture, progress, billboard or cloud tuning changed.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` had `2402` lines.
+- After this cut, `app/runtime/gameLoop.js` has `2381` lines.
+
+Tests added:
+
+- `tests/leafDenConstructionPresentationRuntime.test.js` now verifies that the
+  runtime uses its injected seconds clock when frame seconds are omitted.
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/leafDenConstructionPresentationRuntime.test.js
+```
+
+The first run failed because the runtime still defaulted omitted seconds to
+`0`. After adding `getNowSeconds`, focused tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/leafDenConstructionPresentationRuntime.test.js tests/baseRenderSnapshotFrame.test.js tests/worldObjectBillboardFrame.test.js tests/companionEncounterRuntime.test.js tests/fireRuntime.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1986` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` existing scene-flow failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Still pending:
+
+- manual gameplay validation.
+
 ### Early Gameplay Control Frame Runtime Boundary
 
 Expanded `app/runtime/gameLoopFrameRuntime.js` with
