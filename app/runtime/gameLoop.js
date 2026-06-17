@@ -5,9 +5,8 @@ import {
 } from "./gameLoopFrameRuntime.js";
 import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createGameplayCameraRuntimeBundle } from "./camera/gameplayCameraRuntimeBundle.js";
-import { createCompanionEncounterRuntime } from "./companions/companionEncounterRuntime.js";
 import { createCompanionFacingRuntime } from "./companions/companionFacingRuntime.js";
-import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
+import { createCompanionFrameRuntimeBundle } from "./companions/companionFrameRuntimeBundle.js";
 import { createCompanionMotionRuntimeBundle } from "./companions/companionMotionRuntimeBundle.js";
 import { createCompanionPresentationRuntimeBundle } from "./companions/companionPresentationRuntimeBundle.js";
 import { createCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
@@ -1118,17 +1117,15 @@ export function startGameLoop({
     },
     session
   });
-  const companionEncounterRuntime = createCompanionEncounterRuntime({
+  const {
+    companionFrameRuntime
+  } = createCompanionFrameRuntimeBundle({
     session,
     controls,
-    repairBoxRevealOpeningRuntime,
-    bulbasaurWorkbenchGuideRuntime,
-    companionModelSyncRuntime,
-    companionIdleMotionRuntime,
-    constructionHelperMotionRuntime,
-    companionFollowMovementRuntime,
+    rendering,
+    audio,
     callbacks: {
-      isLeafDenConstructionActive: leafDenConstructionPresentationRuntime.isActive
+      isGameplayActive: () => isGameFlow(gameFlowValues.GAMEPLAY)
     },
     config: {
       bulbasaurModelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET,
@@ -1136,48 +1133,29 @@ export function startGameLoop({
       timburrModelFaceYawOffset: TIMBURR_MODEL_FACE_YAW_OFFSET,
       charmanderFollowSpeed: CHARMANDER_FOLLOW_SPEED,
       charmanderFollowDistance: CHARMANDER_FOLLOW_DISTANCE,
+      guidePosition: RUINED_POKEMON_CENTER_GUIDE_POSITION,
       timburrFollowSpeed: TIMBURR_FOLLOW_SPEED,
       timburrFollowDistance: TIMBURR_FOLLOW_DISTANCE
-    }
-  });
-
-  const companionFrameRuntime = createCompanionFrameRuntime({
-    session,
-    controls,
-    rendering,
-    audio,
-    guidePosition: RUINED_POKEMON_CENTER_GUIDE_POSITION,
-    callbacks: {
-      isDialogueActive: () => gameplayDialogue.isActive(),
-      isGameplayActive: () => isGameFlow(gameFlowValues.GAMEPLAY),
-      getRepairBoxInvestigationTarget: () => companionRepairBoxModelRuntime.getInvestigationTarget({
-        encounter: session.bulbasaurEncounter,
-        flags: controls.storyState?.flags,
-        groundGrassPatches: session.groundGrassPatches
-      }),
-      isWaterGunSfxBurstActive: (nowSeconds) => waterGunSfxBurstRuntime.isActive(nowSeconds),
-      updateBulbasaurRepairBoxRustle: (deltaTime) =>
-        companionRepairBoxModelRuntime.updateRepairBoxRustle(session.bulbasaurEncounter, deltaTime),
-      updateBulbasaurEncounter: (...args) => companionEncounterRuntime.updateBulbasaur(...args),
-      updateCharmanderEncounter: (...args) => companionEncounterRuntime.updateCharmander(...args),
-      updateCharmanderFireAction: (deltaTime) => fireRuntime.updateAction(deltaTime),
-      updateTimburrEncounter: (...args) => companionEncounterRuntime.updateTimburr(...args),
-      updateTimburrBuildBlockAction: (deltaTime, now) =>
-        buildBlockRuntime.updateAction(deltaTime, now),
-      syncCompanionRepairModules: () => companionModelSyncRuntime.syncRepairModules(),
-      syncBeeFieldRepairBox: () => beeFieldRuntime.syncRepairBox(),
-      syncBeeFieldBees: (deltaTime) => beeFieldRuntime.syncBees(deltaTime),
-      updateSquirtleReassembly: (deltaTime) => squirtleReassemblyRuntime.update(deltaTime),
-      updateSquirtleWaterStamina: (deltaTime) =>
-        companionAbilityResourcesRuntime.updateSquirtleWaterStamina(deltaTime),
-      updateCharmanderCarbonEnergy: (deltaTime) =>
-        companionAbilityResourcesRuntime.updateCharmanderCarbonEnergy(deltaTime),
-      updateSquirtleWaterGunAction: (deltaTime) => waterGunRuntime.updateAction(deltaTime),
-      updateBulbasaurLeafageAction: (deltaTime) => leafageRuntime.updateAction(deltaTime),
-      updateSquirtleIdlePatrol: (deltaTime, frameState) =>
-        companionGroundPatrolFrameRuntime.updateSquirtle(deltaTime, frameState),
-      updateBulbasaurIdlePatrol: (deltaTime, frameState) =>
-        companionGroundPatrolFrameRuntime.updateBulbasaur(deltaTime, frameState)
+    },
+    runtimes: {
+      beeFieldRuntime,
+      buildBlockRuntime,
+      bulbasaurWorkbenchGuideRuntime,
+      companionAbilityResourcesRuntime,
+      companionFollowMovementRuntime,
+      companionGroundPatrolFrameRuntime,
+      companionIdleMotionRuntime,
+      companionModelSyncRuntime,
+      companionRepairBoxModelRuntime,
+      constructionHelperMotionRuntime,
+      fireRuntime,
+      gameplayDialogue,
+      leafageRuntime,
+      leafDenConstructionPresentationRuntime,
+      repairBoxRevealOpeningRuntime,
+      squirtleReassemblyRuntime,
+      waterGunRuntime,
+      waterGunSfxBurstRuntime
     }
   });
 

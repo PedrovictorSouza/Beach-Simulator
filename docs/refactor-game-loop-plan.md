@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle companion encounter/frame runtime wiring into the
+  `companions/` domain.
 - Completed: bundle gameplay camera runtime wiring into the `camera/` domain.
 - Completed: bundle player model, movement and resource collection runtime
   wiring into the `player/` domain.
@@ -141,6 +143,84 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Companion Frame Runtime Bundle
+
+Created boundary:
+
+`app/runtime/companions/companionFrameRuntimeBundle.js`
+
+Boundary classification: `companions`, focused on companion encounter and
+per-frame companion update wiring.
+
+Why this cut:
+
+`gameLoop.js` was still directly creating companion encounter/frame runtimes and
+owned a large callback map for Bulbasaur, Charmander, Timburr, Squirtle,
+repair-box rustle, Bee Field, companion stamina, field-move actions and idle
+patrols. The behavior remains in the existing companion and field-move runtimes,
+but companion-domain frame wiring now lives under `companions/`.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createCompanionEncounterRuntime(...)` and
+  `createCompanionFrameRuntime(...)`;
+- companion encounter runtime creation;
+- companion frame runtime creation;
+- repair-box investigation target callback wiring;
+- Bulbasaur/Charmander/Timburr encounter callback wiring;
+- companion repair module and Bee Field sync callback wiring;
+- Squirtle reassembly, stamina, Water Gun and patrol callback wiring;
+- Charmander fire/carbon and Timburr Build Block callback wiring.
+
+Kept in `gameLoop.js`:
+
+- high-level creation through `createCompanionFrameRuntimeBundle(...)`;
+- companion constants and runtime handles passed as domain dependencies;
+- existing frame-order call to `companionFrameRuntime.update(...)`.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1899` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1877` lines.
+
+Tests added:
+
+- `tests/companionFrameRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionFrameRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/companions/companionFrameRuntimeBundle.js` did not exist. After
+adding the companion-domain factory and integrating it into `gameLoop.js`, the
+focused tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionFrameRuntimeBundle.test.js tests/companionFrameRuntime.test.js tests/companionEncounterRuntime.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/companions/companionFrameRuntimeBundle.js tests/companionFrameRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2007` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Gameplay Camera Runtime Bundle
 
