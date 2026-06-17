@@ -255,6 +255,80 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Gameplay Construction Terrain Collider Provider Boundary
+
+Expanded `app/runtime/construction/constructionGameplayConfig.js` with
+`createGameplayConstructionTerrainColliderProvider(...)`.
+
+Boundary classification: `construction`, focused on adapting gameplay
+construction footprints into the terrain-collider provider used by blocker and
+build runtimes.
+
+Study path:
+
+1. `startGameLoop()` still wires the provider with `session` and the current
+   `controls.storyState`.
+2. The construction domain now owns which construction footprints are passed to
+   `createPlayerConstructionTerrainColliders(...)`.
+3. `gameLoop.js` passes the resulting callback to existing construction
+   runtimes without changing frame order or placement behavior.
+
+Removed from `gameLoop.js`:
+
+- direct import of `createPlayerConstructionTerrainColliders(...)`;
+- local `getPlayerConstructionTerrainColliders()` implementation;
+- duplicated construction footprint mapping for terrain colliders.
+
+Kept in `gameLoop.js`:
+
+- composition-root wiring of the provider;
+- existing construction runtime callback shape;
+- `isPositionInsideTerrainColliderFootprint(...)`, because build-block
+  collision checks still use that pure geometry helper directly.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1403` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1392` lines.
+
+Tests updated:
+
+- `tests/constructionGameplayConfig.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionGameplayConfig.test.js
+```
+
+The first run failed because
+`createGameplayConstructionTerrainColliderProvider(...)` did not exist yet.
+After adding the factory and rewiring `gameLoop.js`, the focused construction
+tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionGameplayConfig.test.js tests/constructionBlockerRuntimeBundle.test.js tests/placementBlockers.test.js tests/constructionBuildRuntimeBundle.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2032` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## 2026-06-17 - Gameplay Companion Facing Defaults Boundary
 
 This cut moves gameplay-specific companion model-face yaw defaults out of

@@ -1,3 +1,5 @@
+import { createPlayerConstructionTerrainColliders } from "../../gameplay/placementBlockers.js";
+
 const LEAF_DEN_KIT_PREVIEW_FOOTPRINT = [1.95, 1.45];
 
 export const GAMEPLAY_CONSTRUCTION_CONFIG = Object.freeze({
@@ -23,3 +25,23 @@ export const GAMEPLAY_CONSTRUCTION_CONFIG = Object.freeze({
   solarStationFieldMarkedTileLimit: 81,
   solarStationPowerRadiusMarkedTileLimit: 1200
 });
+
+export function createGameplayConstructionTerrainColliderProvider({
+  session = {},
+  getStoryState = () => ({}),
+  createTerrainColliders = createPlayerConstructionTerrainColliders
+} = {}) {
+  return function getGameplayConstructionTerrainColliders() {
+    return createTerrainColliders({
+      session,
+      storyState: getStoryState(),
+      footprints: {
+        greenhouse: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
+        solarStation: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+        trainHouse: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
+        houseKit: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+        houseBuilt: GAMEPLAY_CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint
+      }
+    });
+  };
+}

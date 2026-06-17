@@ -16,7 +16,8 @@ import { createGameplayFreeBlockBuildSessionRuntime } from "./construction/freeB
 import { createConstructionBlockerRuntimeBundle } from "./construction/constructionBlockerRuntimeBundle.js";
 import { createConstructionBuildRuntimeBundle } from "./construction/constructionBuildRuntimeBundle.js";
 import {
-  GAMEPLAY_CONSTRUCTION_CONFIG as CONSTRUCTION_CONFIG
+  GAMEPLAY_CONSTRUCTION_CONFIG as CONSTRUCTION_CONFIG,
+  createGameplayConstructionTerrainColliderProvider
 } from "./construction/constructionGameplayConfig.js";
 import { createConstructionPlacementRuntimeBundle } from "./construction/constructionPlacementRuntimeBundle.js";
 import { createConstructionPresentationRuntimeBundle } from "./construction/constructionPresentationRuntimeBundle.js";
@@ -194,10 +195,7 @@ import {
   clearInteractionObjectHighlights
 } from "./interactionObjectHighlight.js";
 import { syncFirstTaughtActionFreedomWindow } from "../story/earlyFreedomWindow.js";
-import {
-  createPlayerConstructionTerrainColliders,
-  isPositionInsideTerrainColliderFootprint
-} from "../gameplay/placementBlockers.js";
+import { isPositionInsideTerrainColliderFootprint } from "../gameplay/placementBlockers.js";
 import { FREE_BLOCK_TYPES } from "../gameplay/freeBlockBuildSystem.js";
 import { evaluateHabitatSiteChoice } from "../gameplay/habitatSiteChoiceContract.js";
 import {
@@ -424,6 +422,11 @@ export function startGameLoop({
     }
   });
   const companionFacingRuntime = createGameplayCompanionFacingRuntime({ session });
+  const getPlayerConstructionTerrainColliders =
+    createGameplayConstructionTerrainColliderProvider({
+      session,
+      getStoryState: () => controls.storyState
+    });
   const {
     companionConstructionBlockerRuntime,
     solarStationPlacementBlockerRuntime,
@@ -1118,20 +1121,6 @@ export function startGameLoop({
 
   function playGrowBotRevealSfx() {
     audio.playGrowBotReveal();
-  }
-
-  function getPlayerConstructionTerrainColliders() {
-    return createPlayerConstructionTerrainColliders({
-      session,
-      storyState: controls.storyState,
-      footprints: {
-        greenhouse: CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
-        solarStation: CONSTRUCTION_CONFIG.previewFootprints.solarStation,
-        trainHouse: CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
-        houseKit: CONSTRUCTION_CONFIG.previewFootprints.houseKit,
-        houseBuilt: CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint
-      }
-    });
   }
 
   function getInteractionDebugColliders() {

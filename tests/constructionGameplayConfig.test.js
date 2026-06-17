@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  GAMEPLAY_CONSTRUCTION_CONFIG
+  GAMEPLAY_CONSTRUCTION_CONFIG,
+  createGameplayConstructionTerrainColliderProvider
 } from "../app/runtime/construction/constructionGameplayConfig.js";
 
 describe("GAMEPLAY_CONSTRUCTION_CONFIG", () => {
@@ -34,5 +35,35 @@ describe("GAMEPLAY_CONSTRUCTION_CONFIG", () => {
     expect(GAMEPLAY_CONSTRUCTION_CONFIG.solarStationFollowDistance).toBe(2.85);
     expect(GAMEPLAY_CONSTRUCTION_CONFIG.solarStationFieldMarkedTileLimit).toBe(81);
     expect(GAMEPLAY_CONSTRUCTION_CONFIG.solarStationPowerRadiusMarkedTileLimit).toBe(1200);
+  });
+
+  it("creates a terrain collider provider from gameplay construction footprints", () => {
+    const session = { objects: [] };
+    const storyState = { flags: { greenhouseBuilt: true } };
+    const createTerrainCollidersCalls = [];
+    const terrainColliders = [{ id: "greenhouse-collider" }];
+    const getTerrainColliders = createGameplayConstructionTerrainColliderProvider({
+      session,
+      getStoryState: () => storyState,
+      createTerrainColliders: (options) => {
+        createTerrainCollidersCalls.push(options);
+        return terrainColliders;
+      }
+    });
+
+    expect(getTerrainColliders()).toBe(terrainColliders);
+    expect(createTerrainCollidersCalls).toEqual([
+      {
+        session,
+        storyState,
+        footprints: {
+          greenhouse: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
+          solarStation: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+          trainHouse: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
+          houseKit: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+          houseBuilt: GAMEPLAY_CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint
+        }
+      }
+    ]);
   });
 });
