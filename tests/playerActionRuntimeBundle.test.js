@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  createPlayerActionRuntimeBundle
+  createPlayerActionRuntimeBundle,
+  createPlayerGameplayActionRuntimeBundle
 } from "../app/player/playerActionRuntimeBundle.js";
 
 function createHarness() {
@@ -111,5 +112,82 @@ describe("createPlayerActionRuntimeBundle", () => {
       waterGunEquipped: true
     });
     expect(controls.getActiveMoveId).toHaveBeenCalled();
+  });
+
+  it("creates the game-loop player action boundary with HUD and sound adapters", () => {
+    const notices = [];
+    const soundEvents = [];
+    const controls = {
+      inventory: {},
+      playerSkills: {},
+      storyState: {
+        flags: {}
+      },
+      getActiveMoveId: vi.fn(() => null)
+    };
+    const session = {
+      playerCharacter: {
+        getPosition: vi.fn(() => [0, 0.04, 0])
+      }
+    };
+    const gameplay = {
+      performHarvestAction: vi.fn(() => true),
+      performInteractAction: vi.fn(() => false)
+    };
+    const runtime = createPlayerGameplayActionRuntimeBundle({
+      controls,
+      session,
+      gameplay,
+      hud: {
+        pushNotice: (notice) => notices.push(notice)
+      },
+      runtimes: {
+        buildBlockRuntime: {},
+        bulbasaurWorkbenchGuideRuntime: {},
+        companionAbilityResourcesRuntime: {},
+        constructionPlacementControlRuntime: {},
+        fieldMoveInvalidTargetPromptRuntime: {},
+        fireRuntime: {},
+        freeBlockBuildRuntime: {
+          tryRemoveNearby: vi.fn(() => false)
+        },
+        groundActionFeedbackRuntime: {},
+        leafageRuntime: {},
+        playerCounterPromptRuntime: {},
+        supplyCounterPromptController: {},
+        waterGunRuntime: {},
+        waterGunSfxBurstRuntime: {},
+        workbenchRotationRuntime: {}
+      },
+      callbacks: {
+        findNearbyDestroyableInstantiatedObject: vi.fn(),
+        getNowMs: vi.fn(() => 1000),
+        getNowSeconds: vi.fn(() => 1),
+        playSoundEvent: (soundEventId) => soundEvents.push(soundEventId),
+        resolveGameplayActionPermission: vi.fn(() => true)
+      },
+      soundEventIds: {
+        UI_CANCEL: "ui.cancel"
+      },
+      botNames: {
+        builder: "Builder Bot"
+      },
+      config: {
+        waterGunFirstUsePromptFlag: "waterGunFirstUsePromptDismissed",
+        restoredGrassMissionTargetCount: 10,
+        waterGunSprayDuration: 0.4,
+        leafDenBusyNotice: "im busy, boss..."
+      }
+    });
+
+    expect(runtime.playerActionRuntime.performDestroy({
+      playerPosition: [0, 0.04, 0],
+      storyState: controls.storyState
+    })).toBe(false);
+
+    expect(soundEvents).toEqual(["ui.cancel"]);
+    expect(notices).toEqual([
+      "No removable patch here. Move closer to planted grass or flowers."
+    ]);
   });
 });

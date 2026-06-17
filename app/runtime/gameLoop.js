@@ -64,7 +64,7 @@ import { getMissionTargetPositionsById as getMissionTargetPositionsByIdWithConfi
 import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
-import { createPlayerActionRuntimeBundle } from "../player/playerActionRuntimeBundle.js";
+import { createPlayerGameplayActionRuntimeBundle } from "../player/playerActionRuntimeBundle.js";
 import { createPlayerFrameRuntimeBundle } from "../player/playerFrameRuntimeBundle.js";
 import { createGameplayPromptPreparationRuntimeBundle } from "./presentation/gameplayPromptPreparationRuntimeBundle.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
@@ -1262,10 +1262,11 @@ export function startGameLoop({
   const {
     playerActionFrameRuntime,
     playerActionRuntime
-  } = createPlayerActionRuntimeBundle({
+  } = createPlayerGameplayActionRuntimeBundle({
     controls,
     session,
     gameplay,
+    hud,
     runtimes: {
       buildBlockRuntime,
       bulbasaurWorkbenchGuideRuntime,
@@ -1279,6 +1280,7 @@ export function startGameLoop({
       playerCounterPromptRuntime,
       supplyCounterPromptController,
       waterGunRuntime,
+      waterGunSfxBurstRuntime,
       workbenchRotationRuntime
     },
     callbacks: {
@@ -1287,33 +1289,24 @@ export function startGameLoop({
       findNearbyDestroyableInstantiatedObject,
       getFreeBlockInvalidPlacementNotice,
       getNowMs: getRuntimeNowMs,
+      getNowSeconds: getRuntimeNowSeconds,
       isBusyCompanionTarget: leafDenConstructionPresentationRuntime.isBusyCompanionTarget,
-      markWaterGunFirstUsePrompt: () => {
-        controls.storyState.flags[WATER_GUN_FIRST_USE_PROMPT_FLAG] = true;
-      },
       onNpcInteractionStart: npcConversationFocusRuntime.handleInteractionStart,
       playSoundEvent,
       playTreeBirthSfx,
-      pushNotice: (notice) => hud?.pushNotice?.(notice),
       queueChangedSupplyPickupFlyItems,
       queueLandscapeCutEffect: (patch) => landscapeCutEffectRuntime.queue(patch),
       queueTreeRevivalLeafBurst: (snapshot) =>
         treeRevivalLeafBurstFrameRuntime.queueForNewlyRevivedTrees(snapshot),
-      resolveGameplayActionPermission,
-      setActiveMoveId: (moveId) => controls.setActiveMoveId?.(moveId),
-      triggerWaterGunSfxBurst
+      resolveGameplayActionPermission
     },
     soundEventIds: SOUND_EVENT_IDS,
-    notices: {
-      buildLocked: `${SANDBOTS_BOT_NAMES.builder} has not learned Build yet.`,
-      buildUnavailable: `${SANDBOTS_BOT_NAMES.builder} needs to be nearby.`,
-      leafDenBusy: LEAF_DEN_BUSY_NOTICE,
-      missingMaterial: "Need Wood",
-      noRemovablePatch: "No removable patch here. Move closer to planted grass or flowers."
-    },
+    botNames: SANDBOTS_BOT_NAMES,
     config: {
+      leafDenBusyNotice: LEAF_DEN_BUSY_NOTICE,
       restoredGrassMissionTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
-      treeRevivalTargetCount: 5
+      waterGunFirstUsePromptFlag: WATER_GUN_FIRST_USE_PROMPT_FLAG,
+      waterGunSprayDuration: SQUIRTLE_WATER_GUN_SPRAY_DURATION
     }
   });
   const gameplayPromptPreparationFrameRuntime = createGameplayPromptPreparationRuntimeBundle({
@@ -1393,10 +1386,6 @@ export function startGameLoop({
       ruinedPokemonCenterPosition: RUINED_POKEMON_CENTER_POSITION,
       getFreeBlockBuildZoneCenterPosition: foundationBuildZoneRuntime.getBuildZoneCenterPosition
     });
-  }
-
-  function triggerWaterGunSfxBurst(duration = SQUIRTLE_WATER_GUN_SPRAY_DURATION) {
-    waterGunSfxBurstRuntime.trigger(getRuntimeNowSeconds(), duration);
   }
 
   function updateFoundationBuildZoneCameraFocus(now) {

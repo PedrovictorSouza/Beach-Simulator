@@ -230,6 +230,92 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Player Gameplay Action Runtime Boundary
+
+Expanded `app/player/playerActionRuntimeBundle.js` with
+`createPlayerGameplayActionRuntimeBundle(...)`.
+
+Boundary classification: `gameplay action runtime`, under the `player/` domain.
+This keeps `startGameLoop()` as the composition root, but moves player-action
+adapter details out of `gameLoop.js`.
+
+Study path:
+
+1. `gameLoop.js` still creates the player action runtime during startup.
+2. `gameLoop.js` now passes grouped dependencies: `controls`, `session`,
+   `gameplay`, `hud`, `runtimes`, `callbacks`, `soundEventIds`, `botNames` and
+   action config.
+3. `player/playerActionRuntimeBundle.js` now owns the game-loop adapter for
+   player action notices, HUD notice forwarding, active-move setting, first
+   Water Gun prompt flagging and Water Gun burst SFX triggering.
+4. The existing lower-level `createPlayerActionRuntimeBundle(...)` remains
+   exported for focused tests and direct runtime construction.
+
+Removed from `gameLoop.js`:
+
+- direct import/use of `createPlayerActionRuntimeBundle(...)`;
+- inline `markWaterGunFirstUsePrompt` callback;
+- inline `pushNotice` callback for player action;
+- inline `setActiveMoveId` callback for player action;
+- inline `triggerWaterGunSfxBurst(...)` helper;
+- inline player-action notice strings for Build locked/unavailable, missing
+  material and no removable patch;
+- inline `treeRevivalTargetCount: 5` tuning for player harvest action.
+
+Kept in `gameLoop.js`:
+
+- player action runtime creation;
+- sound event vocabulary;
+- bot names;
+- the existing Water Gun prompt flag constant because other construction/player
+  frame paths still use it;
+- the existing restored-grass target count because other field-move paths still
+  use it.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1817` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1806` lines.
+- This is still a moderate reduction, but it removes player-action policy
+  wiring from the game loop and puts it in the `player/` domain.
+
+Tests updated:
+
+- `tests/playerActionRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerActionRuntimeBundle.test.js
+```
+
+The first run failed because `createPlayerGameplayActionRuntimeBundle(...)`
+did not exist yet. After adding the factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerActionRuntimeBundle.test.js
+npm test -- --run tests/playerActionRuntimeBundle.test.js tests/playerActionRuntime.test.js tests/fieldMoveRuntimeBundle.test.js tests/waterGunRuntime.test.js tests/leafageRuntime.test.js tests/fireRuntime.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2013` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Construction Workbench Rotation Source Boundary
 
 Expanded `app/runtime/construction/workbenchRotationRuntime.js` with

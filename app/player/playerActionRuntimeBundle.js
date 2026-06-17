@@ -12,6 +12,88 @@ import {
 } from "./playerActionRuntime.js";
 import { createPlayerActionTargetContext } from "./playerActionTargetContext.js";
 
+const DEFAULT_LEAF_DEN_BUSY_NOTICE = "im busy, boss...";
+const DEFAULT_MISSING_MATERIAL_NOTICE = "Need Wood";
+const DEFAULT_NO_REMOVABLE_PATCH_NOTICE =
+  "No removable patch here. Move closer to planted grass or flowers.";
+const DEFAULT_TREE_REVIVAL_TARGET_COUNT = 5;
+
+export function createPlayerGameplayActionRuntimeBundle({
+  controls = {},
+  session = {},
+  gameplay = {},
+  hud = null,
+  runtimes = {},
+  callbacks = {},
+  soundEventIds = {},
+  botNames = {},
+  notices = {},
+  config = {}
+} = {}) {
+  const builderName = botNames.builder || "Builder";
+  const triggerWaterGunSfxBurst =
+    callbacks.triggerWaterGunSfxBurst ||
+    ((duration = config.waterGunSprayDuration) => {
+      runtimes.waterGunSfxBurstRuntime?.trigger?.(
+        callbacks.getNowSeconds?.(),
+        duration
+      );
+    });
+
+  return createPlayerActionRuntimeBundle({
+    controls,
+    session,
+    gameplay,
+    runtimes,
+    callbacks: {
+      ...callbacks,
+      markWaterGunFirstUsePrompt:
+        callbacks.markWaterGunFirstUsePrompt ||
+        (() => {
+          const flag = config.waterGunFirstUsePromptFlag;
+          if (flag) {
+            controls.storyState ??= {};
+            controls.storyState.flags ??= {};
+            controls.storyState.flags[flag] = true;
+          }
+        }),
+      pushNotice:
+        callbacks.pushNotice ||
+        ((notice) => hud?.pushNotice?.(notice)),
+      setActiveMoveId:
+        callbacks.setActiveMoveId ||
+        ((moveId) => controls.setActiveMoveId?.(moveId)),
+      triggerWaterGunSfxBurst
+    },
+    soundEventIds,
+    notices: {
+      ...notices,
+      buildLocked:
+        notices.buildLocked ||
+        `${builderName} has not learned Build yet.`,
+      buildUnavailable:
+        notices.buildUnavailable ||
+        `${builderName} needs to be nearby.`,
+      leafDenBusy:
+        notices.leafDenBusy ||
+        config.leafDenBusyNotice ||
+        DEFAULT_LEAF_DEN_BUSY_NOTICE,
+      missingMaterial:
+        notices.missingMaterial ||
+        DEFAULT_MISSING_MATERIAL_NOTICE,
+      noRemovablePatch:
+        notices.noRemovablePatch ||
+        DEFAULT_NO_REMOVABLE_PATCH_NOTICE
+    },
+    config: {
+      ...config,
+      treeRevivalTargetCount:
+        config.treeRevivalTargetCount ||
+        DEFAULT_TREE_REVIVAL_TARGET_COUNT
+    }
+  });
+}
+
 export function createPlayerActionRuntimeBundle({
   controls = {},
   session = {},
