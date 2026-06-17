@@ -7,7 +7,7 @@ import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createGameplayCameraRuntimeBundle } from "./camera/gameplayCameraRuntimeBundle.js";
 import { createCompanionFacingRuntime } from "./companions/companionFacingRuntime.js";
 import { createCompanionFrameRuntimeBundle } from "./companions/companionFrameRuntimeBundle.js";
-import { createCompanionMotionRuntimeBundle } from "./companions/companionMotionRuntimeBundle.js";
+import { createGameplayCompanionMotionRuntimeBundle } from "./companions/companionMotionRuntimeBundle.js";
 import { createGameplayCompanionPresentationRuntimeBundle } from "./companions/companionPresentationRuntimeBundle.js";
 import { createGameplayCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
@@ -191,10 +191,6 @@ import {
   validateBuildingKitPlacement
 } from "../../world/islandWorld.js";
 import {
-  BULBASAUR_IDLE_PATROL_RADIUS,
-  SQUIRTLE_IDLE_PATROL_RADIUS
-} from "./robotPatrolConfig.js";
-import {
   applyInteractionObjectHighlight,
   clearInteractionObjectHighlights
 } from "./interactionObjectHighlight.js";
@@ -249,26 +245,14 @@ const LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER = 3;
 const LEAF_DEN_BUSY_NOTICE = "im busy, boss...";
 const SOLAR_STATION_FIELD_MARKED_TILE_LIMIT = 81;
 const SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT = 1200;
-const BULBASAUR_WORKBENCH_GUIDE_START = [8.55, 0.02, -5.7];
-const BULBASAUR_WORKBENCH_GUIDE_SPEED = 2.4;
-const BULBASAUR_WORKBENCH_GUIDE_WAYPOINT_DISTANCE = 0.08;
-const BULBASAUR_WORKBENCH_GUIDE_RAMP_COLLIDER_ID = "workbench-ramp-collider";
-const BULBASAUR_WORKBENCH_GUIDE_RAMP_APPROACH_MARGIN = 0.92;
-const BULBASAUR_WORKBENCH_GUIDE_SIDE_APPROACH_MARGIN = 1.22;
 const CHARMANDER_FOLLOW_SPEED = PLAYER_SPEED;
 const CHARMANDER_FOLLOW_DISTANCE = 1.28;
 const TIMBURR_FOLLOW_SPEED = PLAYER_SPEED;
 const TIMBURR_FOLLOW_DISTANCE = 1.62;
-const SQUIRTLE_FOLLOW_SPEED = PLAYER_SPEED;
-const SQUIRTLE_FOLLOW_DISTANCE = 1.18;
-const BULBASAUR_FOLLOW_SPEED = PLAYER_SPEED;
-const BULBASAUR_FOLLOW_DISTANCE = 1.46;
-const COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE = 0.08;
 const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
 const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
 const SNOWSTORM_FOG_OPACITY_EASE = 6.2;
-const BOT_PLAYER_ATTENTION_DISTANCE = 4.8;
 const SQUIRTLE_MODEL_FACE_YAW_OFFSET = 0;
 const BULBASAUR_MODEL_FACE_YAW_OFFSET = 0;
 const CHARMANDER_MODEL_FACE_YAW_OFFSET = 0;
@@ -280,9 +264,6 @@ const BULBASAUR_REVEAL_FLASH_PEAK_OPACITY = 1;
 const BULBASAUR_REVEAL_BOT_FALL_HEIGHT = 1.82;
 const BULBASAUR_REVEAL_BOT_FALL_END_PROGRESS = 0.96;
 const REPAIR_BOX_PROMPT_DISTANCE = 2.8;
-const ROBOT_IDLE_PATROL_SPEED = 0.82;
-const ROBOT_IDLE_PATROL_PAUSE_DURATION = 0.75;
-const ROBOT_IDLE_PATROL_ARRIVE_DISTANCE = 0.08;
 const CAMERA_DEBUG_ENABLED = (() => {
   try {
     return new URLSearchParams(globalThis.location?.search || "").get("cameraDebug") === "1";
@@ -548,7 +529,7 @@ export function startGameLoop({
     companionFollowMovementRuntime,
     companionGroundPatrolFrameRuntime,
     companionIdleMotionRuntime
-  } = createCompanionMotionRuntimeBundle({
+  } = createGameplayCompanionMotionRuntimeBundle({
     controls,
     session,
     runtimes: {
@@ -559,28 +540,6 @@ export function startGameLoop({
       getSquirtleWaterGunQueue: () => waterGunRuntime.getQueue(),
       syncSquirtleModelInstance: () => companionModelSyncRuntime.syncSquirtle(),
       syncBulbasaurModelInstance: () => companionModelSyncRuntime.syncBulbasaur()
-    },
-    config: {
-      arriveDistance: COMPANION_FOLLOW_SLOT_ARRIVE_DISTANCE,
-      bulbasaurFollowSpeed: BULBASAUR_FOLLOW_SPEED,
-      bulbasaurFollowDistance: BULBASAUR_FOLLOW_DISTANCE,
-      bulbasaurIdlePatrolRadius: BULBASAUR_IDLE_PATROL_RADIUS,
-      bulbasaurModelFaceYawOffset: BULBASAUR_MODEL_FACE_YAW_OFFSET,
-      bulbasaurWorkbenchGuideRampApproachMargin: BULBASAUR_WORKBENCH_GUIDE_RAMP_APPROACH_MARGIN,
-      bulbasaurWorkbenchGuideRampColliderId: BULBASAUR_WORKBENCH_GUIDE_RAMP_COLLIDER_ID,
-      bulbasaurWorkbenchGuideSideApproachMargin: BULBASAUR_WORKBENCH_GUIDE_SIDE_APPROACH_MARGIN,
-      bulbasaurWorkbenchGuideSpeed: BULBASAUR_WORKBENCH_GUIDE_SPEED,
-      bulbasaurWorkbenchGuideStart: BULBASAUR_WORKBENCH_GUIDE_START,
-      bulbasaurWorkbenchGuideWaypointDistance: BULBASAUR_WORKBENCH_GUIDE_WAYPOINT_DISTANCE,
-      botPlayerAttentionDistance: BOT_PLAYER_ATTENTION_DISTANCE,
-      robotIdlePatrolArriveDistance: ROBOT_IDLE_PATROL_ARRIVE_DISTANCE,
-      robotIdlePatrolPauseDuration: ROBOT_IDLE_PATROL_PAUSE_DURATION,
-      robotIdlePatrolSpeed: ROBOT_IDLE_PATROL_SPEED,
-      squirtleFollowSpeed: SQUIRTLE_FOLLOW_SPEED,
-      squirtleFollowDistance: SQUIRTLE_FOLLOW_DISTANCE,
-      squirtleIdlePatrolRadius: SQUIRTLE_IDLE_PATROL_RADIUS,
-      squirtleModelFaceYawOffset: SQUIRTLE_MODEL_FACE_YAW_OFFSET,
-      workbenchPosition: WORKBENCH_POSITION
     }
   });
   const runBreadcrumbPromptRuntime = createRunBreadcrumbPromptRuntime({

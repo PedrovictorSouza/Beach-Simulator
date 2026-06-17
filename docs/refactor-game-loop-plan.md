@@ -103,6 +103,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `companions/` presentation bundle.
 - Completed: bundle companion motion/follow/patrol runtime wiring into the
   `companions/` domain.
+- Completed: move gameplay companion motion defaults into the `companions/`
+  motion bundle.
 - Completed: bundle construction placement runtime wiring into the
   `construction/` domain.
 - Completed: move gameplay free-block build session grid defaults into the
@@ -237,6 +239,81 @@ npm test
   `tests/gameplayInteractions.test.js`;
 - the existing `1` scene-flow/start-screen failure in
   `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Companion Motion Defaults Boundary
+
+This cut moves gameplay-specific companion motion defaults out of `gameLoop.js`
+and into the existing companions motion bundle.
+
+Boundary classification: `companions / motion runtime`.
+
+What changed:
+
+- Added `createGameplayCompanionMotionRuntimeBundle(...)` to
+  `app/runtime/companions/companionMotionRuntimeBundle.js`.
+- Kept `createCompanionMotionRuntimeBundle(...)` as the configurable lower-level
+  factory.
+- Moved Squirtle/Bulbasaur follow defaults, idle-patrol defaults, Bulbasaur
+  Workbench guide defaults, default workbench position and formation arrive
+  distance out of `app/runtime/gameLoop.js`.
+- `startGameLoop()` now wires companion motion with controls, session, runtimes
+  and callbacks only.
+
+What stayed in `gameLoop.js`:
+
+- Charmander and Timburr follow defaults still feed `companionFrameRuntimeBundle`.
+- Companion face-yaw offsets still feed multiple runtimes.
+
+Why this boundary is safe:
+
+- No motion tuning values changed.
+- No frame order changed.
+- Existing lower-level motion/follow/guide runtimes remain unchanged.
+- The gameplay factory still allows config override for focused tests.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1525` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1484` lines.
+
+Tests updated:
+
+- `tests/companionMotionRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionMotionRuntimeBundle.test.js
+```
+
+The first run failed because `createGameplayCompanionMotionRuntimeBundle(...)`
+did not exist. After the factory was added and `gameLoop.js` was rewired, the
+focused companion motion suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionMotionRuntimeBundle.test.js tests/companionFollowDirectionRuntime.test.js tests/companionFollowMovementRuntime.test.js tests/companionIdleMotionRuntime.test.js tests/bulbasaurWorkbenchGuideRuntime.test.js tests/companionGroundPatrolFrameRuntime.test.js tests/companionFrameRuntime.test.js
+git diff --check
+npm run build
+```
+
+`npm run build` passed with the existing Vite chunk-size warning.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2023` passed and `4` failed:
+
+- `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
+  baseline failures.
+- `tests/sceneFlowRuntimeCompletion.test.js`: the existing start-screen gameplay
+  opening baseline failure.
 
 Manual gameplay validation remains pending for this cut.
 

@@ -6,8 +6,44 @@ import {
 } from "./companionFollowMotion.js";
 import { createCompanionGroundPatrolFrameRuntime } from "./companionGroundPatrolFrameRuntime.js";
 import { createCompanionIdleMotionRuntime } from "./companionIdleMotionRuntime.js";
+import { BULBASAUR_IDLE_PATROL_RADIUS, SQUIRTLE_IDLE_PATROL_RADIUS } from "../robotPatrolConfig.js";
+import { PLAYER_SPEED } from "../../session/configurePlayerSpawner.js";
+import { WORKBENCH_POSITION } from "../../../gameplayContent.js";
 
 const EMPTY_QUEUE = Object.freeze([]);
+const GAMEPLAY_COMPANION_MODEL_FACE_YAW_OFFSET = 0;
+const GAMEPLAY_COMPANION_MOTION_CONFIG = Object.freeze({
+  arriveDistance: 0.08,
+  bulbasaurFollowDistance: 1.46,
+  bulbasaurFollowSpeed: PLAYER_SPEED,
+  bulbasaurIdlePatrolRadius: BULBASAUR_IDLE_PATROL_RADIUS,
+  bulbasaurModelFaceYawOffset: GAMEPLAY_COMPANION_MODEL_FACE_YAW_OFFSET,
+  bulbasaurWorkbenchGuideRampApproachMargin: 0.92,
+  bulbasaurWorkbenchGuideRampColliderId: "workbench-ramp-collider",
+  bulbasaurWorkbenchGuideSideApproachMargin: 1.22,
+  bulbasaurWorkbenchGuideSpeed: 2.4,
+  bulbasaurWorkbenchGuideStart: Object.freeze([8.55, 0.02, -5.7]),
+  bulbasaurWorkbenchGuideWaypointDistance: 0.08,
+  botPlayerAttentionDistance: 4.8,
+  robotIdlePatrolArriveDistance: 0.08,
+  robotIdlePatrolPauseDuration: 0.75,
+  robotIdlePatrolSpeed: 0.82,
+  squirtleFollowDistance: 1.18,
+  squirtleFollowSpeed: PLAYER_SPEED,
+  squirtleIdlePatrolRadius: SQUIRTLE_IDLE_PATROL_RADIUS,
+  squirtleModelFaceYawOffset: GAMEPLAY_COMPANION_MODEL_FACE_YAW_OFFSET,
+  workbenchPosition: WORKBENCH_POSITION
+});
+
+export function createGameplayCompanionMotionRuntimeBundle(options = {}) {
+  return createCompanionMotionRuntimeBundle({
+    ...options,
+    config: {
+      ...GAMEPLAY_COMPANION_MOTION_CONFIG,
+      ...options.config
+    }
+  });
+}
 
 export function createCompanionMotionRuntimeBundle({
   controls = {},
