@@ -77,9 +77,7 @@ import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
 import { createPlayerActionRuntimeBundle } from "../player/playerActionRuntimeBundle.js";
-import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
-import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
-import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
+import { createPlayerFrameRuntimeBundle } from "../player/playerFrameRuntimeBundle.js";
 import { createGameplayPromptPreparationRuntimeBundle } from "./presentation/gameplayPromptPreparationRuntimeBundle.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
 import { createRenderSnapshotRuntimeBundle } from "./presentation/renderSnapshotRuntimeBundle.js";
@@ -1077,47 +1075,65 @@ export function startGameLoop({
       treeRevivalLeafBurstFrameRuntime
     }
   });
-  const playerModelRuntime = createPlayerModelRuntime({
-    moveValueToward,
-    rotateAngleToward,
-    playJumpSound: () => playSoundEvent(SOUND_EVENT_IDS.GAMEPLAY_JUMP)
-  });
-  const playerMovementFrameRuntime = createPlayerMovementFrameRuntime({
-    session,
-    movementPolicy: { resolvePlayerMovementPermission },
-    model: playerModelRuntime,
-    followDirection: companionFollowDirectionRuntime,
-    movementQuest: movementQuestRuntime,
-    runBreadcrumbPrompt: runBreadcrumbPromptRuntime,
+  const {
+    playerModelRuntime,
+    playerMovementFrameRuntime,
+    playerResourceCollectionFrameRuntime
+  } = createPlayerFrameRuntimeBundle({
+    audio,
+    camera,
+    cameraOrbit,
+    cameraZoomPresetController,
+    controls,
+    gameplay,
+    hud,
+    policies: {
+      resolvePlayerMovementPermission
+    },
+    runtimes: {
+      companionFollowDirectionRuntime,
+      gearPickupParticleRuntime,
+      movementQuestRuntime,
+      runBreadcrumbPromptRuntime,
+      woodCollectPopRuntime
+    },
     callbacks: {
-      isMovementQuestActive: () => gameplay.getActiveSystemQuest?.()?.id === "learn-to-move",
-      isRunActive: () => controls.isRunActive?.(),
-      reportMovement: () => gameplay.recordQuestEvent?.({
-        type: "MOVE",
-        targetId: "player"
-      }),
-      onPlayerMoved: ({
-        movedDistance,
-        nextPlayerPosition,
-        gameplayOpeningCameraLocked,
-        foundationBuildZoneCameraFocusActive,
-        tutorialActive
-      }) => {
-        if (
-          movedDistance > 0.0005 &&
-          !tutorialActive &&
-          !gameplayOpeningCameraLocked &&
-          !foundationBuildZoneCameraFocusActive
-        ) {
-          restoreActiveZoomPresetOnMovement({
-            playerPosition: nextPlayerPosition,
-            camera,
-            cameraOrbit,
-            cameraZoomPresetController
-          });
-        }
+      getColonyFeedbackNotice,
+      playSoundEvent,
+      pushSupplyResourceCollectFeedback,
+      queueSupplyPickupFlyItems,
+      restoreActiveZoomPresetOnMovement,
+      triggerSupplyCounterPrompt: (itemId, inventory, promptNow) =>
+        supplyCounterPromptController.trigger(itemId, inventory, promptNow)
+    },
+    config: {
+      botNames: SANDBOTS_BOT_NAMES,
+      colonyFeedbackIds: {
+        habitatCheckComplete: COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE
+      },
+      itemIds: {
+        wood: "wood",
+        leaves: LEAVES_ITEM_ID,
+        gear: GEAR_ITEM_ID,
+        carbon: CARBON_ITEM_ID,
+        leppaBerry: LEPPA_BERRY_ITEM_ID
+      },
+      labels: {
+        leaves: "Leaves",
+        gear: "Gear",
+        carbon: "Carbon",
+        leppaBerry: SANDBOTS_ITEM_NAMES.pulseBerry
+      },
+      movementQuestId: "learn-to-move",
+      soundEventIds: {
+        gameplayJump: SOUND_EVENT_IDS.GAMEPLAY_JUMP
       }
-    }
+    },
+    math: {
+      moveValueToward,
+      rotateAngleToward
+    },
+    session
   });
   const companionEncounterRuntime = createCompanionEncounterRuntime({
     session,
@@ -1179,39 +1195,6 @@ export function startGameLoop({
         companionGroundPatrolFrameRuntime.updateSquirtle(deltaTime, frameState),
       updateBulbasaurIdlePatrol: (deltaTime, frameState) =>
         companionGroundPatrolFrameRuntime.updateBulbasaur(deltaTime, frameState)
-    }
-  });
-  const playerResourceCollectionFrameRuntime = createPlayerResourceCollectionFrameRuntime({
-    session,
-    controls,
-    gameplay,
-    itemIds: {
-      wood: "wood",
-      leaves: LEAVES_ITEM_ID,
-      gear: GEAR_ITEM_ID,
-      carbon: CARBON_ITEM_ID,
-      leppaBerry: LEPPA_BERRY_ITEM_ID
-    },
-    labels: {
-      leaves: "Leaves",
-      gear: "Gear",
-      carbon: "Carbon",
-      leppaBerry: SANDBOTS_ITEM_NAMES.pulseBerry
-    },
-    feedback: {
-      triggerWoodCollectPop: (woodDropSnapshots) => woodCollectPopRuntime.trigger(woodDropSnapshots),
-      playWoodGrab: (options) => audio.playWoodGrab(options),
-      syncInventoryUi: (inventory) => hud.syncInventoryUi(inventory),
-      queueSupplyPickupFlyItems,
-      pushNotice: (notice) => hud.pushNotice(notice),
-      triggerSupplyCounterPrompt: (itemId, inventory, promptNow) =>
-        supplyCounterPromptController.trigger(itemId, inventory, promptNow),
-      pushSupplyResourceCollectFeedback,
-      triggerGearPickupParticles: (positions) => gearPickupParticleRuntime.trigger(positions),
-      getHabitatCheckCompleteNotice: () =>
-        getColonyFeedbackNotice(COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE, {
-          growBotName: SANDBOTS_BOT_NAMES.grow
-        })
     }
   });
 

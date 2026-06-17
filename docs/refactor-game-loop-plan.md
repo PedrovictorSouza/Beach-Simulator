@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle player model, movement and resource collection runtime
+  wiring into the `player/` domain.
 - Completed: bundle render snapshot runtime wiring into the `presentation/`
   domain.
 - Completed: bundle gameplay prompt preparation wiring into the `presentation/`
@@ -138,6 +140,83 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Player Frame Runtime Bundle
+
+Created boundary:
+
+`app/player/playerFrameRuntimeBundle.js`
+
+Boundary classification: `player`, focused on player model, movement and
+resource-collection runtime wiring.
+
+Why this cut:
+
+`gameLoop.js` was still directly creating the player model runtime, player
+movement frame runtime and player resource collection frame runtime. The
+movement and collection rules remain in their existing player modules, but the
+cross-runtime wiring for player-owned frame behavior now lives under the
+`player/` domain.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createPlayerModelRuntime(...)`,
+  `createPlayerMovementFrameRuntime(...)` and
+  `createPlayerResourceCollectionFrameRuntime(...)`;
+- player jump sound callback wiring;
+- movement quest activity/reporting callback wiring;
+- active camera preset restore callback gating after player movement;
+- player resource collection feedback wiring for wood, leaves, gear, carbon
+  and Pulse Berry pickups.
+
+Kept in `gameLoop.js`:
+
+- high-level dependency wiring for the player frame bundle;
+- player item ids, labels and sound ids passed as config;
+- existing frame-order calls to player movement and resource collection
+  runtimes.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1944` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1927` lines.
+
+Tests added:
+
+- `tests/playerFrameRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerFrameRuntimeBundle.test.js
+```
+
+The first run failed as expected because `app/player/playerFrameRuntimeBundle.js`
+did not exist. After adding the player-domain factory and integrating it into
+`gameLoop.js`, the focused tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerFrameRuntimeBundle.test.js tests/playerMovementFrame.test.js tests/playerResourceCollectionFrame.test.js tests/playerModelMotion.test.js
+git diff --check -- app/runtime/gameLoop.js app/player/playerFrameRuntimeBundle.js tests/playerFrameRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2005` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Render Snapshot Runtime Bundle
 
