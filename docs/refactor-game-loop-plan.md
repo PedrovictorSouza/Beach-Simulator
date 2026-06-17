@@ -230,6 +230,80 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+## 2026-06-17 - Gameplay Companion World Speech Cue Boundary
+
+This cut moves gameplay-specific companion cue wiring out of `gameLoop.js` and
+into the existing companions domain module.
+
+Boundary classification: `companions / presentation prompts`.
+
+What changed:
+
+- Added `createGameplayCompanionWorldSpeechCueRuntime(...)` to
+  `app/runtime/companions/companionWorldSpeechCueRuntime.js`.
+- Kept `createCompanionWorldSpeechCueRuntime(...)` as the small public factory
+  for tests and lower-level reuse.
+- Moved Chopper attention cue timing, companion lost-hint timing and companion
+  hint copy constants from `gameLoop.js` into the companions module.
+- Replaced the long cue adapter in `startGameLoop()` with a gameplay-domain
+  factory call that receives explicit dependencies:
+  `controls`, `session`, `fieldMoveActorPositionRuntime` and
+  `worldSceneSyncRuntime`.
+
+Why this boundary is safe:
+
+- No cue policy changed.
+- No copy changed.
+- No timing values changed.
+- `gameLoop.js` still owns dependency wiring for gameplay distance/count config.
+- Existing consumers still call the same runtime methods:
+  `getChopperAttentionCue(...)`, `getCompanionLostHint(...)` and
+  `consumeChopperAttentionCueSoundCycle(...)`.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1679` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1656` lines.
+
+Tests updated:
+
+- `tests/companionWorldSpeechCueRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionWorldSpeechCueRuntime.test.js
+```
+
+The first run failed because
+`createGameplayCompanionWorldSpeechCueRuntime(...)` did not exist. After the
+factory was added, the test initially exposed that cue schedules start counting
+from the first eligible frame; the test was adjusted to preserve that existing
+behavior.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionWorldSpeechCueRuntime.test.js tests/worldSpacePresentationSnapshotFrame.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2017` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## 2026-06-17 - Gameplay Opening Presentation Frame Boundary
 
 This cut moves the remaining opening-presentation helper out of

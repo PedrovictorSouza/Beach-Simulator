@@ -9,7 +9,7 @@ import { createCompanionFacingRuntime } from "./companions/companionFacingRuntim
 import { createCompanionFrameRuntimeBundle } from "./companions/companionFrameRuntimeBundle.js";
 import { createCompanionMotionRuntimeBundle } from "./companions/companionMotionRuntimeBundle.js";
 import { createCompanionPresentationRuntimeBundle } from "./companions/companionPresentationRuntimeBundle.js";
-import { createCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
+import { createGameplayCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
 import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
@@ -310,16 +310,7 @@ const BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG = Object.freeze({
   dotSize: BULBASAUR_INTERACTION_GIZMO_DOT_SIZE,
   interactDistance: BULBASAUR_TALK_INTERACT_DISTANCE
 });
-const COMPANION_LOST_HINT_INITIAL_DELAY_MS = 5200;
-const COMPANION_LOST_HINT_REPEAT_MS = 13000;
-const COMPANION_LOST_HINT_DURATION_MS = 3400;
-const CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS = 4200;
-const CHOPPER_ATTENTION_CUE_REPEAT_MS = 11000;
-const CHOPPER_ATTENTION_CUE_DURATION_MS = 2400;
-const CHOPPER_ATTENTION_CUE_TEXT = "Hey!";
 const BOT_PLAYER_ATTENTION_DISTANCE = 4.8;
-const SQUIRTLE_WATER_GUN_HINT_TEXT = `Press LT to use ${SANDBOTS_ITEM_NAMES.hydroTool}.`;
-const BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT = `Press Left to change to ${SANDBOTS_BOT_NAMES.hydro}.`;
 const SQUIRTLE_REASSEMBLY_PART_SCALE = 0.5;
 const SQUIRTLE_MODEL_FACE_YAW_OFFSET = 0;
 const BULBASAUR_MODEL_FACE_YAW_OFFSET = 0;
@@ -635,28 +626,14 @@ export function startGameLoop({
     companionFacingRuntime,
     companionConstructionBlockerRuntime
   });
-  const companionWorldSpeechCueRuntime = createCompanionWorldSpeechCueRuntime({
-    chopperCueSchedule: {
-      initialDelayMs: CHOPPER_ATTENTION_CUE_INITIAL_DELAY_MS,
-      repeatMs: CHOPPER_ATTENTION_CUE_REPEAT_MS,
-      durationMs: CHOPPER_ATTENTION_CUE_DURATION_MS
-    },
-    companionLostHintSchedule: {
-      initialDelayMs: COMPANION_LOST_HINT_INITIAL_DELAY_MS,
-      repeatMs: COMPANION_LOST_HINT_REPEAT_MS,
-      durationMs: COMPANION_LOST_HINT_DURATION_MS
-    },
-    getFlags: () => controls.storyState?.flags || {},
-    getPlayerSkills: () => controls.playerSkills || {},
-    getBulbasaurPosition: () => session.bulbasaurEncounter?.position,
-    getSquirtlePosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
-    isPlayerNearWorldPosition: worldSceneSyncRuntime.isPlayerNearWorldPosition,
+  const companionWorldSpeechCueRuntime = createGameplayCompanionWorldSpeechCueRuntime({
+    controls,
+    session,
+    fieldMoveActorPositionRuntime,
+    worldSceneSyncRuntime,
     config: {
       chopperInteractDistance: POKEMON_TALK_INTERACT_DISTANCE + 0.45,
-      chopperCueText: CHOPPER_ATTENTION_CUE_TEXT,
-      restoreTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
-      squirtleHintText: SQUIRTLE_WATER_GUN_HINT_TEXT,
-      bulbasaurHintText: BULBASAUR_SWITCH_TO_SQUIRTLE_HINT_TEXT
+      restoreTargetCount: BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT
     }
   });
   const {

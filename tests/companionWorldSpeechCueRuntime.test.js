@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { createCompanionWorldSpeechCueRuntime } from "../app/runtime/companions/companionWorldSpeechCueRuntime.js";
+import {
+  createCompanionWorldSpeechCueRuntime,
+  createGameplayCompanionWorldSpeechCueRuntime
+} from "../app/runtime/companions/companionWorldSpeechCueRuntime.js";
 
 function createRuntime(overrides = {}) {
   return createCompanionWorldSpeechCueRuntime({
@@ -82,5 +85,64 @@ describe("createCompanionWorldSpeechCueRuntime", () => {
       activeMoveId: null,
       now: 110
     })).toBeNull();
+  });
+});
+
+describe("createGameplayCompanionWorldSpeechCueRuntime", () => {
+  it("wires gameplay session state into companion world-speech cues", () => {
+    const runtime = createGameplayCompanionWorldSpeechCueRuntime({
+      controls: {
+        storyState: { flags: {} },
+        playerSkills: { waterGun: true }
+      },
+      session: {
+        bulbasaurEncounter: { position: [3, 0, 4] }
+      },
+      fieldMoveActorPositionRuntime: {
+        getSquirtleWorldPosition: () => [1, 0, 2]
+      },
+      worldSceneSyncRuntime: {
+        isPlayerNearWorldPosition: () => false
+      },
+      config: {
+        chopperInteractDistance: 2,
+        restoreTargetCount: 10
+      }
+    });
+
+    const chopperCueFrame = {
+      activeTask: { id: "wake-guide" },
+      activeSystemQuest: null,
+      chopperPosition: [8, 0, 9]
+    };
+    expect(runtime.getChopperAttentionCue({
+      ...chopperCueFrame,
+      now: 0
+    })).toBeNull();
+    expect(runtime.getChopperAttentionCue({
+      ...chopperCueFrame,
+      now: 4300
+    })).toEqual({
+      text: "Hey!",
+      worldPosition: [8, 0, 9],
+      cycleId: 1
+    });
+
+    const lostHintFrame = {
+      activeQuest: { id: "water-dry-grass" },
+      activeMoveId: "leafage"
+    };
+    expect(runtime.getCompanionLostHint({
+      ...lostHintFrame,
+      now: 0
+    })).toBeNull();
+    expect(runtime.getCompanionLostHint({
+      ...lostHintFrame,
+      now: 5300
+    })).toEqual({
+      key: "bulbasaur-switch-to-squirtle",
+      text: "Press Left to change to Hydro Bot.",
+      worldPosition: [3, 0, 4]
+    });
   });
 });
