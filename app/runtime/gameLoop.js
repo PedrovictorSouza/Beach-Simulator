@@ -18,8 +18,7 @@ import { createConstructionBuildRuntimeBundle } from "./construction/constructio
 import {
   buildGameplaySolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCells,
   GAMEPLAY_CONSTRUCTION_CONFIG as CONSTRUCTION_CONFIG,
-  createGameplayConstructionTerrainColliderProvider,
-  getGameplayRotatedPlacementSize as getRotatedPlacementSize
+  createGameplayConstructionTerrainColliderProvider
 } from "./construction/constructionGameplayConfig.js";
 import {
   createGameplayPlacementPreviewCancellation
@@ -86,7 +85,7 @@ import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.j
 import { createGameplaySnowstormFogRuntime } from "./world/snowstormFogRuntime.js";
 import { applyTrainHouseDance } from "./trainHouseDance.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
-import { createConstructionWorkbenchRotationRuntime } from "./construction/workbenchRotationRuntime.js";
+import { createGameplayConstructionWorkbenchRotationRuntime } from "./construction/workbenchRotationRuntime.js";
 import { createWorldRuntimeBundle } from "./world/worldRuntimeBundle.js";
 
 export {
@@ -480,15 +479,10 @@ export function startGameLoop({
     getRepairBoxPosition: getEncounterRepairBoxPosition,
     playRevealSfx: playGrowBotRevealSfx
   });
-  const workbenchRotationRuntime = createConstructionWorkbenchRotationRuntime({
+  const workbenchRotationRuntime = createGameplayConstructionWorkbenchRotationRuntime({
     session,
     controls,
     hud,
-    geometry: {
-      normalizePlacementYaw,
-      getRotatedPlacementSize,
-      getPlacementCollisionSize
-    },
     feedback: {
       getPromptText: () => resolveWorkbenchRotationPrompt(getCurrentInputModalityState()),
       playSoundEvent,
@@ -497,16 +491,6 @@ export function startGameLoop({
         cancel: SOUND_EVENT_IDS.UI_CANCEL,
         navigate: SOUND_EVENT_IDS.UI_NAVIGATE
       }
-    },
-    config: {
-      placementRotationStep: CONSTRUCTION_CONFIG.placementRotationStep,
-      footprints: {
-        houseBuilt: CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint,
-        houseKit: CONSTRUCTION_CONFIG.previewFootprints.houseKit,
-        solarStation: CONSTRUCTION_CONFIG.previewFootprints.solarStation,
-        trainHouse: CONSTRUCTION_CONFIG.previewFootprints.trainHouse
-      },
-      thermalCabinLabel: SANDBOTS_ITEM_NAMES.thermalCabin
     },
     solarStation: {
       getNowSeconds: getRuntimeNowSeconds

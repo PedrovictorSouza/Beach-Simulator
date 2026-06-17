@@ -2,8 +2,13 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createConstructionWorkbenchRotationRuntime,
+  createGameplayConstructionWorkbenchRotationRuntime,
   createWorkbenchRotationRuntime
 } from "../app/runtime/construction/workbenchRotationRuntime.js";
+import {
+  GAMEPLAY_CONSTRUCTION_CONFIG
+} from "../app/runtime/construction/constructionGameplayConfig.js";
+import { SANDBOTS_ITEM_NAMES } from "../app/story/sandbotsLexicon.js";
 
 const PLACEMENT_ROTATION_STEP = Math.PI * 0.5;
 
@@ -376,6 +381,49 @@ describe("createWorkbenchRotationRuntime", () => {
     runtime.selectTargetWithFeedback(runtime.getNearestTarget());
     expect(runtime.clearSelectionWithFeedback()).toBe(true);
     expect(playCancelSound).toHaveBeenCalledTimes(1);
+  });
+
+  it("provides gameplay construction defaults for workbench rotation", () => {
+    const session = {};
+    const controls = { storyState: { flags: {} } };
+    const hud = { pushNotice: vi.fn() };
+    const feedback = { getPromptText: vi.fn(() => "Press X") };
+    const solarStation = { getNowSeconds: vi.fn(() => 0) };
+    const expectedRuntime = { getNearestTarget: vi.fn() };
+    const createRuntime = vi.fn(() => expectedRuntime);
+
+    const runtime = createGameplayConstructionWorkbenchRotationRuntime({
+      session,
+      controls,
+      hud,
+      feedback,
+      solarStation,
+      createRuntime
+    });
+
+    expect(runtime).toBe(expectedRuntime);
+    expect(createRuntime).toHaveBeenCalledWith({
+      session,
+      controls,
+      hud,
+      geometry: {
+        getPlacementCollisionSize: expect.any(Function),
+        getRotatedPlacementSize: expect.any(Function),
+        normalizePlacementYaw: expect.any(Function)
+      },
+      feedback,
+      config: {
+        placementRotationStep: GAMEPLAY_CONSTRUCTION_CONFIG.placementRotationStep,
+        footprints: {
+          houseBuilt: GAMEPLAY_CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint,
+          houseKit: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+          solarStation: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+          trainHouse: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.trainHouse
+        },
+        thermalCabinLabel: SANDBOTS_ITEM_NAMES.thermalCabin
+      },
+      solarStation
+    });
   });
 
   it("creates the construction wiring boundary used by the game loop", () => {

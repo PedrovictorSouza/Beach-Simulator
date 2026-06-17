@@ -1,4 +1,13 @@
 import {
+  GAMEPLAY_CONSTRUCTION_CONFIG,
+  getGameplayRotatedPlacementSize
+} from "./constructionGameplayConfig.js";
+import {
+  getPlacementCollisionSize,
+  normalizePlacementYaw
+} from "./placementGeometry.js";
+import { SANDBOTS_ITEM_NAMES } from "../../story/sandbotsLexicon.js";
+import {
   getNearestRotatableWorkbenchPlacement,
   getRotatableWorkbenchPlacementCandidates,
   getWorkbenchRotationTargetDistance,
@@ -72,6 +81,45 @@ export function createConstructionWorkbenchRotationRuntime({
       isPlaced: () => Boolean(controls.storyState?.flags?.strawBedPlacedInBulbasaurHabitat),
       getNowSeconds: solarStation.getNowSeconds
     }
+  });
+}
+
+export function createGameplayConstructionWorkbenchRotationRuntime({
+  session = {},
+  controls = {},
+  hud = null,
+  geometry = {},
+  feedback = {},
+  config = {},
+  solarStation = {},
+  createRuntime = createConstructionWorkbenchRotationRuntime
+} = {}) {
+  const footprints = {
+    houseBuilt: GAMEPLAY_CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint,
+    houseKit: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+    solarStation: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+    trainHouse: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
+    ...config.footprints
+  };
+
+  return createRuntime({
+    session,
+    controls,
+    hud,
+    geometry: {
+      normalizePlacementYaw,
+      getRotatedPlacementSize: getGameplayRotatedPlacementSize,
+      getPlacementCollisionSize,
+      ...geometry
+    },
+    feedback,
+    config: {
+      placementRotationStep: GAMEPLAY_CONSTRUCTION_CONFIG.placementRotationStep,
+      thermalCabinLabel: SANDBOTS_ITEM_NAMES.thermalCabin,
+      ...config,
+      footprints
+    },
+    solarStation
   });
 }
 

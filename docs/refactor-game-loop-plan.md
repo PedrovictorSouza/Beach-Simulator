@@ -255,6 +255,82 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Construction Workbench Rotation Gameplay Defaults Boundary
+
+Expanded `app/runtime/construction/workbenchRotationRuntime.js` with
+`createGameplayConstructionWorkbenchRotationRuntime(...)`.
+
+Boundary classification: `construction / workbench rotation`, focused on
+gameplay defaults needed by construction rotation targets.
+
+Study path:
+
+1. `startGameLoop()` still owns live dependencies: session, controls, HUD,
+   prompt text, sound event dispatch and current runtime time.
+2. The construction domain now owns the default placement rotation step,
+   workbench rotation footprints, placement geometry functions and Thermal
+   Cabin label used by the rotation runtime.
+3. The lower-level `createConstructionWorkbenchRotationRuntime(...)` remains
+   available for tests or explicit dependency wiring.
+
+Removed from `gameLoop.js`:
+
+- direct import/use of gameplay rotated placement-size helper;
+- inline workbench rotation geometry object;
+- inline workbench rotation config for rotation step, footprints and Thermal
+  Cabin label.
+
+Kept in `gameLoop.js`:
+
+- creation order of workbench rotation runtime;
+- prompt text resolution from current input modality;
+- UI sound event IDs and dispatch;
+- solar station runtime clock callback;
+- remaining construction config uses for presentation snapshot footprints.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1329` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1313` lines.
+
+Tests updated:
+
+- `tests/workbenchRotationRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+```
+
+The first run failed because
+`createGameplayConstructionWorkbenchRotationRuntime(...)` did not exist yet.
+After adding the wrapper, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+npm test -- --run tests/workbenchRotationRuntime.test.js tests/workbenchRotationTargets.test.js tests/constructionGameplayConfig.test.js tests/constructionPlacementRuntimeBundle.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2039` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Construction Blocker Gameplay Defaults Boundary
 
 Expanded `app/runtime/construction/constructionBlockerRuntimeBundle.js` with
