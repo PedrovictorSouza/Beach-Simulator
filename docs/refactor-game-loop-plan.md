@@ -101,6 +101,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `construction/` domain.
 - Completed: bundle construction build/foundation runtime wiring into the
   `construction/` domain.
+- Completed: bundle construction presentation/model runtime wiring into the
+  `construction/` domain.
 - Completed: bundle Water Gun, Fire, Leafage and Build Block runtime wiring
   into the `fieldMoveRuntime/` domain.
 - Completed: gameplay opening boundary extraction.
@@ -218,6 +220,84 @@ npm test
 ```
 
 `npm test` completed with `2007` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+### Construction Presentation Runtime Bundle
+
+Created boundary:
+
+`app/runtime/construction/constructionPresentationRuntimeBundle.js`
+
+Boundary classification: `construction / presentation`, focused on
+construction model instances, Leaf Den construction presentation and helper
+motion.
+
+Why this cut:
+
+`gameLoop.js` still directly created three construction presentation runtimes:
+house/greenhouse/train-house model sync, Leaf Den construction UI/cloud state
+and helper motion toward the Leaf Den. These share the same construction
+presentation owner and are consumed later by render snapshot, companion frame
+and field-move wiring. The new bundle keeps `gameLoop.js` responsible for
+high-level dependencies only.
+
+Moved out of `gameLoop.js`:
+
+- direct import/use of `createConstructionHouseModelInstanceRuntime(...)`;
+- direct import/use of `createLeafDenConstructionPresentationRuntime(...)`;
+- direct import/use of `createConstructionHelperMotionRuntime(...)`;
+- construction presentation runtime wiring;
+- player construction model prepare-distance tuning.
+
+Kept in `gameLoop.js`:
+
+- workbench rotation runtime creation, because selection/rotation is still a
+  separate construction interaction;
+- high-level callbacks for placement spawn, train-house dance, render-distance
+  gating and robot yaw;
+- existing consumers of the three returned runtime handles.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1848` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1840` lines.
+
+Tests added:
+
+- `tests/constructionPresentationRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPresentationRuntimeBundle.test.js
+```
+
+The first run failed because
+`app/runtime/construction/constructionPresentationRuntimeBundle.js` did not
+exist. After adding the construction-domain factory and correcting the test to
+match the existing Greenhouse Y offset behavior, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPresentationRuntimeBundle.test.js tests/constructionHouseModelInstances.test.js tests/leafDenConstructionPresentationRuntime.test.js tests/constructionHelperMotion.test.js tests/renderSnapshotRuntimeBundle.test.js tests/companionFrameRuntimeBundle.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/construction/constructionPresentationRuntimeBundle.js tests/constructionPresentationRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2010` passed and `4` failed:
 
 - the existing `3` Leafage Native Tree failures in
   `tests/gameplayInteractions.test.js`;

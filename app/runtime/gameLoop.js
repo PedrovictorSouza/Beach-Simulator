@@ -13,12 +13,10 @@ import { createCompanionWorldSpeechCueRuntime } from "./companions/companionWorl
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
 import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
-import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
-import { createConstructionHouseModelInstanceRuntime } from "./construction/constructionHouseModelInstances.js";
-import { createConstructionHelperMotionRuntime } from "./construction/constructionHelperMotion.js";
 import { createConstructionBlockerRuntimeBundle } from "./construction/constructionBlockerRuntimeBundle.js";
 import { createConstructionBuildRuntimeBundle } from "./construction/constructionBuildRuntimeBundle.js";
 import { createConstructionPlacementRuntimeBundle } from "./construction/constructionPlacementRuntimeBundle.js";
+import { createConstructionPresentationRuntimeBundle } from "./construction/constructionPresentationRuntimeBundle.js";
 import {
   cancelPendingWorkbenchPlacementIntent,
   hasPendingWorkbenchPlacementIntent
@@ -360,7 +358,6 @@ const REPAIR_BOX_INACTIVE_ALPHA = 0.5;
 const ROBOT_IDLE_PATROL_SPEED = 0.82;
 const ROBOT_IDLE_PATROL_PAUSE_DURATION = 0.75;
 const ROBOT_IDLE_PATROL_ARRIVE_DISTANCE = 0.08;
-const PLAYER_CONSTRUCTION_MODEL_PREPARE_DISTANCE = 58;
 const CAMERA_DEBUG_ENABLED = (() => {
   try {
     return new URLSearchParams(globalThis.location?.search || "").get("cameraDebug") === "1";
@@ -777,18 +774,6 @@ export function startGameLoop({
       getNowSeconds: getRuntimeNowSeconds
     }
   });
-  const constructionHouseModelInstanceRuntime = createConstructionHouseModelInstanceRuntime({
-    session,
-    getStoryState: () => controls.storyState,
-    getNowSeconds: getRuntimeNowSeconds,
-    getSelectedRotationKind: () => workbenchRotationRuntime.getSelection()?.kind,
-    prepareDistance: PLAYER_CONSTRUCTION_MODEL_PREPARE_DISTANCE,
-    getWorkbenchRotationPreviewYaw: workbenchRotationRuntime.getPreviewYaw,
-    isWorldPositionWithinRenderDistance,
-    applyTrainHouseDance,
-    applyPlacementSpawn: applyPlayerPlacementSpawnToModelInstance,
-    applyRotationTint: workbenchRotationRuntime.applySelectionTint
-  });
   const snowstormFogRuntime = createSnowstormFogRuntime({
     mount,
     getSnowstormFogIntensity,
@@ -880,15 +865,22 @@ export function startGameLoop({
       timburrModelScale: TIMBURR_MODEL_SCALE
     }
   });
-  const leafDenConstructionPresentationRuntime = createLeafDenConstructionPresentationRuntime({
+  const {
+    constructionHelperMotionRuntime,
+    constructionHouseModelInstanceRuntime,
+    leafDenConstructionPresentationRuntime
+  } = createConstructionPresentationRuntimeBundle({
+    controls,
     session,
-    getStoryState: () => controls.storyState,
+    workbenchRotationRuntime,
+    callbacks: {
+      applyTrainHouseDance,
+      applyPlacementSpawn: applyPlayerPlacementSpawnToModelInstance,
+      getRobotModelYawToward: companionFacingRuntime.getRobotModelYawToward,
+      isWorldPositionWithinRenderDistance
+    },
+    getNowMs: getRuntimeNowMs,
     getNowSeconds: getRuntimeNowSeconds
-  });
-  const constructionHelperMotionRuntime = createConstructionHelperMotionRuntime({
-    getLeafDenPosition: () => session.leafDen?.position,
-    getNowSeconds: getRuntimeNowSeconds,
-    getYawToward: companionFacingRuntime.getRobotModelYawToward
   });
   const npcConversationFocusRuntime = createNpcConversationFocusRuntime({
     controls,
