@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle companion presentation/model-sync runtime wiring into the
+  `companions/` domain.
 - Completed: bundle companion motion/follow/patrol runtime wiring into the
   `companions/` domain.
 - Completed: bundle construction placement runtime wiring into the
@@ -124,6 +126,89 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Companion Presentation Runtime Bundle
+
+Created boundary:
+
+`app/runtime/companions/companionPresentationRuntimeBundle.js`
+
+Boundary classification: `companions`, focused on companion presentation,
+model sync, repair-box model state, Squirtle reassembly, Bee Field sync,
+ability-resource display state and companion render-frame composition.
+
+Why this cut:
+
+`gameLoop.js` was still directly wiring companion presentation internals:
+repair-box motion/model state, model sync, Squirtle reassembly, Bee Field
+repair-box sync, ability resource state and companion billboard rendering. That
+made the frame hub understand how companion presentation is assembled instead
+of only using the resulting runtime handles.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createRepairBoxMotionRuntime(...)`;
+- direct imports for `createCompanionRepairBoxModelRuntime(...)`;
+- direct imports for `createCompanionModelSyncRuntime(...)`;
+- direct imports for `createSquirtleReassemblyRuntime(...)`;
+- direct imports for `createBeeFieldRuntime(...)`;
+- direct imports for `createCompanionAbilityResourcesRuntime(...)`;
+- direct imports for `createCompanionRenderFrameRuntime(...)`;
+- inline wiring between companion model sync, repair-box model state, ability
+  resources and render-frame callbacks.
+
+Kept in `gameLoop.js`:
+
+- high-level dependency wiring for companion presentation;
+- the runtime handles consumed by field moves, companion frame, repair-box
+  updates and render orchestration;
+- visual tuning values and frame order.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2062` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2027` lines.
+- This removes roughly 35 lines from `gameLoop.js` while keeping the code
+  inside the existing `companions/` module boundary.
+
+Tests added:
+
+- `tests/companionPresentationRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionPresentationRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/companions/companionPresentationRuntimeBundle.js` did not exist.
+After adding the domain factory and correcting the test expectation to match
+the existing Squirtle stamina default, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionPresentationRuntimeBundle.test.js
+npm test -- --run tests/companionPresentationRuntimeBundle.test.js tests/companionModelSyncRuntime.test.js tests/companionRepairBoxModelRuntime.test.js tests/squirtleReassemblyRuntime.test.js tests/beeFieldRuntime.test.js tests/companionPresentationFrame.test.js tests/companionAbilityResourcesRuntime.test.js tests/fieldMoveRuntimeBundle.test.js tests/companionFrameRuntime.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/companions/companionPresentationRuntimeBundle.js tests/companionPresentationRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1997` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Companion Motion Runtime Bundle
 

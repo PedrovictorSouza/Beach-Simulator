@@ -5,17 +5,14 @@ import {
 } from "./gameLoopFrameRuntime.js";
 import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createCameraDebugRuntime } from "./camera/cameraDebugRuntime.js";
-import { createBeeFieldRuntime } from "./companions/beeFieldRuntime.js";
 import { createCompanionEncounterRuntime } from "./companions/companionEncounterRuntime.js";
 import { createCompanionFacingRuntime } from "./companions/companionFacingRuntime.js";
 import { createCompanionFrameRuntime } from "./companions/companionFrameRuntime.js";
 import { createCompanionMotionRuntimeBundle } from "./companions/companionMotionRuntimeBundle.js";
-import { createCompanionModelSyncRuntime } from "./companions/companionModelSyncRuntime.js";
-import { createCompanionRepairBoxModelRuntime } from "./companions/companionRepairBoxModelRuntime.js";
+import { createCompanionPresentationRuntimeBundle } from "./companions/companionPresentationRuntimeBundle.js";
 import { createCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
-import { createSquirtleReassemblyRuntime } from "./companions/squirtleReassemblyRuntime.js";
 import {
   createFoundationBuildZoneRuntime,
   getBuilderTutorialFoundationZoneSignature
@@ -48,7 +45,6 @@ import {
   getRotatedPlacementSize as getRotatedPlacementSizeWithConfig,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
-import { createCompanionRenderFrameRuntime } from "./companions/companionPresentationFrame.js";
 import { createFoundationBuildZoneCameraFocusRuntime } from "./camera/foundationBuildZoneCameraFocusRuntime.js";
 import { createGameplayCameraFrameRuntime } from "./camera/gameplayCameraFrameRuntime.js";
 import {
@@ -62,7 +58,6 @@ export {
   resolveConstructionDisplacementPosition,
   resolveTimburrBuildBlockApproachPosition
 } from "./fieldMoveRuntime/buildBlockRuntime.js";
-import { createCompanionAbilityResourcesRuntime } from "./fieldMoveRuntime/companionAbilityResourcesRuntime.js";
 import {
   BULBASAUR_DRY_GRASS_MISSION_RESTORE_COUNT,
   findAlreadyResolvedFieldMoveGroundCell,
@@ -104,7 +99,6 @@ import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { createNaturePresentationFrameRuntime } from "./presentation/natureRenderFrame.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
 import { updateWorldObjectBillboardFrame } from "./presentation/worldObjectBillboardFrame.js";
-import { createRepairBoxMotionRuntime } from "./repairBoxMotionRuntime.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
@@ -915,94 +909,65 @@ export function startGameLoop({
   });
   const fpsPanelController = createFpsPanelController(fpsPanel);
   const inputModalityPanelController = createInputModalityPanelController(inputModalityPanel);
-  const repairBoxMotionRuntime = createRepairBoxMotionRuntime({
-    floatHeight: ROBOT_REPAIR_BOX_FLOAT_HEIGHT,
-    bobHeight: ROBOT_REPAIR_BOX_BOB_HEIGHT,
-    bobSpeed: ROBOT_REPAIR_BOX_BOB_SPEED,
-    spinSpeed: ROBOT_REPAIR_BOX_SPIN_SPEED
-  });
-  const companionRepairBoxModelRuntime = createCompanionRepairBoxModelRuntime({
-    motion: repairBoxMotionRuntime,
-    getRepairBoxPosition: getEncounterRepairBoxPosition,
-    clamp01,
-    easeOutCubic,
-    isRevealBoxBotVisible,
-    config: {
-      modelPitchOffset: ROBOT_REPAIR_BOX_MODEL_PITCH_OFFSET,
-      openPitch: ROBOT_REPAIR_BOX_OPEN_PITCH,
-      openRoll: ROBOT_REPAIR_BOX_OPEN_ROLL,
-      openLift: ROBOT_REPAIR_BOX_OPEN_LIFT,
-      openBackstep: ROBOT_REPAIR_BOX_OPEN_BACKSTEP,
-      revealBoxDuration: BULBASAUR_REVEAL_BOX_DURATION,
-      revealBoxOpenStartProgress: BULBASAUR_REVEAL_BOX_OPEN_START_PROGRESS,
-      revealBoxShakeEndProgress: BULBASAUR_REVEAL_BOX_SHAKE_END_PROGRESS,
-      revealBoxSpinAcceleration: BULBASAUR_REVEAL_BOX_SPIN_ACCELERATION,
-      repairBoxRustleLift: BULBASAUR_REPAIR_BOX_RUSTLE_LIFT,
-      repairBoxRustleRoll: BULBASAUR_REPAIR_BOX_RUSTLE_ROLL,
-      repairBoxRustlePitch: BULBASAUR_REPAIR_BOX_RUSTLE_PITCH,
-      repairBoxRustleYaw: BULBASAUR_REPAIR_BOX_RUSTLE_YAW,
-      investigationOffset: CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET,
-      activeTint: REPAIR_BOX_ACTIVE_TINT,
-      activeTintStrength: REPAIR_BOX_ACTIVE_TINT_STRENGTH,
-      inactiveAlpha: REPAIR_BOX_INACTIVE_ALPHA
-    }
-  });
-  const companionModelSyncRuntime = createCompanionModelSyncRuntime({
+  const waterGunSfxBurstRuntime = createWaterGunSfxBurstRuntime();
+  const {
+    beeFieldRuntime,
+    companionAbilityResourcesRuntime,
+    companionModelSyncRuntime,
+    companionRenderFrameRuntime,
+    companionRepairBoxModelRuntime,
+    repairBoxMotionRuntime,
+    squirtleReassemblyRuntime
+  } = createCompanionPresentationRuntimeBundle({
+    camera,
+    controls,
+    rendering,
     session,
-    repairBoxModelRuntime: companionRepairBoxModelRuntime,
-    syncInteractablePosition: worldSceneSyncRuntime.syncInteractablePosition,
+    runtimes: {
+      fieldMoveActorPositionRuntime,
+      worldSceneSyncRuntime
+    },
+    callbacks: {
+      getEncounterRepairBoxPosition,
+      isActTwoTutorialStarted: () => actTwoTutorial.hasStarted(),
+      isRevealBoxBotVisible,
+      onSquirtleRechargeComplete: startNextQueuedSquirtleWaterGunAction
+    },
+    math: {
+      clamp01,
+      easeOutCubic,
+      lerp,
+      moveValueToward
+    },
     config: {
-      robotModelScale: ROBOT_MODEL_SCALE,
       bulbasaurModelScale: BULBASAUR_ROBOT_MODEL_SCALE,
       charmanderModelScale: CHARMANDER_MODEL_SCALE,
+      interactionRadiusGizmoConfig: BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG,
+      repairBoxActiveTint: REPAIR_BOX_ACTIVE_TINT,
+      repairBoxActiveTintStrength: REPAIR_BOX_ACTIVE_TINT_STRENGTH,
+      repairBoxBobHeight: ROBOT_REPAIR_BOX_BOB_HEIGHT,
+      repairBoxBobSpeed: ROBOT_REPAIR_BOX_BOB_SPEED,
+      repairBoxFloatHeight: ROBOT_REPAIR_BOX_FLOAT_HEIGHT,
+      repairBoxInactiveAlpha: REPAIR_BOX_INACTIVE_ALPHA,
+      repairBoxInvestigationOffset: CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET,
+      repairBoxModelPitchOffset: ROBOT_REPAIR_BOX_MODEL_PITCH_OFFSET,
+      repairBoxOpenBackstep: ROBOT_REPAIR_BOX_OPEN_BACKSTEP,
+      repairBoxOpenLift: ROBOT_REPAIR_BOX_OPEN_LIFT,
+      repairBoxOpenPitch: ROBOT_REPAIR_BOX_OPEN_PITCH,
+      repairBoxOpenRoll: ROBOT_REPAIR_BOX_OPEN_ROLL,
+      repairBoxRevealBoxDuration: BULBASAUR_REVEAL_BOX_DURATION,
+      repairBoxRevealBoxOpenStartProgress: BULBASAUR_REVEAL_BOX_OPEN_START_PROGRESS,
+      repairBoxRevealBoxShakeEndProgress: BULBASAUR_REVEAL_BOX_SHAKE_END_PROGRESS,
+      repairBoxRevealBoxSpinAcceleration: BULBASAUR_REVEAL_BOX_SPIN_ACCELERATION,
+      repairBoxRustleLift: BULBASAUR_REPAIR_BOX_RUSTLE_LIFT,
+      repairBoxRustlePitch: BULBASAUR_REPAIR_BOX_RUSTLE_PITCH,
+      repairBoxRustleRoll: BULBASAUR_REPAIR_BOX_RUSTLE_ROLL,
+      repairBoxRustleYaw: BULBASAUR_REPAIR_BOX_RUSTLE_YAW,
+      repairBoxSpinSpeed: ROBOT_REPAIR_BOX_SPIN_SPEED,
+      robotModelScale: ROBOT_MODEL_SCALE,
+      squirtleReassemblyPartScale: SQUIRTLE_REASSEMBLY_PART_SCALE,
       timburrModelScale: TIMBURR_MODEL_SCALE
     }
-  });
-  const squirtleReassemblyRuntime = createSquirtleReassemblyRuntime({
-    session,
-    clamp01,
-    easeOutCubic,
-    lerp,
-    partScale: SQUIRTLE_REASSEMBLY_PART_SCALE,
-    syncSquirtleModelInstance: () => companionModelSyncRuntime.syncSquirtle()
-  });
-  const beeFieldRuntime = createBeeFieldRuntime({
-    session,
-    controls,
-    repairBoxRuntime: companionRepairBoxModelRuntime,
-    syncInteractablePosition: worldSceneSyncRuntime.syncInteractablePosition,
-    config: {
-      activeTint: REPAIR_BOX_ACTIVE_TINT,
-      activeTintStrength: REPAIR_BOX_ACTIVE_TINT_STRENGTH
-    }
-  });
-  const waterGunSfxBurstRuntime = createWaterGunSfxBurstRuntime();
-  const companionAbilityResourcesRuntime = createCompanionAbilityResourcesRuntime({
-    session,
-    controls,
-    clamp01,
-    moveValueToward,
-    onSquirtleRechargeComplete: startNextQueuedSquirtleWaterGunAction
-  });
-  const companionRenderFrameRuntime = createCompanionRenderFrameRuntime({
-    session,
-    getPlayerSkills: () => controls.playerSkills,
-    getStoryState: () => controls.storyState,
-    rendering,
-    camera,
-    isActTwoTutorialStarted: () => actTwoTutorial.hasStarted(),
-    syncSquirtleModelInstance: () => companionModelSyncRuntime.syncSquirtle(),
-    getSquirtleWorldPosition: fieldMoveActorPositionRuntime.getSquirtleWorldPosition,
-    getCharmanderWorldPosition: fieldMoveActorPositionRuntime.getCharmanderWorldPosition,
-    getSquirtleMouthPosition: fieldMoveActorPositionRuntime.getSquirtleMouthPosition,
-    getCharmanderMouthPosition: fieldMoveActorPositionRuntime.getCharmanderMouthPosition,
-    getBulbasaurGrowEmitterPosition: fieldMoveActorPositionRuntime.getBulbasaurGrowEmitterPosition,
-    getSquirtleWaterStaminaState: () =>
-      companionAbilityResourcesRuntime.getSquirtleWaterStaminaState(),
-    getCharmanderCarbonEnergyState: () =>
-      companionAbilityResourcesRuntime.getCharmanderCarbonEnergyState(),
-    isSquirtleWaterCharging: () => companionAbilityResourcesRuntime.isSquirtleWaterCharging(),
-    interactionRadiusGizmoConfig: BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG
   });
   const leafDenConstructionPresentationRuntime = createLeafDenConstructionPresentationRuntime({
     session,
