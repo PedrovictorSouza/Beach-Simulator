@@ -70,7 +70,7 @@ import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
 import { createPlayerGameplayActionRuntimeBundle } from "../player/playerActionRuntimeBundle.js";
-import { createPlayerFrameRuntimeBundle } from "../player/playerFrameRuntimeBundle.js";
+import { createGameplayPlayerFrameRuntimeBundle } from "../player/playerFrameRuntimeBundle.js";
 import { createGameplayPromptPreparationRuntimeBundle } from "./presentation/gameplayPromptPreparationRuntimeBundle.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
 import {
@@ -176,9 +176,6 @@ import {
 } from "../session/gameplayOpeningShip.js";
 import {
   CARBON_ITEM_ID,
-  GEAR_ITEM_ID,
-  LEAVES_ITEM_ID,
-  LEPPA_BERRY_ITEM_ID,
   POKEMON_TALK_INTERACT_DISTANCE,
   WORKBENCH_INTERACT_DISTANCE,
   WORKBENCH_POSITION
@@ -198,15 +195,13 @@ import { isPositionInsideTerrainColliderFootprint } from "../gameplay/placementB
 import { FREE_BLOCK_TYPES } from "../gameplay/freeBlockBuildSystem.js";
 import { evaluateHabitatSiteChoice } from "../gameplay/habitatSiteChoiceContract.js";
 import {
-  COLONY_FEEDBACK_IDS,
   getColonyFeedbackNotice
 } from "../gameplay/colonyFeedbackContracts.js";
 import {
   resolveWorkbenchRotationPrompt
 } from "../ui/inputPromptResolver.js";
 import {
-  SANDBOTS_BOT_NAMES,
-  SANDBOTS_ITEM_NAMES
+  SANDBOTS_BOT_NAMES
 } from "../story/sandbotsLexicon.js";
 import { resolvePsxDistanceFogSettings } from "../rendering/psxDistanceFogConfig.js";
 import { PLACEMENT_CONTRACTS } from "../gameplay/contracts/placementContracts.js";
@@ -744,7 +739,7 @@ export function startGameLoop({
     playerModelRuntime,
     playerMovementFrameRuntime,
     playerResourceCollectionFrameRuntime
-  } = createPlayerFrameRuntimeBundle({
+  } = createGameplayPlayerFrameRuntimeBundle({
     audio,
     camera,
     cameraOrbit,
@@ -771,29 +766,7 @@ export function startGameLoop({
       triggerSupplyCounterPrompt: (itemId, inventory, promptNow) =>
         supplyCounterPromptController.trigger(itemId, inventory, promptNow)
     },
-    config: {
-      botNames: SANDBOTS_BOT_NAMES,
-      colonyFeedbackIds: {
-        habitatCheckComplete: COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE
-      },
-      itemIds: {
-        wood: "wood",
-        leaves: LEAVES_ITEM_ID,
-        gear: GEAR_ITEM_ID,
-        carbon: CARBON_ITEM_ID,
-        leppaBerry: LEPPA_BERRY_ITEM_ID
-      },
-      labels: {
-        leaves: "Leaves",
-        gear: "Gear",
-        carbon: "Carbon",
-        leppaBerry: SANDBOTS_ITEM_NAMES.pulseBerry
-      },
-      movementQuestId: "learn-to-move",
-      soundEventIds: {
-        gameplayJump: SOUND_EVENT_IDS.GAMEPLAY_JUMP
-      }
-    },
+    soundEventIds: SOUND_EVENT_IDS,
     math: {
       moveValueToward,
       rotateAngleToward

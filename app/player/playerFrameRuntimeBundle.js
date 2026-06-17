@@ -1,6 +1,14 @@
 import { createPlayerMovementFrameRuntime } from "./playerMovementFrame.js";
 import { createPlayerModelRuntime } from "./playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "./playerResourceCollectionFrame.js";
+import { COLONY_FEEDBACK_IDS } from "../gameplay/colonyFeedbackContracts.js";
+import { SANDBOTS_BOT_NAMES, SANDBOTS_ITEM_NAMES } from "../story/sandbotsLexicon.js";
+import {
+  CARBON_ITEM_ID,
+  GEAR_ITEM_ID,
+  LEAVES_ITEM_ID,
+  LEPPA_BERRY_ITEM_ID
+} from "../../gameplayContent.js";
 
 const DEFAULT_ITEM_IDS = Object.freeze({
   wood: "wood",
@@ -16,6 +24,58 @@ const DEFAULT_LABELS = Object.freeze({
   carbon: "Carbon",
   leppaBerry: "Pulse Berry"
 });
+
+export function createGameplayPlayerFrameRuntimeBundle({
+  config = {},
+  soundEventIds = {},
+  createRuntimeBundle = createPlayerFrameRuntimeBundle,
+  ...options
+} = {}) {
+  const {
+    botNames = {},
+    colonyFeedbackIds = {},
+    itemIds = {},
+    labels = {},
+    movementQuestId,
+    soundEventIds: configSoundEventIds = {},
+    ...restConfig
+  } = config;
+
+  return createRuntimeBundle({
+    ...options,
+    config: {
+      ...restConfig,
+      botNames: {
+        ...SANDBOTS_BOT_NAMES,
+        ...botNames
+      },
+      colonyFeedbackIds: {
+        habitatCheckComplete: COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE,
+        ...colonyFeedbackIds
+      },
+      itemIds: {
+        wood: "wood",
+        leaves: LEAVES_ITEM_ID,
+        gear: GEAR_ITEM_ID,
+        carbon: CARBON_ITEM_ID,
+        leppaBerry: LEPPA_BERRY_ITEM_ID,
+        ...itemIds
+      },
+      labels: {
+        leaves: "Leaves",
+        gear: "Gear",
+        carbon: "Carbon",
+        leppaBerry: SANDBOTS_ITEM_NAMES.pulseBerry,
+        ...labels
+      },
+      movementQuestId: movementQuestId ?? "learn-to-move",
+      soundEventIds: {
+        gameplayJump: soundEventIds.GAMEPLAY_JUMP,
+        ...configSoundEventIds
+      }
+    }
+  });
+}
 
 export function createPlayerFrameRuntimeBundle({
   audio = {},

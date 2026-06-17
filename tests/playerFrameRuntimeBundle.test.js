@@ -1,7 +1,74 @@
 import { describe, expect, it, vi } from "vitest";
-import { createPlayerFrameRuntimeBundle } from "../app/player/playerFrameRuntimeBundle.js";
+import {
+  createGameplayPlayerFrameRuntimeBundle,
+  createPlayerFrameRuntimeBundle
+} from "../app/player/playerFrameRuntimeBundle.js";
+import { COLONY_FEEDBACK_IDS } from "../app/gameplay/colonyFeedbackContracts.js";
+import { SANDBOTS_BOT_NAMES, SANDBOTS_ITEM_NAMES } from "../app/story/sandbotsLexicon.js";
+import {
+  CARBON_ITEM_ID,
+  GEAR_ITEM_ID,
+  LEAVES_ITEM_ID,
+  LEPPA_BERRY_ITEM_ID
+} from "../gameplayContent.js";
 
 describe("createPlayerFrameRuntimeBundle", () => {
+  it("provides gameplay player frame defaults from the player domain", () => {
+    const expectedBundle = {
+      playerModelRuntime: {},
+      playerMovementFrameRuntime: {},
+      playerResourceCollectionFrameRuntime: {}
+    };
+    const createRuntimeBundle = vi.fn(() => expectedBundle);
+    const options = {
+      audio: {},
+      callbacks: {},
+      controls: {},
+      gameplay: {},
+      hud: {},
+      math: {},
+      policies: {},
+      runtimes: {},
+      session: {}
+    };
+
+    const result = createGameplayPlayerFrameRuntimeBundle({
+      ...options,
+      soundEventIds: {
+        GAMEPLAY_JUMP: "gameplay.jump"
+      },
+      createRuntimeBundle
+    });
+
+    expect(result).toBe(expectedBundle);
+    expect(createRuntimeBundle).toHaveBeenCalledWith({
+      ...options,
+      config: {
+        botNames: SANDBOTS_BOT_NAMES,
+        colonyFeedbackIds: {
+          habitatCheckComplete: COLONY_FEEDBACK_IDS.HABITAT_CHECK_COMPLETE
+        },
+        itemIds: {
+          wood: "wood",
+          leaves: LEAVES_ITEM_ID,
+          gear: GEAR_ITEM_ID,
+          carbon: CARBON_ITEM_ID,
+          leppaBerry: LEPPA_BERRY_ITEM_ID
+        },
+        labels: {
+          leaves: "Leaves",
+          gear: "Gear",
+          carbon: "Carbon",
+          leppaBerry: SANDBOTS_ITEM_NAMES.pulseBerry
+        },
+        movementQuestId: "learn-to-move",
+        soundEventIds: {
+          gameplayJump: "gameplay.jump"
+        }
+      }
+    });
+  });
+
   it("wires player model, movement and resource collection runtimes", () => {
     const playerModelRuntime = { sync: vi.fn(), startJumpFlip: vi.fn() };
     const playerMovementFrameRuntime = { update: vi.fn() };

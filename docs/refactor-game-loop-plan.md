@@ -255,6 +255,83 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Gameplay Player Frame Defaults Boundary
+
+Expanded `app/player/playerFrameRuntimeBundle.js` with
+`createGameplayPlayerFrameRuntimeBundle(...)`.
+
+Boundary classification: `player / frame runtime`, focused on gameplay defaults
+needed by player movement, model motion and resource collection.
+
+Study path:
+
+1. `startGameLoop()` still wires live dependencies: audio, camera, controls,
+   HUD, resource feedback callbacks, policy callbacks and runtime dependencies.
+2. The player domain now owns player-frame defaults for item ids, pickup labels,
+   movement quest id, habitat-check feedback id, bot names and the jump sound
+   adapter.
+3. The lower-level `createPlayerFrameRuntimeBundle(...)` remains explicit and
+   configurable for tests and lower-level callers.
+
+Removed from `gameLoop.js`:
+
+- direct imports of `GEAR_ITEM_ID`, `LEAVES_ITEM_ID` and
+  `LEPPA_BERRY_ITEM_ID`;
+- direct import/use of `SANDBOTS_ITEM_NAMES`;
+- direct import/use of `COLONY_FEEDBACK_IDS`;
+- inline player frame config for item ids, resource labels, movement quest id,
+  bot names, habitat-check feedback id and jump sound id.
+
+Kept in `gameLoop.js`:
+
+- creation order of player frame runtimes;
+- live camera/audio/HUD/session/control wiring;
+- callbacks for supply feedback, supply counter prompts, movement zoom preset
+  restore and colony feedback lookup;
+- `CARBON_ITEM_ID`, because field-move impact still needs it directly.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1313` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1286` lines.
+
+Tests updated:
+
+- `tests/playerFrameRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/playerFrameRuntimeBundle.test.js
+```
+
+The first run failed because `createGameplayPlayerFrameRuntimeBundle(...)` did
+not exist yet. After adding the wrapper, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/playerFrameRuntimeBundle.test.js
+npm test -- --run tests/playerFrameRuntimeBundle.test.js tests/playerMovementFrame.test.js tests/playerResourceCollectionFrame.test.js tests/playerModelMotion.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2040` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Construction Workbench Rotation Gameplay Defaults Boundary
 
 Expanded `app/runtime/construction/workbenchRotationRuntime.js` with
