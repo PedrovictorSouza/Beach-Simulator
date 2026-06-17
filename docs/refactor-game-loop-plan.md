@@ -111,6 +111,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   facing runtime.
 - Completed: move gameplay repair-box reveal defaults into the `companions/`
   reveal runtime boundary.
+- Completed: move shared gameplay construction placement config into the
+  `construction/` domain.
 - Completed: bundle construction placement runtime wiring into the
   `construction/` domain.
 - Completed: move gameplay free-block build session grid defaults into the
@@ -381,6 +383,76 @@ npm test
 ```
 
 `npm test` completed with `2027` passed and `4` failed:
+
+- `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
+  baseline failures.
+- `tests/sceneFlowRuntimeCompletion.test.js`: the existing start-screen gameplay
+  opening baseline failure.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Construction Config Boundary
+
+This cut moves the shared gameplay construction configuration out of
+`gameLoop.js` and into the `construction/` domain.
+
+Boundary classification: `construction / placement config`.
+
+What changed:
+
+- Added `app/runtime/construction/constructionGameplayConfig.js`.
+- Added `GAMEPLAY_CONSTRUCTION_CONFIG` for construction preview footprints, grid
+  footprints, rotation step, Solar Station guidance limits and Solar Station
+  follow/radius tuning.
+- Rewired `gameLoop.js` to pass values from `CONSTRUCTION_CONFIG` into existing
+  construction, workbench rotation, presentation and debug-collider runtimes.
+- Removed the old construction footprint and rotation constants from
+  `gameLoop.js`.
+
+Why this boundary is safe:
+
+- The numeric values were copied unchanged.
+- Runtime construction order and frame order did not change.
+- The existing runtime APIs still receive the same data shapes.
+- No placement, workbench, field-move or render behavior was intentionally
+  changed.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1433` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1420` lines.
+
+Tests added:
+
+- `tests/constructionGameplayConfig.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionGameplayConfig.test.js
+```
+
+The first run failed because `constructionGameplayConfig.js` did not exist.
+After adding the module and rewiring `gameLoop.js`, the focused construction
+suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionGameplayConfig.test.js tests/constructionPlacementRuntimeBundle.test.js tests/constructionBlockerRuntimeBundle.test.js tests/workbenchRotationRuntime.test.js tests/gameLoopGroundCellHighlightWiring.test.js tests/placementGeometry.test.js
+git diff --check
+npm run build
+```
+
+`npm run build` passed with the existing Vite chunk-size warning.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2029` passed and `4` failed:
 
 - `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
   baseline failures.

@@ -15,6 +15,9 @@ import { createGameplayRepairBoxRevealRuntimeBundle } from "./companions/repairB
 import { createGameplayFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
 import { createConstructionBlockerRuntimeBundle } from "./construction/constructionBlockerRuntimeBundle.js";
 import { createConstructionBuildRuntimeBundle } from "./construction/constructionBuildRuntimeBundle.js";
+import {
+  GAMEPLAY_CONSTRUCTION_CONFIG as CONSTRUCTION_CONFIG
+} from "./construction/constructionGameplayConfig.js";
 import { createConstructionPlacementRuntimeBundle } from "./construction/constructionPlacementRuntimeBundle.js";
 import { createConstructionPresentationRuntimeBundle } from "./construction/constructionPresentationRuntimeBundle.js";
 import {
@@ -223,25 +226,8 @@ import {
 } from "./input/createGameplayInputRuntime.js";
 
 
-const GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT = [2.85, 1.7];
 const WORLD_CELL_PLANNER_PICK_MAX_DISTANCE_PX = 72;
-const GREENHOUSE_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 5, height: 3 });
-const SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT = [2.2, 2.2];
-const SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 4, height: 4 });
-const SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE = 2.85;
-const TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT = [1.7, 1.45];
-const TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 3, height: 3 });
-const LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT = [1.95, 1.45];
-const LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 3, height: 3 });
-const LEAF_DEN_BUILT_ROTATION_FOOTPRINT = [
-  LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[0] * 2,
-  LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[1] * 2
-];
-const PLACEMENT_ROTATION_STEP = Math.PI * 0.5;
-const LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER = 3;
 const LEAF_DEN_BUSY_NOTICE = "im busy, boss...";
-const SOLAR_STATION_FIELD_MARKED_TILE_LIMIT = 81;
-const SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT = 1200;
 const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
 const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
@@ -276,13 +262,13 @@ function easeOutCubic(value) {
 
 function getRotatedPlacementSize(size = [1, 1], yaw = 0) {
   return getRotatedPlacementSizeWithConfig(size, yaw, {
-    placementRotationStep: PLACEMENT_ROTATION_STEP
+    placementRotationStep: CONSTRUCTION_CONFIG.placementRotationStep
   });
 }
 
 function buildSolarStationFieldMarkedGroundCells(placementTarget) {
   return buildSolarStationFieldMarkedGroundCellsWithConfig(placementTarget, {
-    markedTileLimit: SOLAR_STATION_FIELD_MARKED_TILE_LIMIT
+    markedTileLimit: CONSTRUCTION_CONFIG.solarStationFieldMarkedTileLimit
   });
 }
 
@@ -467,11 +453,11 @@ export function startGameLoop({
     },
     config: {
       footprints: {
-        greenhouse: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-        solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-        trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-        houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
-        houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT
+        greenhouse: CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
+        solarStation: CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+        trainHouse: CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
+        houseKit: CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+        houseBuilt: CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint
       }
     },
     geometry: {
@@ -550,12 +536,12 @@ export function startGameLoop({
       }
     },
     config: {
-      placementRotationStep: PLACEMENT_ROTATION_STEP,
+      placementRotationStep: CONSTRUCTION_CONFIG.placementRotationStep,
       footprints: {
-        houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT,
-        houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
-        solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-        trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT
+        houseBuilt: CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint,
+        houseKit: CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+        solarStation: CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+        trainHouse: CONSTRUCTION_CONFIG.previewFootprints.trainHouse
       },
       thermalCabinLabel: SANDBOTS_ITEM_NAMES.thermalCabin
     },
@@ -713,18 +699,19 @@ export function startGameLoop({
       validatePlacement: validateBuildingKitPlacement
     },
     config: {
-      greenhouseFallbackFootprint: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      greenhouseGridFootprint: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
-      leafDenKitFallbackFootprint: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
-      leafDenKitGridFootprint: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT,
-      leafDenKitSolarStationRadiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
-      markedTileLimit: SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT,
-      placementRotationStep: PLACEMENT_ROTATION_STEP,
-      solarStationFollowDistance: SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE,
-      solarStationGridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
-      solarStationPreviewFootprint: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-      trainHouseFallbackFootprint: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      trainHouseGridFootprint: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
+      greenhouseFallbackFootprint: CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
+      greenhouseGridFootprint: CONSTRUCTION_CONFIG.gridFootprints.greenhouse,
+      leafDenKitFallbackFootprint: CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+      leafDenKitGridFootprint: CONSTRUCTION_CONFIG.gridFootprints.leafDenKit,
+      leafDenKitSolarStationRadiusMultiplier:
+        CONSTRUCTION_CONFIG.leafDenKitSolarStationRadiusMultiplier,
+      markedTileLimit: CONSTRUCTION_CONFIG.solarStationPowerRadiusMarkedTileLimit,
+      placementRotationStep: CONSTRUCTION_CONFIG.placementRotationStep,
+      solarStationFollowDistance: CONSTRUCTION_CONFIG.solarStationFollowDistance,
+      solarStationGridFootprint: CONSTRUCTION_CONFIG.gridFootprints.solarStation,
+      solarStationPreviewFootprint: CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+      trainHouseFallbackFootprint: CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
+      trainHouseGridFootprint: CONSTRUCTION_CONFIG.gridFootprints.trainHouse,
       workbenchPosition: WORKBENCH_POSITION
     }
   });
@@ -1123,10 +1110,10 @@ export function startGameLoop({
       gameplayPromptPreparationFrameRuntime,
       gameplayRenderSnapshotFrameRuntime,
       placementFootprints: {
-        solarStation: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
-        greenhouse: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
-        campfire: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
-        leafDenKit: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT
+        solarStation: CONSTRUCTION_CONFIG.gridFootprints.solarStation,
+        greenhouse: CONSTRUCTION_CONFIG.gridFootprints.greenhouse,
+        campfire: CONSTRUCTION_CONFIG.gridFootprints.trainHouse,
+        leafDenKit: CONSTRUCTION_CONFIG.gridFootprints.leafDenKit
       }
     });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
@@ -1155,11 +1142,11 @@ export function startGameLoop({
       session,
       storyState: controls.storyState,
       footprints: {
-        greenhouse: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-        solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-        trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-        houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
-        houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT
+        greenhouse: CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
+        solarStation: CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+        trainHouse: CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
+        houseKit: CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+        houseBuilt: CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint
       }
     });
   }
