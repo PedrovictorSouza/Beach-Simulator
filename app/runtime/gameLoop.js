@@ -24,7 +24,9 @@ import {
 import {
   createGameplayPlacementPreviewCancellation
 } from "./construction/constructionPlacementControlRuntime.js";
-import { createConstructionPlacementRuntimeBundle } from "./construction/constructionPlacementRuntimeBundle.js";
+import {
+  createGameplayConstructionPlacementRuntimeBundle
+} from "./construction/constructionPlacementRuntimeBundle.js";
 import { createConstructionPresentationRuntimeBundle } from "./construction/constructionPresentationRuntimeBundle.js";
 import {
   hasPendingWorkbenchPlacementIntent
@@ -651,10 +653,9 @@ export function startGameLoop({
     constructionPlacementControlRuntime,
     constructionPlacementFrameRuntime,
     solarStationPowerRadiusRuntime
-  } = createConstructionPlacementRuntimeBundle({
+  } = createGameplayConstructionPlacementRuntimeBundle({
     controls,
     session,
-    placementContracts: PLACEMENT_CONTRACTS,
     runtimes: {
       buildBlockRuntime,
       solarStationPlacementBlockerRuntime,
@@ -679,22 +680,6 @@ export function startGameLoop({
       syncFreeBlockBuildPreview: (...args) => freeBlockBuildRuntime.syncPreview(...args),
       updateBuildBlockDebugOverlay: (debug) => buildBlockDebugOverlay.update(debug),
       validatePlacement: validateBuildingKitPlacement
-    },
-    config: {
-      greenhouseFallbackFootprint: CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
-      greenhouseGridFootprint: CONSTRUCTION_CONFIG.gridFootprints.greenhouse,
-      leafDenKitFallbackFootprint: CONSTRUCTION_CONFIG.previewFootprints.houseKit,
-      leafDenKitGridFootprint: CONSTRUCTION_CONFIG.gridFootprints.leafDenKit,
-      leafDenKitSolarStationRadiusMultiplier:
-        CONSTRUCTION_CONFIG.leafDenKitSolarStationRadiusMultiplier,
-      markedTileLimit: CONSTRUCTION_CONFIG.solarStationPowerRadiusMarkedTileLimit,
-      placementRotationStep: CONSTRUCTION_CONFIG.placementRotationStep,
-      solarStationFollowDistance: CONSTRUCTION_CONFIG.solarStationFollowDistance,
-      solarStationGridFootprint: CONSTRUCTION_CONFIG.gridFootprints.solarStation,
-      solarStationPreviewFootprint: CONSTRUCTION_CONFIG.previewFootprints.solarStation,
-      trainHouseFallbackFootprint: CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
-      trainHouseGridFootprint: CONSTRUCTION_CONFIG.gridFootprints.trainHouse,
-      workbenchPosition: WORKBENCH_POSITION
     }
   });
   const worldSpacePresentationFrameRuntime = createWorldSpacePresentationFrameRuntime({

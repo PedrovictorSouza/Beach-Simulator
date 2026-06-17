@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  createConstructionPlacementRuntimeBundle
+  createConstructionPlacementRuntimeBundle,
+  createGameplayConstructionPlacementRuntimeBundle
 } from "../app/runtime/construction/constructionPlacementRuntimeBundle.js";
 
 function createHarness() {
@@ -116,5 +117,45 @@ describe("createConstructionPlacementRuntimeBundle", () => {
     });
     expect(controls.getActiveMoveId).toHaveBeenCalled();
     expect(session.playerCharacter.getPosition).toHaveBeenCalled();
+  });
+
+  it("creates the gameplay bundle with construction defaults", () => {
+    const controls = { storyState: { flags: {} } };
+    const session = {};
+    const runtimes = {};
+    const callbacks = {};
+    const calls = [];
+    const bundle = { constructionPlacementControlRuntime: {} };
+
+    expect(createGameplayConstructionPlacementRuntimeBundle({
+      controls,
+      session,
+      runtimes,
+      callbacks,
+      createRuntimeBundle: (options) => {
+        calls.push(options);
+        return bundle;
+      }
+    })).toBe(bundle);
+
+    expect(calls).toEqual([
+      expect.objectContaining({
+        controls,
+        session,
+        runtimes,
+        callbacks,
+        placementContracts: expect.any(Array),
+        config: expect.objectContaining({
+          greenhouseFallbackFootprint: [2.85, 1.7],
+          leafDenKitFallbackFootprint: [1.95, 1.45],
+          leafDenKitSolarStationRadiusMultiplier: 3,
+          markedTileLimit: 1200,
+          placementRotationStep: Math.PI * 0.5,
+          solarStationFollowDistance: 2.85,
+          trainHouseFallbackFootprint: [1.7, 1.45],
+          workbenchPosition: expect.any(Array)
+        })
+      })
+    ]);
   });
 });

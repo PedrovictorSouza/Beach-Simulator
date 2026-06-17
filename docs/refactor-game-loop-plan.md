@@ -634,6 +634,81 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Gameplay Construction Placement Bundle Defaults Boundary
+
+Expanded `app/runtime/construction/constructionPlacementRuntimeBundle.js` with
+`createGameplayConstructionPlacementRuntimeBundle(...)`.
+
+Boundary classification: `construction / placement runtime`, focused on moving
+gameplay placement bundle defaults out of `gameLoop.js`.
+
+Study path:
+
+1. `createConstructionPlacementRuntimeBundle(...)` remains the configurable
+   lower-level factory.
+2. `createGameplayConstructionPlacementRuntimeBundle(...)` now supplies
+   gameplay defaults for placement contracts, construction footprints,
+   Solar Station radius limits, placement rotation step and Workbench position.
+3. `startGameLoop()` still wires dynamic dependencies such as controls, session,
+   active runtimes, sound callbacks and HUD notices.
+
+Removed from `gameLoop.js`:
+
+- explicit `placementContracts: PLACEMENT_CONTRACTS` argument for the
+  construction placement bundle;
+- large inline `config` block for greenhouse, Solar Station, leaf-den kit,
+  train-house, placement rotation and Workbench defaults.
+
+Kept in `gameLoop.js`:
+
+- dynamic callback wiring to camera axes, free-block runtime, build-block debug,
+  placement validation and sounds;
+- `PLACEMENT_CONTRACTS` import for frame policies and cancellation wiring still
+  owned by the game loop lifecycle.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1360` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1345` lines.
+
+Tests updated:
+
+- `tests/constructionPlacementRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPlacementRuntimeBundle.test.js
+```
+
+The first run failed because
+`createGameplayConstructionPlacementRuntimeBundle(...)` did not exist yet. After
+adding the gameplay factory and rewiring `gameLoop.js`, the focused construction
+placement tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementRuntimeBundle.test.js tests/constructionPlacementPreviewRuntime.test.js tests/solarStationPowerRadius.test.js tests/constructionPlacementFrameRuntime.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2037` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## 2026-06-17 - Gameplay Companion Facing Defaults Boundary
 
 This cut moves gameplay-specific companion model-face yaw defaults out of

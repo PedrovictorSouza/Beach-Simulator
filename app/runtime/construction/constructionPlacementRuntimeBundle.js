@@ -2,6 +2,9 @@ import {
   createConstructionPlacementControlRuntime
 } from "./constructionPlacementControlRuntime.js";
 import {
+  GAMEPLAY_CONSTRUCTION_CONFIG
+} from "./constructionGameplayConfig.js";
+import {
   createConstructionPlacementFrameRuntime
 } from "./constructionPlacementFrameRuntime.js";
 import {
@@ -10,6 +13,47 @@ import {
 import {
   createSolarStationPowerRadiusRuntime
 } from "./solarStationPowerRadius.js";
+import { PLACEMENT_CONTRACTS } from "../../gameplay/contracts/placementContracts.js";
+import { WORKBENCH_POSITION } from "../../../gameplayContent.js";
+
+export function createGameplayConstructionPlacementRuntimeBundle({
+  controls = {},
+  session = {},
+  runtimes = {},
+  callbacks = {},
+  placementContracts = PLACEMENT_CONTRACTS,
+  config = {},
+  createRuntimeBundle = createConstructionPlacementRuntimeBundle
+} = {}) {
+  return createRuntimeBundle({
+    controls,
+    session,
+    runtimes,
+    callbacks,
+    placementContracts,
+    config: {
+      greenhouseFallbackFootprint:
+        GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
+      greenhouseGridFootprint: GAMEPLAY_CONSTRUCTION_CONFIG.gridFootprints.greenhouse,
+      leafDenKitFallbackFootprint:
+        GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+      leafDenKitGridFootprint: GAMEPLAY_CONSTRUCTION_CONFIG.gridFootprints.leafDenKit,
+      leafDenKitSolarStationRadiusMultiplier:
+        GAMEPLAY_CONSTRUCTION_CONFIG.leafDenKitSolarStationRadiusMultiplier,
+      markedTileLimit: GAMEPLAY_CONSTRUCTION_CONFIG.solarStationPowerRadiusMarkedTileLimit,
+      placementRotationStep: GAMEPLAY_CONSTRUCTION_CONFIG.placementRotationStep,
+      solarStationFollowDistance: GAMEPLAY_CONSTRUCTION_CONFIG.solarStationFollowDistance,
+      solarStationGridFootprint: GAMEPLAY_CONSTRUCTION_CONFIG.gridFootprints.solarStation,
+      solarStationPreviewFootprint:
+        GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+      trainHouseFallbackFootprint:
+        GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
+      trainHouseGridFootprint: GAMEPLAY_CONSTRUCTION_CONFIG.gridFootprints.trainHouse,
+      workbenchPosition: WORKBENCH_POSITION,
+      ...config
+    }
+  });
+}
 
 export function createConstructionPlacementRuntimeBundle({
   controls = {},
