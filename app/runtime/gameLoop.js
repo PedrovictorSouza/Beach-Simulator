@@ -83,15 +83,13 @@ import { createPlayerActionRuntimeBundle } from "../player/playerActionRuntimeBu
 import { createPlayerMovementFrameRuntime } from "../player/playerMovementFrame.js";
 import { createPlayerModelRuntime } from "../player/playerModelMotion.js";
 import { createPlayerResourceCollectionFrameRuntime } from "../player/playerResourceCollectionFrame.js";
-import { createPlayerCounterPromptRuntime } from "./playerCounterPromptRuntime.js";
 import { createGameplayPromptPreparationFrameRuntime } from "./presentation/gameplayPromptTargetFrameState.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
 import {
   createBaseRenderSnapshotFrameRuntime,
   createRenderSnapshotCompletionFrameRuntime
 } from "./presentation/baseRenderSnapshotFrame.js";
-import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
-import { createSupplyPickupFeedbackRuntime } from "./presentation/supplyPickupFeedbackRuntime.js";
+import { createSupplyFeedbackRuntimeBundle } from "./presentation/supplyFeedbackRuntimeBundle.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { createNaturePresentationRuntimeBundle } from "./presentation/naturePresentationRuntimeBundle.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
@@ -520,15 +518,6 @@ export function startGameLoop({
     })
   });
   cameraDebugRuntime.attachGlobalListeners();
-  const playerCounterPromptRuntime = createPlayerCounterPromptRuntime({
-    durationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
-  });
-  const supplyCounterPromptController = createSupplyCounterPromptController({
-    getItemLabel: (itemId) => gameplay.getItemLabel?.(itemId),
-    triggerPrompt: (text, now) => {
-      playerCounterPromptRuntime.trigger(text, now);
-    }
-  });
   const getSfxVolumeScale = () => gameplay?.audioMixRuntime?.getSfxVolumeScale?.() ?? 1;
   const getMusicVolumeScale = () => gameplay?.audioMixRuntime?.getMusicVolumeScale?.() ?? 1;
   const playSoundEvent = (eventId, options) => {
@@ -546,21 +535,26 @@ export function startGameLoop({
     getTrainHousePosition: () => session.campfire?.position || null,
     getMusicRuntime: () => gameplay.musicRuntime
   });
-  const supplyPickupFeedbackRuntime = createSupplyPickupFeedbackRuntime({
+  const {
+    playerCounterPromptRuntime,
+    pushSupplyResourceCollectFeedback,
+    queueChangedSupplyPickupFlyItems,
+    queueSupplyPickupFlyItems,
+    supplyCounterPromptController
+  } = createSupplyFeedbackRuntimeBundle({
     audio,
     camera,
     controls,
+    gameplay,
     getNowMs: getRuntimeNowMs,
     hud,
     itemIds: SUPPLY_PICKUP_FLY_ITEM_IDS,
     session,
-    supplyCounterPromptController,
-    worldCanvas
+    worldCanvas,
+    config: {
+      playerCounterPromptDurationMs: PLAYER_COUNTER_PROMPT_DURATION_MS
+    }
   });
-  const queueSupplyPickupFlyItems = supplyPickupFeedbackRuntime.queueFlyItems;
-  const queueChangedSupplyPickupFlyItems = supplyPickupFeedbackRuntime.queueChangedFlyItems;
-  const pushSupplyResourceCollectFeedback =
-    supplyPickupFeedbackRuntime.pushResourceCollectFeedback;
   const fieldMoveInvalidTargetPromptRuntime = createFieldMoveInvalidTargetPromptRuntime({
     leafageDurationMs: LEAFAGE_INVALID_TARGET_PROMPT_DURATION_MS,
     fireDurationMs: FIRE_INVALID_TARGET_PROMPT_DURATION_MS

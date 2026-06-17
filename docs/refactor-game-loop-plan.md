@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle supply counter/pickup feedback runtime wiring into the
+  `presentation/` domain.
 - Completed: bundle world planner/event/scene-sync runtime wiring into the
   `world/` domain.
 - Completed: bundle nature presentation/effects runtime wiring into the
@@ -130,6 +132,82 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Supply Feedback Runtime Bundle
+
+Created boundary:
+
+`app/runtime/presentation/supplyFeedbackRuntimeBundle.js`
+
+Boundary classification: `presentation`, focused on player counter prompts,
+supply counter prompts and supply pickup fly/notice feedback.
+
+Why this cut:
+
+`gameLoop.js` was still directly wiring the player counter prompt runtime,
+supply counter prompt controller and supply pickup feedback runtime. Those
+systems are presentation feedback, while the game loop only needs the resulting
+callbacks used by player resource collection and prompt snapshot preparation.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createPlayerCounterPromptRuntime(...)`;
+- direct imports for `createSupplyCounterPromptController(...)`;
+- direct imports for `createSupplyPickupFeedbackRuntime(...)`;
+- inline wiring between supply prompt text and the player counter prompt;
+- method aliasing for supply pickup fly feedback and resource collect feedback.
+
+Kept in `gameLoop.js`:
+
+- high-level dependency wiring for supply feedback;
+- callback handles consumed by resource collection, prompt preparation and
+  render snapshot completion;
+- prompt duration and item-id config.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1998` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1992` lines.
+- This is a small line-count drop, but it removes a presentation-feedback
+  wiring cluster from the game loop.
+
+Tests added:
+
+- `tests/supplyFeedbackRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/supplyFeedbackRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/presentation/supplyFeedbackRuntimeBundle.js` did not exist. After
+adding the domain factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/supplyFeedbackRuntimeBundle.test.js
+npm test -- --run tests/supplyFeedbackRuntimeBundle.test.js tests/playerCounterPromptRuntime.test.js tests/supplyCounterPrompt.test.js tests/supplyPickupFeedbackRuntime.test.js tests/supplyPickupViewportOrigin.test.js tests/playerResourceCollectionFrame.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/presentation/supplyFeedbackRuntimeBundle.js tests/supplyFeedbackRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2000` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: World Runtime Bundle
 
