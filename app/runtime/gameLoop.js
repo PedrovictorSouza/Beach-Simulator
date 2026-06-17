@@ -5,7 +5,7 @@ import {
 } from "./gameLoopFrameRuntime.js";
 import { isRevealBoxBotVisible } from "./botRevealMotion.js";
 import { createGameplayCameraRuntimeBundle } from "./camera/gameplayCameraRuntimeBundle.js";
-import { createCompanionFacingRuntime } from "./companions/companionFacingRuntime.js";
+import { createGameplayCompanionFacingRuntime } from "./companions/companionFacingRuntime.js";
 import { createGameplayCompanionFrameRuntimeBundle } from "./companions/companionFrameRuntimeBundle.js";
 import { createGameplayCompanionMotionRuntimeBundle } from "./companions/companionMotionRuntimeBundle.js";
 import { createGameplayCompanionPresentationRuntimeBundle } from "./companions/companionPresentationRuntimeBundle.js";
@@ -247,10 +247,6 @@ const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
 const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
 const SNOWSTORM_FOG_OPACITY_EASE = 6.2;
-const SQUIRTLE_MODEL_FACE_YAW_OFFSET = 0;
-const BULBASAUR_MODEL_FACE_YAW_OFFSET = 0;
-const CHARMANDER_MODEL_FACE_YAW_OFFSET = 0;
-const TIMBURR_MODEL_FACE_YAW_OFFSET = 0;
 const ROBOT_REPAIR_BOX_FLOAT_HEIGHT = 0.74;
 const BULBASAUR_REVEAL_BOX_DURATION = 4.35;
 const BULBASAUR_REVEAL_VISIBLE_PROGRESS = 0.72;
@@ -462,14 +458,7 @@ export function startGameLoop({
       lerp
     }
   });
-  const companionFacingRuntime = createCompanionFacingRuntime({
-    session,
-    offsets: {
-      squirtle: SQUIRTLE_MODEL_FACE_YAW_OFFSET,
-      charmander: CHARMANDER_MODEL_FACE_YAW_OFFSET,
-      bulbasaur: BULBASAUR_MODEL_FACE_YAW_OFFSET
-    }
-  });
+  const companionFacingRuntime = createGameplayCompanionFacingRuntime({ session });
   const {
     companionConstructionBlockerRuntime,
     solarStationPlacementBlockerRuntime,

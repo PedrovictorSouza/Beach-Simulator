@@ -107,6 +107,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   motion bundle.
 - Completed: move gameplay companion frame defaults into the `companions/`
   frame bundle.
+- Completed: move gameplay companion facing defaults into the `companions/`
+  facing runtime.
 - Completed: bundle construction placement runtime wiring into the
   `construction/` domain.
 - Completed: move gameplay free-block build session grid defaults into the
@@ -243,6 +245,73 @@ npm test
   `tests/gameplayInteractions.test.js`;
 - the existing `1` scene-flow/start-screen failure in
   `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Companion Facing Defaults Boundary
+
+This cut moves gameplay-specific companion model-face yaw defaults out of
+`gameLoop.js` and into the companion facing runtime.
+
+Boundary classification: `companions / motion runtime`.
+
+What changed:
+
+- Added `createGameplayCompanionFacingRuntime(...)` to
+  `app/runtime/companions/companionFacingRuntime.js`.
+- Kept `createCompanionFacingRuntime(...)` as the configurable lower-level
+  factory.
+- Removed the explicit Squirtle, Charmander, Bulbasaur and Timburr face-yaw
+  constants from `app/runtime/gameLoop.js`.
+- `startGameLoop()` now creates companion facing with `session` only.
+
+Why this boundary is safe:
+
+- All gameplay face-yaw offset values stayed `0`.
+- No movement, field-move or camera timing changed.
+- Existing lower-level facing runtime remains configurable for tests.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1460` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1449` lines.
+
+Tests updated:
+
+- `tests/companionFacingRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionFacingRuntime.test.js
+```
+
+The first run failed because `createGameplayCompanionFacingRuntime(...)` did not
+exist. After the factory was added and `gameLoop.js` was rewired, the focused
+facing/field-move suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionFacingRuntime.test.js tests/fieldMoveActorPositions.test.js tests/companionMotionRuntimeBundle.test.js tests/fieldMoveRuntimeBundle.test.js
+git diff --check
+npm run build
+```
+
+`npm run build` passed with the existing Vite chunk-size warning.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2026` passed and `4` failed:
+
+- `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
+  baseline failures.
+- `tests/sceneFlowRuntimeCompletion.test.js`: the existing start-screen gameplay
+  opening baseline failure.
 
 Manual gameplay validation remains pending for this cut.
 

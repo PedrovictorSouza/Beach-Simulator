@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { createCompanionFacingRuntime } from "../app/runtime/companions/companionFacingRuntime.js";
+import {
+  createGameplayCompanionFacingRuntime,
+  createCompanionFacingRuntime
+} from "../app/runtime/companions/companionFacingRuntime.js";
 
 describe("companion facing runtime", () => {
   it("resolves model yaw toward a target using the supplied companion offsets", () => {
@@ -55,5 +58,19 @@ describe("companion facing runtime", () => {
     expect(runtime.getSquirtleLogicalFacingYaw()).toBeCloseTo(-0.25);
     expect(runtime.getCharmanderLogicalFacingYaw()).toBeCloseTo(-0.5);
     expect(runtime.getBulbasaurLogicalFacingYaw()).toBeCloseTo(-0.75);
+  });
+
+  it("wires gameplay companion facing offsets", () => {
+    const runtime = createGameplayCompanionFacingRuntime({
+      session: {
+        actTwoSquirtle: { modelInstance: { yaw: 1.5 } },
+        charmanderEncounter: { modelInstance: { yaw: 2.5 } },
+        bulbasaurEncounter: { modelInstance: { yaw: 3.5 } }
+      }
+    });
+
+    expect(runtime.getSquirtleLogicalFacingYaw()).toBeCloseTo(1.5);
+    expect(runtime.getCharmanderLogicalFacingYaw()).toBeCloseTo(2.5);
+    expect(runtime.getBulbasaurLogicalFacingYaw()).toBeCloseTo(3.5);
   });
 });

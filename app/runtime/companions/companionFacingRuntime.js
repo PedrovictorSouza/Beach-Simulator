@@ -3,6 +3,23 @@ import {
   getModelYawToward
 } from "../modelFacing.js";
 
+const GAMEPLAY_COMPANION_MODEL_FACE_YAW_OFFSET = 0;
+const GAMEPLAY_COMPANION_MODEL_FACE_YAW_OFFSETS = Object.freeze({
+  bulbasaur: GAMEPLAY_COMPANION_MODEL_FACE_YAW_OFFSET,
+  charmander: GAMEPLAY_COMPANION_MODEL_FACE_YAW_OFFSET,
+  squirtle: GAMEPLAY_COMPANION_MODEL_FACE_YAW_OFFSET
+});
+
+export function createGameplayCompanionFacingRuntime(options = {}) {
+  return createCompanionFacingRuntime({
+    ...options,
+    offsets: {
+      ...GAMEPLAY_COMPANION_MODEL_FACE_YAW_OFFSETS,
+      ...options.offsets
+    }
+  });
+}
+
 export function createCompanionFacingRuntime({
   session = {},
   offsets = {}
