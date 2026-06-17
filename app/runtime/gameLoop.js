@@ -8,7 +8,7 @@ import { createGameplayCameraRuntimeBundle } from "./camera/gameplayCameraRuntim
 import { createCompanionFacingRuntime } from "./companions/companionFacingRuntime.js";
 import { createCompanionFrameRuntimeBundle } from "./companions/companionFrameRuntimeBundle.js";
 import { createCompanionMotionRuntimeBundle } from "./companions/companionMotionRuntimeBundle.js";
-import { createCompanionPresentationRuntimeBundle } from "./companions/companionPresentationRuntimeBundle.js";
+import { createGameplayCompanionPresentationRuntimeBundle } from "./companions/companionPresentationRuntimeBundle.js";
 import { createGameplayCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
@@ -255,7 +255,6 @@ const BULBASAUR_WORKBENCH_GUIDE_WAYPOINT_DISTANCE = 0.08;
 const BULBASAUR_WORKBENCH_GUIDE_RAMP_COLLIDER_ID = "workbench-ramp-collider";
 const BULBASAUR_WORKBENCH_GUIDE_RAMP_APPROACH_MARGIN = 0.92;
 const BULBASAUR_WORKBENCH_GUIDE_SIDE_APPROACH_MARGIN = 1.22;
-const CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET = [-1.12, 0, -0.86];
 const CHARMANDER_FOLLOW_SPEED = PLAYER_SPEED;
 const CHARMANDER_FOLLOW_DISTANCE = 1.28;
 const TIMBURR_FOLLOW_SPEED = PLAYER_SPEED;
@@ -269,48 +268,18 @@ const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
 const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
 const SNOWSTORM_FOG_OPACITY_EASE = 6.2;
-const BULBASAUR_INTERACTION_GIZMO_DOT_COUNT = 36;
-const BULBASAUR_INTERACTION_GIZMO_DOT_SIZE = 0.16;
-const BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG = Object.freeze({
-  dotCount: BULBASAUR_INTERACTION_GIZMO_DOT_COUNT,
-  dotSize: BULBASAUR_INTERACTION_GIZMO_DOT_SIZE,
-  interactDistance: BULBASAUR_TALK_INTERACT_DISTANCE
-});
 const BOT_PLAYER_ATTENTION_DISTANCE = 4.8;
-const SQUIRTLE_REASSEMBLY_PART_SCALE = 0.5;
 const SQUIRTLE_MODEL_FACE_YAW_OFFSET = 0;
 const BULBASAUR_MODEL_FACE_YAW_OFFSET = 0;
 const CHARMANDER_MODEL_FACE_YAW_OFFSET = 0;
-const ROBOT_MODEL_SCALE = 0.5;
-const BULBASAUR_ROBOT_MODEL_SCALE = ROBOT_MODEL_SCALE * 1.3;
-const CHARMANDER_MODEL_SCALE = 0.75;
 const TIMBURR_MODEL_FACE_YAW_OFFSET = 0;
-const TIMBURR_MODEL_SCALE = 0.58;
 const ROBOT_REPAIR_BOX_FLOAT_HEIGHT = 0.74;
-const ROBOT_REPAIR_BOX_BOB_HEIGHT = 0.06;
-const ROBOT_REPAIR_BOX_BOB_SPEED = 2.2;
-const ROBOT_REPAIR_BOX_SPIN_SPEED = Math.PI * 0.826;
-const ROBOT_REPAIR_BOX_MODEL_PITCH_OFFSET = 0;
-const ROBOT_REPAIR_BOX_OPEN_PITCH = Math.PI * 0.58;
-const ROBOT_REPAIR_BOX_OPEN_ROLL = Math.PI * 0.08;
-const ROBOT_REPAIR_BOX_OPEN_LIFT = 0.18;
-const ROBOT_REPAIR_BOX_OPEN_BACKSTEP = 0.28;
 const BULBASAUR_REVEAL_BOX_DURATION = 4.35;
 const BULBASAUR_REVEAL_VISIBLE_PROGRESS = 0.72;
-const BULBASAUR_REVEAL_BOX_OPEN_START_PROGRESS = 0.62;
-const BULBASAUR_REVEAL_BOX_SHAKE_END_PROGRESS = 0.56;
-const BULBASAUR_REVEAL_BOX_SPIN_ACCELERATION = Math.PI * 8.2;
 const BULBASAUR_REVEAL_FLASH_PEAK_OPACITY = 1;
 const BULBASAUR_REVEAL_BOT_FALL_HEIGHT = 1.82;
 const BULBASAUR_REVEAL_BOT_FALL_END_PROGRESS = 0.96;
-const BULBASAUR_REPAIR_BOX_RUSTLE_ROLL = 0.11;
-const BULBASAUR_REPAIR_BOX_RUSTLE_PITCH = 0.08;
-const BULBASAUR_REPAIR_BOX_RUSTLE_YAW = 0.12;
-const BULBASAUR_REPAIR_BOX_RUSTLE_LIFT = 0.08;
 const REPAIR_BOX_PROMPT_DISTANCE = 2.8;
-const REPAIR_BOX_ACTIVE_TINT = Object.freeze([0.38, 1.72, 0.42]);
-const REPAIR_BOX_ACTIVE_TINT_STRENGTH = 0.68;
-const REPAIR_BOX_INACTIVE_ALPHA = 0.5;
 const ROBOT_IDLE_PATROL_SPEED = 0.82;
 const ROBOT_IDLE_PATROL_PAUSE_DURATION = 0.75;
 const ROBOT_IDLE_PATROL_ARRIVE_DISTANCE = 0.08;
@@ -708,7 +677,7 @@ export function startGameLoop({
     companionRepairBoxModelRuntime,
     repairBoxMotionRuntime,
     squirtleReassemblyRuntime
-  } = createCompanionPresentationRuntimeBundle({
+  } = createGameplayCompanionPresentationRuntimeBundle({
     camera,
     controls,
     rendering,
@@ -728,35 +697,6 @@ export function startGameLoop({
       easeOutCubic,
       lerp,
       moveValueToward
-    },
-    config: {
-      bulbasaurModelScale: BULBASAUR_ROBOT_MODEL_SCALE,
-      charmanderModelScale: CHARMANDER_MODEL_SCALE,
-      interactionRadiusGizmoConfig: BULBASAUR_INTERACTION_RADIUS_GIZMO_CONFIG,
-      repairBoxActiveTint: REPAIR_BOX_ACTIVE_TINT,
-      repairBoxActiveTintStrength: REPAIR_BOX_ACTIVE_TINT_STRENGTH,
-      repairBoxBobHeight: ROBOT_REPAIR_BOX_BOB_HEIGHT,
-      repairBoxBobSpeed: ROBOT_REPAIR_BOX_BOB_SPEED,
-      repairBoxFloatHeight: ROBOT_REPAIR_BOX_FLOAT_HEIGHT,
-      repairBoxInactiveAlpha: REPAIR_BOX_INACTIVE_ALPHA,
-      repairBoxInvestigationOffset: CHOPPER_BULBASAUR_REPAIR_BOX_INVESTIGATION_OFFSET,
-      repairBoxModelPitchOffset: ROBOT_REPAIR_BOX_MODEL_PITCH_OFFSET,
-      repairBoxOpenBackstep: ROBOT_REPAIR_BOX_OPEN_BACKSTEP,
-      repairBoxOpenLift: ROBOT_REPAIR_BOX_OPEN_LIFT,
-      repairBoxOpenPitch: ROBOT_REPAIR_BOX_OPEN_PITCH,
-      repairBoxOpenRoll: ROBOT_REPAIR_BOX_OPEN_ROLL,
-      repairBoxRevealBoxDuration: BULBASAUR_REVEAL_BOX_DURATION,
-      repairBoxRevealBoxOpenStartProgress: BULBASAUR_REVEAL_BOX_OPEN_START_PROGRESS,
-      repairBoxRevealBoxShakeEndProgress: BULBASAUR_REVEAL_BOX_SHAKE_END_PROGRESS,
-      repairBoxRevealBoxSpinAcceleration: BULBASAUR_REVEAL_BOX_SPIN_ACCELERATION,
-      repairBoxRustleLift: BULBASAUR_REPAIR_BOX_RUSTLE_LIFT,
-      repairBoxRustlePitch: BULBASAUR_REPAIR_BOX_RUSTLE_PITCH,
-      repairBoxRustleRoll: BULBASAUR_REPAIR_BOX_RUSTLE_ROLL,
-      repairBoxRustleYaw: BULBASAUR_REPAIR_BOX_RUSTLE_YAW,
-      repairBoxSpinSpeed: ROBOT_REPAIR_BOX_SPIN_SPEED,
-      robotModelScale: ROBOT_MODEL_SCALE,
-      squirtleReassemblyPartScale: SQUIRTLE_REASSEMBLY_PART_SCALE,
-      timburrModelScale: TIMBURR_MODEL_SCALE
     }
   });
   const {

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createGameplayCompanionPresentationRuntimeBundle,
   createCompanionPresentationRuntimeBundle
 } from "../app/runtime/companions/companionPresentationRuntimeBundle.js";
 
@@ -139,5 +140,54 @@ describe("createCompanionPresentationRuntimeBundle", () => {
     expect(fieldMoveActorPositionRuntime.getSquirtleWorldPosition)
       .toHaveBeenCalled();
     expect(nextFrame.render.genericBillboards.length).toBeGreaterThan(0);
+  });
+
+  it("wires gameplay companion presentation defaults", () => {
+    const session = {
+      actTwoSquirtle: {
+        assemblyState: "assembled",
+        modelInstance: {},
+        position: [1, 0.04, 2],
+        recovered: true,
+        visible: true
+      },
+      squirtleWaterStaminaFillTexture: "fill",
+      squirtleWaterStaminaBackTexture: "back",
+      squirtleChargingParticleTexture: "charge",
+      squirtleWaterSprayTexture: "spray"
+    };
+
+    const bundle = createGameplayCompanionPresentationRuntimeBundle({
+      camera: {
+        getBillboardAxes: vi.fn(() => ({ right: [1, 0, 0] })),
+        getPose: vi.fn(() => ({ direction: [0, 0, -1] }))
+      },
+      controls: {
+        playerSkills: {},
+        storyState: { flags: {} }
+      },
+      rendering: {
+        fullUvRect: [0, 0, 1, 1]
+      },
+      session,
+      callbacks: {
+        getEncounterRepairBoxPosition: vi.fn(() => [0, 0.04, 0]),
+        isActTwoTutorialStarted: vi.fn(() => false),
+        isRevealBoxBotVisible: vi.fn(() => true),
+        onSquirtleRechargeComplete: vi.fn()
+      },
+      math: {
+        clamp01: (value) => Math.max(0, Math.min(1, value)),
+        easeOutCubic: (value) => value,
+        lerp: (start, end, progress) => start + (end - start) * progress,
+        moveValueToward: (current, target) => target
+      }
+    });
+
+    bundle.companionModelSyncRuntime.syncSquirtle();
+
+    expect(session.actTwoSquirtle.modelInstance.scale).toBe(0.5);
+    expect(bundle.repairBoxMotionRuntime.getFloatOffset([0, 0, 0]))
+      .toEqual([0, 0.74, 0]);
   });
 });

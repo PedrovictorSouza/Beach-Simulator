@@ -99,6 +99,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   `presentation/` nature bundle.
 - Completed: bundle companion presentation/model-sync runtime wiring into the
   `companions/` domain.
+- Completed: move gameplay companion presentation defaults into the
+  `companions/` presentation bundle.
 - Completed: bundle companion motion/follow/patrol runtime wiring into the
   `companions/` domain.
 - Completed: bundle construction placement runtime wiring into the
@@ -235,6 +237,83 @@ npm test
   `tests/gameplayInteractions.test.js`;
 - the existing `1` scene-flow/start-screen failure in
   `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Companion Presentation Defaults Boundary
+
+This cut moves gameplay-specific companion presentation defaults out of
+`gameLoop.js` and into the existing companions presentation bundle.
+
+Boundary classification: `companions / presentation runtime`.
+
+What changed:
+
+- Added `createGameplayCompanionPresentationRuntimeBundle(...)` to
+  `app/runtime/companions/companionPresentationRuntimeBundle.js`.
+- Kept `createCompanionPresentationRuntimeBundle(...)` as the configurable
+  lower-level factory.
+- Moved companion model scale defaults, Squirtle reassembly scale, repair-box
+  model motion/open/rustle/tint defaults and Bulbasaur interaction gizmo defaults
+  out of `app/runtime/gameLoop.js`.
+- `startGameLoop()` now wires companion presentation with dependencies only:
+  camera, controls, rendering, session, runtimes, callbacks and math helpers.
+
+What stayed in `gameLoop.js`:
+
+- Companion face-yaw offsets still feed multiple runtimes.
+- Repair-box reveal opening/flash timing still feeds opening and flash runtimes.
+- Repair-box prompt distance still belongs to render snapshot wiring.
+
+Why this boundary is safe:
+
+- No companion tuning values changed.
+- No frame order changed.
+- Existing lower-level companion runtimes remain unchanged.
+- The gameplay factory still allows config override for focused tests.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1585` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1525` lines.
+
+Tests updated:
+
+- `tests/companionPresentationRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionPresentationRuntimeBundle.test.js
+```
+
+The first run failed because
+`createGameplayCompanionPresentationRuntimeBundle(...)` did not exist. After the
+factory was added and `gameLoop.js` was rewired, the focused companion
+presentation suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionPresentationRuntimeBundle.test.js tests/companionModelSyncRuntime.test.js tests/companionRepairBoxModelRuntime.test.js tests/squirtleReassemblyRuntime.test.js tests/beeFieldRuntime.test.js tests/companionPresentationFrame.test.js tests/companionAbilityResourcesRuntime.test.js
+git diff --check
+npm run build
+```
+
+`npm run build` passed with the existing Vite chunk-size warning.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2022` passed and `4` failed:
+
+- `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
+  baseline failures.
+- `tests/sceneFlowRuntimeCompletion.test.js`: the existing start-screen gameplay
+  opening baseline failure.
 
 Manual gameplay validation remains pending for this cut.
 
