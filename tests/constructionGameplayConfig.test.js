@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   GAMEPLAY_CONSTRUCTION_CONFIG,
+  buildGameplaySolarStationFieldMarkedGroundCells,
+  getGameplayRotatedPlacementSize,
   createGameplayConstructionTerrainColliderProvider
 } from "../app/runtime/construction/constructionGameplayConfig.js";
 
@@ -65,5 +67,24 @@ describe("GAMEPLAY_CONSTRUCTION_CONFIG", () => {
         }
       }
     ]);
+  });
+
+  it("applies gameplay construction geometry defaults", () => {
+    expect(getGameplayRotatedPlacementSize([2, 3], Math.PI * 0.5))
+      .toEqual([3, 2]);
+
+    const markedCells = buildGameplaySolarStationFieldMarkedGroundCells({
+      bounds: {
+        minX: 0,
+        maxX: 20,
+        minZ: 0,
+        maxZ: 20
+      },
+      gridStep: 1
+    });
+
+    expect(markedCells).toHaveLength(
+      GAMEPLAY_CONSTRUCTION_CONFIG.solarStationFieldMarkedTileLimit
+    );
   });
 });

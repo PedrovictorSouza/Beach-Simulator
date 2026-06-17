@@ -16,8 +16,10 @@ import { createGameplayFreeBlockBuildSessionRuntime } from "./construction/freeB
 import { createConstructionBlockerRuntimeBundle } from "./construction/constructionBlockerRuntimeBundle.js";
 import { createConstructionBuildRuntimeBundle } from "./construction/constructionBuildRuntimeBundle.js";
 import {
+  buildGameplaySolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCells,
   GAMEPLAY_CONSTRUCTION_CONFIG as CONSTRUCTION_CONFIG,
-  createGameplayConstructionTerrainColliderProvider
+  createGameplayConstructionTerrainColliderProvider,
+  getGameplayRotatedPlacementSize as getRotatedPlacementSize
 } from "./construction/constructionGameplayConfig.js";
 import {
   createGameplayPlacementPreviewCancellation
@@ -35,12 +37,10 @@ import {
   updateSolarStationSpawnEffect
 } from "./construction/playerPlacementSpawnEffect.js";
 import {
-  buildSolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCellsWithConfig,
   doPlacementRectsOverlap,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
   getPlacementRect,
-  getRotatedPlacementSize as getRotatedPlacementSizeWithConfig,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
 import {
@@ -243,18 +243,6 @@ function clamp01(value) {
 function easeOutCubic(value) {
   const progress = clamp01(value);
   return 1 - Math.pow(1 - progress, 3);
-}
-
-function getRotatedPlacementSize(size = [1, 1], yaw = 0) {
-  return getRotatedPlacementSizeWithConfig(size, yaw, {
-    placementRotationStep: CONSTRUCTION_CONFIG.placementRotationStep
-  });
-}
-
-function buildSolarStationFieldMarkedGroundCells(placementTarget) {
-  return buildSolarStationFieldMarkedGroundCellsWithConfig(placementTarget, {
-    markedTileLimit: CONSTRUCTION_CONFIG.solarStationFieldMarkedTileLimit
-  });
 }
 
 function lerp(start, end, progress) {

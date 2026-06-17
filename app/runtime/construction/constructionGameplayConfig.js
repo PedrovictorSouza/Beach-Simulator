@@ -1,4 +1,8 @@
 import { createPlayerConstructionTerrainColliders } from "../../gameplay/placementBlockers.js";
+import {
+  buildSolarStationFieldMarkedGroundCells,
+  getRotatedPlacementSize
+} from "./placementGeometry.js";
 
 const LEAF_DEN_KIT_PREVIEW_FOOTPRINT = [1.95, 1.45];
 
@@ -44,4 +48,16 @@ export function createGameplayConstructionTerrainColliderProvider({
       }
     });
   };
+}
+
+export function getGameplayRotatedPlacementSize(size = [1, 1], yaw = 0) {
+  return getRotatedPlacementSize(size, yaw, {
+    placementRotationStep: GAMEPLAY_CONSTRUCTION_CONFIG.placementRotationStep
+  });
+}
+
+export function buildGameplaySolarStationFieldMarkedGroundCells(placementTarget) {
+  return buildSolarStationFieldMarkedGroundCells(placementTarget, {
+    markedTileLimit: GAMEPLAY_CONSTRUCTION_CONFIG.solarStationFieldMarkedTileLimit
+  });
 }

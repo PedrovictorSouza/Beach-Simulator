@@ -559,6 +559,81 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Gameplay Construction Geometry Defaults Boundary
+
+Expanded `app/runtime/construction/constructionGameplayConfig.js` with
+`getGameplayRotatedPlacementSize(...)` and
+`buildGameplaySolarStationFieldMarkedGroundCells(...)`.
+
+Boundary classification: `construction / gameplay geometry defaults`, focused
+on applying gameplay-specific construction tuning before geometry helpers are
+passed into placement, workbench rotation and prompt preparation runtimes.
+
+Study path:
+
+1. `app/runtime/construction/placementGeometry.js` still owns the lower-level
+   pure geometry behavior.
+2. `constructionGameplayConfig.js` now owns the gameplay defaults:
+   placement rotation step and Solar Station field marked-tile limit.
+3. `gameLoop.js` imports the gameplay adapters directly and passes them through
+   as callbacks.
+
+Removed from `gameLoop.js`:
+
+- local `getRotatedPlacementSize(...)` wrapper;
+- local `buildSolarStationFieldMarkedGroundCells(...)` wrapper;
+- alias imports `getRotatedPlacementSizeWithConfig` and
+  `buildSolarStationFieldMarkedGroundCellsWithConfig`.
+
+Kept in `gameLoop.js`:
+
+- callback wiring into construction placement, workbench rotation and prompt
+  preparation runtimes;
+- remaining construction config values that are still passed to existing
+  runtime bundles.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1372` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1360` lines.
+
+Tests updated:
+
+- `tests/constructionGameplayConfig.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionGameplayConfig.test.js
+```
+
+The first run failed because the gameplay geometry default helpers did not
+exist yet. After adding the helpers and rewiring `gameLoop.js`, the focused
+construction geometry tests passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionGameplayConfig.test.js tests/placementGeometry.test.js tests/workbenchRotationRuntime.test.js tests/gameplayPromptPreparationRuntimeBundle.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2036` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## 2026-06-17 - Gameplay Companion Facing Defaults Boundary
 
 This cut moves gameplay-specific companion model-face yaw defaults out of
