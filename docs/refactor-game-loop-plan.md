@@ -230,6 +230,90 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Construction Workbench Rotation Source Boundary
+
+Expanded `app/runtime/construction/workbenchRotationRuntime.js` with
+`createConstructionWorkbenchRotationRuntime(...)`.
+
+Boundary classification: `construction`, focused on Workbench rotation source
+wiring. This is not a new runtime file; it keeps the Workbench rotation adapter
+inside the existing construction-domain module to avoid file sprawl.
+
+Study path:
+
+1. `startGameLoop()` still creates the Workbench rotation runtime as composition
+   root.
+2. `gameLoop.js` passes grouped dependencies: `session`, `controls`, `hud`,
+   `geometry`, `feedback`, `config` and `solarStation`.
+3. `construction/workbenchRotationRuntime.js` now owns the details of building
+   `targetSources`, sound-feedback callbacks, HUD notice forwarding, Solar
+   Station source lookups and the default Workbench rotation trigger tuning.
+4. Existing construction, placement and player-action runtimes keep consuming
+   the same `workbenchRotationRuntime` API.
+
+Removed from `gameLoop.js`:
+
+- direct import of `createWorkbenchRotationRuntime(...)`;
+- `WORKBENCH_OBJECT_ROTATE_DISTANCE`;
+- `WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN`;
+- inline `targetSources` wiring for Workbench rotation;
+- inline `playConfirmSound`, `playCancelSound` and `playNavigateSound`
+  callbacks for Workbench rotation;
+- inline Solar Station source callbacks for Workbench rotation visual sync.
+
+Kept in `gameLoop.js`:
+
+- composition-root creation of the runtime;
+- placement rotation step and placement footprint config shared with other
+  construction paths;
+- prompt text callback because it depends on the current input modality;
+- sound event IDs because they belong to the audio vocabulary used by the loop.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1822` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1817` lines.
+- The line-count reduction is intentionally small, but the ownership reduction
+  is real: Workbench rotation source adaptation now lives in the construction
+  module instead of the frame composition file.
+
+Tests updated:
+
+- `tests/workbenchRotationRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+```
+
+The first run failed because `createConstructionWorkbenchRotationRuntime(...)`
+did not exist yet. After adding the factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/workbenchRotationRuntime.test.js
+npm test -- --run tests/workbenchRotationRuntime.test.js tests/constructionPlacementRuntimeBundle.test.js tests/constructionPlacementFrameRuntime.test.js tests/playerActionRuntime.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2012` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Field Move Support Runtime Bundle
 
 Created boundary:

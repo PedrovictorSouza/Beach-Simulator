@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { createWorkbenchRotationRuntime } from "../app/runtime/construction/workbenchRotationRuntime.js";
+import {
+  createConstructionWorkbenchRotationRuntime,
+  createWorkbenchRotationRuntime
+} from "../app/runtime/construction/workbenchRotationRuntime.js";
 
 const PLACEMENT_ROTATION_STEP = Math.PI * 0.5;
 
@@ -373,5 +376,98 @@ describe("createWorkbenchRotationRuntime", () => {
     runtime.selectTargetWithFeedback(runtime.getNearestTarget());
     expect(runtime.clearSelectionWithFeedback()).toBe(true);
     expect(playCancelSound).toHaveBeenCalledTimes(1);
+  });
+
+  it("creates the construction wiring boundary used by the game loop", () => {
+    const notices = [];
+    const playedSounds = [];
+    const session = {
+      buildGridConfig: {
+        cellSize: 2
+      },
+      playerCharacter: {
+        getPosition: () => [1, 0, 1]
+      },
+      strawBed: {
+        position: [1, 0.02, 1],
+        yaw: 0,
+        size: [2, 2]
+      },
+      strawBedModelInstance: {
+        yaw: 0.25
+      },
+      strawBedPlacementPreview: {
+        active: false
+      }
+    };
+    const controls = {
+      storyState: {
+        flags: {
+          strawBedPlacedInBulbasaurHabitat: true
+        }
+      }
+    };
+    const hud = {
+      pushNotice: (notice) => notices.push(notice)
+    };
+    const runtime = createConstructionWorkbenchRotationRuntime({
+      session,
+      controls,
+      hud,
+      geometry: {
+        normalizePlacementYaw,
+        getRotatedPlacementSize,
+        getPlacementCollisionSize: (placement, fallbackSize = [1, 1]) =>
+          placement?.size || fallbackSize
+      },
+      feedback: {
+        getPromptText: () => "Press X",
+        playSoundEvent: (soundId) => playedSounds.push(soundId),
+        soundEventIds: {
+          confirm: "ui-confirm",
+          cancel: "ui-cancel",
+          navigate: "ui-navigate"
+        }
+      },
+      config: {
+        placementRotationStep: PLACEMENT_ROTATION_STEP,
+        footprints: {
+          solarStation: [2, 2],
+          trainHouse: [3, 2],
+          houseKit: [2, 2],
+          houseBuilt: [4, 3]
+        },
+        thermalCabinLabel: "Thermal Cabin"
+      },
+      solarStation: {
+        getNowSeconds: () => 0
+      }
+    });
+
+    expect(runtime.getTriggerDistance()).toBe(5.2);
+    expect(runtime.getNearestTarget()).toMatchObject({
+      kind: "solarStation",
+      distance: 0
+    });
+
+    expect(runtime.selectTargetWithFeedback(runtime.getNearestTarget())).toBe(true);
+    expect(runtime.rotateNearbyTargetWithFeedback(1)).toBe(true);
+    expect(runtime.confirmSelectedTargetWithFeedback()).toBe(true);
+
+    expect(session.strawBed.yaw).toBe(Math.PI * 0.5);
+    expect(session.strawBedModelInstance).toMatchObject({
+      solarStationBaseYaw: 0.25,
+      yaw: 0.25 + Math.PI * 0.5
+    });
+    expect(playedSounds).toEqual([
+      "ui-confirm",
+      "ui-navigate",
+      "ui-confirm"
+    ]);
+    expect(notices).toEqual([
+      "Solar Station selected. Press X.",
+      "Solar Station preview rotated. X confirm.",
+      "Solar Station rotation set."
+    ]);
   });
 });

@@ -6,6 +6,75 @@ import {
   getWorkbenchRotationTriggerDistance
 } from "./workbenchRotationTargets.js";
 
+const DEFAULT_WORKBENCH_OBJECT_ROTATE_DISTANCE = 3.2;
+const DEFAULT_WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN = 1.425;
+
+export function createConstructionWorkbenchRotationRuntime({
+  session = {},
+  controls = {},
+  hud = null,
+  geometry = {},
+  feedback = {},
+  config = {},
+  solarStation = {}
+} = {}) {
+  const {
+    normalizePlacementYaw,
+    getRotatedPlacementSize,
+    getPlacementCollisionSize
+  } = geometry;
+  const {
+    getPromptText = () => "",
+    playSoundEvent = () => {},
+    soundEventIds = {},
+    pushNotice = (notice) => hud?.pushNotice?.(notice)
+  } = feedback;
+  const {
+    placementRotationStep,
+    footprints,
+    thermalCabinLabel,
+    rotateDistance = DEFAULT_WORKBENCH_OBJECT_ROTATE_DISTANCE,
+    triggerTileMargin = DEFAULT_WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN
+  } = config;
+
+  return createWorkbenchRotationRuntime({
+    normalizePlacementYaw,
+    getRotatedPlacementSize,
+    placementRotationStep,
+    targetSources: {
+      session,
+      getStoryFlags: () => controls.storyState?.flags || {},
+      footprints,
+      thermalCabinLabel,
+      getPlacementCollisionSize,
+      getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
+      getBuildGridConfig: () => session.buildGridConfig,
+      rotateDistance,
+      triggerTileMargin
+    },
+    feedback: {
+      getPromptText,
+      playConfirmSound:
+        feedback.playConfirmSound ||
+        (() => playSoundEvent(soundEventIds.confirm)),
+      playCancelSound:
+        feedback.playCancelSound ||
+        (() => playSoundEvent(soundEventIds.cancel)),
+      playNavigateSound:
+        feedback.playNavigateSound ||
+        (() => playSoundEvent(soundEventIds.navigate)),
+      pushNotice
+    },
+    solarStation: {
+      getInstance: () => session.strawBedModelInstance,
+      getPlacement: () => session.strawBed,
+      isPlacementPreviewActive: () => session.strawBedPlacementPreview?.active,
+      isPlaced: () => Boolean(controls.storyState?.flags?.strawBedPlacedInBulbasaurHabitat),
+      getNowSeconds: solarStation.getNowSeconds
+    }
+  });
+}
+
 export function createWorkbenchRotationRuntime({
   normalizePlacementYaw,
   getRotatedPlacementSize,

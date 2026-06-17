@@ -79,7 +79,7 @@ import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.j
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import { applyTrainHouseDance } from "./trainHouseDance.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
-import { createWorkbenchRotationRuntime } from "./construction/workbenchRotationRuntime.js";
+import { createConstructionWorkbenchRotationRuntime } from "./construction/workbenchRotationRuntime.js";
 import { createWorldRuntimeBundle } from "./world/worldRuntimeBundle.js";
 
 export {
@@ -259,8 +259,6 @@ const LEAF_DEN_BUILT_ROTATION_FOOTPRINT = [
   LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT[1] * 2
 ];
 const PLACEMENT_ROTATION_STEP = Math.PI * 0.5;
-const WORKBENCH_OBJECT_ROTATE_DISTANCE = 3.2;
-const WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN = 1.425;
 const LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER = 3;
 const LEAF_DEN_BUSY_NOTICE = "im busy, boss...";
 const SOLAR_STATION_FIELD_MARKED_TILE_LIMIT = 81;
@@ -719,38 +717,35 @@ export function startGameLoop({
     flashRuntime: repairBoxRevealFlashRuntime,
     playRevealSfx: playGrowBotRevealSfx
   });
-  const workbenchRotationRuntime = createWorkbenchRotationRuntime({
-    normalizePlacementYaw,
-    getRotatedPlacementSize,
-    placementRotationStep: PLACEMENT_ROTATION_STEP,
-    targetSources: {
-      session,
-      getStoryFlags: () => controls.storyState?.flags || {},
+  const workbenchRotationRuntime = createConstructionWorkbenchRotationRuntime({
+    session,
+    controls,
+    hud,
+    geometry: {
+      normalizePlacementYaw,
+      getRotatedPlacementSize,
+      getPlacementCollisionSize
+    },
+    feedback: {
+      getPromptText: () => resolveWorkbenchRotationPrompt(getCurrentInputModalityState()),
+      playSoundEvent,
+      soundEventIds: {
+        confirm: SOUND_EVENT_IDS.UI_CONFIRM,
+        cancel: SOUND_EVENT_IDS.UI_CANCEL,
+        navigate: SOUND_EVENT_IDS.UI_NAVIGATE
+      }
+    },
+    config: {
+      placementRotationStep: PLACEMENT_ROTATION_STEP,
       footprints: {
         houseBuilt: LEAF_DEN_BUILT_ROTATION_FOOTPRINT,
         houseKit: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
         solarStation: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
         trainHouse: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT
       },
-      thermalCabinLabel: SANDBOTS_ITEM_NAMES.thermalCabin,
-      getPlacementCollisionSize,
-      getPlayerPosition: () => session.playerCharacter?.getPosition?.(),
-      getBuildGridConfig: () => session.buildGridConfig,
-      rotateDistance: WORKBENCH_OBJECT_ROTATE_DISTANCE,
-      triggerTileMargin: WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN
-    },
-    feedback: {
-      getPromptText: () => resolveWorkbenchRotationPrompt(getCurrentInputModalityState()),
-      playConfirmSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CONFIRM),
-      playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
-      playNavigateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE),
-      pushNotice: (notice) => hud?.pushNotice?.(notice)
+      thermalCabinLabel: SANDBOTS_ITEM_NAMES.thermalCabin
     },
     solarStation: {
-      getInstance: () => session.strawBedModelInstance,
-      getPlacement: () => session.strawBed,
-      isPlacementPreviewActive: () => session.strawBedPlacementPreview?.active,
-      isPlaced: () => controls.storyState.flags.strawBedPlacedInBulbasaurHabitat,
       getNowSeconds: getRuntimeNowSeconds
     }
   });
