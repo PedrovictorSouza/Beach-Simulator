@@ -27,9 +27,7 @@ import { createFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuil
 import { createLeafDenConstructionPresentationRuntime } from "./construction/leafDenConstructionPresentationRuntime.js";
 import { createConstructionHouseModelInstanceRuntime } from "./construction/constructionHouseModelInstances.js";
 import { createConstructionHelperMotionRuntime } from "./construction/constructionHelperMotion.js";
-import { createConstructionPlacementControlRuntime } from "./construction/constructionPlacementControlRuntime.js";
-import { createConstructionPlacementPreviewRuntime } from "./construction/constructionPlacementPreviewRuntime.js";
-import { createConstructionPlacementFrameRuntime } from "./construction/constructionPlacementFrameRuntime.js";
+import { createConstructionPlacementRuntimeBundle } from "./construction/constructionPlacementRuntimeBundle.js";
 import {
   cancelPendingWorkbenchPlacementIntent,
   hasPendingWorkbenchPlacementIntent
@@ -41,7 +39,6 @@ import {
   applyPlayerPlacementSpawnToModelInstance,
   updateSolarStationSpawnEffect
 } from "./construction/playerPlacementSpawnEffect.js";
-import { createSolarStationPowerRadiusRuntime } from "./construction/solarStationPowerRadius.js";
 import { createSolarStationPlacementBlockerRuntime } from "./construction/solarStationPlacementBlockers.js";
 import { createWorldObjectPlacementBlockerRuntime } from "./construction/worldObjectPlacementBlockers.js";
 import {
@@ -1099,89 +1096,53 @@ export function startGameLoop({
       leafDenBusy: LEAF_DEN_BUSY_NOTICE
     }
   });
-  const solarStationPowerRadiusRuntime = createSolarStationPowerRadiusRuntime({
-    session,
-    getStoryState: () => controls.storyState,
-    radiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
-    previewFootprint: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
-    gridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
-    markedTileLimit: SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT,
-    getPlacementCollisionSize,
-    getPlacementPreviewFootprintWorldSize
-  });
-  const constructionPlacementPreviewRuntime = createConstructionPlacementPreviewRuntime({
-    session,
+  const {
+    constructionPlacementControlRuntime,
+    constructionPlacementFrameRuntime,
+    solarStationPowerRadiusRuntime
+  } = createConstructionPlacementRuntimeBundle({
     controls,
-    solarStationPlacementBlockerRuntime,
-    solarStationPowerRadiusRuntime,
-    validatePlacement: validateBuildingKitPlacement,
-    evaluateSiteChoice: evaluateHabitatSiteChoice,
-    config: {
-      solarStationGridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
-      solarStationFollowDistance: SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE,
-      leafDenKitFallbackFootprint: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
-      leafDenKitGridFootprint: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT,
-      trainHouseFallbackFootprint: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      trainHouseGridFootprint: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
-      greenhouseFallbackFootprint: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
-      greenhouseGridFootprint: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
-      workbenchPosition: WORKBENCH_POSITION
+    session,
+    placementContracts: PLACEMENT_CONTRACTS,
+    runtimes: {
+      buildBlockRuntime,
+      solarStationPlacementBlockerRuntime,
+      workbenchRotationRuntime
     },
     callbacks: {
-      syncPlacementPreviewPositionToPlayer: (...args) =>
-        constructionPlacementFrameRuntime.syncPlacementPreviewPositionToPlayer(...args)
-    }
-  });
-  const constructionPlacementControlRuntime = createConstructionPlacementControlRuntime({
-    session,
-    controls,
-    config: {
-      placementRotationStep: PLACEMENT_ROTATION_STEP
-    },
-    callbacks: {
+      applySolarStationSpawnEffect: updateSolarStationSpawnEffect,
+      cancelActivePlacementPreviews,
+      evaluateHabitatSiteChoice,
+      getFreeBlockInvalidPlacementNotice,
+      getMovementAxes: () => camera.getMovementAxes(),
+      getPlacementCollisionSize,
+      getPlacementPreviewFootprintWorldSize,
       getSelectedBlockMaterialCost: () =>
         freeBlockBuildRuntime.getController()?.getSelectedBlockMaterialCost?.(),
+      hasActivePlacementPreview,
+      hasPendingWorkbenchPlacementIntent,
       normalizePlacementYaw,
       playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
       playRotateSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_NAVIGATE),
-      pushNotice: (notice) => hud?.pushNotice?.(notice)
-    }
-  });
-  const constructionPlacementFrameRuntime = createConstructionPlacementFrameRuntime({
-    controls,
-    getMovementAxes: () => camera.getMovementAxes(),
-    getPlayerPosition: () => session.playerCharacter?.getPosition?.() || null,
-    session,
-    placementContracts: PLACEMENT_CONTRACTS,
-    workbenchRotationRuntime,
-    callbacks: {
-      rotateActivePlacementPreview: (...args) =>
-        constructionPlacementControlRuntime.rotateActivePlacementPreview(...args),
-      rotateNearbyWorkbenchConstruction: workbenchRotationRuntime.rotateNearbyTargetWithFeedback,
-      hasActivePlacementPreview,
-      hasPendingWorkbenchPlacementIntent,
-      clearWorkbenchConstructionRotationSelection: workbenchRotationRuntime.clearSelectionWithFeedback,
-      cancelActivePlacementPreviews,
-      cancelPendingWorkbenchPlacementIntentWithNotice: () =>
-        constructionPlacementControlRuntime.cancelPendingWorkbenchPlacementIntentWithNotice(),
-      isBuildBlockFieldMoveEquipped: () =>
-        constructionPlacementControlRuntime.isBuildBlockFieldMoveEquipped(),
-      startTimburrBuildBlockAction: (options) => buildBlockRuntime.startAction(options),
-      playCancelSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL),
-      pushNotice: (message) => hud?.pushNotice?.(message),
-      getFreeBlockInvalidPlacementNotice,
-      updateSolarStationPlacementPreview: (...args) =>
-        constructionPlacementPreviewRuntime.updateSolarStation(...args),
-      updateGreenhousePlacementPreview: (...args) =>
-        constructionPlacementPreviewRuntime.updateGreenhouse(...args),
-      updateCampfirePlacementPreview: (...args) =>
-        constructionPlacementPreviewRuntime.updateCampfire(...args),
-      updateLeafDenKitPlacementPreview: (...args) =>
-        constructionPlacementPreviewRuntime.updateLeafDenKit(...args),
-      updateSolarStationSpawnEffect,
-      syncSolarStationWorkbenchRotationVisual: workbenchRotationRuntime.syncSolarStationWorkbenchRotationVisualFromSources,
+      pushNotice: (notice) => hud?.pushNotice?.(notice),
       syncFreeBlockBuildPreview: (...args) => freeBlockBuildRuntime.syncPreview(...args),
-      updateBuildBlockDebugOverlay: (debug) => buildBlockDebugOverlay.update(debug)
+      updateBuildBlockDebugOverlay: (debug) => buildBlockDebugOverlay.update(debug),
+      validatePlacement: validateBuildingKitPlacement
+    },
+    config: {
+      greenhouseFallbackFootprint: GREENHOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+      greenhouseGridFootprint: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
+      leafDenKitFallbackFootprint: LEAF_DEN_KIT_PLACEMENT_PREVIEW_FOOTPRINT,
+      leafDenKitGridFootprint: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT,
+      leafDenKitSolarStationRadiusMultiplier: LEAF_DEN_KIT_SOLAR_STATION_RADIUS_MULTIPLIER,
+      markedTileLimit: SOLAR_STATION_POWER_RADIUS_MARKED_TILE_LIMIT,
+      placementRotationStep: PLACEMENT_ROTATION_STEP,
+      solarStationFollowDistance: SOLAR_STATION_PLACEMENT_FOLLOW_DISTANCE,
+      solarStationGridFootprint: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
+      solarStationPreviewFootprint: SOLAR_STATION_PLACEMENT_PREVIEW_FOOTPRINT,
+      trainHouseFallbackFootprint: TRAIN_HOUSE_PLACEMENT_PREVIEW_FOOTPRINT,
+      trainHouseGridFootprint: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
+      workbenchPosition: WORKBENCH_POSITION
     }
   });
   const worldSpacePresentationFrameRuntime = createWorldSpacePresentationFrameRuntime({

@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle construction placement runtime wiring into the
+  `construction/` domain.
 - Completed: bundle Water Gun, Fire, Leafage and Build Block runtime wiring
   into the `fieldMoveRuntime/` domain.
 - Completed: gameplay opening boundary extraction.
@@ -120,6 +122,85 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Construction Placement Runtime Bundle
+
+Created boundary:
+
+`app/runtime/construction/constructionPlacementRuntimeBundle.js`
+
+Boundary classification: `construction`, focused on constructing the placement
+runtime graph currently used by construction gameplay.
+
+Why this cut:
+
+`gameLoop.js` was still directly importing and wiring the construction placement
+control, preview, frame and solar-station power-radius runtimes. That made the
+frame hub aware of the internal construction runtime graph instead of just
+owning high-level dependency wiring.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createConstructionPlacementControlRuntime(...)`;
+- direct imports for `createConstructionPlacementPreviewRuntime(...)`;
+- direct imports for `createConstructionPlacementFrameRuntime(...)`;
+- direct imports for `createSolarStationPowerRadiusRuntime(...)`;
+- inline construction of the construction placement runtime graph;
+- private wiring between placement preview, placement frame and placement
+  control runtimes.
+
+Kept in `gameLoop.js`:
+
+- high-level dependency wiring for construction placement;
+- public runtime variables still consumed by other gameplay systems:
+  `constructionPlacementControlRuntime`, `constructionPlacementFrameRuntime`
+  and `solarStationPowerRadiusRuntime`;
+- frame order, placement rules, placement tuning and render data shape.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2142` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2103` lines.
+- This removes roughly 40 lines from `gameLoop.js` while keeping the code
+  inside the existing `construction/` module boundary.
+
+Tests added:
+
+- `tests/constructionPlacementRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionPlacementRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/construction/constructionPlacementRuntimeBundle.js` did not exist.
+After adding the domain factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionPlacementRuntimeBundle.test.js
+npm test -- --run tests/constructionPlacementRuntimeBundle.test.js tests/constructionPlacementFrameRuntime.test.js tests/constructionPlacementControlRuntime.test.js tests/constructionPlacementPreviewRuntime.test.js tests/solarStationPowerRadius.test.js tests/playerActionRuntimeBundle.test.js tests/fieldMoveRuntimeBundle.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/construction/constructionPlacementRuntimeBundle.js tests/constructionPlacementRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1995` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Field Move Runtime Bundle
 
