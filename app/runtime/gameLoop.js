@@ -1697,23 +1697,6 @@ export function startGameLoop({
       campfirePlacementPreview,
       leafDenKitPlacementPreview
     } = gameplayPromptPreparationFrame);
-    const {
-      inputModalityState,
-      transientNoticeRoute,
-      playerCounterPromptText,
-      pendingPlacementIntent,
-      pendingPlacementPrompt,
-      nearbyWorkbenchRotationTarget,
-      workbenchRotationPrompt,
-      destroyableObjectPrompt,
-      nearbyHarvestTarget,
-      nearbyInteractable,
-      activeQuest,
-      activeTask,
-      activeSystemQuest,
-      promptCopy,
-      groundCellHighlightFrameState
-    } = gameplayPromptPreparationFrame;
 
     // World-space UI and render preparation.
     gameplayRenderSnapshotFrameRuntime.update({
@@ -1723,40 +1706,11 @@ export function startGameLoop({
       gameplayOpeningCameraLocked,
       gameplayOpeningHudHidden,
       currentFlowState,
-      activeMoveId,
-      equipmentState: {
-        buildBlockEquipped,
-        waterGunEquipped,
-        leafageEquipped
-      },
-      inputModalityState,
-      placementPreviews: {
-        solarStationPlacementPreview,
-        greenhousePlacementPreview,
-        campfirePlacementPreview,
-        leafDenKitPlacementPreview
-      },
-      promptState: {
-        pendingPlacementPrompt,
-        workbenchRotationPrompt,
-        destroyableObjectPrompt,
-        transientNoticeRoute,
-        playerCounterPromptText
-      },
+      playerActionState,
+      promptPreparationFrame: gameplayPromptPreparationFrame,
       freeBlockPreviewTarget,
-      nearbyInteractable,
-      nearbyWorkbenchRotationTarget,
-      activeQuest,
-      activeTask,
-      activeSystemQuest,
-      promptCopy,
-      groundCellHighlightFrameState,
       chopperBulbasaurRepairBoxInvestigationTarget,
-      firstTaughtActionFreedomWindowActive: firstTaughtActionFreedomWindow.active,
-      promptSources: {
-        pendingPlacementIntent,
-        nearbyHarvestTarget
-      }
+      firstTaughtActionFreedomWindowActive: firstTaughtActionFreedomWindow.active
     });
     // Commit the frame after all snapshot channels are populated.
     frameRuntime.commitFrame();

@@ -230,6 +230,89 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Prompt Frame Render Payload Boundary
+
+Expanded `createGameplayRenderSnapshotFrameRuntime(...)` so it accepts the
+complete `gameplayPromptPreparationFrame` instead of requiring `gameLoop.js` to
+destructure prompt, target and highlight fields only to rebuild a render
+payload.
+
+Boundary classification: `presentation / render helpers`. This is a follow-up
+to the Gameplay Render Snapshot Frame boundary and keeps the prompt-to-render
+adapter inside the presentation runtime.
+
+Study path:
+
+1. `gameplayPromptPreparationFrameRuntime.update(...)` still prepares prompt,
+   target, placement and highlight state.
+2. `frame(now)` now passes that prepared object directly as
+   `promptPreparationFrame`.
+3. `createGameplayRenderSnapshotFrameRuntime(...)` maps the prepared prompt
+   frame to HUD snapshot, world-space presentation, world-object billboards and
+   ground-cell highlight state.
+
+Removed from `gameLoop.js`:
+
+- destructuring of `inputModalityState`;
+- destructuring of prompt strings and transient route;
+- destructuring of pending placement and harvest sources;
+- destructuring of nearby interactable/workbench/harvest targets;
+- destructuring of active quest/task/system quest;
+- destructuring of `promptCopy`;
+- destructuring of `groundCellHighlightFrameState`;
+- render-payload reconstruction from those values.
+
+Kept in `gameLoop.js`:
+
+- the call to `gameplayPromptPreparationFrameRuntime.update(...)`;
+- reassignment of placement preview values returned by prompt preparation;
+- the single handoff to `gameplayRenderSnapshotFrameRuntime.update(...)`.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1767` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1721` lines.
+- This reduces frame-body adapter code without changing render order.
+
+Tests updated:
+
+- `tests/renderSnapshotRuntimeBundle.test.js`
+- `tests/gameLoopGroundCellHighlightWiring.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/renderSnapshotRuntimeBundle.test.js
+```
+
+The first run failed because the render snapshot runtime still expected
+decomposed prompt/render fields. After moving that mapping into the runtime,
+the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/renderSnapshotRuntimeBundle.test.js
+npm test -- --run tests/renderSnapshotRuntimeBundle.test.js tests/gameLoopGroundCellHighlightWiring.test.js tests/worldSpacePresentationSnapshotFrame.test.js tests/hudSnapshotFrame.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2014` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Gameplay Render Snapshot Frame Boundary
 
 Expanded `app/runtime/presentation/renderSnapshotRuntimeBundle.js` with

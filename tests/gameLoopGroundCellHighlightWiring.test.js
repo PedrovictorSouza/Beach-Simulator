@@ -8,12 +8,9 @@ describe("game loop ground cell highlight wiring", () => {
       "app/runtime/presentation/renderSnapshotRuntimeBundle.js",
       "utf8"
     );
-    const frameStateMatch = gameLoopSource.match(
-      /groundCellHighlightFrameState\s*\}\s*=\s*gameplayPromptPreparationFrame/u
-    );
-
-    expect(frameStateMatch).not.toBeNull();
-    expect(gameLoopSource).toContain("groundCellHighlightFrameState,");
+    expect(gameLoopSource)
+      .toContain("promptPreparationFrame: gameplayPromptPreparationFrame");
+    expect(renderSnapshotSource).toContain("groundCellHighlightFrameState = {}");
     expect(renderSnapshotSource)
       .toContain("groundCellHighlightState: groundCellHighlightFrameState");
   });

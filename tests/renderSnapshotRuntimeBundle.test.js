@@ -190,35 +190,35 @@ describe("createRenderSnapshotRuntimeBundle", () => {
         pokedexModalOpen: false,
         skillLearnActive: false
       },
-      activeMoveId: "waterGun",
-      equipmentState: {
+      playerActionState: {
+        activeMoveId: "waterGun",
         buildBlockEquipped: false,
+        fireEquipped: false,
         waterGunEquipped: true,
         leafageEquipped: false
       },
-      inputModalityState: { current: "keyboard" },
-      placementPreviews: {
-        campfirePlacementPreview: { active: true }
-      },
-      promptState: {
+      promptPreparationFrame: {
+        inputModalityState: { current: "keyboard" },
+        solarStationPlacementPreview: null,
+        greenhousePlacementPreview: null,
+        campfirePlacementPreview: { active: true },
+        leafDenKitPlacementPreview: null,
         pendingPlacementPrompt: "place",
         workbenchRotationPrompt: "rotate",
         destroyableObjectPrompt: "cut",
         transientNoticeRoute: null,
-        playerCounterPromptText: "counter"
-      },
-      promptSources: {
+        playerCounterPromptText: "counter",
         pendingPlacementIntent: { kind: "campfire" },
-        nearbyHarvestTarget: { id: "harvest" }
+        nearbyHarvestTarget: { id: "harvest" },
+        nearbyWorkbenchRotationTarget: { id: "workbench" },
+        nearbyInteractable: { id: "npc" },
+        activeQuest: { id: "quest" },
+        activeTask: { id: "task" },
+        activeSystemQuest: { id: "system" },
+        promptCopy: "Prompt",
+        groundCellHighlightFrameState: { cells: [] }
       },
       freeBlockPreviewTarget: { id: "block" },
-      nearbyInteractable: { id: "npc" },
-      nearbyWorkbenchRotationTarget: { id: "workbench" },
-      activeQuest: { id: "quest" },
-      activeTask: { id: "task" },
-      activeSystemQuest: { id: "system" },
-      promptCopy: "Prompt",
-      groundCellHighlightFrameState: { cells: [] },
       chopperBulbasaurRepairBoxInvestigationTarget: { id: "box" },
       firstTaughtActionFreedomWindowActive: true
     });

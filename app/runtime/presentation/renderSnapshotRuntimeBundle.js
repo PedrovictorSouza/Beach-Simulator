@@ -42,20 +42,9 @@ export function createGameplayRenderSnapshotFrameRuntime({
     gameplayOpeningCameraLocked = false,
     gameplayOpeningHudHidden = false,
     currentFlowState = {},
-    activeMoveId = null,
-    equipmentState = {},
-    inputModalityState = null,
-    placementPreviews = {},
-    promptState = {},
-    promptSources = {},
+    playerActionState = {},
+    promptPreparationFrame = {},
     freeBlockPreviewTarget = null,
-    nearbyInteractable = null,
-    nearbyWorkbenchRotationTarget = null,
-    activeQuest = null,
-    activeTask = null,
-    activeSystemQuest = null,
-    promptCopy = "",
-    groundCellHighlightFrameState = {},
     chopperBulbasaurRepairBoxInvestigationTarget = null,
     firstTaughtActionFreedomWindowActive = false
   } = {}) {
@@ -66,16 +55,32 @@ export function createGameplayRenderSnapshotFrameRuntime({
       skillLearnActive = false
     } = currentFlowState;
     const {
+      activeMoveId = null,
       buildBlockEquipped = false,
       waterGunEquipped = false,
       leafageEquipped = false
-    } = equipmentState;
+    } = playerActionState;
     const {
       solarStationPlacementPreview = null,
       greenhousePlacementPreview = null,
       campfirePlacementPreview = null,
-      leafDenKitPlacementPreview = null
-    } = placementPreviews;
+      leafDenKitPlacementPreview = null,
+      inputModalityState = null,
+      transientNoticeRoute = null,
+      playerCounterPromptText = "",
+      pendingPlacementIntent = null,
+      pendingPlacementPrompt = "",
+      nearbyWorkbenchRotationTarget = null,
+      workbenchRotationPrompt = "",
+      destroyableObjectPrompt = "",
+      nearbyHarvestTarget = null,
+      nearbyInteractable = null,
+      activeQuest = null,
+      activeTask = null,
+      activeSystemQuest = null,
+      promptCopy = "",
+      groundCellHighlightFrameState = {}
+    } = promptPreparationFrame;
 
     updateHudSnapshot(nextFrame, {
       gameplayOpeningCameraLocked,
@@ -121,14 +126,21 @@ export function createGameplayRenderSnapshotFrameRuntime({
         leafDenKitPlacementPreview
       },
       promptState: {
-        ...promptState,
+        pendingPlacementPrompt,
+        workbenchRotationPrompt,
+        destroyableObjectPrompt,
+        transientNoticeRoute,
+        playerCounterPromptText,
         openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState)
       },
       freeBlockPreviewTarget,
       nearbyInteractable,
       chopperBulbasaurRepairBoxInvestigationTarget,
       firstTaughtActionFreedomWindowActive,
-      promptSources,
+      promptSources: {
+        pendingPlacementIntent,
+        nearbyHarvestTarget
+      },
       groundCellHighlightState: groundCellHighlightFrameState,
       frameBlockers: {
         gameplayOpeningCameraLocked,
