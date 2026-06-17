@@ -230,6 +230,97 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Gameplay Render Snapshot Frame Boundary
+
+Expanded `app/runtime/presentation/renderSnapshotRuntimeBundle.js` with
+`createGameplayRenderSnapshotFrameRuntime(...)`.
+
+Boundary classification: `presentation / render helpers`. This cut moves the
+tail of `frame(now)` that prepares HUD, base render snapshot, world-space UI,
+nature renderables, world-object billboards, companion render state and final
+snapshot completion.
+
+Study path:
+
+1. `frame(now)` still decides when render snapshot preparation happens.
+2. `frame(now)` passes the already-resolved frame state to
+   `gameplayRenderSnapshotFrameRuntime.update(...)`.
+3. `presentation/renderSnapshotRuntimeBundle.js` now owns the exact update
+   order for presentation channels:
+   HUD -> base snapshot -> world-space UI -> nature -> world-object billboards
+   -> companion render -> snapshot completion.
+4. The runtime returns the same render metadata, but `gameLoop.js` currently
+   only needs the side effects on `nextFrame`, matching the previous behavior.
+
+Removed from `gameLoop.js`:
+
+- direct import/use of `updateHudSnapshotFrame(...)`;
+- direct import/use of `updateWorldObjectBillboardFrame(...)`;
+- direct call to `baseRenderSnapshotFrameRuntime.update(...)` inside
+  `frame(now)`;
+- direct call to `worldSpacePresentationFrameRuntime.update(...)` inside
+  `frame(now)`;
+- direct call to `naturePresentationFrameRuntime.update(...)` inside
+  `frame(now)`;
+- direct call to `companionRenderFrameRuntime.update(...)` inside `frame(now)`;
+- direct call to `renderSnapshotCompletionFrameRuntime.update(...)` inside
+  `frame(now)`;
+- local frame variables `canShowWorldSpaceUi`, `grassBendPlayerPosition` and
+  `natureRenderCenter`.
+
+Kept in `gameLoop.js`:
+
+- temporal placement of render snapshot preparation after prompt preparation;
+- grouped frame inputs such as equipment state, placement previews, prompt
+  state, prompt sources and current flow state;
+- composition-root wiring of presentation runtimes.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1806` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1767` lines.
+- This is a larger frame-body cut than the recent wiring-only cuts and removes
+  direct render-channel orchestration from `frame(now)`.
+
+Tests updated:
+
+- `tests/renderSnapshotRuntimeBundle.test.js`
+- `tests/gameLoopGroundCellHighlightWiring.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/renderSnapshotRuntimeBundle.test.js
+```
+
+The first run failed because `createGameplayRenderSnapshotFrameRuntime(...)`
+did not exist yet. After adding the factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/renderSnapshotRuntimeBundle.test.js
+npm test -- --run tests/renderSnapshotRuntimeBundle.test.js tests/baseRenderSnapshotFrame.test.js tests/hudSnapshotFrame.test.js tests/worldSpacePresentationSnapshotFrame.test.js tests/worldObjectBillboardFrame.test.js tests/natureRenderFrame.test.js tests/companionPresentationFrame.test.js
+npm test -- --run tests/renderSnapshotRuntimeBundle.test.js tests/baseRenderSnapshotFrame.test.js tests/hudSnapshotFrame.test.js tests/worldSpacePresentationSnapshotFrame.test.js tests/worldObjectBillboardFrame.test.js tests/natureRenderFrame.test.js tests/companionPresentationFrame.test.js tests/gameLoopGroundCellHighlightWiring.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2014` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Player Gameplay Action Runtime Boundary
 
 Expanded `app/player/playerActionRuntimeBundle.js` with

@@ -68,12 +68,13 @@ import { createPlayerGameplayActionRuntimeBundle } from "../player/playerActionR
 import { createPlayerFrameRuntimeBundle } from "../player/playerFrameRuntimeBundle.js";
 import { createGameplayPromptPreparationRuntimeBundle } from "./presentation/gameplayPromptPreparationRuntimeBundle.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
-import { createRenderSnapshotRuntimeBundle } from "./presentation/renderSnapshotRuntimeBundle.js";
+import {
+  createGameplayRenderSnapshotFrameRuntime,
+  createRenderSnapshotRuntimeBundle
+} from "./presentation/renderSnapshotRuntimeBundle.js";
 import { createSupplyFeedbackRuntimeBundle } from "./presentation/supplyFeedbackRuntimeBundle.js";
-import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
 import { createNaturePresentationRuntimeBundle } from "./presentation/naturePresentationRuntimeBundle.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
-import { updateWorldObjectBillboardFrame } from "./presentation/worldObjectBillboardFrame.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
@@ -1009,6 +1010,26 @@ export function startGameLoop({
       treeRevivalLeafBurstFrameRuntime
     }
   });
+  const gameplayRenderSnapshotFrameRuntime = createGameplayRenderSnapshotFrameRuntime({
+    controls,
+    session,
+    rendering,
+    clamp: clamp01,
+    construction: {
+      leafDenConstructionPresentationRuntime
+    },
+    callbacks: {
+      getMissionTargetPositionsById,
+      isOpeningLeppaTreeRequestActive
+    },
+    runtimes: {
+      baseRenderSnapshotFrameRuntime,
+      worldSpacePresentationFrameRuntime,
+      naturePresentationFrameRuntime,
+      companionRenderFrameRuntime,
+      renderSnapshotCompletionFrameRuntime
+    }
+  });
   const {
     playerModelRuntime,
     playerMovementFrameRuntime,
@@ -1694,38 +1715,15 @@ export function startGameLoop({
       groundCellHighlightFrameState
     } = gameplayPromptPreparationFrame;
 
-    updateHudSnapshotFrame(nextFrame, {
-      gameplayOpeningCameraLocked,
-      gameplayOpeningHudHidden,
-      cinematicActive,
-      tutorialActive,
-      pokedexModalOpen,
-      skillLearnActive,
-      storyState: controls.storyState,
-      inventory: controls.inventory,
-      playerPosition: session.playerCharacter?.getPosition() || [0, 0, 0],
-      promptCopy,
-      inputModalityState
-    });
-
-    baseRenderSnapshotFrameRuntime.update(nextFrame, {
-      now,
-      deltaTime,
-      cinematicActive,
-      nearbyInteractable,
-      nearbyWorkbenchRotationTarget
-    });
-
     // World-space UI and render preparation.
-    const { canShowWorldSpaceUi } = worldSpacePresentationFrameRuntime.update({
+    gameplayRenderSnapshotFrameRuntime.update({
       nextFrame,
       now,
+      deltaTime,
       gameplayOpeningCameraLocked,
-      flowState: currentFlowState,
+      gameplayOpeningHudHidden,
+      currentFlowState,
       activeMoveId,
-      activeQuest,
-      activeTask,
-      activeSystemQuest,
       equipmentState: {
         buildBlockEquipped,
         waterGunEquipped,
@@ -1743,60 +1741,23 @@ export function startGameLoop({
         workbenchRotationPrompt,
         destroyableObjectPrompt,
         transientNoticeRoute,
-        playerCounterPromptText,
-        openingLeppaTreeRequestActive: isOpeningLeppaTreeRequestActive(controls.storyState)
+        playerCounterPromptText
       },
       freeBlockPreviewTarget,
       nearbyInteractable,
+      nearbyWorkbenchRotationTarget,
+      activeQuest,
+      activeTask,
+      activeSystemQuest,
+      promptCopy,
+      groundCellHighlightFrameState,
       chopperBulbasaurRepairBoxInvestigationTarget,
       firstTaughtActionFreedomWindowActive: firstTaughtActionFreedomWindow.active,
       promptSources: {
         pendingPlacementIntent,
         nearbyHarvestTarget
-      },
-      groundCellHighlightState: groundCellHighlightFrameState,
-      frameBlockers: {
-        gameplayOpeningCameraLocked,
-        cinematicActive,
-        tutorialActive,
-        pokedexModalOpen
       }
     });
-
-    // Render snapshot preparation.
-    const {
-      grassBendPlayerPosition,
-      natureRenderCenter
-    } = naturePresentationFrameRuntime.update({
-      nextFrame,
-      now,
-      cinematicActive
-    });
-    updateWorldObjectBillboardFrame({
-      session,
-      nextFrame,
-      storyState: controls.storyState,
-      inventory: controls.inventory,
-      rendering,
-      now,
-      deltaTime,
-      canShowWorldSpaceUi,
-      activeQuest,
-      campfirePlacementPreview,
-      getMissionTargetPositionsById,
-      getLeafDenConstructionBillboards:
-        leafDenConstructionPresentationRuntime.getConstructionBillboards,
-      getConstructionCloudBurstBillboards:
-        leafDenConstructionPresentationRuntime.getCloudBurstBillboards,
-      clamp: clamp01
-    });
-
-    companionRenderFrameRuntime.update({
-      nextFrame,
-      activeMoveId,
-      now
-    });
-    renderSnapshotCompletionFrameRuntime.update(nextFrame, { deltaTime });
     // Commit the frame after all snapshot channels are populated.
     frameRuntime.commitFrame();
     requestAnimationFrame(frame);

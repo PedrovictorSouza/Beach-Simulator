@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from "vitest";
-import { createRenderSnapshotRuntimeBundle } from "../app/runtime/presentation/renderSnapshotRuntimeBundle.js";
+import {
+  createGameplayRenderSnapshotFrameRuntime,
+  createRenderSnapshotRuntimeBundle
+} from "../app/runtime/presentation/renderSnapshotRuntimeBundle.js";
 
 describe("createRenderSnapshotRuntimeBundle", () => {
   it("wires base and completion render snapshot runtimes through presentation dependencies", () => {
@@ -100,5 +103,172 @@ describe("createRenderSnapshotRuntimeBundle", () => {
       .toEqual(["squirtle-scene"]);
     expect(squirtleReassemblyRuntime.getSceneObjects)
       .toHaveBeenCalledWith(["scene"], { id: "squirtle" });
+  });
+
+  it("updates gameplay render snapshot channels in the existing frame order", () => {
+    const order = [];
+    const nextFrame = {
+      hud: {},
+      render: {
+        genericBillboards: []
+      }
+    };
+    const controls = {
+      storyState: { flags: {} },
+      inventory: { wood: 2 }
+    };
+    const session = {
+      playerCharacter: {
+        getPosition: vi.fn(() => [1, 0.04, 2])
+      }
+    };
+    const baseRenderSnapshotFrameRuntime = {
+      update: vi.fn(() => order.push("base"))
+    };
+    const worldSpacePresentationFrameRuntime = {
+      update: vi.fn(() => {
+        order.push("world-space");
+        return { canShowWorldSpaceUi: true };
+      })
+    };
+    const naturePresentationFrameRuntime = {
+      update: vi.fn(() => {
+        order.push("nature");
+        return {
+          grassBendPlayerPosition: [1, 0, 2],
+          natureRenderCenter: [1, 0, 2]
+        };
+      })
+    };
+    const companionRenderFrameRuntime = {
+      update: vi.fn(() => order.push("companion"))
+    };
+    const renderSnapshotCompletionFrameRuntime = {
+      update: vi.fn(() => order.push("completion"))
+    };
+    const updateHudSnapshot = vi.fn(() => order.push("hud"));
+    const updateWorldObjectBillboards = vi.fn(() => order.push("world-objects"));
+    const getMissionTargetPositionsById = vi.fn(() => [[5, 0, 6]]);
+    const leafDenConstructionPresentationRuntime = {
+      getConstructionBillboards: vi.fn(() => []),
+      getCloudBurstBillboards: vi.fn(() => [])
+    };
+    const runtime = createGameplayRenderSnapshotFrameRuntime({
+      controls,
+      session,
+      rendering: { fullUvRect: [0, 0, 1, 1] },
+      clamp: vi.fn((value) => value),
+      construction: {
+        leafDenConstructionPresentationRuntime
+      },
+      callbacks: {
+        getMissionTargetPositionsById,
+        isOpeningLeppaTreeRequestActive: vi.fn(() => true)
+      },
+      runtimes: {
+        baseRenderSnapshotFrameRuntime,
+        worldSpacePresentationFrameRuntime,
+        naturePresentationFrameRuntime,
+        companionRenderFrameRuntime,
+        renderSnapshotCompletionFrameRuntime
+      },
+      updates: {
+        updateHudSnapshotFrame: updateHudSnapshot,
+        updateWorldObjectBillboardFrame: updateWorldObjectBillboards
+      }
+    });
+
+    const result = runtime.update({
+      nextFrame,
+      now: 123,
+      deltaTime: 0.016,
+      gameplayOpeningCameraLocked: false,
+      gameplayOpeningHudHidden: false,
+      currentFlowState: {
+        cinematicActive: false,
+        tutorialActive: false,
+        pokedexModalOpen: false,
+        skillLearnActive: false
+      },
+      activeMoveId: "waterGun",
+      equipmentState: {
+        buildBlockEquipped: false,
+        waterGunEquipped: true,
+        leafageEquipped: false
+      },
+      inputModalityState: { current: "keyboard" },
+      placementPreviews: {
+        campfirePlacementPreview: { active: true }
+      },
+      promptState: {
+        pendingPlacementPrompt: "place",
+        workbenchRotationPrompt: "rotate",
+        destroyableObjectPrompt: "cut",
+        transientNoticeRoute: null,
+        playerCounterPromptText: "counter"
+      },
+      promptSources: {
+        pendingPlacementIntent: { kind: "campfire" },
+        nearbyHarvestTarget: { id: "harvest" }
+      },
+      freeBlockPreviewTarget: { id: "block" },
+      nearbyInteractable: { id: "npc" },
+      nearbyWorkbenchRotationTarget: { id: "workbench" },
+      activeQuest: { id: "quest" },
+      activeTask: { id: "task" },
+      activeSystemQuest: { id: "system" },
+      promptCopy: "Prompt",
+      groundCellHighlightFrameState: { cells: [] },
+      chopperBulbasaurRepairBoxInvestigationTarget: { id: "box" },
+      firstTaughtActionFreedomWindowActive: true
+    });
+
+    expect(order).toEqual([
+      "hud",
+      "base",
+      "world-space",
+      "nature",
+      "world-objects",
+      "companion",
+      "completion"
+    ]);
+    expect(updateHudSnapshot).toHaveBeenCalledWith(nextFrame, expect.objectContaining({
+      storyState: controls.storyState,
+      inventory: controls.inventory,
+      playerPosition: [1, 0.04, 2],
+      promptCopy: "Prompt",
+      inputModalityState: { current: "keyboard" }
+    }));
+    expect(worldSpacePresentationFrameRuntime.update).toHaveBeenCalledWith(expect.objectContaining({
+      nextFrame,
+      activeMoveId: "waterGun",
+      promptState: expect.objectContaining({
+        openingLeppaTreeRequestActive: true
+      }),
+      frameBlockers: expect.objectContaining({
+        gameplayOpeningCameraLocked: false,
+        cinematicActive: false,
+        tutorialActive: false,
+        pokedexModalOpen: false
+      })
+    }));
+    expect(updateWorldObjectBillboards).toHaveBeenCalledWith(expect.objectContaining({
+      canShowWorldSpaceUi: true,
+      activeQuest: { id: "quest" },
+      campfirePlacementPreview: { active: true },
+      getMissionTargetPositionsById
+    }));
+    expect(companionRenderFrameRuntime.update).toHaveBeenCalledWith({
+      nextFrame,
+      activeMoveId: "waterGun",
+      now: 123
+    });
+    expect(renderSnapshotCompletionFrameRuntime.update)
+      .toHaveBeenCalledWith(nextFrame, { deltaTime: 0.016 });
+    expect(result).toEqual({
+      canShowWorldSpaceUi: true,
+      grassBendPlayerPosition: [1, 0, 2],
+      natureRenderCenter: [1, 0, 2]
+    });
   });
 });
