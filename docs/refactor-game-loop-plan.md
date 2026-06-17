@@ -74,6 +74,8 @@ There is no dedicated lint or typecheck script in `package.json`.
 
 ## Progress
 
+- Completed: bundle nature presentation/effects runtime wiring into the
+  `presentation/` domain.
 - Completed: bundle companion presentation/model-sync runtime wiring into the
   `companions/` domain.
 - Completed: bundle companion motion/follow/patrol runtime wiring into the
@@ -126,6 +128,87 @@ There is no dedicated lint or typecheck script in `package.json`.
 - Completed: preserve lazy movement-quest activity lookup before integration.
 - Completed: integrate the movement quest runtime.
 - Completed: prepare the isolated wood collect pop runtime core.
+
+## Cut: Nature Presentation Runtime Bundle
+
+Created boundary:
+
+`app/runtime/presentation/naturePresentationRuntimeBundle.js`
+
+Boundary classification: `presentation`, focused on nature visual effects and
+nature render-frame composition.
+
+Why this cut:
+
+`gameLoop.js` was still directly wiring several nature presentation internals:
+wood collect pop effects, gear pickup particles, tree revival leaf bursts,
+landscape cut effects and the nature presentation frame runtime. Those systems
+produce render data and passive visual effects; the game loop only needs their
+runtime handles and update order.
+
+Moved out of `gameLoop.js`:
+
+- direct imports for `createWoodCollectPopRuntime(...)`;
+- direct imports for `createGearPickupParticleRuntime(...)`;
+- direct imports for `createTreeRevivalLeafBurstRuntime(...)`;
+- direct imports for `createTreeRevivalLeafBurstFrameRuntime(...)`;
+- direct imports for `createLandscapeCutEffectRuntime(...)`;
+- direct imports for `createNaturePresentationFrameRuntime(...)`;
+- inline wiring among nature passive effects and the nature render-frame
+  runtime.
+
+Kept in `gameLoop.js`:
+
+- high-level dependency wiring for nature presentation;
+- runtime handles still consumed by resource collection, field-move impact,
+  base render snapshot and frame orchestration;
+- visual tuning values and frame order.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2027` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2006` lines.
+- This removes roughly 20 lines from `gameLoop.js`; the main win is reducing
+  presentation-domain imports and wiring in the frame hub without moving
+  tuning values yet.
+
+Tests added:
+
+- `tests/naturePresentationRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/naturePresentationRuntimeBundle.test.js
+```
+
+The first run failed as expected because
+`app/runtime/presentation/naturePresentationRuntimeBundle.js` did not exist.
+After adding the domain factory, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/naturePresentationRuntimeBundle.test.js
+npm test -- --run tests/naturePresentationRuntimeBundle.test.js tests/natureRenderFrame.test.js tests/treeRevivalLeafBurstFrameRuntime.test.js tests/treeRevivalLeafBurstRuntime.test.js tests/woodCollectPopRuntime.test.js tests/gearPickupParticleRuntime.test.js tests/landscapeCutEffectRuntime.test.js tests/baseRenderSnapshotFrame.test.js
+git diff --check -- app/runtime/gameLoop.js app/runtime/presentation/naturePresentationRuntimeBundle.js tests/naturePresentationRuntimeBundle.test.js docs/refactor-game-loop-plan.md
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1998` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
 
 ## Cut: Companion Presentation Runtime Bundle
 

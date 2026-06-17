@@ -70,13 +70,11 @@ import { createFieldMoveImpactRuntime } from "./fieldMoveRuntime/fieldMoveImpact
 import { createFieldMoveRuntimeBundle } from "./fieldMoveRuntime/fieldMoveRuntimeBundle.js";
 import { createFieldMoveApproachPositionRuntime } from "./fieldMoveRuntime/fieldMoveApproachPositions.js";
 import { createFieldMoveActorPositionRuntime } from "./fieldMoveRuntime/fieldMoveActorPositions.js";
-import { createGearPickupParticleRuntime } from "./gearPickupParticleRuntime.js";
 import { createGroundActionFeedbackRuntime } from "./groundActionFeedbackRuntime.js";
 import {
   getActorDebugPosition,
   getInteractionDebugColliders as getInteractionDebugCollidersWithConfig
 } from "./interactionDebugColliders.js";
-import { createLandscapeCutEffectRuntime } from "./landscapeCutEffectRuntime.js";
 import { getMissionTargetPositionsById as getMissionTargetPositionsByIdWithConfig } from "./missionTargetPositionLookup.js";
 import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
@@ -94,18 +92,15 @@ import {
 } from "./presentation/baseRenderSnapshotFrame.js";
 import { createSupplyCounterPromptController } from "./presentation/supplyCounterPrompt.js";
 import { createSupplyPickupFeedbackRuntime } from "./presentation/supplyPickupFeedbackRuntime.js";
-import { createTreeRevivalLeafBurstFrameRuntime } from "./presentation/treeRevivalLeafBurstFrameRuntime.js";
 import { updateHudSnapshotFrame } from "./presentation/hudSnapshotFrame.js";
-import { createNaturePresentationFrameRuntime } from "./presentation/natureRenderFrame.js";
+import { createNaturePresentationRuntimeBundle } from "./presentation/naturePresentationRuntimeBundle.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
 import { updateWorldObjectBillboardFrame } from "./presentation/worldObjectBillboardFrame.js";
 import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import { applyTrainHouseDance } from "./trainHouseDance.js";
-import { createTreeRevivalLeafBurstRuntime } from "./treeRevivalLeafBurstRuntime.js";
 import { createWaterGunSfxBurstRuntime } from "./waterGunSfxBurstRuntime.js";
-import { createWoodCollectPopRuntime } from "./woodCollectPopRuntime.js";
 import { createWorkbenchRotationRuntime } from "./construction/workbenchRotationRuntime.js";
 import { createRustlingGrassEventRuntime } from "./world/rustlingGrassEventRuntime.js";
 import { createWorldCellPlannerInteractionRuntime } from "./world/worldCellPlannerInteractionRuntime.js";
@@ -611,64 +606,48 @@ export function startGameLoop({
     minimumMovementDistance: 0.0005,
     reportDistance: 0.04
   });
-  const woodCollectPopRuntime = createWoodCollectPopRuntime({
-    clamp01,
-    duration: WOOD_COLLECT_POP_DURATION,
-    lift: WOOD_COLLECT_POP_LIFT,
-    scale: WOOD_COLLECT_POP_SCALE
-  });
-  const gearPickupParticleRuntime = createGearPickupParticleRuntime({
-    clamp01,
-    count: GEAR_PICKUP_PARTICLE_COUNT,
-    duration: GEAR_PICKUP_PARTICLE_DURATION,
-    baseHeight: GEAR_PICKUP_PARTICLE_BASE_HEIGHT,
-    lift: GEAR_PICKUP_PARTICLE_LIFT,
-    radius: GEAR_PICKUP_PARTICLE_RADIUS,
-    size: GEAR_PICKUP_PARTICLE_SIZE
-  });
-  const treeRevivalLeafBurstRuntime = createTreeRevivalLeafBurstRuntime({
-    clamp01,
-    easeOutCubic,
-    lerp,
-    config: {
-      count: TREE_REVIVAL_LEAF_BURST_COUNT,
-      duration: TREE_REVIVAL_LEAF_BURST_DURATION,
-      drift: TREE_REVIVAL_LEAF_BURST_DRIFT,
-      gravity: TREE_REVIVAL_LEAF_BURST_GRAVITY,
-      baseHeight: TREE_REVIVAL_LEAF_BURST_BASE_HEIGHT,
-      heightRange: TREE_REVIVAL_LEAF_BURST_HEIGHT_RANGE,
-      sizeMin: TREE_REVIVAL_LEAF_BURST_SIZE_MIN,
-      sizeMax: TREE_REVIVAL_LEAF_BURST_SIZE_MAX
-    }
-  });
-  const treeRevivalLeafBurstFrameRuntime = createTreeRevivalLeafBurstFrameRuntime({
-    leafBurstRuntime: treeRevivalLeafBurstRuntime,
-    session,
-    getStoryState: () => controls.storyState,
-    rendering
-  });
-  const landscapeCutEffectRuntime = createLandscapeCutEffectRuntime({
-    clamp01,
-    easeOutCubic,
-    lerp,
-    config: {
-      duration: LANDSCAPE_CUT_EFFECT_DURATION,
-      lerpPortion: LANDSCAPE_CUT_EFFECT_LERP_PORTION,
-      lift: LANDSCAPE_CUT_EFFECT_LIFT,
-      popScale: LANDSCAPE_CUT_EFFECT_POP_SCALE
-    }
-  });
-  const naturePresentationFrameRuntime = createNaturePresentationFrameRuntime({
-    session,
+  const {
+    gearPickupParticleRuntime,
+    landscapeCutEffectRuntime,
+    naturePresentationFrameRuntime,
+    treeRevivalLeafBurstFrameRuntime,
+    woodCollectPopRuntime
+  } = createNaturePresentationRuntimeBundle({
+    camera,
     controls,
     rendering,
-    camera,
-    landscapeCutEffectRuntime,
-    treeRevivalLeafBurstFrameRuntime,
-    woodCollectPopRuntime,
-    gearPickupParticleRuntime,
-    getEncounterRepairBoxPosition,
-    clamp: clamp01
+    session,
+    callbacks: {
+      getEncounterRepairBoxPosition
+    },
+    math: {
+      clamp01,
+      easeOutCubic,
+      lerp
+    },
+    config: {
+      gearPickupParticleBaseHeight: GEAR_PICKUP_PARTICLE_BASE_HEIGHT,
+      gearPickupParticleCount: GEAR_PICKUP_PARTICLE_COUNT,
+      gearPickupParticleDuration: GEAR_PICKUP_PARTICLE_DURATION,
+      gearPickupParticleLift: GEAR_PICKUP_PARTICLE_LIFT,
+      gearPickupParticleRadius: GEAR_PICKUP_PARTICLE_RADIUS,
+      gearPickupParticleSize: GEAR_PICKUP_PARTICLE_SIZE,
+      landscapeCutEffectDuration: LANDSCAPE_CUT_EFFECT_DURATION,
+      landscapeCutEffectLerpPortion: LANDSCAPE_CUT_EFFECT_LERP_PORTION,
+      landscapeCutEffectLift: LANDSCAPE_CUT_EFFECT_LIFT,
+      landscapeCutEffectPopScale: LANDSCAPE_CUT_EFFECT_POP_SCALE,
+      treeRevivalLeafBurstBaseHeight: TREE_REVIVAL_LEAF_BURST_BASE_HEIGHT,
+      treeRevivalLeafBurstCount: TREE_REVIVAL_LEAF_BURST_COUNT,
+      treeRevivalLeafBurstDrift: TREE_REVIVAL_LEAF_BURST_DRIFT,
+      treeRevivalLeafBurstDuration: TREE_REVIVAL_LEAF_BURST_DURATION,
+      treeRevivalLeafBurstGravity: TREE_REVIVAL_LEAF_BURST_GRAVITY,
+      treeRevivalLeafBurstHeightRange: TREE_REVIVAL_LEAF_BURST_HEIGHT_RANGE,
+      treeRevivalLeafBurstSizeMax: TREE_REVIVAL_LEAF_BURST_SIZE_MAX,
+      treeRevivalLeafBurstSizeMin: TREE_REVIVAL_LEAF_BURST_SIZE_MIN,
+      woodCollectPopDuration: WOOD_COLLECT_POP_DURATION,
+      woodCollectPopLift: WOOD_COLLECT_POP_LIFT,
+      woodCollectPopScale: WOOD_COLLECT_POP_SCALE
+    }
   });
   const companionFacingRuntime = createCompanionFacingRuntime({
     session,
