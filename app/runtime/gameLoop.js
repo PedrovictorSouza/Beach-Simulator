@@ -64,7 +64,7 @@ import {
   getActorDebugPosition,
   getInteractionDebugColliders as getInteractionDebugCollidersWithConfig
 } from "./interactionDebugColliders.js";
-import { getMissionTargetPositionsById as getMissionTargetPositionsByIdWithConfig } from "./missionTargetPositionLookup.js";
+import { createGameplayMissionTargetPositionProvider } from "./missions/missionTargetPositionLookup.js";
 import { getYawToward } from "./modelFacing.js";
 import { createMovementQuestRuntime } from "./movementQuestRuntime.js";
 import { createNpcConversationFocusRuntime } from "./npcs/npcConversationFocusRuntime.js";
@@ -759,6 +759,12 @@ export function startGameLoop({
       treeRevivalLeafBurstFrameRuntime
     }
   });
+  const getMissionTargetPositionsById =
+    createGameplayMissionTargetPositionProvider({
+      session,
+      getFreeBlockBuildZoneCenterPosition: () =>
+        foundationBuildZoneRuntime.getBuildZoneCenterPosition()
+    });
   const gameplayRenderSnapshotFrameRuntime = createGameplayRenderSnapshotFrameRuntime({
     controls,
     session,
@@ -1131,16 +1137,6 @@ export function startGameLoop({
       pokemonTalkInteractDistance: POKEMON_TALK_INTERACT_DISTANCE,
       workbenchInteractDistance: WORKBENCH_INTERACT_DISTANCE,
       bulbasaurTalkInteractDistance: BULBASAUR_TALK_INTERACT_DISTANCE
-    });
-  }
-
-  function getMissionTargetPositionsById(targetId) {
-    return getMissionTargetPositionsByIdWithConfig({
-      targetId,
-      session,
-      workbenchPosition: WORKBENCH_POSITION,
-      ruinedPokemonCenterPosition: RUINED_POKEMON_CENTER_POSITION,
-      getFreeBlockBuildZoneCenterPosition: foundationBuildZoneRuntime.getBuildZoneCenterPosition
     });
   }
 

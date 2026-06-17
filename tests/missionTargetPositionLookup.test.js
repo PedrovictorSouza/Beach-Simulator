@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { getMissionTargetPositionsById } from "../app/runtime/missionTargetPositionLookup.js";
+import {
+  createGameplayMissionTargetPositionProvider,
+  getMissionTargetPositionsById
+} from "../app/runtime/missions/missionTargetPositionLookup.js";
 
 const workbenchPosition = [10, 0, 20];
 const ruinedPokemonCenterPosition = [-4, 0, 7];
@@ -91,5 +94,24 @@ describe("mission target position lookup", () => {
     expect(getTarget(null)).toEqual([]);
     expect(getTarget("unknown")).toEqual([]);
     expect(getTarget("tangrowth", { npcActors: [] })).toEqual([]);
+  });
+
+  it("creates a gameplay provider that resolves static positions lazily", () => {
+    const freeBlockBuildZoneCalls = [];
+    const getMissionTargetPositions = createGameplayMissionTargetPositionProvider({
+      session: {},
+      workbenchPosition,
+      ruinedPokemonCenterPosition,
+      getFreeBlockBuildZoneCenterPosition: () => {
+        freeBlockBuildZoneCalls.push("called");
+        return [2, 0, 3];
+      }
+    });
+
+    expect(freeBlockBuildZoneCalls).toEqual([]);
+    expect(getMissionTargetPositions("workbench")).toEqual([workbenchPosition]);
+    expect(freeBlockBuildZoneCalls).toEqual([]);
+    expect(getMissionTargetPositions("foundation-wall")).toEqual([[2, 0, 3]]);
+    expect(freeBlockBuildZoneCalls).toEqual(["called"]);
   });
 });

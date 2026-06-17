@@ -329,6 +329,82 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Gameplay Mission Target Position Lookup Boundary
+
+Created `app/runtime/missions/missionTargetPositionLookup.js` and converted the
+old `app/runtime/missionTargetPositionLookup.js` file into a compatibility
+re-export.
+
+Boundary classification: `gameLoop / missions`, focused on resolving gameplay
+mission target positions for render/presentation without letting `gameLoop.js`
+own static mission landmarks or provider wiring details.
+
+Study path:
+
+1. The implementation now lives under the `missions` domain.
+2. `createGameplayMissionTargetPositionProvider(...)` supplies gameplay defaults
+   for Workbench and Ruined Pokemon Center positions.
+3. `startGameLoop()` still wires the session and the foundation build-zone
+   callback as composition root.
+4. The old root import path remains valid through re-export for callers not yet
+   migrated.
+
+Removed from `gameLoop.js`:
+
+- import alias `getMissionTargetPositionsByIdWithConfig`;
+- local `getMissionTargetPositionsById(targetId)` wrapper;
+- direct passing of Workbench/Ruined Pokemon Center mission landmark defaults.
+
+Kept in `gameLoop.js`:
+
+- callback wiring into `createGameplayRenderSnapshotFrameRuntime(...)`;
+- lazy access to `foundationBuildZoneRuntime.getBuildZoneCenterPosition()` so
+  construction runtime creation order does not change.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1392` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1388` lines.
+
+Tests updated:
+
+- `tests/missionTargetPositionLookup.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/missionTargetPositionLookup.test.js
+```
+
+The first run failed because
+`app/runtime/missions/missionTargetPositionLookup.js` did not exist yet. After
+moving the implementation into the `missions` domain, adding the gameplay
+provider factory and keeping the old path as a re-export, the focused tests
+passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/missionTargetPositionLookup.test.js tests/missionTargetPositions.test.js tests/worldObjectBillboardFrame.test.js tests/renderSnapshotRuntimeBundle.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2033` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## 2026-06-17 - Gameplay Companion Facing Defaults Boundary
 
 This cut moves gameplay-specific companion model-face yaw defaults out of
