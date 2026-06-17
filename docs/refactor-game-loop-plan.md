@@ -3908,6 +3908,79 @@ Results:
 
 Manual gameplay validation remains pending for this cut.
 
+## Cut: Companion Repair Box Highlight Session Adapter
+
+Extended boundary:
+
+`app/runtime/companions/companionRepairBoxModelRuntime.js`
+
+Boundary classification: `bot/companion motion`, focused on repair-box model
+highlight state for companion reveal/repair modules.
+
+Why this cut:
+
+`gameLoop.js` still knew the exact session fields that form the repair-box
+highlight set: Squirtle, Bulbasaur, Charmander and Timburr module instances,
+plus the reveal-opening encounters. That session-shape knowledge belongs with
+the companion repair-box model runtime, not with frame composition.
+
+Moved out of `gameLoop.js`:
+
+- manual collection of companion repair module instances;
+- manual collection of reveal-opening encounters for highlight protection;
+- direct call to low-level `syncActiveHighlight(...)` with session internals.
+
+Kept in `gameLoop.js`:
+
+- render snapshot timing;
+- `baseRenderSnapshotFrameRuntime` construction;
+- a high-level callback that asks the companion runtime to sync from `session`.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `2335` lines.
+- After this cut, `app/runtime/gameLoop.js` is `2321` lines.
+- This is a small but real ownership correction inside the `companions/`
+  boundary and did not create a new file.
+
+Tests updated:
+
+- `tests/companionRepairBoxModelRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/companionRepairBoxModelRuntime.test.js
+```
+
+The first run failed as expected because
+`runtime.syncSessionActiveHighlight(...)` did not exist. After adding the
+method, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/companionRepairBoxModelRuntime.test.js
+npm test -- --run tests/companionRepairBoxModelRuntime.test.js tests/baseRenderSnapshotFrame.test.js tests/companionFrameRuntime.test.js tests/companionEncounterRuntime.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `1991` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- the existing `1` scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ## Cut: Foundation Build Zone Camera Focus Frame Rule
 
 Created/extended boundary:

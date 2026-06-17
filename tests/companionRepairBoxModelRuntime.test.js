@@ -201,6 +201,44 @@ describe("createCompanionRepairBoxModelRuntime", () => {
     });
   });
 
+  it("syncs active companion repair-box highlights from the session shape", () => {
+    const { runtime } = createRuntime();
+    const squirtleModule = { active: false };
+    const bulbasaurModule = { active: true };
+    const charmanderModule = { active: true };
+    const timburrModule = { active: true };
+    const session = {
+      actTwoSquirtle: { repairModuleInstance: squirtleModule },
+      bulbasaurEncounter: {
+        repairModuleInstance: bulbasaurModule,
+        revealBoxOpening: { active: true }
+      },
+      charmanderEncounter: { repairModuleInstance: charmanderModule },
+      timburrEncounter: { repairModuleInstance: timburrModule }
+    };
+
+    runtime.syncSessionActiveHighlight(session);
+
+    expect(bulbasaurModule).toMatchObject({
+      active: true
+    });
+    expect(charmanderModule).toMatchObject({
+      tint: null,
+      tintStrength: 0,
+      alpha: CONFIG.inactiveAlpha
+    });
+    expect(timburrModule).toMatchObject({
+      tint: null,
+      tintStrength: 0,
+      alpha: CONFIG.inactiveAlpha
+    });
+    expect(squirtleModule).toMatchObject({
+      tint: null,
+      tintStrength: 0,
+      alpha: 1
+    });
+  });
+
   it("resolves a repair-box investigation target only while the rustling grass is alive", () => {
     const { runtime } = createRuntime();
     const encounter = {

@@ -225,6 +225,21 @@ export function createCompanionRepairBoxModelRuntime({
     }
   }
 
+  function syncSessionActiveHighlight(session = {}) {
+    syncActiveHighlight({
+      repairModuleInstances: [
+        session.actTwoSquirtle?.repairModuleInstance,
+        session.bulbasaurEncounter?.repairModuleInstance,
+        session.charmanderEncounter?.repairModuleInstance,
+        session.timburrEncounter?.repairModuleInstance
+      ],
+      revealEncounters: [
+        session.bulbasaurEncounter,
+        session.charmanderEncounter
+      ]
+    });
+  }
+
   function isRustlingInvestigationActive({
     encounter = null,
     flags = {},
@@ -294,6 +309,7 @@ export function createCompanionRepairBoxModelRuntime({
     getOpeningProgress,
     isRustlingInvestigationActive,
     syncActiveHighlight,
+    syncSessionActiveHighlight,
     syncDismantledEncounterModule,
     syncRepairBoxInstance,
     updateRepairBoxRustle

@@ -1292,7 +1292,8 @@ export function startGameLoop({
     controls,
     gameFlowValues,
     construction: {
-      syncActiveRepairBoxHighlight,
+      syncActiveRepairBoxHighlight: () =>
+        companionRepairBoxModelRuntime.syncSessionActiveHighlight(session),
       syncGreenhouseModelInstance: constructionHouseModelInstanceRuntime.syncGreenhouse,
       syncCampfireTrainHouseModelInstance: constructionHouseModelInstanceRuntime.syncCampfireTrainHouse,
       isLeafDenConstructionActive: leafDenConstructionPresentationRuntime.isActive,
@@ -1908,21 +1909,6 @@ export function startGameLoop({
 
   function getEncounterRepairBoxPosition(encounter) {
     return encounter?.repairBoxPosition || encounter?.repairPosition || null;
-  }
-
-  function syncActiveRepairBoxHighlight() {
-    companionRepairBoxModelRuntime.syncActiveHighlight({
-      repairModuleInstances: [
-        session.actTwoSquirtle?.repairModuleInstance,
-        session.bulbasaurEncounter?.repairModuleInstance,
-        session.charmanderEncounter?.repairModuleInstance,
-        session.timburrEncounter?.repairModuleInstance
-      ],
-      revealEncounters: [
-        session.bulbasaurEncounter,
-        session.charmanderEncounter
-      ]
-    });
   }
 
   function startNextQueuedSquirtleWaterGunAction() {
