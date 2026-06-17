@@ -13,7 +13,7 @@ import { createGameplayCompanionWorldSpeechCueRuntime } from "./companions/compa
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
 import { createGameplayRepairBoxRevealRuntimeBundle } from "./companions/repairBoxRevealOpeningRuntime.js";
 import { createGameplayFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
-import { createConstructionBlockerRuntimeBundle } from "./construction/constructionBlockerRuntimeBundle.js";
+import { createGameplayConstructionBlockerRuntimeBundle } from "./construction/constructionBlockerRuntimeBundle.js";
 import { createConstructionBuildRuntimeBundle } from "./construction/constructionBuildRuntimeBundle.js";
 import {
   buildGameplaySolarStationFieldMarkedGroundCells as buildSolarStationFieldMarkedGroundCells,
@@ -39,10 +39,8 @@ import {
   updateSolarStationSpawnEffect
 } from "./construction/playerPlacementSpawnEffect.js";
 import {
-  doPlacementRectsOverlap,
   getPlacementPreviewFootprintWorldSize,
   getPlacementCollisionSize,
-  getPlacementRect,
   normalizePlacementYaw
 } from "./construction/placementGeometry.js";
 import {
@@ -421,7 +419,7 @@ export function startGameLoop({
     companionConstructionBlockerRuntime,
     solarStationPlacementBlockerRuntime,
     worldObjectPlacementBlockerRuntime
-  } = createConstructionBlockerRuntimeBundle({
+  } = createGameplayConstructionBlockerRuntimeBundle({
     controls,
     hud,
     session,
@@ -429,20 +427,6 @@ export function startGameLoop({
     callbacks: {
       getTerrainColliders: getPlayerConstructionTerrainColliders,
       playBlockedSound: () => playSoundEvent(SOUND_EVENT_IDS.UI_CANCEL)
-    },
-    config: {
-      footprints: {
-        greenhouse: CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
-        solarStation: CONSTRUCTION_CONFIG.previewFootprints.solarStation,
-        trainHouse: CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
-        houseKit: CONSTRUCTION_CONFIG.previewFootprints.houseKit,
-        houseBuilt: CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint
-      }
-    },
-    geometry: {
-      getPlacementCollisionSize,
-      getPlacementRect,
-      doPlacementRectsOverlap
     }
   });
   const {

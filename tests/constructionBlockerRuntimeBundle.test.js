@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
-  createConstructionBlockerRuntimeBundle
+  createConstructionBlockerRuntimeBundle,
+  createGameplayConstructionBlockerRuntimeBundle
 } from "../app/runtime/construction/constructionBlockerRuntimeBundle.js";
+import {
+  GAMEPLAY_CONSTRUCTION_CONFIG
+} from "../app/runtime/construction/constructionGameplayConfig.js";
 
 describe("createConstructionBlockerRuntimeBundle", () => {
   it("wires construction blocker runtimes with explicit construction-domain dependencies", () => {
@@ -112,6 +116,56 @@ describe("createConstructionBlockerRuntimeBundle", () => {
       storyState: controls.storyState,
       footprints: {
         solarStation: [2, 2]
+      }
+    });
+  });
+});
+
+describe("createGameplayConstructionBlockerRuntimeBundle", () => {
+  it("provides gameplay construction blocker defaults from the construction domain", () => {
+    const controls = { storyState: { flags: {} } };
+    const session = {};
+    const callbacks = {
+      getTerrainColliders: vi.fn(() => []),
+      playBlockedSound: vi.fn()
+    };
+    const treeFootprint = vi.fn(() => 1);
+    const expectedBundle = {
+      companionConstructionBlockerRuntime: {},
+      solarStationPlacementBlockerRuntime: {},
+      worldObjectPlacementBlockerRuntime: {}
+    };
+    const createRuntimeBundle = vi.fn(() => expectedBundle);
+
+    const bundle = createGameplayConstructionBlockerRuntimeBundle({
+      controls,
+      hud: null,
+      session,
+      treeFootprint,
+      callbacks,
+      createRuntimeBundle
+    });
+
+    expect(bundle).toBe(expectedBundle);
+    expect(createRuntimeBundle).toHaveBeenCalledWith({
+      controls,
+      hud: null,
+      session,
+      treeFootprint,
+      callbacks,
+      config: {
+        footprints: {
+          greenhouse: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
+          solarStation: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+          trainHouse: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
+          houseKit: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+          houseBuilt: GAMEPLAY_CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint
+        }
+      },
+      geometry: {
+        doPlacementRectsOverlap: expect.any(Function),
+        getPlacementCollisionSize: expect.any(Function),
+        getPlacementRect: expect.any(Function)
       }
     });
   });

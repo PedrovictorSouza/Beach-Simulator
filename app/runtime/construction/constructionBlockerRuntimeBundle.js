@@ -2,6 +2,12 @@ import {
   createCompanionConstructionBlockerRuntime,
   createPlayerConstructionPlacementBlockers as defaultCreatePlayerConstructionPlacementBlockers
 } from "../../gameplay/placementBlockers.js";
+import { GAMEPLAY_CONSTRUCTION_CONFIG } from "./constructionGameplayConfig.js";
+import {
+  doPlacementRectsOverlap,
+  getPlacementCollisionSize,
+  getPlacementRect
+} from "./placementGeometry.js";
 import { createSolarStationPlacementBlockerRuntime } from "./solarStationPlacementBlockers.js";
 import { createWorldObjectPlacementBlockerRuntime } from "./worldObjectPlacementBlockers.js";
 
@@ -62,4 +68,42 @@ export function createConstructionBlockerRuntimeBundle({
     solarStationPlacementBlockerRuntime,
     worldObjectPlacementBlockerRuntime
   };
+}
+
+export function createGameplayConstructionBlockerRuntimeBundle({
+  controls = {},
+  hud = null,
+  session = null,
+  treeFootprint = () => 0,
+  callbacks = {},
+  config = {},
+  geometry = {},
+  createRuntimeBundle = createConstructionBlockerRuntimeBundle
+} = {}) {
+  const footprints = {
+    greenhouse: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.greenhouse,
+    solarStation: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.solarStation,
+    trainHouse: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.trainHouse,
+    houseKit: GAMEPLAY_CONSTRUCTION_CONFIG.previewFootprints.houseKit,
+    houseBuilt: GAMEPLAY_CONSTRUCTION_CONFIG.leafDenBuiltRotationFootprint,
+    ...config.footprints
+  };
+
+  return createRuntimeBundle({
+    controls,
+    hud,
+    session,
+    treeFootprint,
+    callbacks,
+    config: {
+      ...config,
+      footprints
+    },
+    geometry: {
+      doPlacementRectsOverlap,
+      getPlacementCollisionSize,
+      getPlacementRect,
+      ...geometry
+    }
+  });
 }

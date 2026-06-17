@@ -255,6 +255,83 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+### Construction Blocker Gameplay Defaults Boundary
+
+Expanded `app/runtime/construction/constructionBlockerRuntimeBundle.js` with
+`createGameplayConstructionBlockerRuntimeBundle(...)`.
+
+Boundary classification: `construction / placement blockers`, focused on the
+gameplay defaults needed to create construction blocker runtimes.
+
+Study path:
+
+1. `startGameLoop()` still owns dependency wiring for live objects such as
+   controls, session, HUD, tree footprint lookup and sound callbacks.
+2. The construction domain now owns the default blocker footprints and
+   placement geometry helpers used by the blocker bundle.
+3. The lower-level `createConstructionBlockerRuntimeBundle(...)` remains
+   configurable and testable with explicit dependencies.
+
+Removed from `gameLoop.js`:
+
+- direct import/use of `doPlacementRectsOverlap`;
+- direct import/use of `getPlacementRect`;
+- inline construction blocker footprint config for greenhouse, solar station,
+  train house, house kit and built house;
+- inline blocker geometry object for collision size, rect creation and rect
+  overlap checks.
+
+Kept in `gameLoop.js`:
+
+- creation order of construction blocker runtimes;
+- `controls`, `hud`, `session` and `treeFootprint` wiring;
+- runtime callbacks for terrain colliders and blocked-placement sound;
+- remaining construction config uses for workbench rotation and presentation
+  snapshot footprints.
+
+Line-count impact:
+
+- Before this cut, committed `app/runtime/gameLoop.js` was `1345` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1329` lines.
+
+Tests updated:
+
+- `tests/constructionBlockerRuntimeBundle.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/constructionBlockerRuntimeBundle.test.js
+```
+
+The first run failed because
+`createGameplayConstructionBlockerRuntimeBundle(...)` did not exist yet. After
+adding the wrapper, the focused test passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/constructionBlockerRuntimeBundle.test.js
+npm test -- --run tests/constructionBlockerRuntimeBundle.test.js tests/solarStationPlacementBlockers.test.js tests/worldObjectPlacementBlockers.test.js tests/placementBlockers.test.js
+git diff --check
+npm run build
+```
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2038` passed and `4` failed:
+
+- the existing `3` Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`;
+- `1` scene-flow failure in `tests/sceneFlowRuntimeCompletion.test.js`, tied
+  to dirty `startScreen.js` / bootstrap work already present in the worktree.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Gameplay Construction Terrain Collider Provider Boundary
 
 Expanded `app/runtime/construction/constructionGameplayConfig.js` with
