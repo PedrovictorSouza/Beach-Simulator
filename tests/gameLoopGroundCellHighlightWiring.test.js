@@ -9,7 +9,7 @@ describe("game loop ground cell highlight wiring", () => {
       "utf8"
     );
     expect(gameLoopSource)
-      .toContain("promptPreparationFrame: gameplayPromptPreparationFrame");
+      .toContain("gameplayPresentationSnapshotFrameRuntime.update");
     expect(renderSnapshotSource).toContain("groundCellHighlightFrameState = {}");
     expect(renderSnapshotSource)
       .toContain("groundCellHighlightState: groundCellHighlightFrameState");

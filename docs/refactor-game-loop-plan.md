@@ -230,6 +230,70 @@ npm test
 
 Manual gameplay validation remains pending for this cut.
 
+## 2026-06-17 - Gameplay Presentation Snapshot Frame Boundary
+
+This cut continues the presentation/render-helper extraction without changing
+frame order. `startGameLoop()` still wires dependencies, and `frame(now)` still
+decides when presentation snapshot preparation runs.
+
+Boundary classification: `presentation / render helpers`.
+
+What changed:
+
+- Added `createGameplayPresentationSnapshotFrameRuntime(...)` inside
+  `app/runtime/presentation/renderSnapshotRuntimeBundle.js`.
+- Moved the handoff between prompt preparation and gameplay render snapshot
+  preparation behind one presentation-runtime call.
+- `frame(now)` now calls
+  `gameplayPresentationSnapshotFrameRuntime.update(...)` instead of calling
+  prompt preparation and render snapshot preparation separately.
+- Placement footprint constants remain wired from `startGameLoop()`, preserving
+  composition-root ownership of dependencies.
+
+Why this boundary is safe:
+
+- It does not move `requestAnimationFrame(frame)`.
+- It does not change render snapshot data shapes.
+- It preserves the ordering: prompt preparation still runs before render
+  snapshot preparation.
+- It only groups two existing presentation steps that were already adjacent in
+  the frame.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1721` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1704` lines.
+
+Tests updated:
+
+- `tests/renderSnapshotRuntimeBundle.test.js`
+- `tests/gameLoopGroundCellHighlightWiring.test.js`
+
+Validation:
+
+```sh
+npm test -- --run tests/renderSnapshotRuntimeBundle.test.js tests/gameLoopGroundCellHighlightWiring.test.js tests/gameplayPromptPreparationRuntimeBundle.test.js tests/gameplayPromptTargetFrameState.test.js
+git diff --check
+npm run build
+npm test
+```
+
+Results:
+
+- Focused tests passed: 4 files, 10 tests.
+- `git diff --check` passed.
+- `npm run build` passed with the existing Vite chunk-size warning.
+- `npm test` completed with `2015` passed and `4` failed.
+
+Known full-suite failures:
+
+- `3` existing Leafage Native Tree failures in
+  `tests/gameplayInteractions.test.js`.
+- `1` existing scene-flow/start-screen failure in
+  `tests/sceneFlowRuntimeCompletion.test.js`.
+
+Manual gameplay validation remains pending for this cut.
+
 ### Prompt Frame Render Payload Boundary
 
 Expanded `createGameplayRenderSnapshotFrameRuntime(...)` so it accepts the

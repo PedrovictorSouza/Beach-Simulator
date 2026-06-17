@@ -69,6 +69,7 @@ import { createPlayerFrameRuntimeBundle } from "../player/playerFrameRuntimeBund
 import { createGameplayPromptPreparationRuntimeBundle } from "./presentation/gameplayPromptPreparationRuntimeBundle.js";
 import { createWorldSpacePresentationFrameRuntime } from "./presentation/worldSpacePresentationSnapshotFrame.js";
 import {
+  createGameplayPresentationSnapshotFrameRuntime,
   createGameplayRenderSnapshotFrameRuntime,
   createRenderSnapshotRuntimeBundle
 } from "./presentation/renderSnapshotRuntimeBundle.js";
@@ -1353,6 +1354,17 @@ export function startGameLoop({
     },
     debug: debugInteractionFlow,
   });
+  const gameplayPresentationSnapshotFrameRuntime =
+    createGameplayPresentationSnapshotFrameRuntime({
+      gameplayPromptPreparationFrameRuntime,
+      gameplayRenderSnapshotFrameRuntime,
+      placementFootprints: {
+        solarStation: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
+        greenhouse: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
+        campfire: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
+        leafDenKit: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT
+      }
+    });
   const fieldMoveImpactRuntime = createFieldMoveImpactRuntime({
     session,
     controls,
@@ -1578,10 +1590,7 @@ export function startGameLoop({
     const playerActionState = playerActionFrameRuntime.getActionState();
     const {
       activeMoveId,
-      buildBlockEquipped,
-      fireEquipped,
-      leafageEquipped,
-      waterGunEquipped
+      buildBlockEquipped
     } = playerActionState;
     const { freeBlockPreviewTarget } = constructionPlacementFrameRuntime.updateFreeBlockPreview({
       now,
@@ -1666,48 +1675,22 @@ export function startGameLoop({
       gameplayOpeningHudHidden,
       currentFlowState
     } = gameplayPresentationFrame;
-    // Prompt and snapshot preparation.
-    const gameplayPromptPreparationFrame = gameplayPromptPreparationFrameRuntime.update({
+    // Prompt and render snapshot preparation.
+    gameplayPresentationSnapshotFrameRuntime.update({
+      nextFrame,
       now,
+      deltaTime,
+      gameplayOpeningCameraLocked,
       gameplayOpeningMovementLocked,
       gameplayOpeningHudHidden,
-      flowState: currentFlowState,
-      equipmentState: {
-        activeMoveId,
-        waterGunEquipped,
-        leafageEquipped,
-        fireEquipped
-      },
+      currentFlowState,
+      playerActionState,
       placementPreviews: {
         solarStationPlacementPreview,
         greenhousePlacementPreview,
         campfirePlacementPreview,
         leafDenKitPlacementPreview
       },
-      placementFootprints: {
-        solarStation: SOLAR_STATION_PLACEMENT_GRID_FOOTPRINT,
-        greenhouse: GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
-        campfire: TRAIN_HOUSE_PLACEMENT_GRID_FOOTPRINT,
-        leafDenKit: LEAF_DEN_KIT_PLACEMENT_GRID_FOOTPRINT
-      }
-    });
-    ({
-      solarStationPlacementPreview,
-      greenhousePlacementPreview,
-      campfirePlacementPreview,
-      leafDenKitPlacementPreview
-    } = gameplayPromptPreparationFrame);
-
-    // World-space UI and render preparation.
-    gameplayRenderSnapshotFrameRuntime.update({
-      nextFrame,
-      now,
-      deltaTime,
-      gameplayOpeningCameraLocked,
-      gameplayOpeningHudHidden,
-      currentFlowState,
-      playerActionState,
-      promptPreparationFrame: gameplayPromptPreparationFrame,
       freeBlockPreviewTarget,
       chopperBulbasaurRepairBoxInvestigationTarget,
       firstTaughtActionFreedomWindowActive: firstTaughtActionFreedomWindow.active

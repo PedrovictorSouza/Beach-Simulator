@@ -5,6 +5,71 @@ import {
 import { updateHudSnapshotFrame } from "./hudSnapshotFrame.js";
 import { updateWorldObjectBillboardFrame } from "./worldObjectBillboardFrame.js";
 
+export function createGameplayPresentationSnapshotFrameRuntime({
+  gameplayPromptPreparationFrameRuntime = { update: () => ({}) },
+  gameplayRenderSnapshotFrameRuntime = { update: () => ({}) },
+  placementFootprints = {}
+} = {}) {
+  function update({
+    nextFrame,
+    now = 0,
+    deltaTime = 0,
+    gameplayOpeningCameraLocked = false,
+    gameplayOpeningMovementLocked = false,
+    gameplayOpeningHudHidden = false,
+    currentFlowState = {},
+    playerActionState = {},
+    placementPreviews = {},
+    freeBlockPreviewTarget = null,
+    chopperBulbasaurRepairBoxInvestigationTarget = null,
+    firstTaughtActionFreedomWindowActive = false
+  } = {}) {
+    const {
+      activeMoveId = null,
+      waterGunEquipped = false,
+      leafageEquipped = false,
+      fireEquipped = false
+    } = playerActionState;
+    const promptPreparationFrame = gameplayPromptPreparationFrameRuntime.update({
+      now,
+      gameplayOpeningMovementLocked,
+      gameplayOpeningHudHidden,
+      flowState: currentFlowState,
+      equipmentState: {
+        activeMoveId,
+        waterGunEquipped,
+        leafageEquipped,
+        fireEquipped
+      },
+      placementPreviews,
+      placementFootprints
+    });
+
+    const renderSnapshotFrame = gameplayRenderSnapshotFrameRuntime.update({
+      nextFrame,
+      now,
+      deltaTime,
+      gameplayOpeningCameraLocked,
+      gameplayOpeningHudHidden,
+      currentFlowState,
+      playerActionState,
+      promptPreparationFrame,
+      freeBlockPreviewTarget,
+      chopperBulbasaurRepairBoxInvestigationTarget,
+      firstTaughtActionFreedomWindowActive
+    });
+
+    return {
+      promptPreparationFrame,
+      renderSnapshotFrame
+    };
+  }
+
+  return {
+    update
+  };
+}
+
 export function createGameplayRenderSnapshotFrameRuntime({
   controls = {},
   session = {},

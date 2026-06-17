@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createGameplayRenderSnapshotFrameRuntime,
+  createGameplayPresentationSnapshotFrameRuntime,
   createRenderSnapshotRuntimeBundle
 } from "../app/runtime/presentation/renderSnapshotRuntimeBundle.js";
 
@@ -269,6 +270,106 @@ describe("createRenderSnapshotRuntimeBundle", () => {
       canShowWorldSpaceUi: true,
       grassBendPlayerPosition: [1, 0, 2],
       natureRenderCenter: [1, 0, 2]
+    });
+  });
+
+  it("prepares prompt state before updating the gameplay render snapshot", () => {
+    const order = [];
+    const promptPreparationFrame = {
+      solarStationPlacementPreview: { active: true },
+      greenhousePlacementPreview: null,
+      campfirePlacementPreview: null,
+      leafDenKitPlacementPreview: null,
+      promptCopy: "Prompt"
+    };
+    const gameplayPromptPreparationFrameRuntime = {
+      update: vi.fn(() => {
+        order.push("prompt");
+        return promptPreparationFrame;
+      })
+    };
+    const gameplayRenderSnapshotFrameRuntime = {
+      update: vi.fn(() => {
+        order.push("render");
+        return { canShowWorldSpaceUi: true };
+      })
+    };
+    const runtime = createGameplayPresentationSnapshotFrameRuntime({
+      gameplayPromptPreparationFrameRuntime,
+      gameplayRenderSnapshotFrameRuntime,
+      placementFootprints: {
+        solarStation: { width: 4, height: 4 },
+        greenhouse: { width: 5, height: 3 },
+        campfire: { width: 3, height: 3 },
+        leafDenKit: { width: 3, height: 3 }
+      }
+    });
+    const nextFrame = { hud: {}, render: { genericBillboards: [] } };
+    const currentFlowState = { cinematicActive: false };
+    const playerActionState = {
+      activeMoveId: "waterGun",
+      waterGunEquipped: true,
+      leafageEquipped: false,
+      fireEquipped: false
+    };
+    const placementPreviews = {
+      solarStationPlacementPreview: null,
+      greenhousePlacementPreview: null,
+      campfirePlacementPreview: null,
+      leafDenKitPlacementPreview: null
+    };
+
+    const result = runtime.update({
+      nextFrame,
+      now: 456,
+      deltaTime: 0.032,
+      gameplayOpeningCameraLocked: false,
+      gameplayOpeningMovementLocked: false,
+      gameplayOpeningHudHidden: false,
+      currentFlowState,
+      playerActionState,
+      placementPreviews,
+      freeBlockPreviewTarget: { id: "block" },
+      chopperBulbasaurRepairBoxInvestigationTarget: { id: "box" },
+      firstTaughtActionFreedomWindowActive: true
+    });
+
+    expect(order).toEqual(["prompt", "render"]);
+    expect(gameplayPromptPreparationFrameRuntime.update).toHaveBeenCalledWith({
+      now: 456,
+      gameplayOpeningMovementLocked: false,
+      gameplayOpeningHudHidden: false,
+      flowState: currentFlowState,
+      equipmentState: {
+        activeMoveId: "waterGun",
+        waterGunEquipped: true,
+        leafageEquipped: false,
+        fireEquipped: false
+      },
+      placementPreviews,
+      placementFootprints: {
+        solarStation: { width: 4, height: 4 },
+        greenhouse: { width: 5, height: 3 },
+        campfire: { width: 3, height: 3 },
+        leafDenKit: { width: 3, height: 3 }
+      }
+    });
+    expect(gameplayRenderSnapshotFrameRuntime.update).toHaveBeenCalledWith({
+      nextFrame,
+      now: 456,
+      deltaTime: 0.032,
+      gameplayOpeningCameraLocked: false,
+      gameplayOpeningHudHidden: false,
+      currentFlowState,
+      playerActionState,
+      promptPreparationFrame,
+      freeBlockPreviewTarget: { id: "block" },
+      chopperBulbasaurRepairBoxInvestigationTarget: { id: "box" },
+      firstTaughtActionFreedomWindowActive: true
+    });
+    expect(result).toEqual({
+      promptPreparationFrame,
+      renderSnapshotFrame: { canShowWorldSpaceUi: true }
     });
   });
 });
