@@ -109,6 +109,8 @@ There is no dedicated lint or typecheck script in `package.json`.
   frame bundle.
 - Completed: move gameplay companion facing defaults into the `companions/`
   facing runtime.
+- Completed: move gameplay repair-box reveal defaults into the `companions/`
+  reveal runtime boundary.
 - Completed: bundle construction placement runtime wiring into the
   `construction/` domain.
 - Completed: move gameplay free-block build session grid defaults into the
@@ -307,6 +309,78 @@ npm test
 ```
 
 `npm test` completed with `2026` passed and `4` failed:
+
+- `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
+  baseline failures.
+- `tests/sceneFlowRuntimeCompletion.test.js`: the existing start-screen gameplay
+  opening baseline failure.
+
+Manual gameplay validation remains pending for this cut.
+
+## 2026-06-17 - Gameplay Repair-Box Reveal Boundary
+
+This cut moves gameplay-specific repair-box reveal wiring out of `gameLoop.js`
+and into the companion reveal runtime boundary.
+
+Boundary classification: `companions / repair-box reveal presentation`.
+
+What changed:
+
+- Added `createGameplayRepairBoxRevealRuntimeBundle(...)` to
+  `app/runtime/companions/repairBoxRevealOpeningRuntime.js`.
+- Moved the repair-box reveal flash implementation into the same companion
+  reveal boundary.
+- Kept `app/runtime/repairBoxRevealFlashRuntime.js` as a compatibility
+  re-export for existing imports and tests.
+- Removed repair-box reveal duration, flash opacity, float height and bot-fall
+  defaults from `app/runtime/gameLoop.js`.
+- `startGameLoop()` now passes only composition-root dependencies for this flow:
+  `mount`, `worldCanvas`, `camera`, `clamp01`, `getRepairBoxPosition` and
+  `playRevealSfx`.
+
+Why this boundary is safe:
+
+- The numeric reveal defaults were copied unchanged.
+- The existing lower-level opening and flash factories remain available.
+- The frame order did not change; only runtime construction moved.
+- The old flash import path still re-exports the same factory.
+
+Line-count impact:
+
+- Before this cut, `app/runtime/gameLoop.js` was `1449` lines.
+- After this cut, `app/runtime/gameLoop.js` is `1433` lines.
+
+Tests updated:
+
+- `tests/repairBoxRevealOpeningRuntime.test.js`
+
+TDD sequence:
+
+```sh
+npm test -- --run tests/repairBoxRevealOpeningRuntime.test.js
+```
+
+The first run failed because `createGameplayRepairBoxRevealRuntimeBundle(...)`
+did not exist. After the bundle was added and `gameLoop.js` was rewired, the
+focused reveal suite passed.
+
+Passed:
+
+```sh
+npm test -- --run tests/repairBoxRevealOpeningRuntime.test.js tests/repairBoxRevealFlashRuntime.test.js tests/botRevealMotion.test.js tests/companionFrameRuntimeBundle.test.js
+git diff --check
+npm run build
+```
+
+`npm run build` passed with the existing Vite chunk-size warning.
+
+Full-suite baseline:
+
+```sh
+npm test
+```
+
+`npm test` completed with `2027` passed and `4` failed:
 
 - `tests/gameplayInteractions.test.js`: the 3 existing Leafage Native Tree
   baseline failures.

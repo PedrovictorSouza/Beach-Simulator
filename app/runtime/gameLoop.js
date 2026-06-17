@@ -11,7 +11,7 @@ import { createGameplayCompanionMotionRuntimeBundle } from "./companions/compani
 import { createGameplayCompanionPresentationRuntimeBundle } from "./companions/companionPresentationRuntimeBundle.js";
 import { createGameplayCompanionWorldSpeechCueRuntime } from "./companions/companionWorldSpeechCueRuntime.js";
 import { processFollowerCallFrame } from "./companions/followerCallFrame.js";
-import { createRepairBoxRevealOpeningRuntime } from "./companions/repairBoxRevealOpeningRuntime.js";
+import { createGameplayRepairBoxRevealRuntimeBundle } from "./companions/repairBoxRevealOpeningRuntime.js";
 import { createGameplayFreeBlockBuildSessionRuntime } from "./construction/freeBlockBuildSessionRuntime.js";
 import { createConstructionBlockerRuntimeBundle } from "./construction/constructionBlockerRuntimeBundle.js";
 import { createConstructionBuildRuntimeBundle } from "./construction/constructionBuildRuntimeBundle.js";
@@ -76,7 +76,6 @@ import {
 import { createGameplaySupplyFeedbackRuntimeBundle } from "./presentation/supplyFeedbackRuntimeBundle.js";
 import { createGameplayNaturePresentationRuntimeBundle } from "./presentation/naturePresentationRuntimeBundle.js";
 import { isWorldPositionWithinRenderDistance } from "./presentation/renderDistance.js";
-import { createRepairBoxRevealFlashRuntime } from "./repairBoxRevealFlashRuntime.js";
 import { createRunBreadcrumbPromptRuntime } from "./runBreadcrumbPromptRuntime.js";
 import { createSnowstormFogRuntime } from "./snowstormFogRuntime.js";
 import { applyTrainHouseDance } from "./trainHouseDance.js";
@@ -247,12 +246,6 @@ const WATER_GUN_FIRST_USE_PROMPT_FLAG = "waterGunFirstUsePromptDismissed";
 const RUN_BREADCRUMB_PROMPT_DURATION_MS = 4200;
 const SNOWSTORM_FOG_MAX_OPACITY = 0.54;
 const SNOWSTORM_FOG_OPACITY_EASE = 6.2;
-const ROBOT_REPAIR_BOX_FLOAT_HEIGHT = 0.74;
-const BULBASAUR_REVEAL_BOX_DURATION = 4.35;
-const BULBASAUR_REVEAL_VISIBLE_PROGRESS = 0.72;
-const BULBASAUR_REVEAL_FLASH_PEAK_OPACITY = 1;
-const BULBASAUR_REVEAL_BOT_FALL_HEIGHT = 1.82;
-const BULBASAUR_REVEAL_BOT_FALL_END_PROGRESS = 0.96;
 const REPAIR_BOX_PROMPT_DISTANCE = 2.8;
 const CAMERA_DEBUG_ENABLED = (() => {
   try {
@@ -528,23 +521,14 @@ export function startGameLoop({
   const runBreadcrumbPromptRuntime = createRunBreadcrumbPromptRuntime({
     durationMs: RUN_BREADCRUMB_PROMPT_DURATION_MS
   });
-  const repairBoxRevealFlashRuntime = createRepairBoxRevealFlashRuntime({
+  const {
+    repairBoxRevealOpeningRuntime
+  } = createGameplayRepairBoxRevealRuntimeBundle({
     mount,
     worldCanvas,
     camera,
     clamp01,
-    peakOpacity: BULBASAUR_REVEAL_FLASH_PEAK_OPACITY,
-    repairBoxFloatHeight: ROBOT_REPAIR_BOX_FLOAT_HEIGHT,
-    getRepairBoxPosition: getEncounterRepairBoxPosition
-  });
-  const repairBoxRevealOpeningRuntime = createRepairBoxRevealOpeningRuntime({
     getRepairBoxPosition: getEncounterRepairBoxPosition,
-    fallHeight: BULBASAUR_REVEAL_BOT_FALL_HEIGHT,
-    defaultDuration: BULBASAUR_REVEAL_BOX_DURATION,
-    defaultVisibleProgress: BULBASAUR_REVEAL_VISIBLE_PROGRESS,
-    defaultFallEndProgress: BULBASAUR_REVEAL_BOT_FALL_END_PROGRESS,
-    clamp01,
-    flashRuntime: repairBoxRevealFlashRuntime,
     playRevealSfx: playGrowBotRevealSfx
   });
   const workbenchRotationRuntime = createConstructionWorkbenchRotationRuntime({

@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createGameplayRepairBoxRevealRuntimeBundle,
   createRepairBoxRevealOpeningRuntime
 } from "../app/runtime/companions/repairBoxRevealOpeningRuntime.js";
 
@@ -26,6 +27,34 @@ function createRuntime(overrides = {}) {
 }
 
 describe("createRepairBoxRevealOpeningRuntime", () => {
+  it("wires gameplay repair-box reveal defaults", () => {
+    const playRevealSfx = vi.fn();
+    const { repairBoxRevealOpeningRuntime, repairBoxRevealFlashRuntime } =
+      createGameplayRepairBoxRevealRuntimeBundle({
+        mount: null,
+        worldCanvas: null,
+        camera: null,
+        clamp01,
+        getRepairBoxPosition: () => [3, 0.5, 4],
+        playRevealSfx
+      });
+    const encounter = {
+      repairPosition: [1, 0.2, 2],
+      revealBoxOpening: {
+        active: true
+      }
+    };
+
+    expect(repairBoxRevealFlashRuntime).toBeTruthy();
+    expect(
+      repairBoxRevealOpeningRuntime.update(4.35 * 0.72, encounter)
+    ).toBe(true);
+
+    expect(playRevealSfx).toHaveBeenCalledTimes(1);
+    expect(encounter.revealBoxOpening.botVisible).toBe(true);
+    expect(encounter.position).toEqual([3, 0.5 + 1.82, 4]);
+  });
+
   it("reveals a falling bot, hides the box and completes with existing side effects", () => {
     const flashRuntime = {
       update: vi.fn(),
