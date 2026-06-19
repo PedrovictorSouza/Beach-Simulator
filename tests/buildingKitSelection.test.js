@@ -5,7 +5,7 @@ import { LEAF_DEN_KIT_ITEM_ID } from "../gameplayContent.js";
 import {
   resolveSelectableBuildingKit,
   shouldChainHouseKitPlacementAfterSolarStation
-} from "../app/bootstrap/createApplicationRuntime.js";
+} from "../app/bootstrap/buildingKitSelection.js";
 
 describe("building kit inventory selection", () => {
   it("selects an owned House Kit when building placement is available", () => {

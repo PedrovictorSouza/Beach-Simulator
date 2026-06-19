@@ -32,15 +32,11 @@ import {
   resolvePlacementPreviewPrompt,
   UI_PROMPT_ACTION
 } from "../ui/inputPromptResolver.js";
-import { getMilestoneCompletionPopText } from "../ui/firstMissionCompletionPop.js";
 import {
   mapActiveFieldMoveStateToSaveGameDto,
   mapSaveGameDtoToActiveFieldMoveState
 } from "../save/saveGameDto.ts";
-import {
-  createManualSavePointDto,
-  isManualSavePointDto
-} from "../save/manualSavePointDto.ts";
+import { createManualSavePointDto } from "../save/manualSavePointDto.ts";
 import {
   createConsoleGamePerformanceReporter,
   measureFieldMoveSwitchToPaint
@@ -92,7 +88,6 @@ import { createDialogueSystem } from "../dialogue/createDialogueSystem.js";
 import { SMALL_ISLAND_DIALOGUES } from "../dialogue/dialogueData.js";
 import { createQuestSystem } from "../quest/createQuestSystem.js";
 import { createQuestTaskBridgeAdapter } from "../tasks/createQuestTaskBridgeAdapter.js";
-import { createTaskTerminalMissionEntries } from "../tasks/taskTerminalMissionAdapter.js";
 import {
   getErrandQuestProgressFeedback,
   unlockErrandQuestPokedeskReward,
@@ -102,7 +97,6 @@ import { QUEST_EVENT, SMALL_ISLAND_QUESTS } from "../quest/questData.js";
 import { createStoryBeatSystem } from "../story/createStoryBeatSystem.js";
 import {
   FIELD_TASK_IDS,
-  SMALL_ISLAND_FIELD_TASKS,
   STORY_BEAT_IDS
 } from "../story/storyBeatData.js";
 import {
@@ -117,8 +111,7 @@ import {
   findNearbyGroundCell,
   purifyGroundCell,
   reviveGroundFlower,
-  reviveGroundGrass,
-  syncPurifiedGroundVariantInstances
+  reviveGroundGrass
 } from "../../groundGrid.js";
 import { createGameInputController } from "../../input/gameInputController.js";
 import {
@@ -152,7 +145,6 @@ import { createGameSession } from "../gameSession.js";
 import { startNatureRevivalEffect } from "../session/natureRevivalEffects.js";
 import { startChopperNpcFlight } from "../session/chopperNpcActor.js";
 import {
-  applySavedPlayerProfile,
   clonePlayerProfileState,
   confirmPlayerName,
   createPlayerProfileState,
@@ -199,17 +191,58 @@ import {
 import {
   markAppReady
 } from "./runtimeBootstrap.js";
-import { resolveDomElements } from "./resolveDomElements.js";
-import { createGameShell } from "../ui/createGameShell.js";
+import {
+  createBotTradeSfxPlayer,
+  registerAudioLifecycleStop
+} from "./audioLifecycle.js";
+import { createAutosaveIndicator } from "./autosaveIndicator.js";
+import { resolveInitialSceneIdForApplicationBoot } from "./initialSceneId.js";
+import {
+  DEFAULT_MANUAL_SAVE_SLOT_ID,
+  MANUAL_SAVE_ACTIVE_SLOT_STORAGE_KEY,
+  MANUAL_SAVE_STORAGE_KEY,
+  buildStartSaveSlots,
+  getManualSaveSlotStorageKey,
+  normalizeManualSaveSlotId,
+  readManualSaveSlot,
+  removeManualSaveSlot,
+  resolveBootManualSaveSlot,
+  writeActiveManualSaveSlotId
+} from "./manualSaveSlots.js";
+import {
+  applyManualSaveState,
+  cloneGridPlacementConfig,
+  cloneSessionCompanionState,
+  cloneSessionFreeBlockBuild,
+  cloneSessionGridPlacement,
+  cloneSessionPlaceables,
+  cloneSessionWorldState,
+  restoreSavedSessionState,
+  restoreSavedWorldState
+} from "./manualSaveSessionState.js";
+import {
+  resolveSelectableBuildingKit,
+  shouldChainHouseKitPlacementAfterSolarStation
+} from "./buildingKitSelection.js";
+import { restoreGreenhouseFootprintGround } from "./greenhouseFootprintGround.js";
+import { buildPokemonCenterPcMissionEntries as buildPokemonCenterPcMissionEntryModel } from "./pokemonCenterPcMissions.js";
+import {
+  FIELD_MOVE_SWITCH_PROMPT_DURATION_MS,
+  buildFieldMoveSwitchPromptHtml as buildFieldMoveSwitchPromptHtmlModel
+} from "./fieldMoveSwitchPrompt.js";
+import {
+  OBJECTIVE_COMPLETION_POP_DURATION_MS,
+  QUEST_COMPLETION_POP_DURATION_MS,
+  buildObjectiveCompletionPopText as buildObjectiveCompletionPopTextModel,
+  buildQuestCompletionPopText as buildQuestCompletionPopTextModel,
+  buildQuestTransitionNotice as buildQuestTransitionNoticeModel
+} from "./questCompletionFeedback.js";
+import { LEAFAGE_OBJECT_OPTIONS } from "./leafageObjectOptions.js";
+import { createGameShell } from "../ui/gameShell/index.js";
 import { createOverlayVeil } from "../ui/overlayTransition.js";
 import { createPokemonCenterPcModalController } from "../ui/pokemonCenterPcModalController.js";
 import { createWorkbenchModalController } from "../ui/workbenchModalController.js";
-import {
-  createDefaultPlacementDatabase,
-  createGridSystem,
-  GRID_PLACEABLE_IDS,
-  migrateLegacyPlaceablesToGridRecords
-} from "../gameplay/gridBuildingSystem.js";
+import { GRID_PLACEABLE_IDS } from "../gameplay/gridBuildingSystem.js";
 import { createWorkbenchRecipeMap } from "../gameplay/buildableCatalog.js";
 
 const RESOURCE_HARVEST_PROMPT = "Enter action";
@@ -220,15 +253,6 @@ const ENABLE_GAMEPLAY_DEV_BOOT = false;
 const ENABLE_QUEST_PERSISTENCE = false;
 const DEFAULT_DEV_SCENE = DEV_SCENE.GAMEPLAY;
 const WATER_GUN_FLOWER_FIELD_GROUP_ID = "water-gun-flower-field-0";
-const GRID_PLACEMENT_SAVE_SCHEMA_VERSION = 1;
-const DEFAULT_GRID_PLACEMENT_SAVE_CONFIG = Object.freeze({
-  cellSize: 1,
-  origin: Object.freeze({ x: -128, y: 0, z: -128 }),
-  width: 256,
-  height: 256,
-  visualOffsetY: 0.03
-});
-const DEFAULT_GRID_PLACEMENT_DATABASE = createDefaultPlacementDatabase();
 const WORKBENCH_RECIPES = createWorkbenchRecipeMap({
   placeholderRecipes: PLACEHOLDER_RECIPES
 });
@@ -294,54 +318,6 @@ const PLAYER_SKILL_DEFS = {
 };
 const PLAYER_SKILL_ORDER = ["transform", "waterGun", "leafage", "fire", "buildBlock"];
 const ACTIVE_FIELD_MOVE_ORDER = ["waterGun", "leafage", "fire", "buildBlock"];
-const FIELD_MOVE_SWITCH_PROMPT_DURATION_MS = 1500;
-const FIELD_MOVE_CAROUSEL_CARD_SIZE = 122;
-const FIELD_MOVE_CAROUSEL_CARD_GAP = 10;
-const FIELD_MOVE_CAROUSEL_SELECTED_OVERLAY_URL = new URL("../ui/images/selected.png", import.meta.url).href;
-const FIELD_MOVE_SWITCH_PROMPT_PRESENTATION = Object.freeze({
-  waterGun: {
-    companionName: SANDBOTS_BOT_NAMES.hydro,
-    companionId: "squirtle",
-    hint: "Use LT to mark the ground",
-    thumbnailUrl: new URL("../ui/images/Robot-1-thumb.png", import.meta.url).href
-  },
-  leafage: {
-    companionName: SANDBOTS_BOT_NAMES.grow,
-    companionId: "bulbasaur",
-    hint: "Use LT on green ground",
-    thumbnailUrl: new URL("../ui/images/Robot-2-thumb.png", import.meta.url).href
-  },
-  fire: {
-    companionName: SANDBOTS_BOT_NAMES.thermal,
-    companionId: "charmander",
-    hint: "Use LT on white ground",
-    thumbnailUrl: new URL("../ui/images/Robot-3-thumb.png", import.meta.url).href
-  },
-  buildBlock: {
-    companionName: SANDBOTS_BOT_NAMES.builder,
-    companionId: "timburr",
-    hint: "Use LT to build",
-    thumbnailUrl: new URL("../buildings/Box/robot-1-thumb.png", import.meta.url).href
-  }
-});
-const QUEST_COMPLETION_POP_DURATION_MS = 2400;
-const OBJECTIVE_COMPLETION_POP_DURATION_MS = 1500;
-const OBJECTIVE_COMPLETION_REWARD_TEXT_BY_ID = Object.freeze({
-  "rebirth-of-nature": "+10 Leaf"
-});
-const QUEST_COMPLETION_POP_MESSAGES = Object.freeze({
-  "learn-to-move": "You can move!",
-  "wake-guide": "You met Chopper!",
-  "gather-first-supplies": "Hydro Bot is online!",
-  "water-first-dry-patch": "First patch restored!",
-  "water-dry-grass": "You restored the tall grass!",
-  "inspect-rustling-grass": `${SANDBOTS_ITEM_NAMES.growTool} online!`,
-  "grow-a-home-patch": "You grew a home patch!",
-  "melt-first-snow": "Snow cleared!",
-  "open-colony-computer": "Colony computer online!",
-  "build-first-base": "Base foundation built!",
-  "chopper-first-habitat-report": "You reported back!"
-});
 const CHOPPER_BULBASAUR_REPAIR_BOX_INTRO_LINES = Object.freeze([
   {
     speaker: "Chopper",
@@ -407,7 +383,6 @@ const SQUIRTLE_DRY_GRASS_FOCUS_LINE_INDEX = 3;
 const SQUIRTLE_DRY_GRASS_CAMERA_FOCUS_HEIGHT = 1.12;
 const WORKBENCH_OBJECT_ROTATE_DISTANCE = 3.2;
 const WORKBENCH_OBJECT_ROTATE_TRIGGER_TILE_MARGIN = 1.425;
-const GREENHOUSE_PLACEMENT_GRID_FOOTPRINT = Object.freeze({ width: 5, height: 3 });
 const SOLAR_STATION_ROTATION_FOOTPRINT = [2.2, 2.2];
 const TRAIN_HOUSE_ROTATION_FOOTPRINT = [1.7, 1.45];
 const HOUSE_KIT_ROTATION_FOOTPRINT = [1.95, 1.45];
@@ -415,49 +390,7 @@ const HOUSE_BUILT_ROTATION_FOOTPRINT = [
   HOUSE_KIT_ROTATION_FOOTPRINT[0] * 2,
   HOUSE_KIT_ROTATION_FOOTPRINT[1] * 2
 ];
-const MANUAL_SAVE_STORAGE_KEY = "small-island.manual-save.v1";
-const MANUAL_SAVE_SLOT_STORAGE_PREFIX = "small-island.manual-save-slot.v1.";
-const MANUAL_SAVE_ACTIVE_SLOT_STORAGE_KEY = "small-island.manual-save.active-slot.v1";
-const DEFAULT_MANUAL_SAVE_SLOT_ID = "slot-1";
-const MANUAL_SAVE_SLOT_IDS = Object.freeze([
-  DEFAULT_MANUAL_SAVE_SLOT_ID,
-  "slot-2",
-  "slot-3"
-]);
 const LOG_CHAIR_SAVE_REQUEST_GRACE_MS = 800;
-const LEAFAGE_TALL_GRASS_ARTWORK_URL = new URL("../../Trees/tall-grass/tall-grass.png", import.meta.url).href;
-const LEAFAGE_GARDEN_1_ARTWORK_URL = new URL("../../Trees/Garden-1/garden-1.png", import.meta.url).href;
-const LEAFAGE_NATIVE_TREE_ARTWORK_URL = new URL("../../Trees/tree-3/Tree-3.png", import.meta.url).href;
-const LEAFAGE_FLOWER_ARTWORK_URL = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'%3E%3Crect width='96' height='96' fill='%23284f24'/%3E%3Crect x='44' y='48' width='8' height='30' fill='%2338b764'/%3E%3Crect x='32' y='38' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='50' y='38' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='41' y='28' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='41' y='50' width='14' height='14' fill='%23fff06a'/%3E%3Crect x='42' y='42' width='12' height='12' fill='%23ff7eb6'/%3E%3Crect x='28' y='64' width='14' height='8' fill='%2346d75b'/%3E%3Crect x='54' y='62' width='16' height='8' fill='%2346d75b'/%3E%3C/svg%3E";
-const LEAFAGE_OBJECT_OPTIONS = Object.freeze([
-  {
-    id: "tallGrass",
-    label: "Tall Grass",
-    notice: `${SANDBOTS_BOT_NAMES.grow} will grow Tall Grass with ${SANDBOTS_ITEM_NAMES.growTool}.`,
-    artworkUrl: LEAFAGE_TALL_GRASS_ARTWORK_URL
-  },
-  {
-    id: "garden1",
-    label: "Garden-1",
-    notice: `${SANDBOTS_BOT_NAMES.grow} will grow Garden-1 with ${SANDBOTS_ITEM_NAMES.growTool}.`,
-    artworkUrl: LEAFAGE_GARDEN_1_ARTWORK_URL
-  },
-  {
-    id: "flower",
-    label: "Flower",
-    notice: `${SANDBOTS_BOT_NAMES.grow} will grow a revived Flower with ${SANDBOTS_ITEM_NAMES.growTool}.`,
-    artworkUrl: LEAFAGE_FLOWER_ARTWORK_URL
-  },
-  {
-    id: "nativeTree",
-    label: "Native tree",
-    notice: `${SANDBOTS_BOT_NAMES.grow} will grow a Native tree with ${SANDBOTS_ITEM_NAMES.growTool}.`,
-    artworkUrl: LEAFAGE_NATIVE_TREE_ARTWORK_URL
-  }
-]);
-const BOT_TRADE_SFX_URL = new URL("../soundFx/bot-trade.mp3", import.meta.url).href;
-const BOT_TRADE_SFX_VOLUME = 0.76;
-
 function scheduleIdleTask(windowRef, callback, timeout = 1200) {
   if (typeof windowRef.requestIdleCallback === "function") {
     windowRef.requestIdleCallback(callback, { timeout });
@@ -490,1162 +423,10 @@ function removeLocalStorageItem(windowRef, key) {
   }
 }
 
-function isPlainObject(value) {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value));
-}
-
-function readManualSavePointFromKey(windowRef, key) {
-  try {
-    const raw = readLocalStorageItem(windowRef, key);
-    if (!raw) {
-      return null;
-    }
-
-    const parsed = JSON.parse(raw);
-    return isManualSavePointDto(parsed) ? parsed : null;
-  } catch {
-    return null;
-  }
-}
-
-function readManualSavePoint(windowRef) {
-  return readManualSavePointFromKey(windowRef, MANUAL_SAVE_STORAGE_KEY);
-}
-
-function normalizeManualSaveSlotId(slotId) {
-  return MANUAL_SAVE_SLOT_IDS.includes(slotId) ? slotId : DEFAULT_MANUAL_SAVE_SLOT_ID;
-}
-
-function getManualSaveSlotStorageKey(slotId) {
-  return `${MANUAL_SAVE_SLOT_STORAGE_PREFIX}${normalizeManualSaveSlotId(slotId)}`;
-}
-
-function readActiveManualSaveSlotId(windowRef) {
-  return normalizeManualSaveSlotId(readLocalStorageItem(windowRef, MANUAL_SAVE_ACTIVE_SLOT_STORAGE_KEY));
-}
-
-function writeActiveManualSaveSlotId(windowRef, slotId) {
-  try {
-    windowRef.localStorage?.setItem(
-      MANUAL_SAVE_ACTIVE_SLOT_STORAGE_KEY,
-      normalizeManualSaveSlotId(slotId)
-    );
-  } catch {
-    // The game can still run without localStorage write access.
-  }
-}
-
-function readManualSaveSlot(windowRef, slotId) {
-  const normalizedSlotId = normalizeManualSaveSlotId(slotId);
-  const slotSavePoint = readManualSavePointFromKey(
-    windowRef,
-    getManualSaveSlotStorageKey(normalizedSlotId)
-  );
-
-  if (slotSavePoint) {
-    return slotSavePoint;
-  }
-
-  return normalizedSlotId === DEFAULT_MANUAL_SAVE_SLOT_ID ?
-    readManualSavePoint(windowRef) :
-    null;
-}
-
-function removeManualSaveSlot(windowRef, slotId) {
-  const normalizedSlotId = normalizeManualSaveSlotId(slotId);
-  removeLocalStorageItem(windowRef, getManualSaveSlotStorageKey(normalizedSlotId));
-  if (normalizedSlotId === DEFAULT_MANUAL_SAVE_SLOT_ID) {
-    removeLocalStorageItem(windowRef, MANUAL_SAVE_STORAGE_KEY);
-  }
-}
-
-function resolveBootManualSaveSlot(windowRef) {
-  const activeSlotId = readActiveManualSaveSlotId(windowRef);
-  const activeSlotSavePoint = readManualSaveSlot(windowRef, activeSlotId);
-  if (activeSlotSavePoint) {
-    return {
-      slotId: activeSlotId,
-      savePoint: activeSlotSavePoint
-    };
-  }
-
-  const defaultSlotSavePoint = activeSlotId === DEFAULT_MANUAL_SAVE_SLOT_ID ?
-    activeSlotSavePoint :
-    readManualSaveSlot(windowRef, DEFAULT_MANUAL_SAVE_SLOT_ID);
-
-  return {
-    slotId: defaultSlotSavePoint ? DEFAULT_MANUAL_SAVE_SLOT_ID : activeSlotId,
-    savePoint: defaultSlotSavePoint
-  };
-}
-
-function buildStartSaveSlots(savePoint, slotId) {
-  if (!savePoint) {
-    return [];
-  }
-
-  const continueSlotId = normalizeManualSaveSlotId(slotId);
-  const newGameSlotIds = MANUAL_SAVE_SLOT_IDS
-    .filter((candidateSlotId) => candidateSlotId !== continueSlotId)
-    .slice(0, 2);
-
-  return [
-    {
-      id: "continue",
-      action: START_SLOT_ACTION.CONTINUE,
-      slotId: continueSlotId,
-      label: "Continue",
-      detail: "Saved Game"
-    },
-    ...newGameSlotIds.map((newGameSlotId, index) => ({
-      id: `new-game-${newGameSlotId}`,
-      action: START_SLOT_ACTION.NEW_GAME,
-      slotId: newGameSlotId,
-      label: "New Game",
-      detail: `Empty Slot ${index + 1}`
-    }))
-  ];
-}
-
-function cloneFiniteNumberArray(value, length) {
-  if (!Array.isArray(value) || value.length < length) {
-    return null;
-  }
-
-  const next = value.slice(0, length).map(Number);
-  return next.every(Number.isFinite) ? next : null;
-}
-
-function cloneGridCell(cell) {
-  if (!isPlainObject(cell)) {
-    return null;
-  }
-
-  const x = Number(cell.x);
-  const y = Number(cell.y);
-  if (!Number.isFinite(x) || !Number.isFinite(y)) {
-    return null;
-  }
-
-  return {
-    x: Math.floor(x),
-    y: Math.floor(y)
-  };
-}
-
-function cloneGridFootprintSize(size) {
-  if (!isPlainObject(size)) {
-    return null;
-  }
-
-  const width = Number(size.width);
-  const height = Number(size.height);
-  if (!Number.isFinite(width) || !Number.isFinite(height)) {
-    return null;
-  }
-
-  return {
-    width: Math.max(1, Math.floor(width)),
-    height: Math.max(1, Math.floor(height))
-  };
-}
-
-function cloneGridPlacementConfig(config = DEFAULT_GRID_PLACEMENT_SAVE_CONFIG) {
-  const source = isPlainObject(config) ? config : DEFAULT_GRID_PLACEMENT_SAVE_CONFIG;
-  const origin = isPlainObject(source.origin) ? source.origin : DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.origin;
-  const cellSize = Number(source.cellSize);
-  const width = Number(source.width);
-  const height = Number(source.height);
-  const visualOffsetY = Number(source.visualOffsetY);
-  const originX = Number(origin.x);
-  const originY = Number(origin.y);
-  const originZ = Number(origin.z);
-
-  return {
-    cellSize: Number.isFinite(cellSize) && cellSize > 0 ?
-      cellSize :
-      DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.cellSize,
-    origin: {
-      x: Number.isFinite(originX) ? originX : DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.origin.x,
-      y: Number.isFinite(originY) ? originY : DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.origin.y,
-      z: Number.isFinite(originZ) ? originZ : DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.origin.z
-    },
-    width: Number.isFinite(width) && width > 0 ?
-      Math.floor(width) :
-      DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.width,
-    height: Number.isFinite(height) && height > 0 ?
-      Math.floor(height) :
-      DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.height,
-    visualOffsetY: Number.isFinite(visualOffsetY) ?
-      visualOffsetY :
-      DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.visualOffsetY
-  };
-}
-
-function buildOccupiedGridCells(originCell, size) {
-  const cells = [];
-
-  for (let y = 0; y < size.height; y += 1) {
-    for (let x = 0; x < size.width; x += 1) {
-      cells.push({
-        x: originCell.x + x,
-        y: originCell.y + y
-      });
-    }
-  }
-
-  return cells;
-}
-
-function normalizeGreenhouseGridFootprint(footprint = GREENHOUSE_PLACEMENT_GRID_FOOTPRINT) {
-  return {
-    width: Math.max(1, Math.round(Number(footprint?.width) || GREENHOUSE_PLACEMENT_GRID_FOOTPRINT.width)),
-    height: Math.max(1, Math.round(Number(footprint?.height) || GREENHOUSE_PLACEMENT_GRID_FOOTPRINT.height))
-  };
-}
-
-function getRotatedGreenhouseGridFootprint(footprint = GREENHOUSE_PLACEMENT_GRID_FOOTPRINT, yaw = 0) {
-  const normalizedFootprint = normalizeGreenhouseGridFootprint(footprint);
-  const quarterTurn = Math.abs(Math.round(Number(yaw || 0) / (Math.PI * 0.5))) % 4;
-
-  if (quarterTurn % 2 === 1) {
-    return {
-      width: normalizedFootprint.height,
-      height: normalizedFootprint.width
-    };
-  }
-
-  return normalizedFootprint;
-}
-
-export function buildGreenhouseFootprintGroundPositions(preview) {
-  const snappedPosition = Array.isArray(preview?.snappedPosition) ?
-    preview.snappedPosition :
-    preview?.position;
-  if (!Array.isArray(snappedPosition)) {
-    return [];
-  }
-
-  const gridStep = Math.max(
-    0.25,
-    Number(preview?.gridStep) ||
-      Number(preview?.gridConfig?.cellSize) ||
-      DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.cellSize
-  );
-  const rotatedFootprint = getRotatedGreenhouseGridFootprint(
-    GREENHOUSE_PLACEMENT_GRID_FOOTPRINT,
-    preview?.yaw
-  );
-  const originX = snappedPosition[0] - ((rotatedFootprint.width - 1) * gridStep * 0.5);
-  const originZ = snappedPosition[2] - ((rotatedFootprint.height - 1) * gridStep * 0.5);
-  const surfaceY = snappedPosition[1] || 0.02;
-  const positions = [];
-
-  for (let row = 0; row < rotatedFootprint.height; row += 1) {
-    for (let column = 0; column < rotatedFootprint.width; column += 1) {
-      positions.push({
-        position: [
-          Number((originX + column * gridStep).toFixed(3)),
-          surfaceY,
-          Number((originZ + row * gridStep).toFixed(3))
-        ],
-        tileSpan: gridStep
-      });
-    }
-  }
-
-  return positions;
-}
-
-function getNearestGreenhouseFootprintTerrainCell(position, {
-  groundDeadInstances = [],
-  iceGroundInstances = [],
-  groundPurifiedInstances = [],
-  tileSpan = DEFAULT_GRID_PLACEMENT_SAVE_CONFIG.cellSize
-} = {}) {
-  if (!Array.isArray(position)) {
-    return null;
-  }
-
-  const candidates = [
-    ...(Array.isArray(groundDeadInstances) ? groundDeadInstances : []),
-    ...(Array.isArray(iceGroundInstances) ? iceGroundInstances : []),
-    ...(Array.isArray(groundPurifiedInstances) ? groundPurifiedInstances : [])
-  ];
-  const tolerance = Math.max(0.18, Number(tileSpan) * 0.42);
-  let nearestCell = null;
-  let nearestDistance = Infinity;
-
-  for (const groundCell of candidates) {
-    if (groundCell?.active === false || !Array.isArray(groundCell?.offset)) {
-      continue;
-    }
-
-    const distance = Math.hypot(
-      Number(position[0]) - Number(groundCell.offset[0]),
-      Number(position[2]) - Number(groundCell.offset[2])
-    );
-    if (distance <= tolerance && distance < nearestDistance) {
-      nearestCell = groundCell;
-      nearestDistance = distance;
-    }
-  }
-
-  return nearestCell;
-}
-
-export function restoreGreenhouseFootprintGround({
-  preview,
-  groundDeadInstances = [],
-  iceGroundInstances = [],
-  groundPurifiedInstances = [],
-  restoredGroundCells = null
-} = {}) {
-  if (!Array.isArray(groundPurifiedInstances)) {
-    return 0;
-  }
-
-  const deadGround = Array.isArray(groundDeadInstances) ? groundDeadInstances : [];
-  const iceGround = Array.isArray(iceGroundInstances) ? iceGroundInstances : [];
-  const visitedCells = new Set();
-  let restoredCount = 0;
-  const footprintPositions = buildGreenhouseFootprintGroundPositions(preview);
-
-  for (const footprintPosition of footprintPositions) {
-    const groundCell = getNearestGreenhouseFootprintTerrainCell(footprintPosition.position, {
-      groundDeadInstances: deadGround,
-      iceGroundInstances: iceGround,
-      groundPurifiedInstances,
-      tileSpan: footprintPosition.tileSpan
-    });
-
-    if (!groundCell || visitedCells.has(groundCell)) {
-      continue;
-    }
-
-    if (groundPurifiedInstances.includes(groundCell)) {
-      visitedCells.add(groundCell);
-      continue;
-    }
-
-    const restored =
-      purifyGroundCell(groundCell, deadGround, groundPurifiedInstances) ||
-      purifyGroundCell(groundCell, iceGround, groundPurifiedInstances);
-
-    if (restored) {
-      visitedCells.add(groundCell);
-      restoredCount += 1;
-      if (Array.isArray(restoredGroundCells)) {
-        restoredGroundCells.push(groundCell);
-      }
-    }
-  }
-
-  if (restoredCount > 0) {
-    syncPurifiedGroundVariantInstances(groundPurifiedInstances);
-  }
-
-  return restoredCount;
-}
-
-function cloneSavedGridPlacementRecord(record) {
-  if (!isPlainObject(record)) {
-    return null;
-  }
-
-  const placedObjectId = typeof record.placedObjectId === "string" ?
-    record.placedObjectId :
-    null;
-  const sourceDatabaseId = typeof record.sourceDatabaseId === "string" ?
-    record.sourceDatabaseId :
-    null;
-  const originCell = cloneGridCell(record.originCell);
-  const size = cloneGridFootprintSize(record.size);
-  if (!placedObjectId || !sourceDatabaseId || !originCell || !size) {
-    return null;
-  }
-
-  const occupiedCells = Array.isArray(record.occupiedCells) ?
-    record.occupiedCells.map(cloneGridCell).filter(Boolean) :
-    buildOccupiedGridCells(originCell, size);
-
-  return {
-    placedObjectId,
-    sourceDatabaseId,
-    originCell,
-    size,
-    occupiedCells,
-    ...(typeof record.legacyKey === "string" ? { legacyKey: record.legacyKey } : {})
-  };
-}
-
-export function cloneSavedGridPlacement(gridPlacement) {
-  if (!isPlainObject(gridPlacement) || !Array.isArray(gridPlacement.placedObjects)) {
-    return null;
-  }
-
-  return {
-    schemaVersion: GRID_PLACEMENT_SAVE_SCHEMA_VERSION,
-    gridConfig: cloneGridPlacementConfig(gridPlacement.gridConfig),
-    placedObjects: gridPlacement.placedObjects
-      .map(cloneSavedGridPlacementRecord)
-      .filter(Boolean)
-  };
-}
-
-export function cloneSavedFreeBlockBuild(freeBlockBuild) {
-  if (!isPlainObject(freeBlockBuild) || !Array.isArray(freeBlockBuild.floorBlocks)) {
-    return null;
-  }
-
-  const minX = Math.trunc(Number(freeBlockBuild.bounds?.minX));
-  const maxX = Math.trunc(Number(freeBlockBuild.bounds?.maxX));
-  const minY = Math.trunc(Number(freeBlockBuild.bounds?.minY));
-  const maxY = Math.trunc(Number(freeBlockBuild.bounds?.maxY));
-  const bounds = [minX, maxX, minY, maxY].every(Number.isFinite) ?
-    { minX, maxX, minY, maxY } :
-    null;
-  const floorBlocks = freeBlockBuild.floorBlocks
-    .map((block) => {
-      const cell = cloneGridCell(block?.cell || block);
-      return cell ? { cell } : null;
-    })
-    .filter(Boolean);
-
-  if (!bounds || !floorBlocks.length) {
-    return null;
-  }
-
-  return {
-    schemaVersion: 1,
-    buildId: typeof freeBlockBuild.buildId === "string" ? freeBlockBuild.buildId : "freeBuild",
-    bounds,
-    floorBlocks
-  };
-}
-
-export function createLegacyGridPlacementSaveData(placeables, {
-  gridConfig: sourceGridConfig = DEFAULT_GRID_PLACEMENT_SAVE_CONFIG
-} = {}) {
-  const gridConfig = cloneGridPlacementConfig(sourceGridConfig);
-  const gridSystem = createGridSystem(gridConfig);
-  const placedObjects = migrateLegacyPlaceablesToGridRecords({
-    placeables,
-    gridSystem,
-    placementDatabase: DEFAULT_GRID_PLACEMENT_DATABASE
-  })
-    .map((record) => cloneSavedGridPlacementRecord({
-      ...record,
-      occupiedCells: buildOccupiedGridCells(record.originCell, record.size)
-    }))
-    .filter(Boolean);
-
-  return {
-    schemaVersion: GRID_PLACEMENT_SAVE_SCHEMA_VERSION,
-    gridConfig,
-    placedObjects
-  };
-}
-
-export function cloneSavedPlacement(placement) {
-  if (!isPlainObject(placement)) {
-    return null;
-  }
-
-  const position = cloneFiniteNumberArray(placement.position, 3);
-  const size = cloneFiniteNumberArray(placement.size, 2);
-  const uvRect = cloneFiniteNumberArray(placement.uvRect, 4) || [0, 0, 1, 1];
-  if (!position || !size) {
-    return null;
-  }
-
-  const interactionBox = isPlainObject(placement.interactionBox) ?
-    {
-      id: typeof placement.interactionBox.id === "string" ? placement.interactionBox.id : null,
-      markerKey: typeof placement.interactionBox.markerKey === "string" ?
-        placement.interactionBox.markerKey :
-        null,
-      offset: cloneFiniteNumberArray(placement.interactionBox.offset, 3)
-    } :
-    null;
-
-  return {
-    id: typeof placement.id === "string" ? placement.id : null,
-    ...(typeof placement.kind === "string" ? { kind: placement.kind } : {}),
-    ...(typeof placement.constructionSiteId === "string" ? { constructionSiteId: placement.constructionSiteId } : {}),
-    ...(typeof placement.buildingKitId === "string" ? { buildingKitId: placement.buildingKitId } : {}),
-    ...(typeof placement.constructionName === "string" ? { constructionName: placement.constructionName } : {}),
-    ...(typeof placement.constructionStatus === "string" ? { constructionStatus: placement.constructionStatus } : {}),
-    ...(Number.isFinite(Number(placement.yaw)) ? { yaw: Number(placement.yaw) } : {}),
-    ...(interactionBox?.offset ? { interactionBox } : {}),
-    position,
-    size,
-    uvRect
-  };
-}
-
-function cloneSavedPatch(patch) {
-  if (!isPlainObject(patch) || typeof patch.cellId !== "string") {
-    return null;
-  }
-
-  const position = cloneFiniteNumberArray(patch.position, 3);
-  const size = cloneFiniteNumberArray(patch.size, 2);
-  if (!position || !size) {
-    return null;
-  }
-
-  return {
-    id: typeof patch.id === "string" ? patch.id : `saved-patch-${patch.cellId}`,
-    cellId: patch.cellId,
-    position,
-    size,
-    state: patch.state === "alive" ? "alive" : "dead",
-    ...(typeof patch.habitatGroupId === "string" ? { habitatGroupId: patch.habitatGroupId } : {})
-  };
-}
-
-function cloneSavedPlacementList(placements) {
-  return Array.isArray(placements) ?
-    placements.map(cloneSavedPlacement).filter(Boolean) :
-    [];
-}
-
-function cloneSessionPlaceables(session) {
-  const greenhouses = cloneSavedPlacementList(session?.greenhouses);
-  const legacyGreenhouse = cloneSavedPlacement(session?.greenhouse);
-  const savedGreenhouses = greenhouses.length > 0 ?
-    greenhouses :
-    (legacyGreenhouse ? [legacyGreenhouse] : []);
-
-  return {
-    logChair: cloneSavedPlacement(session?.logChair),
-    greenhouse: savedGreenhouses[0] || null,
-    greenhouses: savedGreenhouses,
-    strawBed: cloneSavedPlacement(session?.strawBed),
-    campfire: cloneSavedPlacement(session?.campfire),
-    leafDen: cloneSavedPlacement(session?.leafDen),
-    dittoFlag: cloneSavedPlacement(session?.dittoFlag),
-    playerHouses: Array.isArray(session?.playerHouses) ?
-      session.playerHouses.map(cloneSavedPlacement).filter(Boolean) :
-      [],
-    leafDenFurniture: Array.isArray(session?.leafDenFurniture) ?
-      session.leafDenFurniture.map(cloneSavedPlacement).filter(Boolean) :
-      []
-  };
-}
-
-function cloneSessionGridPlacement(session) {
-  const savedGridPlacement = cloneSavedGridPlacement(session?.gridPlacement);
-  if (savedGridPlacement) {
-    return savedGridPlacement;
-  }
-
-  const legacyGridPlacement = createLegacyGridPlacementSaveData(cloneSessionPlaceables(session), {
-    gridConfig: session?.buildGridConfig || DEFAULT_GRID_PLACEMENT_SAVE_CONFIG
-  });
-  return legacyGridPlacement.placedObjects.length ? legacyGridPlacement : null;
-}
-
-function cloneSessionFreeBlockBuild(session) {
-  const snapshot =
-    session?.freeBlockBuildState?.serializeFreeBlocks?.() ||
-    session?.freeBlockBuildSnapshot ||
-    null;
-  return cloneSavedFreeBlockBuild(snapshot);
-}
-
-function cloneAlivePatches(patches) {
-  return Array.isArray(patches) ?
-    patches
-      .filter((patch) => patch?.state === "alive")
-      .map(cloneSavedPatch)
-      .filter(Boolean) :
-    [];
-}
-
-function cloneSessionWorldState(session) {
-  const burnedColdGroundCellIds = [
-    ...(Array.isArray(session?.groundDeadInstances) ? session.groundDeadInstances : []),
-    ...(Array.isArray(session?.groundPurifiedInstances) ? session.groundPurifiedInstances : [])
-  ]
-    .filter((groundCell) => groundCell?.wasColdGroundBurned)
-    .map((groundCell) => groundCell?.id)
-    .filter((id) => typeof id === "string");
-
-  return {
-    burnedColdGroundCellIds: [...new Set(burnedColdGroundCellIds)],
-    purifiedGroundCellIds: Array.isArray(session?.groundPurifiedInstances) ?
-      session.groundPurifiedInstances
-        .map((groundCell) => groundCell?.id)
-        .filter((id) => typeof id === "string") :
-      [],
-    aliveGroundGrassPatches: cloneAlivePatches(session?.groundGrassPatches),
-    aliveGroundFlowerPatches: cloneAlivePatches(session?.groundFlowerPatches)
-  };
-}
-
-function cloneSessionCompanionState(session) {
-  const squirtle = session?.actTwoSquirtle;
-
-  return {
-    squirtle: {
-      recovered: Boolean(squirtle?.recovered),
-      visible: Boolean(squirtle?.visible),
-      assemblyState: typeof squirtle?.assemblyState === "string" ?
-        squirtle.assemblyState :
-        "hidden",
-      position: cloneFiniteNumberArray(squirtle?.position, 3)
-    }
-  };
-}
-
-function getSavedPlaceables(savePoint) {
-  if (isPlainObject(savePoint?.placeables)) {
-    return savePoint.placeables;
-  }
-
-  if (savePoint?.logChair) {
-    return { logChair: savePoint.logChair };
-  }
-
-  return null;
-}
-
-function restoreSavedGroundCells(session, worldState) {
-  const burnedColdIds = new Set(
-    Array.isArray(worldState?.burnedColdGroundCellIds) ?
-      worldState.burnedColdGroundCellIds.filter((id) => typeof id === "string") :
-      []
-  );
-  const purifiedIds = new Set(
-    Array.isArray(worldState?.purifiedGroundCellIds) ?
-      worldState.purifiedGroundCellIds.filter((id) => typeof id === "string") :
-      []
-  );
-  if (
-    (!burnedColdIds.size && !purifiedIds.size) ||
-    !Array.isArray(session?.groundDeadInstances)
-  ) {
-    return;
-  }
-  if (!Array.isArray(session.groundPurifiedInstances)) {
-    session.groundPurifiedInstances = [];
-  }
-  if (burnedColdIds.size && Array.isArray(session.iceGroundInstances)) {
-    const nextIceGroundInstances = [];
-
-    for (const groundCell of session.iceGroundInstances) {
-      if (burnedColdIds.has(groundCell?.id)) {
-        groundCell.groundKind = "dead";
-        groundCell.purifiable = true;
-        groundCell.wasColdGroundBurned = true;
-        session.groundDeadInstances.push(groundCell);
-        continue;
-      }
-
-      nextIceGroundInstances.push(groundCell);
-    }
-
-    session.iceGroundInstances.length = 0;
-    session.iceGroundInstances.push(...nextIceGroundInstances);
-  }
-
-  const nextDeadInstances = [];
-  const nextPurifiedInstances = session.groundPurifiedInstances
-    .filter((groundCell) => purifiedIds.has(groundCell?.id));
-  const restoredPurifiedIds = new Set(nextPurifiedInstances.map((groundCell) => groundCell?.id));
-
-  for (const groundCell of session.groundDeadInstances) {
-    if (purifiedIds.has(groundCell?.id)) {
-      if (!restoredPurifiedIds.has(groundCell.id)) {
-        nextPurifiedInstances.push(groundCell);
-        restoredPurifiedIds.add(groundCell.id);
-      }
-      continue;
-    }
-
-    nextDeadInstances.push(groundCell);
-  }
-
-  session.groundDeadInstances.length = 0;
-  session.groundDeadInstances.push(...nextDeadInstances);
-  session.groundPurifiedInstances.length = 0;
-  session.groundPurifiedInstances.push(...nextPurifiedInstances);
-  syncPurifiedGroundVariantInstances(session.groundPurifiedInstances);
-}
-
-function restoreSavedPatchStates(patches, savedPatches) {
-  if (!Array.isArray(patches) || !Array.isArray(savedPatches)) {
-    return;
-  }
-
-  const existingByCellId = new Map(
-    patches
-      .filter((patch) => typeof patch?.cellId === "string")
-      .map((patch) => [patch.cellId, patch])
-  );
-
-  for (const savedPatch of savedPatches) {
-    const restoredPatch = cloneSavedPatch(savedPatch);
-    if (!restoredPatch || restoredPatch.state !== "alive") {
-      continue;
-    }
-
-    const existingPatch = existingByCellId.get(restoredPatch.cellId);
-    if (existingPatch) {
-      existingPatch.state = "alive";
-      if (restoredPatch.habitatGroupId) {
-        existingPatch.habitatGroupId = restoredPatch.habitatGroupId;
-      }
-      continue;
-    }
-
-    patches.push(restoredPatch);
-    existingByCellId.set(restoredPatch.cellId, restoredPatch);
-  }
-}
-
-function restoreSavedWorldState(session, savePoint) {
-  if (!session || !isPlainObject(savePoint?.worldState)) {
-    return;
-  }
-
-  restoreSavedGroundCells(session, savePoint.worldState);
-  restoreSavedPatchStates(session.groundGrassPatches, savePoint.worldState.aliveGroundGrassPatches);
-  restoreSavedPatchStates(session.groundFlowerPatches, savePoint.worldState.aliveGroundFlowerPatches);
-}
-
-function isSavedQuestCompleted(savePoint, questId) {
-  const questState = savePoint?.questState;
-  return Boolean(
-    questState?.completedQuestIds?.includes?.(questId) ||
-    questState?.quests?.[questId]?.status === "completed"
-  );
-}
-
-function applySavedStoryState(storyState, savedStoryState) {
-  if (!isPlainObject(savedStoryState)) {
-    return;
-  }
-
-  const questIndex = Number(savedStoryState.questIndex);
-  if (Number.isFinite(questIndex)) {
-    storyState.questIndex = Math.max(0, Math.floor(questIndex));
-  }
-
-  if (isPlainObject(savedStoryState.flags)) {
-    Object.assign(storyState.flags, savedStoryState.flags);
-  }
-}
-
-function applySavedInventory(inventory, savedInventory) {
-  if (!isPlainObject(savedInventory)) {
-    return;
-  }
-
-  for (const [itemId, amount] of Object.entries(savedInventory)) {
-    if (!Object.prototype.hasOwnProperty.call(inventory, itemId)) {
-      continue;
-    }
-
-    const numericAmount = Number(amount);
-    if (Number.isFinite(numericAmount)) {
-      inventory[itemId] = Math.max(0, Math.floor(numericAmount));
-    }
-  }
-}
-
-function applySavedPlayerSkills(playerSkills, savePoint, inventory) {
-  const savedSkills = isPlainObject(savePoint?.playerSkills) ? savePoint.playerSkills : {};
-
-  for (const skillId of Object.keys(playerSkills)) {
-    playerSkills[skillId] = Boolean(savedSkills[skillId]);
-  }
-
-  if (
-    Number(inventory?.[WATER_GUN_POWER_ITEM_ID] || 0) > 0 ||
-    isSavedQuestCompleted(savePoint, "open-the-water-route")
-  ) {
-    playerSkills.waterGun = true;
-  }
-
-  if (
-    savePoint?.questState?.unlocked?.includes?.("leafage") ||
-    isSavedQuestCompleted(savePoint, "inspect-rustling-grass") ||
-    savePoint?.storyState?.flags?.bulbasaurDryGrassRequestTurnedIn
-  ) {
-    playerSkills.leafage = true;
-  }
-
-  if (
-    savedSkills.fire ||
-    savePoint?.questState?.unlocked?.includes?.("fire") ||
-    savePoint?.storyState?.flags?.charmanderRevealed
-  ) {
-    playerSkills.fire = true;
-  }
-
-  if (
-    savedSkills.buildBlock ||
-    savePoint?.questState?.unlocked?.includes?.("buildBlock") ||
-    savePoint?.storyState?.flags?.timburrRevealed
-  ) {
-    playerSkills.buildBlock = true;
-  }
-}
-
-function getSavedActiveFieldMoveId(savePoint, playerSkills) {
-  const savedMoveId = savePoint?.activeFieldMoveId;
-  if (ACTIVE_FIELD_MOVE_ORDER.includes(savedMoveId) && playerSkills[savedMoveId]) {
-    return savedMoveId;
-  }
-
-  return ACTIVE_FIELD_MOVE_ORDER.find((skillId) => playerSkills[skillId]) || null;
-}
-
-function applyManualSaveState(savePoint, {
-  storyState,
-  inventory,
-  playerSkills,
-  playerMemory
-}) {
-  if (!savePoint) {
-    return null;
-  }
-
-  applySavedStoryState(storyState, savePoint.storyState);
-  applySavedInventory(inventory, savePoint.inventory);
-  applySavedPlayerSkills(playerSkills, savePoint, inventory);
-  applySavedPlayerProfile(playerMemory, savePoint.playerProfile);
-  return getSavedActiveFieldMoveId(savePoint, playerSkills);
-}
-
-function isSquirtleRecoveredInSavePoint(savePoint) {
-  const savedSquirtle = savePoint?.companions?.squirtle;
-
-  return Boolean(
-    savedSquirtle?.recovered ||
-    savedSquirtle?.assemblyState === "assembled" ||
-    savePoint?.playerSkills?.waterGun ||
-    Number(savePoint?.inventory?.[WATER_GUN_POWER_ITEM_ID] || 0) > 0 ||
-    isSavedQuestCompleted(savePoint, "open-the-water-route")
-  );
-}
-
-function restoreSavedSquirtleState(session, savePoint) {
-  const squirtle = session?.actTwoSquirtle;
-
-  if (!squirtle || !isSquirtleRecoveredInSavePoint(savePoint)) {
-    return;
-  }
-
-  const savedPosition = cloneFiniteNumberArray(savePoint?.companions?.squirtle?.position, 3);
-  if (savedPosition) {
-    squirtle.position = savedPosition;
-  }
-
-  squirtle.recovered = true;
-  squirtle.visible = true;
-  squirtle.assemblyState = "assembled";
-
-  if (squirtle.reassembly) {
-    squirtle.reassembly.active = false;
-    squirtle.reassembly.elapsed = 0;
-    squirtle.reassembly.progress = 0;
-    squirtle.reassembly.onComplete = null;
-  }
-
-  if (squirtle.modelInstance) {
-    squirtle.modelInstance.active = true;
-    if (Array.isArray(squirtle.position)) {
-      squirtle.modelInstance.offset = [...squirtle.position];
-    }
-  }
-
-  if (squirtle.repairModuleInstance) {
-    squirtle.repairModuleInstance.active = false;
-  }
-}
-
-export function restoreSavedSessionState(session, savePoint) {
-  if (!session || !savePoint) {
-    return false;
-  }
-
-  const placeables = getSavedPlaceables(savePoint);
-  if (placeables) {
-    const restoredGreenhouses = cloneSavedPlacementList(placeables.greenhouses);
-    const legacyGreenhouse = cloneSavedPlacement(placeables.greenhouse);
-    const savedGreenhouses = restoredGreenhouses.length > 0 ?
-      restoredGreenhouses :
-      (legacyGreenhouse ? [legacyGreenhouse] : []);
-    session.logChair = cloneSavedPlacement(placeables.logChair);
-    session.greenhouses = savedGreenhouses;
-    session.greenhouse = savedGreenhouses[0] || null;
-    session.strawBed = cloneSavedPlacement(placeables.strawBed);
-    session.campfire = cloneSavedPlacement(placeables.campfire);
-    session.leafDen = cloneSavedPlacement(placeables.leafDen);
-    session.dittoFlag = cloneSavedPlacement(placeables.dittoFlag);
-    session.playerHouses = Array.isArray(placeables.playerHouses) ?
-      placeables.playerHouses.map(cloneSavedPlacement).filter(Boolean) :
-      [];
-    session.leafDenFurniture = Array.isArray(placeables.leafDenFurniture) ?
-      placeables.leafDenFurniture.map(cloneSavedPlacement).filter(Boolean) :
-      [];
-  }
-
-  session.gridPlacement =
-    cloneSavedGridPlacement(savePoint.gridPlacement) ||
-    createLegacyGridPlacementSaveData(placeables || {});
-  session.freeBlockBuildSnapshot = cloneSavedFreeBlockBuild(savePoint.freeBlockBuild);
-  session.freeBlockInstances ||= [];
-  session.freeBlockInstances.length = 0;
-  session.freeBlockBuildState = null;
-  session.freeBlockPlacementController = null;
-  session.freeBlockPlacementGridSignature = null;
-
-  restoreSavedSquirtleState(session, savePoint);
-
-  const playerPosition = cloneFiniteNumberArray(savePoint.playerPosition, 3);
-  if (!playerPosition) {
-    return false;
-  }
-
-  if (!session.playerCharacter) {
-    session.spawnActTwoPlayer?.({
-      position: playerPosition,
-      preserveCamera: false,
-      configureCamera: true
-    });
-  } else {
-    session.playerCharacter.setPosition?.(playerPosition);
-    if (session.playerModelInstance) {
-      session.playerModelInstance.offset = [...playerPosition];
-      session.playerModelInstance.active = true;
-    }
-  }
-
-  return true;
-}
-
-function escapeHtml(value) {
-  return String(value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-function getFieldTaskDescription(task, storyState) {
-  if (typeof task?.description === "function") {
-    return task.description(storyState);
-  }
-
-  return task?.description || "";
-}
-
-function isFieldTaskComplete(storyState, task) {
-  return Boolean(
-    (typeof task?.isComplete === "function" && task.isComplete(storyState)) ||
-    (task?.completeFlag && storyState.flags?.[task.completeFlag])
-  );
-}
-
-function isFieldTaskKnown(storyState, task) {
-  const flags = storyState.flags || {};
-  const trackedTaskIds = Array.isArray(flags.trackedTaskIds) ? flags.trackedTaskIds : [];
-
-  return Boolean(
-    task?.background ||
-    trackedTaskIds.includes(task.id) ||
-    isFieldTaskComplete(storyState, task)
-  );
-}
-
-function formatQuestMissionProgress(quest) {
-  return (quest.objectives || [])
-    .map((objective) => {
-      const current = Math.min(objective.current || 0, objective.required || 1);
-      return `${current}/${objective.required}`;
-    })
-    .join("  ");
-}
-
-export function createAutosaveIndicator({ documentRef, mount, windowRef }) {
-  const root = mount || documentRef?.body || null;
-  let hideTimeout = null;
-  let element = null;
-
-  function ensureElement() {
-    if (element || !root || !documentRef?.createElement) {
-      return element;
-    }
-
-    element = documentRef.createElement("div");
-    element.textContent = "Saving...";
-    element.setAttribute("aria-live", "polite");
-    Object.assign(element.style, {
-      position: "absolute",
-      top: "50%",
-      left: "50%",
-      transform: "translate(-50%, -50%)",
-      zIndex: "40",
-      pointerEvents: "none",
-      color: "#ffffff",
-      fontFamily: "var(--game-ui-font, monospace)",
-      fontSize: "32px",
-      lineHeight: "1",
-      letterSpacing: "0",
-      textAlign: "center",
-      textShadow: "2px 2px 0 #11111b",
-      opacity: "0",
-      transition: "opacity 120ms linear"
-    });
-    root.appendChild(element);
-    return element;
-  }
-
-  function show() {
-    const indicator = ensureElement();
-    if (!indicator) {
-      return;
-    }
-
-    indicator.style.opacity = "1";
-    if (hideTimeout) {
-      windowRef.clearTimeout?.(hideTimeout);
-    }
-    hideTimeout = windowRef.setTimeout?.(() => {
-      indicator.style.opacity = "0";
-      hideTimeout = null;
-    }, 900);
-  }
-
-  return {
-    show
-  };
-}
-
-export function createBotTradeSfxPlayer({
-  windowRef,
-  src = BOT_TRADE_SFX_URL,
-  volume = BOT_TRADE_SFX_VOLUME,
-  volumeScale = () => 1
-} = {}) {
-  let audio = null;
-
-  function getEffectiveVolume() {
-    const scale = typeof volumeScale === "function" ? volumeScale() : volumeScale;
-    const numericScale = Number(scale);
-    return Math.max(0, Math.min(1, volume * (Number.isFinite(numericScale) ? numericScale : 1)));
-  }
-
-  function getAudio() {
-    if (audio || typeof windowRef?.Audio !== "function") {
-      return audio;
-    }
-
-    audio = new windowRef.Audio(src);
-    audio.preload = "auto";
-    audio.volume = getEffectiveVolume();
-    return audio;
-  }
-
-  function play() {
-    const sfx = getAudio();
-    if (!sfx) {
-      return false;
-    }
-
-    sfx.volume = getEffectiveVolume();
-    try {
-      sfx.currentTime = 0;
-    } catch {
-      // Some browser audio objects disallow seeking before metadata is ready.
-    }
-
-    const playResult = sfx.play?.();
-    if (playResult?.catch) {
-      playResult.catch(() => {});
-    }
-    return true;
-  }
-
-  return {
-    play
-  };
-}
-
-export function resolveSelectableBuildingKit({
-  storyState,
-  inventory,
-  buildingKits = listBuildingKits(),
-  hasItemsFn = hasItems
-} = {}) {
-  const flags = storyState?.flags || {};
-
-  return (
-    buildingKits.find((kit) => {
-      if (!kit?.itemId || !hasItemsFn(inventory, { [kit.itemId]: 1 })) {
-        return false;
-      }
-
-      if (kit.itemId === LEAF_DEN_KIT_ITEM_ID) {
-        return Boolean(flags.leafDenBuildAvailable);
-      }
-
-      return false;
-    }) || null
-  );
-}
-
-export function shouldChainHouseKitPlacementAfterSolarStation({
-  storyState,
-  inventory,
-  gameSession,
-  hasItemsFn = hasItems
-} = {}) {
-  const flags = storyState?.flags || {};
-  return Boolean(
-    flags.leafDenKitSelected &&
-    !flags.leafDenKitPlaced &&
-    !gameSession?.leafDen &&
-    !gameSession?.leafDenKitPlacementPreview?.active &&
-    hasItemsFn(inventory, { [LEAF_DEN_KIT_ITEM_ID]: 1 })
-  );
-}
-
-export function resolveInitialSceneIdForApplicationBoot({
-  devSceneOverride = null,
-  launchInitialGameFlow = GAME_FLOW.START,
-  manualSavePoint = null,
-  runtimeFlags = {},
-  sceneWorkbench = null
-} = {}) {
-  const devSceneInitialGameFlow =
-    devSceneOverride === DEV_SCENE.GAMEPLAY ? GAME_FLOW.GAMEPLAY :
-    devSceneOverride === DEV_SCENE.INTRO ? GAME_FLOW.INTRO :
-    devSceneOverride === DEV_SCENE.TUTORIAL ? GAME_FLOW.TUTORIAL :
-    null;
-  const shouldResumeSavedGameOnBoot =
-    launchInitialGameFlow !== GAME_FLOW.START ||
-    devSceneOverride === DEV_SCENE.GAMEPLAY;
-  const savedGameInitialGameFlow =
-    shouldResumeSavedGameOnBoot &&
-    cloneFiniteNumberArray(manualSavePoint?.playerPosition, 3) ?
-      GAME_FLOW.GAMEPLAY :
-      null;
-
-  return devSceneInitialGameFlow ||
-    savedGameInitialGameFlow ||
-    (
-      (runtimeFlags.skipStartScreen || runtimeFlags.introRoom) && launchInitialGameFlow === GAME_FLOW.START ?
-        GAME_FLOW.INTRO :
-        sceneWorkbench?.initialSceneId ||
-        launchInitialGameFlow
-    );
+function isSupportedSettingsLocale(locale) {
+  const languageGroup = SETTINGS_SCHEMA.find((group) => group.id === "language");
+  const localeSetting = languageGroup?.settings?.find((setting) => setting.id === "locale");
+  return Array.isArray(localeSetting?.options) && localeSetting.options.includes(locale);
 }
 
 export function createApplicationRuntime({
@@ -1653,8 +434,7 @@ export function createApplicationRuntime({
   windowRef = window,
   isDev = import.meta.env.DEV
 } = {}) {
-  createGameShell({ documentRef });
-  const dom = resolveDomElements(documentRef);
+  const dom = createGameShell({ documentRef });
   const { appRoot, status } = dom;
   const launchParams = new URLSearchParams(windowRef.location.search);
   const storedLaunchMode = readLocalStorageItem(windowRef, LAUNCH_MODE_STORAGE_KEY);
@@ -1765,6 +545,14 @@ export function createApplicationRuntime({
   function playSoundEvent(eventId, options) {
     soundEventRuntime.play(eventId, options);
   }
+  registerAudioLifecycleStop({
+    windowRef,
+    documentRef,
+    stopAudio: () => {
+      musicRuntime.stop(null, { disableResume: true });
+      planetAmbientRuntime.stop();
+    }
+  });
   function syncColliderDebugToggle(toggle) {
     if (!toggle) {
       return;
@@ -2878,28 +1666,18 @@ export function createApplicationRuntime({
   }
 
   function buildQuestTransitionNotice(completedQuestIds = [], activeQuest = null) {
-    const completedQuest = questSystem.getQuest(completedQuestIds.at(-1));
-    const nextQuest = completedQuest?.nextQuestId ?
-      questSystem.getQuest(completedQuest.nextQuestId) :
-      activeQuest;
-    const completedCopy = completedQuest ? `Task complete: ${completedQuest.title}.` : "Task complete.";
-    const nextCopy = nextQuest ?
-      `Next: ${nextQuest.title}. ${nextQuest.guidance || nextQuest.description}` :
-      "Free roam: keep restoring the island and checking in with helpers.";
-    return `${completedCopy} ${nextCopy}`;
+    return buildQuestTransitionNoticeModel({
+      completedQuestIds,
+      activeQuest,
+      getQuest: (questId) => questSystem.getQuest(questId)
+    });
   }
 
   function buildQuestCompletionPopText(completedQuestIds = []) {
-    const completedQuestId = completedQuestIds.at(-1);
-    const completedQuest = completedQuestId ? questSystem.getQuest(completedQuestId) : null;
-    const milestonePopText = getMilestoneCompletionPopText(completedQuestId);
-
-    if (milestonePopText) {
-      return milestonePopText;
-    }
-
-    return QUEST_COMPLETION_POP_MESSAGES[completedQuestId] ||
-      `You completed ${completedQuest?.title || "the task"}!`;
+    return buildQuestCompletionPopTextModel({
+      completedQuestIds,
+      getQuest: (questId) => questSystem.getQuest(questId)
+    });
   }
 
   function showQuestCompletionPop(completedQuestIds = []) {
@@ -2913,10 +1691,7 @@ export function createApplicationRuntime({
   }
 
   function buildObjectiveCompletionPopText(completedObjectives = []) {
-    const completedObjective = completedObjectives.at(-1);
-    const title = completedObjective?.title || "Objective";
-    const rewardText = OBJECTIVE_COMPLETION_REWARD_TEXT_BY_ID[completedObjective?.id];
-    return `${title} complete${rewardText ? ` ${rewardText}` : ""}`;
+    return buildObjectiveCompletionPopTextModel(completedObjectives);
   }
 
   function showObjectiveCompletionPop(completedObjectives = []) {
@@ -4689,6 +3464,11 @@ export function createApplicationRuntime({
     }
 
     if (action === START_SLOT_ACTION.NEW_GAME) {
+      if (isSupportedSettingsLocale(selection?.locale)) {
+        settingsState.language ||= {};
+        settingsState.language.locale = selection.locale;
+        saveSettingsState(windowRef.localStorage, settingsState);
+      }
       manualSavePoint = null;
       removeManualSaveSlot(windowRef, selectedSlotId);
       if (shouldDeferManualSavePoint) {
@@ -4879,151 +3659,13 @@ export function createApplicationRuntime({
     uiRuntime?.syncSkillsUi(playerSkills, getActiveFieldMoveId());
   }
 
-  function getCarouselRelativeIndex(index, selectedIndex, total) {
-    if (total <= 1) {
-      return 0;
-    }
-
-    let relativeIndex = index - selectedIndex;
-    const halfTotal = total * 0.5;
-
-    if (relativeIndex > halfTotal) {
-      relativeIndex -= total;
-    } else if (relativeIndex < -halfTotal) {
-      relativeIndex += total;
-    }
-
-    return relativeIndex;
-  }
-
-  function getFieldMoveCarouselCardState(relativeIndex) {
-    const clampedIndex = Math.max(-2, Math.min(2, relativeIndex));
-    const distance = Math.min(2, Math.abs(clampedIndex));
-    const translateX = clampedIndex * (FIELD_MOVE_CAROUSEL_CARD_SIZE + FIELD_MOVE_CAROUSEL_CARD_GAP);
-    const translateZ = -distance * 56;
-    const rotateY = clampedIndex * -34;
-    const scale = 1 - distance * 0.12;
-
-    return {
-      opacity: distance === 0 ? 1 : 0.5,
-      transform: `translate(-50%, -50%) translateX(${translateX}px) translateZ(${translateZ}px) rotateY(${rotateY}deg) scale(${scale})`
-    };
-  }
-
   function buildFieldMoveSwitchPromptHtml(skillId, previousSkillId = null) {
-    const skill = PLAYER_SKILL_DEFS[skillId];
-    const presentation = FIELD_MOVE_SWITCH_PROMPT_PRESENTATION[skillId];
-    const unlockedFieldMoveIds = getUnlockedFieldMoveIds();
-
-    if (!skill || !presentation || unlockedFieldMoveIds.length === 0) {
-      return "";
-    }
-
-    const selectedIndex = Math.max(0, unlockedFieldMoveIds.indexOf(skillId));
-    const previousIndex = Math.max(
-      0,
-      unlockedFieldMoveIds.indexOf(previousSkillId || skillId)
-    );
-    const cardHtml = unlockedFieldMoveIds.map((moveId, index) => {
-      const cardSkill = PLAYER_SKILL_DEFS[moveId];
-      const cardPresentation = FIELD_MOVE_SWITCH_PROMPT_PRESENTATION[moveId];
-
-      if (!cardSkill || !cardPresentation) {
-        return "";
-      }
-
-      const fromState = getFieldMoveCarouselCardState(
-        getCarouselRelativeIndex(index, previousIndex, unlockedFieldMoveIds.length)
-      );
-      const toRelativeIndex = getCarouselRelativeIndex(
-        index,
-        selectedIndex,
-        unlockedFieldMoveIds.length
-      );
-      const toState = getFieldMoveCarouselCardState(toRelativeIndex);
-      const isSelected = index === selectedIndex;
-      const companionId = escapeHtml(cardPresentation.companionId);
-      const thumbnailUrl = escapeHtml(cardPresentation.thumbnailUrl);
-      const selectedOverlayUrl = escapeHtml(FIELD_MOVE_CAROUSEL_SELECTED_OVERLAY_URL);
-      const zIndex = String(20 - Math.min(2, Math.abs(toRelativeIndex)) * 3);
-
-      return `
-        <span
-          class="field-move-carousel__card"
-          data-field-move-carousel-card="true"
-          data-companion-id="${companionId}"
-          data-selected="${isSelected ? "true" : "false"}"
-          style="--field-move-card-from:${fromState.transform};--field-move-card-to:${toState.transform};--field-move-card-from-opacity:${fromState.opacity.toFixed(2)};--field-move-card-to-opacity:${toState.opacity.toFixed(2)};z-index:${zIndex};"
-        >
-          <img
-            src="${thumbnailUrl}"
-            alt=""
-            loading="eager"
-            decoding="async"
-            style="display:block;width:100%;height:100%;object-fit:cover;border:0;background:transparent;image-rendering:pixelated;"
-          >
-          ${isSelected ? `
-            <img
-              class="field-move-carousel__selected-overlay"
-              src="${selectedOverlayUrl}"
-              alt=""
-              loading="eager"
-              decoding="async"
-              style="position:absolute;inset:-10px;width:calc(100% + 20px);height:calc(100% + 20px);object-fit:fill;pointer-events:none;image-rendering:pixelated;transform-origin:center center;animation:fieldMoveCarouselSelectedPulse 520ms cubic-bezier(.2,.9,.24,1) both;"
-            >
-          ` : ""}
-        </span>
-      `;
-    }).join("");
-
-    return `
-      <style>
-        .field-move-carousel__card {
-          position: absolute;
-          left: 50%;
-          top: 50%;
-          display: grid;
-          width: ${FIELD_MOVE_CAROUSEL_CARD_SIZE}px;
-          height: ${FIELD_MOVE_CAROUSEL_CARD_SIZE}px;
-          transform: var(--field-move-card-to);
-          transform-origin: center center;
-          transform-style: preserve-3d;
-          opacity: var(--field-move-card-to-opacity);
-          image-rendering: pixelated;
-          animation: fieldMoveCarouselCardIn 360ms cubic-bezier(.2,.9,.25,1) both;
-        }
-        @keyframes fieldMoveCarouselCardIn {
-          from {
-            opacity: var(--field-move-card-from-opacity);
-            transform: var(--field-move-card-from);
-          }
-          to {
-            opacity: var(--field-move-card-to-opacity);
-            transform: var(--field-move-card-to);
-          }
-        }
-        @keyframes fieldMoveCarouselSelectedPulse {
-          0% {
-            transform: scale(1);
-          }
-          42% {
-            transform: scale(1.11);
-          }
-          100% {
-            transform: scale(1);
-          }
-        }
-      </style>
-      <span
-        data-field-move-switch-card="true"
-        data-selected-move-id="${escapeHtml(skillId)}"
-        style="display:grid;width:420px;height:248px;place-items:center;color:#fff;font-family:var(--game-ui-font, monospace);text-align:left;text-transform:none;perspective:820px;transform-style:preserve-3d;"
-      >
-        <span style="position:relative;width:100%;height:214px;transform-style:preserve-3d;">
-          ${cardHtml}
-        </span>
-      </span>
-    `;
+    return buildFieldMoveSwitchPromptHtmlModel({
+      skillId,
+      previousSkillId,
+      playerSkillDefs: PLAYER_SKILL_DEFS,
+      unlockedFieldMoveIds: getUnlockedFieldMoveIds()
+    });
   }
 
   function showFieldMoveSwitchPrompt(skillId, previousSkillId = null) {
@@ -5345,52 +3987,11 @@ export function createApplicationRuntime({
   }
 
   function buildPokemonCenterPcMissionEntries() {
-    const taskEntries = questSystem?.getTaskTerminalEntries?.() || [];
-    if (taskEntries.length) {
-      const actionByLegacyFieldTaskId = Object.fromEntries(
-        Object.values(SMALL_ISLAND_FIELD_TASKS).map((task) => [
-          task.id,
-          getPokemonCenterPcActionForTask(task.id)
-        ])
-      );
-
-      return createTaskTerminalMissionEntries({
-        taskEntries,
-        actionByLegacyFieldTaskId
-      });
-    }
-
-    const questEntries = (questSystem?.getQuestLog?.() || []).map((quest) => {
-      const locked = quest.status === "locked";
-      return {
-        id: `quest:${quest.id}`,
-        source: "story",
-        status: quest.status,
-        title: locked ? "????" : quest.title,
-        description: locked ? "Check data has not been recovered yet." : quest.description,
-        progress: locked ? "" : formatQuestMissionProgress(quest)
-      };
+    return buildPokemonCenterPcMissionEntryModel({
+      questSystem,
+      storyState,
+      getActionForTask: getPokemonCenterPcActionForTask
     });
-
-    const fieldTaskEntries = Object.values(SMALL_ISLAND_FIELD_TASKS).map((task) => {
-      const done = isFieldTaskComplete(storyState, task);
-      const known = isFieldTaskKnown(storyState, task);
-      const action = getPokemonCenterPcActionForTask(task.id);
-      const status = done ? "completed" : (known || action.actionId ? "available" : "locked");
-
-      return {
-        id: `field:${task.id}`,
-        source: task.background ? "field note" : "request",
-        status,
-        title: status === "locked" ? "????" : task.title,
-        description: status === "locked" ?
-          "Check data has not been recovered yet." :
-          getFieldTaskDescription(task, storyState),
-        ...action
-      };
-    });
-
-    return [...fieldTaskEntries, ...questEntries];
   }
 
   function runPokemonCenterPcAction(actionId) {

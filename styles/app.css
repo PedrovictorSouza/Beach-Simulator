@@ -289,8 +289,11 @@
         letter-spacing: 0.14em;
         text-transform: uppercase;
         cursor: pointer;
-        animation: start-card-button-blink 1s steps(2, end) infinite;
         transition: transform 140ms ease, box-shadow 140ms ease, filter 140ms ease;
+      }
+
+      .start-card__start-prompt {
+        animation: start-card-button-blink 1s steps(2, end) infinite;
       }
 
       .start-card__button:hover,
@@ -321,7 +324,7 @@
       }
 
       @media (prefers-reduced-motion: reduce) {
-        .start-card__button {
+        .start-card__start-prompt {
           animation: none;
         }
       }

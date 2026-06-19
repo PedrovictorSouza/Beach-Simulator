@@ -1,16 +1,17 @@
 // @vitest-environment jsdom
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createGameShell } from "../app/ui/createGameShell.js";
+import { createGameShell } from "../app/ui/gameShell/index.js";
 
 describe("createGameShell", () => {
   afterEach(() => {
+    document.body.innerHTML = "";
     vi.restoreAllMocks();
   });
 
   it("mounts the start screen inside the gameplay render frame", () => {
     vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
-    createGameShell({ documentRef: document });
+    const shell = createGameShell({ documentRef: document });
 
     const gameStage = document.getElementById("game-stage");
     const renderFrame = document.getElementById("render-frame");
@@ -38,5 +39,21 @@ describe("createGameShell", () => {
     expect(pokedexSpecies?.previousElementSibling).toBe(pokedexAvatarImage);
     expect(pokedexClose?.dataset.pokedexAction).toBe("close");
     expect(pokedexCloseImage?.getAttribute("src")).toContain("close-btn-micro.png");
+    expect(shell.mount).toBe(gameStage);
+    expect(shell.renderFrame).toBe(renderFrame);
+    expect(shell.status).toBe(document.getElementById("status"));
+    expect(document.querySelector("main")?.contains(gameStage)).toBe(true);
+  });
+
+  it("does not duplicate the shell when called more than once", () => {
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue(null);
+
+    const firstShell = createGameShell({ documentRef: document });
+    const secondShell = createGameShell({ documentRef: document });
+
+    expect(firstShell.mount).toBe(secondShell.mount);
+    expect(document.querySelectorAll("#game-stage")).toHaveLength(1);
+    expect(document.querySelectorAll("#render-frame")).toHaveLength(1);
+    expect(document.querySelectorAll(".gameplay-universe-background")).toHaveLength(1);
   });
 });

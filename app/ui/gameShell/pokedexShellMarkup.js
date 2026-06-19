@@ -1,28 +1,11 @@
-import { createStartScreenUniverseBackground } from "./startScreenUniverseBackground.js";
+import { GAME_SHELL_DOM_IDS } from "./gameShellDomIds.js";
 
-const HYDRO_JET_INSTRUCTIONS_IMAGE_URL = new URL("./images/unboarding-hidro.png", import.meta.url).href;
-const HYDRO_JET_AVATAR_IMAGE_URL = new URL("./images/hidro-avatar.png", import.meta.url).href;
-const POKEDEX_CLOSE_BUTTON_IMAGE_URL = new URL("./images/close-btn-micro.png", import.meta.url).href;
+const HYDRO_JET_INSTRUCTIONS_IMAGE_URL = new URL("../images/unboarding-hidro.png", import.meta.url).href;
+const HYDRO_JET_AVATAR_IMAGE_URL = new URL("../images/hidro-avatar.png", import.meta.url).href;
+const POKEDEX_CLOSE_BUTTON_IMAGE_URL = new URL("../images/close-btn-micro.png", import.meta.url).href;
+const IDS = GAME_SHELL_DOM_IDS;
 
-const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
-  <section class="intro-overlay" id="intro-overlay" hidden aria-label="Intro sequence"></section>
-  <section class="intro-room-debug-root" id="intro-room-debug-root" hidden aria-label="Intro room debug tools"></section>
-  <section class="pause-overlay" id="pause-overlay" hidden aria-label="Pause screen">
-    <div class="pause-overlay__label">PAUSE</div>
-  </section>
-  <div class="render-frame" id="render-frame">
-        <section class="start-overlay" id="start-overlay" aria-label="Start screen"></section>
-        <canvas id="viewport" class="layer" width="426" height="240"></canvas>
-        <div id="warm-overlay" aria-hidden="true"></div>
-        <canvas id="sprite-layer" class="layer" width="426" height="240"></canvas>
-        <div class="ui-layer" id="ui-layer">
-          <div class="fps-panel" id="fps-panel" aria-live="off">FPS --</div>
-          <div class="input-modality-panel" id="input-modality-panel" aria-live="polite">INPUT KEYBOARD</div>
-          <div class="scene-transition-veil" id="scene-transition-veil" hidden aria-hidden="true"></div>
-          <section class="skill-learn-overlay" id="skill-learn-overlay" hidden aria-label="Skill learned"></section>
-          <section class="cinematic-overlay" id="cinematic-overlay" hidden aria-label="Act two cinematic"></section>
-          <section class="tutorial-overlay" id="tutorial-overlay" hidden aria-label="Act two tutorial"></section>
-          <section class="pokedex-overlay" id="pokedex-overlay" hidden aria-label="Instructions entry">
+export const POKEDEX_SHELL_HTML = `<section class="pokedex-overlay" id="${IDS.pokedexOverlay}" hidden aria-label="Instructions entry">
             <article class="pokedex-entry">
               <aside class="pokedex-entry__avatar" data-pokedex-art-scene="squirtle" aria-hidden="true">
                 <img class="pokedex-entry__avatar-image" src="${HYDRO_JET_AVATAR_IMAGE_URL}" alt="" loading="eager" decoding="async">
@@ -117,112 +100,8 @@ const GAME_SHELL_HTML = `<div class="game-stage" id="game-stage">
                   </div>
                 </div>
               </div>
-              <button class="pokedex-entry__close" id="pokedex-overlay-close" data-pokedex-action="close" type="button" aria-label="Close Instructions">
+              <button class="pokedex-entry__close" id="${IDS.pokedexOverlayClose}" data-pokedex-action="close" type="button" aria-label="Close Instructions">
                 <img class="pokedex-entry__close-image" src="${POKEDEX_CLOSE_BUTTON_IMAGE_URL}" alt="" loading="eager" decoding="async">
               </button>
             </article>
-          </section>
-          <aside class="nearby-habitats-panel" aria-label="Nearby colony zones">
-            <div class="nearby-habitats-panel__header">Nearby Colony Zones</div>
-            <div class="nearby-habitats-panel__value" id="nearby-habitats-value"></div>
-          </aside>
-          <aside class="quest-focus-panel" id="quest-focus-panel" aria-label="Current quest">
-            <div class="quest-focus-panel__title" id="quest-focus-title"></div>
-            <div class="quest-focus-panel__body" id="quest-focus-body"></div>
-          </aside>
-          <div class="hud" id="hud-panel">
-            <div class="hud-context" id="hud-context" aria-live="polite"></div>
-            <div class="hud-checklist" id="hud-checklist" aria-label="Quest checks"></div>
-            <div class="hud__signals">
-              <button class="hud-alert" id="pokedex-alert" type="button" hidden data-pulse="false">Instructions.</button>
-            </div>
-            <div class="hud-control">
-              <label for="jitter-slider">
-                <span>3D Jitter</span>
-                <output id="jitter-value" for="jitter-slider">0%</output>
-              </label>
-              <input id="jitter-slider" type="range" min="0" max="100" step="1" value="0" />
-            </div>
-          </div>
-          <aside class="missions-panel" id="missions-panel" aria-label="Tasks">
-            <div class="missions-header">Tasks</div>
-            <div class="missions-stack" id="missions-stack"></div>
-          </aside>
-          <div class="skills-panel" id="skills-panel" aria-label="Tools" hidden>
-            <strong>Tools</strong>
-            <div class="skills-grid" id="skills-grid"></div>
-          </div>
-          <div class="inventory" id="inventory-panel" aria-label="Supplies">
-            <div class="inventory-grid" id="inventory-grid"></div>
-          </div>
-          <section class="builder-panel" id="builder-panel" hidden aria-label="Colony handbook"></section>
-          <div class="status" id="status">Initializing scene...</div>
-        </div>
-        </div>
-</div>`;
-
-const GAME_STAGE_ID = "game-stage";
-const RENDER_FRAME_ID = "render-frame";
-const GAMEPLAY_UNIVERSE_BACKGROUND_CLASS = "gameplay-universe-background";
-
-function getElement(documentRef, id) {
-  return documentRef.getElementById(id);
-}
-
-function getOrCreateMain(documentRef) {
-  const existingMain = documentRef.querySelector("main");
-
-  if (existingMain) {
-    return existingMain;
-  }
-
-  const main = documentRef.createElement("main");
-  documentRef.body.appendChild(main);
-  return main;
-}
-
-function mountGameShell(documentRef) {
-  const main = getOrCreateMain(documentRef);
-
-  if (!getElement(documentRef, GAME_STAGE_ID)) {
-    main.innerHTML = GAME_SHELL_HTML;
-  }
-
-  return main;
-}
-
-function mountGameplayUniverseBackground(documentRef) {
-  const gameStage = getElement(documentRef, GAME_STAGE_ID);
-  if (!(gameStage instanceof HTMLElement)) {
-    return;
-  }
-
-  if (gameStage.querySelector(`.${GAMEPLAY_UNIVERSE_BACKGROUND_CLASS}`)) {
-    return;
-  }
-
-  createStartScreenUniverseBackground({
-    root: gameStage,
-    className: GAMEPLAY_UNIVERSE_BACKGROUND_CLASS,
-    palette: "purpleBlue",
-    starCount: 420
-  });
-}
-
-function resolveGameShellNodes(documentRef, main) {
-  const appRoot = documentRef.documentElement;
-
-  return {
-    appRoot,
-    rootStyle: appRoot.style,
-    main,
-    gameStage: getElement(documentRef, GAME_STAGE_ID),
-    renderFrame: getElement(documentRef, RENDER_FRAME_ID)
-  };
-}
-
-export function createGameShell({ documentRef = document } = {}) {
-  const main = mountGameShell(documentRef);
-  mountGameplayUniverseBackground(documentRef);
-  return resolveGameShellNodes(documentRef, main);
-}
+          </section>`;

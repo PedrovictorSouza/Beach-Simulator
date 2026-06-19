@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { createBotTradeSfxPlayer } from "../app/bootstrap/createApplicationRuntime.js";
+import { createBotTradeSfxPlayer } from "../app/bootstrap/audioLifecycle.js";
 
 describe("createBotTradeSfxPlayer", () => {
   it("restarts and plays the bot trade sound", () => {

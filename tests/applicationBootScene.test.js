@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveInitialSceneIdForApplicationBoot } from "../app/bootstrap/createApplicationRuntime.js";
+import { resolveInitialSceneIdForApplicationBoot } from "../app/bootstrap/initialSceneId.js";
 import { DEV_SCENE } from "../app/runtime/runtimeFlags.js";
 import { GAME_FLOW } from "../gameFlow.js";
 

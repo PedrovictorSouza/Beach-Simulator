@@ -35,7 +35,7 @@ describe("createStartScreen integration", () => {
     vi.restoreAllMocks();
   });
 
-  it("shows the title screen first and starts on space after the exit transition", async () => {
+  it("shows the title screen first, opens empty slots, asks language, and starts with locale", async () => {
     const prepareExitTransition = vi.fn(() => Promise.resolve());
     const startScreen = createStartScreen({
       root,
@@ -47,6 +47,7 @@ describe("createStartScreen integration", () => {
     expect(startScreen.isActive()).toBe(true);
     expect(uiLayer.dataset.mode).toBe("start");
     expect(root.querySelector(".start-card__title-image")?.getAttribute("alt")).toBe("Small Island");
+    expect(root.querySelector(".start-card__start-prompt")?.textContent.trim()).toBe("START");
     const background = root.querySelector(".start-screen-universe");
     expect(background).toBeInstanceOf(HTMLCanvasElement);
     expect(root.querySelector(".start-shell")?.firstElementChild).toBe(background);
@@ -58,11 +59,44 @@ describe("createStartScreen integration", () => {
     };
 
     const handled = startScreen.handleKeydown(event);
-    await Promise.resolve();
-    await Promise.resolve();
 
     expect(handled).toBe(true);
     expect(event.preventDefault).toHaveBeenCalled();
+    expect(prepareExitTransition).not.toHaveBeenCalled();
+    expect(onStart).not.toHaveBeenCalled();
+    expect(root.textContent).toContain("> New Game Slot 1");
+    expect(root.textContent).toContain("New Game Slot 2");
+
+    startScreen.handleKeydown({
+      code: "Space",
+      key: " ",
+      preventDefault: vi.fn()
+    });
+
+    expect(prepareExitTransition).not.toHaveBeenCalled();
+    expect(onStart).not.toHaveBeenCalled();
+    expect(root.textContent).toContain("Language");
+    expect(root.textContent).toContain("> English");
+    expect(root.textContent).toContain("Português");
+
+    startScreen.handleKeydown({
+      code: "ArrowDown",
+      key: "ArrowDown",
+      preventDefault: vi.fn()
+    });
+
+    expect(root.textContent).toContain("> Português");
+    expect(root.textContent).toContain("Idioma");
+    expect(root.textContent).toContain("Voltar");
+
+    startScreen.handleKeydown({
+      code: "Enter",
+      key: "Enter",
+      preventDefault: vi.fn()
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
     expect(prepareExitTransition).toHaveBeenCalledTimes(1);
     expect(onStart).not.toHaveBeenCalled();
     expect(root.hidden).toBe(false);
@@ -73,14 +107,18 @@ describe("createStartScreen integration", () => {
     await Promise.resolve();
     await Promise.resolve();
 
-    expect(onStart).toHaveBeenCalledTimes(1);
+    expect(onStart).toHaveBeenCalledWith(expect.objectContaining({
+      action: "newGame",
+      slotId: "slot-1",
+      locale: "pt-BR"
+    }));
     expect(startScreen.isActive()).toBe(false);
     expect(root.hidden).toBe(true);
     expect(root.querySelector(".start-screen-universe")).toBeNull();
     expect(uiLayer.dataset.mode).toBe("game");
   });
 
-  it("opens save slots before starting when a save state exists", async () => {
+  it("continues a saved game directly without asking for language", async () => {
     const prepareExitTransition = vi.fn(() => Promise.resolve());
     const startScreen = createStartScreen({
       root,
@@ -124,33 +162,6 @@ describe("createStartScreen integration", () => {
     expect(root.textContent).toContain("> Continue");
 
     startScreen.handleKeydown({
-      code: "ArrowDown",
-      key: "ArrowDown",
-      preventDefault: vi.fn()
-    });
-
-    expect(root.textContent).toContain("> New Game");
-
-    startScreen.handleKeydown({
-      code: "Escape",
-      key: "Escape",
-      preventDefault: vi.fn()
-    });
-
-    expect(root.textContent).toContain("Start Game");
-    expect(root.textContent).not.toContain("Continue");
-
-    startScreen.handleKeydown({
-      code: "Enter",
-      key: "Enter",
-      preventDefault: vi.fn()
-    });
-    startScreen.handleKeydown({
-      code: "ArrowDown",
-      key: "ArrowDown",
-      preventDefault: vi.fn()
-    });
-    startScreen.handleKeydown({
       code: "Enter",
       key: "Enter",
       preventDefault: vi.fn()
@@ -166,9 +177,10 @@ describe("createStartScreen integration", () => {
     await Promise.resolve();
 
     expect(onStart).toHaveBeenCalledWith(expect.objectContaining({
-      action: "newGame",
-      slotId: "slot-2"
+      action: "continue",
+      slotId: "slot-1"
     }));
+    expect(onStart.mock.calls[0][0]).not.toHaveProperty("locale");
     expect(startScreen.isActive()).toBe(false);
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildGreenhouseFootprintGroundPositions,
   restoreGreenhouseFootprintGround
-} from "../app/bootstrap/createApplicationRuntime.js";
+} from "../app/bootstrap/greenhouseFootprintGround.js";
 
 function createGroundCell(position, index) {
   return {

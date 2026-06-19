@@ -134,7 +134,11 @@ export function createMusicRuntime({
     return true;
   }
 
-  function stop(trackId = null) {
+  function stop(trackId = null, { disableResume = false } = {}) {
+    if (disableResume) {
+      backgroundResumeEnabled = false;
+    }
+
     const entries = trackId ?
       [[trackId, audioByTrackId.get(trackId)]] :
       [...audioByTrackId.entries()];

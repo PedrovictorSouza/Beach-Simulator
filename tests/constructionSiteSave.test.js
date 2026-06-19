@@ -4,7 +4,7 @@ import {
   cloneSavedPlacement,
   createLegacyGridPlacementSaveData,
   restoreSavedSessionState
-} from "../app/bootstrap/createApplicationRuntime.js";
+} from "../app/bootstrap/manualSaveSessionState.js";
 import { buildLeafDenKitPlacement } from "../world/islandWorld.js";
 
 describe("construction site save data", () => {

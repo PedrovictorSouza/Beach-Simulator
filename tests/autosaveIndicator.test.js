@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 
 import { describe, expect, it, vi } from "vitest";
-import { createAutosaveIndicator } from "../app/bootstrap/createApplicationRuntime.js";
+import { createAutosaveIndicator } from "../app/bootstrap/autosaveIndicator.js";
 
 describe("createAutosaveIndicator", () => {
   it("shows Saving without blocking or replacing dialogue-critical UI", () => {
