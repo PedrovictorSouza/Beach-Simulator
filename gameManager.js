@@ -4,6 +4,7 @@ import {
 } from "./rendering/worldAssets.js";
 import { WORLD_CURVATURE_CONFIG } from "./rendering/worldCurvature.js";
 import { createStaticCamera } from "./camera/staticCamera.js";
+import { createCursorInput } from "./input/cursor.js";
 import { loadTerrainAssets } from "./terrain/terrainAssets.js";
 import { createTerrainSceneObjects } from "./terrain/terrainWorld.js";
 
@@ -19,6 +20,7 @@ class TerrainGameManager {
     this.gl = null;
     this.renderingResources = null;
     this.camera = null;
+    this.cursor = null;
     this.sceneObjects = [];
   }
 
@@ -36,6 +38,7 @@ class TerrainGameManager {
     this.windowRef = windowRef;
     this.camera = createStaticCamera();
     this.mount();
+    this.initializeCursor();
     this.initializeWebGl();
     this.loadWorld()
       .then((sceneObjects) => {
@@ -59,6 +62,18 @@ class TerrainGameManager {
     `;
     this.canvas = this.root.querySelector(".world-canvas");
     this.statusElement = this.root.querySelector(".boot-status");
+  }
+
+  initializeCursor() {
+    this.canvas.classList.add("cursor-debug-ready");
+    this.cursor = createCursorInput({
+      target: this.canvas,
+      onChange: (cursorState) => this.applyCursorDebugState(cursorState)
+    });
+  }
+
+  applyCursorDebugState(cursorState) {
+    this.canvas.classList.toggle("cursor-debug-pressed", cursorState.pressed);
   }
 
   initializeWebGl() {
