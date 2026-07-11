@@ -6,6 +6,56 @@ Este arquivo define regras operacionais obrigatorias para qualquer IA que trabal
 
 Antes de agir, reduza o escopo. A IA deve preferir a menor mudanca correta, tocar o menor numero possivel de arquivos e parar cedo quando a tarefa ficar ampla, incerta ou dependente de tentativa e erro.
 
+## Regra universal: proibido institucionalizar ma pratica
+
+E proibido transformar uma ma pratica em regra, padrao, dependencia, helper, singleton, atalho global, convencao de nome, direcao de import ou base para novas features.
+
+Uma solucao ruim pode ate existir temporariamente como diagnostico local, mas nunca deve ser atribuida ao sistema como se fosse arquitetura. Se uma IA encontrar ou precisar usar um atalho ruim, deve:
+
+- Isolar o atalho no menor ponto possivel.
+- Nomear o risco explicitamente.
+- Explicar por que aquilo nao deve virar padrao.
+- Preferir remover o atalho antes de concluir a tarefa.
+- Se nao puder remover, registrar como divida tecnica local e limitada.
+
+Ficam proibidos como decisao arquitetural:
+
+- Modulo baixo importar modulo alto para "resolver rapido".
+- Input manipular mundo diretamente.
+- Camera chamar `gameManager`.
+- Renderer depender de regras de gameplay.
+- Asset loader depender de estado de cena.
+- Singleton virar acesso global para qualquer coisa.
+- Estado global mutavel sem dono claro.
+- Dependencia circular justificada por conveniencia.
+- Funcao generica receber responsabilidades escondidas.
+- Corrigir problema local com mudanca global sem necessidade.
+
+Direcao preferida para a base atual:
+
+```mermaid
+flowchart TD
+  Main["main.js"] --> GameManager["gameManager.js"]
+  GameManager --> Cursor["input/cursor.js"]
+  GameManager --> Camera["camera/staticCamera.js"]
+  GameManager --> Terrain["terrain/terrainWorld.js"]
+  Terrain --> TerrainAssets["terrain/terrainAssets.js"]
+  GameManager --> Renderer["rendering"]
+```
+
+Direcoes proibidas:
+
+```mermaid
+flowchart TD
+  Cursor["input/cursor.js"] -. proibido .-> GameManager["gameManager.js"]
+  Camera["camera/staticCamera.js"] -. proibido .-> GameManager
+  Renderer["rendering"] -. proibido .-> GameManager
+  Terrain["terrain/terrainWorld.js"] -. proibido .-> GameManager
+  TerrainAssets["terrain/terrainAssets.js"] -. proibido .-> GameManager
+```
+
+Antes de adicionar um import, a IA deve perguntar: "esta dependencia cria uma ma pratica permanente?". Se a resposta for sim ou incerta, deve parar e propor uma alternativa com direcao mais limpa.
+
 ## 1. Preflight obrigatorio antes de codar
 
 Antes de qualquer implementacao, a IA deve fazer um preflight e identificar:
