@@ -8,6 +8,7 @@ import { createCursorInput } from "./input/cursor.js";
 import { loadTerrainAssets } from "./terrain/terrainAssets.js";
 import { createTerrainSceneObjects } from "./terrain/terrainWorld.js";
 import { createOceanSceneObject } from "./ocean/oceanWorld.js";
+import { createShoreSceneObject } from "./shore/shoreWorld.js";
 
 const PALM_TREE_MODEL_FACE_YAW_OFFSET = 0;
 
@@ -286,6 +287,7 @@ class TerrainGameManager {
         camera: this.camera
       }),
       createOceanSceneObject({ gl: this.gl }),
+      createShoreSceneObject({ gl: this.gl }),
       {
         model: palmTreeModel,
         instances: this.buildPalmTreeInstances(),

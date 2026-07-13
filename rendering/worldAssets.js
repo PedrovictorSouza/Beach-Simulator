@@ -777,6 +777,103 @@ function createOceanTextureCanvas() {
   return canvas;
 }
 
+function createShoreTextureCanvas() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "rgba(198, 246, 255, 0.38)";
+  context.fillRect(0, 18, canvas.width, 30);
+  context.fillStyle = "rgba(255, 255, 255, 0.86)";
+  context.fillRect(0, 24, canvas.width, 7);
+  context.fillRect(0, 38, canvas.width, 5);
+  context.fillStyle = "rgba(255, 255, 255, 0.68)";
+
+  for (let x = 0; x < canvas.width; x += 13) {
+    const width = 6 + ((x / 13) % 3) * 3;
+    context.fillRect(x, 14, width, 4);
+    context.fillRect(x + 5, 48, width + 2, 3);
+  }
+
+  context.fillStyle = "rgba(45, 177, 204, 0.32)";
+  context.fillRect(0, 8, canvas.width, 8);
+  context.fillRect(0, 52, canvas.width, 6);
+
+  return canvas;
+}
+
+export function createLowPolyShoreModel(gl, {
+  innerRadius = 82,
+  outerRadius = 104,
+  rings = 4,
+  radialSegments = 72
+} = {}) {
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+
+  const getSegmentJitter = (segmentIndex) => {
+    const angle = (segmentIndex / radialSegments) * Math.PI * 2;
+    return (
+      Math.sin(angle * 3.0 + 0.4) * 4.8 +
+      Math.sin(angle * 7.0 + 1.7) * 2.8 +
+      Math.sin(angle * 13.0) * 1.4
+    );
+  };
+
+  const getVertexIndex = (ringIndex, segmentIndex) => {
+    const wrappedSegmentIndex = (segmentIndex + radialSegments) % radialSegments;
+    return ringIndex * radialSegments + wrappedSegmentIndex;
+  };
+
+  for (let ringIndex = 0; ringIndex <= rings; ringIndex += 1) {
+    const ringProgress = ringIndex / rings;
+
+    for (let segmentIndex = 0; segmentIndex < radialSegments; segmentIndex += 1) {
+      const angle = (segmentIndex / radialSegments) * Math.PI * 2;
+      const jitter = getSegmentJitter(segmentIndex);
+      const radius = innerRadius + (outerRadius - innerRadius) * ringProgress + jitter;
+      const x = Math.cos(angle) * radius;
+      const z = Math.sin(angle) * radius;
+      const ridge = Math.sin(angle * 9.0 + ringProgress * 2.4) * 0.06;
+
+      positions.push(x, ridge, z);
+      uvs.push(segmentIndex / radialSegments, ringProgress);
+    }
+  }
+
+  for (let ringIndex = 0; ringIndex < rings; ringIndex += 1) {
+    for (let segmentIndex = 0; segmentIndex < radialSegments; segmentIndex += 1) {
+      const innerCurrent = getVertexIndex(ringIndex, segmentIndex);
+      const innerNext = getVertexIndex(ringIndex, segmentIndex + 1);
+      const outerCurrent = getVertexIndex(ringIndex + 1, segmentIndex);
+      const outerNext = getVertexIndex(ringIndex + 1, segmentIndex + 1);
+
+      indices.push(innerCurrent, innerNext, outerCurrent);
+      indices.push(outerCurrent, innerNext, outerNext);
+    }
+  }
+
+  const flatMesh = buildFlatShadedInterleaved(
+    new Float32Array(positions),
+    new Float32Array(uvs),
+    new Uint16Array(indices)
+  );
+
+  return {
+    primitives: [{
+      ...createGLPrimitive(gl, flatMesh.interleaved, flatMesh.indices),
+      positions: new Float32Array(positions)
+    }],
+    texture: createTextureFromSource(gl, createShoreTextureCanvas()),
+    offset: [0, 0, 0],
+    size: [outerRadius * 2, 0.12, outerRadius * 2],
+    scale: 1
+  };
+}
+
 export function createLowPolyOceanModel(gl, {
   size = 284,
   rings = 9,
