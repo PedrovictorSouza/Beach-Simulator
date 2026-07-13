@@ -2,8 +2,8 @@ import { COASTAL_ZONE_LIMITS } from "../coast/coastalZones.js";
 
 const OCEAN_WIDTH = 920;
 const OCEAN_DEPTH = 860;
-const OCEAN_Y = 0.08;
-const OCEAN_SHORE_Z = COASTAL_ZONE_LIMITS.shallowMinZ;
+const OCEAN_Y = 0.16;
+const OCEAN_SHORE_Z = COASTAL_ZONE_LIMITS.landMinZ;
 
 const OCEAN_VERTEX_SOURCE = `
   attribute vec2 aCorner;
@@ -78,7 +78,7 @@ const OCEAN_FRAGMENT_SOURCE = `
   }
 
   void main() {
-    float shoreMask = smoothstep(0.0, 34.0, vShoreDistance);
+    float shoreMask = smoothstep(0.0, 12.0, vShoreDistance);
     float distanceFromCamera = length(vWorldXZ - uCameraXZ);
     float horizonFade = 1.0 - smoothstep(470.0, 760.0, distanceFromCamera);
 
@@ -100,7 +100,7 @@ const OCEAN_FRAGMENT_SOURCE = `
     color = mix(color, midColor, foamCells * 0.44);
     color = mix(color, highlightColor, max(foamCells * 0.58, surfBand * 0.76));
 
-    float alpha = mix(0.54, 0.86, depthRamp) * shoreMask * horizonFade;
+    float alpha = mix(0.68, 0.92, depthRamp) * shoreMask * horizonFade;
     alpha = max(alpha, surfBand * 0.72);
 
     if (alpha < 0.02) {
@@ -217,7 +217,9 @@ export function drawOceanSurface({
   gl.vertexAttribPointer(attribs.corner, 2, gl.FLOAT, false, 0, 0);
 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oceanSurface.indexBuffer);
+  gl.disable(gl.DEPTH_TEST);
   gl.depthMask(false);
   gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
   gl.depthMask(true);
+  gl.enable(gl.DEPTH_TEST);
 }
