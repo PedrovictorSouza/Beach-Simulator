@@ -31,6 +31,7 @@ class TerrainGameManager {
     this.root = null;
     this.canvas = null;
     this.statusElement = null;
+    this.fpsElement = null;
     this.gl = null;
     this.renderingResources = null;
     this.camera = null;
@@ -40,6 +41,8 @@ class TerrainGameManager {
     this.sceneObjects = [];
     this.startTimeMs = 0;
     this.lastFrameTimeMs = 0;
+    this.fpsFrameCount = 0;
+    this.fpsSampleStartedMs = 0;
     this.animationFrameId = null;
   }
 
@@ -81,9 +84,11 @@ class TerrainGameManager {
     this.root.innerHTML = `
       <canvas class="world-canvas" aria-label="Terrain"></canvas>
       <div class="boot-status" role="status">Carregando terrain...</div>
+      <div class="fps-counter" aria-label="Frames por segundo">FPS --</div>
     `;
     this.canvas = this.root.querySelector(".world-canvas");
     this.statusElement = this.root.querySelector(".boot-status");
+    this.fpsElement = this.root.querySelector(".fps-counter");
   }
 
   initializeCursor() {
@@ -153,6 +158,28 @@ class TerrainGameManager {
     return (this.getNowMs() - this.startTimeMs) / 1000;
   }
 
+  updateFpsCounter(nowMs) {
+    if (!this.fpsElement) {
+      return;
+    }
+
+    if (this.fpsSampleStartedMs === 0) {
+      this.fpsSampleStartedMs = nowMs;
+    }
+
+    this.fpsFrameCount += 1;
+    const elapsedMs = nowMs - this.fpsSampleStartedMs;
+
+    if (elapsedMs < 500) {
+      return;
+    }
+
+    const fps = Math.round((this.fpsFrameCount * 1000) / elapsedMs);
+    this.fpsElement.textContent = `FPS ${fps}`;
+    this.fpsFrameCount = 0;
+    this.fpsSampleStartedMs = nowMs;
+  }
+
   startRenderLoop() {
     if (this.animationFrameId !== null) {
       return;
@@ -167,6 +194,7 @@ class TerrainGameManager {
 
       this.updateKeyboardCamera(deltaSeconds);
       this.render();
+      this.updateFpsCounter(now);
       this.animationFrameId = scheduleFrame(tick);
     };
 

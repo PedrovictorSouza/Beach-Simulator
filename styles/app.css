@@ -53,3 +53,21 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.18);
   font-size: 13px;
 }
+
+.fps-counter {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 10;
+  min-width: 72px;
+  padding: 7px 9px;
+  color: #dff7ff;
+  background: rgba(8, 14, 22, 0.76);
+  border: 1px solid rgba(185, 239, 255, 0.22);
+  font-family: "DM Mono", "SFMono-Regular", Consolas, monospace;
+  font-size: 12px;
+  line-height: 1;
+  text-align: right;
+  pointer-events: none;
+  user-select: none;
+}
