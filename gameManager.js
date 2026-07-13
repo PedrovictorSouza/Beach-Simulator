@@ -68,12 +68,19 @@ class TerrainGameManager {
     this.canvas.classList.add("cursor-debug-ready");
     this.cursor = createCursorInput({
       target: this.canvas,
-      onChange: (cursorState) => this.applyCursorDebugState(cursorState)
+      onChange: (cursorState) => this.applyCursorDebugState(cursorState),
+      onZoom: (cursorState) => this.applyCursorZoom(cursorState)
     });
   }
 
   applyCursorDebugState(cursorState) {
     this.canvas.classList.toggle("cursor-debug-pressed", cursorState.pressed);
+  }
+
+  applyCursorZoom(cursorState) {
+    if (this.camera.zoomBy(cursorState.deltaY) && this.renderingResources) {
+      this.render();
+    }
   }
 
   initializeWebGl() {

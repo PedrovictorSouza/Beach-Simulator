@@ -7,6 +7,18 @@ const DEFAULT_CURSOR_STATE = Object.freeze({
   inside: false
 });
 
+function normalizeWheelDelta(event, target) {
+  if (event.deltaMode === 1) {
+    return event.deltaY * 16;
+  }
+
+  if (event.deltaMode === 2) {
+    return event.deltaY * target.clientHeight;
+  }
+
+  return event.deltaY;
+}
+
 function readPointerPosition(event, target) {
   const rect = target.getBoundingClientRect();
 
@@ -18,7 +30,7 @@ function readPointerPosition(event, target) {
   };
 }
 
-export function createCursorInput({ target, onChange = () => {} } = {}) {
+export function createCursorInput({ target, onChange = () => {}, onZoom = () => {} } = {}) {
   if (!target) {
     throw new Error("Cursor precisa de um target DOM.");
   }
@@ -54,12 +66,22 @@ export function createCursorInput({ target, onChange = () => {} } = {}) {
     emit(event, { pressed: false });
   };
 
+  const onWheel = (event) => {
+    event.preventDefault();
+    emit(event, { inside: true });
+    onZoom({
+      ...state,
+      deltaY: normalizeWheelDelta(event, target)
+    });
+  };
+
   target.addEventListener("pointerenter", onPointerEnter);
   target.addEventListener("pointermove", onPointerMove);
   target.addEventListener("pointerleave", onPointerLeave);
   target.addEventListener("pointerdown", onPointerDown);
   target.addEventListener("pointerup", onPointerUp);
   target.addEventListener("pointercancel", onPointerUp);
+  target.addEventListener("wheel", onWheel, { passive: false });
 
   return {
     getState() {
@@ -72,6 +94,7 @@ export function createCursorInput({ target, onChange = () => {} } = {}) {
       target.removeEventListener("pointerdown", onPointerDown);
       target.removeEventListener("pointerup", onPointerUp);
       target.removeEventListener("pointercancel", onPointerUp);
+      target.removeEventListener("wheel", onWheel);
     }
   };
 }

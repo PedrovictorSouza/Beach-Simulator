@@ -4,10 +4,17 @@ const DEFAULT_STATIC_CAMERA_CONFIG = Object.freeze({
   target: [0, 6, 0],
   direction: [0.95, 0.72, 0.95],
   distance: 128,
+  minDistance: 58,
+  maxDistance: 190,
+  zoomSpeed: 0.12,
   fov: (38 * Math.PI) / 180,
   near: 0.1,
   far: 420
 });
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
 
 function normalizeVec3(vector) {
   const length = Math.hypot(vector[0], vector[1], vector[2]) || 1;
@@ -111,6 +118,9 @@ export function createStaticCamera(config = {}) {
     target: [...(config.target || DEFAULT_STATIC_CAMERA_CONFIG.target)],
     direction: normalizeVec3(config.direction || DEFAULT_STATIC_CAMERA_CONFIG.direction),
     distance: Number(config.distance || DEFAULT_STATIC_CAMERA_CONFIG.distance),
+    minDistance: Number(config.minDistance || DEFAULT_STATIC_CAMERA_CONFIG.minDistance),
+    maxDistance: Number(config.maxDistance || DEFAULT_STATIC_CAMERA_CONFIG.maxDistance),
+    zoomSpeed: Number(config.zoomSpeed || DEFAULT_STATIC_CAMERA_CONFIG.zoomSpeed),
     fov: Number(config.fov || DEFAULT_STATIC_CAMERA_CONFIG.fov),
     near: Number(config.near || DEFAULT_STATIC_CAMERA_CONFIG.near),
     far: Number(config.far || DEFAULT_STATIC_CAMERA_CONFIG.far)
@@ -130,6 +140,19 @@ export function createStaticCamera(config = {}) {
     },
     getCurvatureOrigin() {
       return [state.target[0], 0, state.target[2]];
+    },
+    getDistance() {
+      return state.distance;
+    },
+    zoomBy(deltaY) {
+      const previousDistance = state.distance;
+      state.distance = clamp(
+        state.distance + deltaY * state.zoomSpeed,
+        state.minDistance,
+        state.maxDistance
+      );
+
+      return state.distance !== previousDistance;
     },
     getViewProjection(width, height) {
       const aspect = width / height;
