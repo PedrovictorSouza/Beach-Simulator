@@ -38,6 +38,11 @@ const SCENE_VERTEX_SOURCE = `
   uniform vec3 uLocalPivot;
   uniform float uSwayStrength;
   uniform float uJitterAmount;
+  uniform float uWaveStrength;
+  uniform float uWaveScale;
+  uniform float uWaveSpeed;
+  uniform float uWaveChop;
+  uniform vec2 uWaveDirection;
   uniform vec3 uWorldCurvatureOrigin;
   uniform float uWorldCurvatureStrength;
   uniform float uWorldCurvatureMaxDrop;
@@ -112,6 +117,14 @@ const SCENE_VERTEX_SOURCE = `
       pitched.y,
       pitched.x * sine + pitched.z * cosine
     ) + uInstanceOffset;
+    if (uWaveStrength > 0.0) {
+      vec2 waveDirection = length(uWaveDirection) > 0.001 ? normalize(uWaveDirection) : vec2(1.0, 0.0);
+      float primary = sin(dot(world.xz, waveDirection) * uWaveScale + uTime * uWaveSpeed);
+      float secondary = sin((world.x - world.z) * uWaveScale * 0.73 - uTime * uWaveSpeed * 0.68);
+      float wave = primary + secondary * 0.45;
+      world.y += wave * uWaveStrength;
+      world.xz += waveDirection * primary * uWaveChop;
+    }
     normal = normalize(vec3(
       normal.x * cosine - normal.z * sine,
       normal.y,
@@ -446,6 +459,11 @@ export function createWorldRenderingResources(gl) {
     localPivot: gl.getUniformLocation(program, "uLocalPivot"),
     swayStrength: gl.getUniformLocation(program, "uSwayStrength"),
     jitterAmount: gl.getUniformLocation(program, "uJitterAmount"),
+    waveStrength: gl.getUniformLocation(program, "uWaveStrength"),
+    waveScale: gl.getUniformLocation(program, "uWaveScale"),
+    waveSpeed: gl.getUniformLocation(program, "uWaveSpeed"),
+    waveChop: gl.getUniformLocation(program, "uWaveChop"),
+    waveDirection: gl.getUniformLocation(program, "uWaveDirection"),
     worldCurvatureOrigin: gl.getUniformLocation(program, "uWorldCurvatureOrigin"),
     worldCurvatureStrength: gl.getUniformLocation(program, "uWorldCurvatureStrength"),
     worldCurvatureMaxDrop: gl.getUniformLocation(program, "uWorldCurvatureMaxDrop"),
@@ -736,6 +754,101 @@ function createTextureFromSource(gl, source, { filter = gl.NEAREST } = {}) {
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
   gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
   return texture;
+}
+
+function createOceanTextureCanvas() {
+  const canvas = document.createElement("canvas");
+  canvas.width = 64;
+  canvas.height = 64;
+
+  const context = canvas.getContext("2d");
+  context.fillStyle = "#1688a6";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#2fb7c9";
+  context.fillRect(0, 0, 32, 32);
+  context.fillStyle = "#0f6484";
+  context.fillRect(32, 32, 32, 32);
+  context.fillStyle = "rgba(198, 247, 255, 0.62)";
+  context.fillRect(6, 10, 22, 4);
+  context.fillRect(38, 44, 18, 4);
+  context.fillStyle = "rgba(255, 255, 255, 0.24)";
+  context.fillRect(12, 36, 34, 3);
+
+  return canvas;
+}
+
+export function createLowPolyOceanModel(gl, {
+  size = 284,
+  rings = 9,
+  radialSegments = 48
+} = {}) {
+  const radius = size * 0.5;
+  const positions = [];
+  const uvs = [];
+  const indices = [];
+
+  positions.push(0, 0, 0);
+  uvs.push(0.5, 0.5);
+
+  const getRingVertexIndex = (ringIndex, segmentIndex) => {
+    if (ringIndex === 0) {
+      return 0;
+    }
+
+    const wrappedSegmentIndex = (segmentIndex + radialSegments) % radialSegments;
+    return 1 + (ringIndex - 1) * radialSegments + wrappedSegmentIndex;
+  };
+
+  for (let ringIndex = 1; ringIndex <= rings; ringIndex += 1) {
+    const ringRadius = (ringIndex / rings) * radius;
+
+    for (let segmentIndex = 0; segmentIndex < radialSegments; segmentIndex += 1) {
+      const angle = (segmentIndex / radialSegments) * Math.PI * 2;
+      const x = Math.cos(angle) * ringRadius;
+      const z = Math.sin(angle) * ringRadius;
+      const ridge = Math.sin(x * 0.08 + z * 0.05) * 0.08;
+
+      positions.push(x, ridge, z);
+      uvs.push(0.5 + x / size, 0.5 + z / size);
+    }
+  }
+
+  for (let segmentIndex = 0; segmentIndex < radialSegments; segmentIndex += 1) {
+    indices.push(
+      0,
+      getRingVertexIndex(1, segmentIndex + 1),
+      getRingVertexIndex(1, segmentIndex)
+    );
+  }
+
+  for (let ringIndex = 1; ringIndex < rings; ringIndex += 1) {
+    for (let segmentIndex = 0; segmentIndex < radialSegments; segmentIndex += 1) {
+      const innerCurrent = getRingVertexIndex(ringIndex, segmentIndex);
+      const innerNext = getRingVertexIndex(ringIndex, segmentIndex + 1);
+      const outerCurrent = getRingVertexIndex(ringIndex + 1, segmentIndex);
+      const outerNext = getRingVertexIndex(ringIndex + 1, segmentIndex + 1);
+
+      indices.push(innerCurrent, innerNext, outerCurrent);
+      indices.push(outerCurrent, innerNext, outerNext);
+    }
+  }
+
+  const flatMesh = buildFlatShadedInterleaved(
+    new Float32Array(positions),
+    new Float32Array(uvs),
+    new Uint16Array(indices)
+  );
+
+  return {
+    primitives: [{
+      ...createGLPrimitive(gl, flatMesh.interleaved, flatMesh.indices),
+      positions: new Float32Array(positions)
+    }],
+    texture: createTextureFromSource(gl, createOceanTextureCanvas()),
+    offset: [0, 0, 0],
+    size: [size, 0.16, size],
+    scale: 1
+  };
 }
 
 function drawPixelCircleToken(context, { color, ink }) {
