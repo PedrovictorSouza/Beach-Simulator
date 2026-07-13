@@ -11,6 +11,10 @@ import {
   getRestingaPalmTreeZ,
   updateTerrainSceneObjects
 } from "./terrain/terrainWorld.js";
+import {
+  createOceanSurface,
+  drawOceanSurface
+} from "./ocean/oceanSurface.js";
 
 const PALM_TREE_MODEL_FACE_YAW_OFFSET = 0;
 const MAX_RENDER_PIXEL_RATIO = 1;
@@ -35,6 +39,7 @@ class TerrainGameManager {
     this.fpsElement = null;
     this.gl = null;
     this.renderingResources = null;
+    this.oceanSurface = null;
     this.camera = null;
     this.cursor = null;
     this.terrainAssets = null;
@@ -145,6 +150,13 @@ class TerrainGameManager {
     }
 
     this.renderingResources = createWorldRenderingResources(this.gl);
+
+    try {
+      this.oceanSurface = createOceanSurface(this.gl);
+    } catch (error) {
+      console.warn("Shader do oceano desativado.", error);
+      this.oceanSurface = null;
+    }
   }
 
   setStatus(message) {
@@ -388,12 +400,30 @@ class TerrainGameManager {
     this.gl.enable(this.gl.BLEND);
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
 
-    this.setSceneUniforms(this.camera.getViewProjection(this.canvas.width, this.canvas.height));
+    const viewProjection = this.camera.getViewProjection(this.canvas.width, this.canvas.height);
+
+    this.setSceneUniforms(viewProjection);
     this.refreshTerrainSceneObjects();
 
     for (const sceneObject of this.sceneObjects) {
       this.drawSceneObject(sceneObject);
     }
+
+    this.drawOcean(viewProjection);
+  }
+
+  drawOcean(viewProjection) {
+    if (!this.oceanSurface) {
+      return;
+    }
+
+    drawOceanSurface({
+      gl: this.gl,
+      oceanSurface: this.oceanSurface,
+      viewProjection,
+      cameraTarget: this.camera.getTarget(),
+      timeSeconds: this.getElapsedSeconds()
+    });
   }
 
   async loadWorld() {
