@@ -5,7 +5,7 @@ const OCEAN_DEPTH = 860;
 const OCEAN_Y = 0.16;
 const OCEAN_SHORE_Z = COASTAL_ZONE_LIMITS.landMinZ;
 const OCEAN_GRID_COLUMNS = 36;
-const OCEAN_GRID_ROWS = 28;
+const OCEAN_GRID_ROWS = 56;
 
 const OCEAN_VERTEX_SOURCE = `
   precision mediump float;
@@ -26,15 +26,20 @@ const OCEAN_VERTEX_SOURCE = `
   void main() {
     vec2 worldXZ = vec2(
       uCenterX + aCorner.x * uWidth,
-      uShoreZ - (1.0 - aCorner.y) * uDepth
+      uShoreZ + 18.0 - (1.0 - aCorner.y) * (uDepth + 18.0)
     );
     float shoreDistance = uShoreZ - worldXZ.y;
-    float shoreInfluence = 1.0 - smoothstep(0.0, 170.0, shoreDistance);
+    float shoreInfluence = 1.0 - smoothstep(-12.0, 170.0, shoreDistance);
     float swellInfluence = smoothstep(10.0, 80.0, shoreDistance);
-    float swell = sin(worldXZ.y * 0.045 + uTime * 1.55) * 0.52;
-    float crossWave = sin(worldXZ.x * 0.031 + worldXZ.y * 0.018 + uTime * 1.12) * 0.24;
-    float shorePulse = sin(shoreDistance * 0.16 - uTime * 2.8) * shoreInfluence * 0.46;
-    float waveHeight = (swell + crossWave) * swellInfluence + shorePulse;
+    float swellPhase = worldXZ.y * 0.052 + uTime * 1.9 + sin(worldXZ.x * 0.015) * 0.55;
+    float swellWave = sin(swellPhase);
+    float swell = (swellWave + sin(swellPhase * 2.0) * 0.32) * 0.92;
+    float crossWave = sin(worldXZ.x * 0.034 + worldXZ.y * 0.021 + uTime * 1.28) * 0.38;
+    float shorePhase = shoreDistance * 0.14 + uTime * 2.4 + sin(worldXZ.x * 0.025) * 0.35;
+    float shoreWave = sin(shorePhase) + sin(shorePhase * 2.0) * 0.25;
+    float shorePulse = shoreWave * shoreInfluence * 0.95;
+    float tideLift = sin(uTime * 0.16) * shoreInfluence * 0.38;
+    float waveHeight = (swell + crossWave) * swellInfluence + shorePulse + tideLift;
     vec3 world = vec3(worldXZ.x, uWaterY + waveHeight, worldXZ.y);
 
     vWorldXZ = world.xz;
@@ -90,7 +95,10 @@ const OCEAN_FRAGMENT_SOURCE = `
   }
 
   void main() {
-    float shoreMask = smoothstep(0.0, 12.0, vShoreDistance);
+    float tideCycle = sin(uTime * 0.16);
+    float waveRunup = sin(uTime * 0.72 + sin(vWorldXZ.x * 0.02) * 0.4);
+    float waterline = -3.0 - tideCycle * 7.0 - waveRunup * 2.5;
+    float shoreMask = smoothstep(waterline - 1.5, waterline + 3.0, vShoreDistance);
     float distanceFromCamera = length(vWorldXZ - uCameraXZ);
     float horizonFade = 1.0 - smoothstep(470.0, 760.0, distanceFromCamera);
 
@@ -100,7 +108,17 @@ const OCEAN_FRAGMENT_SOURCE = `
 
     float foamCells = animeCellPattern(waterUv);
     float bandNoise = noise(vec2(vWorldXZ.x * 0.045 + uTime * 0.42, vWorldXZ.y * 0.03));
-    float surfBand = (1.0 - smoothstep(0.0, 28.0, vShoreDistance)) * smoothstep(0.18, 0.82, bandNoise);
+    float lateralWarp = sin(vWorldXZ.x * 0.035 + uTime * 0.22) * 2.8;
+    lateralWarp += (noise(vec2(vWorldXZ.x * 0.028, uTime * 0.12)) - 0.5) * 5.0;
+    float breakerCycle = mod(vShoreDistance + lateralWarp + uTime * 8.5, 34.0);
+    float breakerLine = 1.0 - smoothstep(2.0, 6.5, abs(breakerCycle - 17.0));
+    float surfZone = smoothstep(waterline + 4.0, waterline + 10.0, vShoreDistance);
+    surfZone *= 1.0 - smoothstep(82.0, 118.0, vShoreDistance);
+    float brokenFoam = breakerLine * surfZone * mix(0.72, 1.0, bandNoise);
+    float shoreWash = 1.0 - smoothstep(2.0, 9.0, abs(vShoreDistance - waterline - 3.0));
+    shoreWash *= smoothstep(0.12, 0.78, bandNoise);
+    float surfBand = max(brokenFoam, shoreWash);
+    float openWaterCells = foamCells * smoothstep(92.0, 150.0, vShoreDistance);
 
     vec3 deepColor = vec3(0.035, 0.22, 0.42);
     vec3 midColor = vec3(0.05, 0.55, 0.76);
@@ -109,8 +127,8 @@ const OCEAN_FRAGMENT_SOURCE = `
 
     float depthRamp = smoothstep(10.0, 220.0, vShoreDistance);
     vec3 color = mix(shallowColor, deepColor, depthRamp);
-    color = mix(color, midColor, foamCells * 0.44);
-    color = mix(color, highlightColor, max(foamCells * 0.58, surfBand * 0.76));
+    color = mix(color, midColor, openWaterCells * 0.34);
+    color = mix(color, highlightColor, max(openWaterCells * 0.48, surfBand * 0.96));
 
     float alpha = mix(0.68, 0.92, depthRamp) * shoreMask * horizonFade;
     alpha = max(alpha, surfBand * 0.72);
