@@ -12,10 +12,10 @@ export const NPC_WATER_PROFILES = Object.freeze({
 });
 
 export const COASTAL_ZONE_LIMITS = Object.freeze({
-  landMaxRadius: 78,
-  shallowMaxRadius: 88,
-  breakMaxRadius: 104,
-  swimMaxRadius: 132
+  landMinZ: 54,
+  shallowMinZ: 20,
+  breakMinZ: -24,
+  swimMinZ: -104
 });
 
 export const NPC_ALLOWED_COASTAL_ZONES = Object.freeze({
@@ -39,26 +39,26 @@ function readPlanarPosition(position) {
 }
 
 export function getCoastalDistance(position) {
-  const [x, z] = readPlanarPosition(position);
-  return Math.hypot(x, z);
+  const [, z] = readPlanarPosition(position);
+  return Math.max(0, COASTAL_ZONE_LIMITS.landMinZ - z);
 }
 
 export function getCoastalZone(position, limits = COASTAL_ZONE_LIMITS) {
-  const distance = getCoastalDistance(position);
+  const [, z] = readPlanarPosition(position);
 
-  if (distance <= limits.landMaxRadius) {
+  if (z >= limits.landMinZ) {
     return COASTAL_ZONES.LAND;
   }
 
-  if (distance <= limits.shallowMaxRadius) {
+  if (z >= limits.shallowMinZ) {
     return COASTAL_ZONES.SHALLOW;
   }
 
-  if (distance <= limits.breakMaxRadius) {
+  if (z >= limits.breakMinZ) {
     return COASTAL_ZONES.BREAK;
   }
 
-  if (distance <= limits.swimMaxRadius) {
+  if (z >= limits.swimMinZ) {
     return COASTAL_ZONES.SWIM;
   }
 

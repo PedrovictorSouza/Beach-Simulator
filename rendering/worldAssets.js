@@ -805,54 +805,46 @@ function createShoreTextureCanvas() {
 }
 
 export function createLowPolyShoreModel(gl, {
-  innerRadius = 82,
-  outerRadius = 104,
+  width = 286,
+  landZ = 54,
+  waterZ = 20,
   rings = 4,
-  radialSegments = 72
+  segments = 72
 } = {}) {
   const positions = [];
   const uvs = [];
   const indices = [];
 
-  const getSegmentJitter = (segmentIndex) => {
-    const angle = (segmentIndex / radialSegments) * Math.PI * 2;
-    return (
-      Math.sin(angle * 3.0 + 0.4) * 4.8 +
-      Math.sin(angle * 7.0 + 1.7) * 2.8 +
-      Math.sin(angle * 13.0) * 1.4
-    );
-  };
+  const getCoastlineJitter = (x) => (
+    Math.sin(x * 0.055 + 0.4) * 3.6 +
+    Math.sin(x * 0.13 + 1.7) * 1.8
+  );
 
-  const getVertexIndex = (ringIndex, segmentIndex) => {
-    const wrappedSegmentIndex = (segmentIndex + radialSegments) % radialSegments;
-    return ringIndex * radialSegments + wrappedSegmentIndex;
-  };
+  const getVertexIndex = (ringIndex, segmentIndex) => ringIndex * (segments + 1) + segmentIndex;
 
   for (let ringIndex = 0; ringIndex <= rings; ringIndex += 1) {
     const ringProgress = ringIndex / rings;
 
-    for (let segmentIndex = 0; segmentIndex < radialSegments; segmentIndex += 1) {
-      const angle = (segmentIndex / radialSegments) * Math.PI * 2;
-      const jitter = getSegmentJitter(segmentIndex);
-      const radius = innerRadius + (outerRadius - innerRadius) * ringProgress + jitter;
-      const x = Math.cos(angle) * radius;
-      const z = Math.sin(angle) * radius;
-      const ridge = Math.sin(angle * 9.0 + ringProgress * 2.4) * 0.06;
+    for (let segmentIndex = 0; segmentIndex <= segments; segmentIndex += 1) {
+      const segmentProgress = segmentIndex / segments;
+      const x = -width * 0.5 + width * segmentProgress;
+      const z = landZ + (waterZ - landZ) * ringProgress + getCoastlineJitter(x);
+      const ridge = Math.sin(x * 0.16 + ringProgress * 2.4) * 0.06;
 
       positions.push(x, ridge, z);
-      uvs.push(segmentIndex / radialSegments, ringProgress);
+      uvs.push(segmentProgress, ringProgress);
     }
   }
 
   for (let ringIndex = 0; ringIndex < rings; ringIndex += 1) {
-    for (let segmentIndex = 0; segmentIndex < radialSegments; segmentIndex += 1) {
-      const innerCurrent = getVertexIndex(ringIndex, segmentIndex);
-      const innerNext = getVertexIndex(ringIndex, segmentIndex + 1);
-      const outerCurrent = getVertexIndex(ringIndex + 1, segmentIndex);
-      const outerNext = getVertexIndex(ringIndex + 1, segmentIndex + 1);
+    for (let segmentIndex = 0; segmentIndex < segments; segmentIndex += 1) {
+      const landCurrent = getVertexIndex(ringIndex, segmentIndex);
+      const landNext = getVertexIndex(ringIndex, segmentIndex + 1);
+      const waterCurrent = getVertexIndex(ringIndex + 1, segmentIndex);
+      const waterNext = getVertexIndex(ringIndex + 1, segmentIndex + 1);
 
-      indices.push(innerCurrent, innerNext, outerCurrent);
-      indices.push(outerCurrent, innerNext, outerNext);
+      indices.push(landCurrent, waterCurrent, landNext);
+      indices.push(landNext, waterCurrent, waterNext);
     }
   }
 
@@ -869,64 +861,53 @@ export function createLowPolyShoreModel(gl, {
     }],
     texture: createTextureFromSource(gl, createShoreTextureCanvas()),
     offset: [0, 0, 0],
-    size: [outerRadius * 2, 0.12, outerRadius * 2],
+    size: [width, 0.12, Math.abs(waterZ - landZ)],
     scale: 1
   };
 }
 
 export function createLowPolyOceanModel(gl, {
-  size = 284,
-  rings = 9,
-  radialSegments = 48
+  width = 300,
+  depth = 164,
+  coastZ = 20,
+  rows = 10,
+  columns = 36
 } = {}) {
-  const radius = size * 0.5;
   const positions = [];
   const uvs = [];
   const indices = [];
 
-  positions.push(0, 0, 0);
-  uvs.push(0.5, 0.5);
+  const getCoastlineJitter = (x) => (
+    Math.sin(x * 0.055 + 0.4) * 3.6 +
+    Math.sin(x * 0.13 + 1.7) * 1.8
+  );
 
-  const getRingVertexIndex = (ringIndex, segmentIndex) => {
-    if (ringIndex === 0) {
-      return 0;
-    }
+  const getVertexIndex = (rowIndex, columnIndex) => rowIndex * (columns + 1) + columnIndex;
 
-    const wrappedSegmentIndex = (segmentIndex + radialSegments) % radialSegments;
-    return 1 + (ringIndex - 1) * radialSegments + wrappedSegmentIndex;
-  };
+  for (let rowIndex = 0; rowIndex <= rows; rowIndex += 1) {
+    const rowProgress = rowIndex / rows;
 
-  for (let ringIndex = 1; ringIndex <= rings; ringIndex += 1) {
-    const ringRadius = (ringIndex / rings) * radius;
-
-    for (let segmentIndex = 0; segmentIndex < radialSegments; segmentIndex += 1) {
-      const angle = (segmentIndex / radialSegments) * Math.PI * 2;
-      const x = Math.cos(angle) * ringRadius;
-      const z = Math.sin(angle) * ringRadius;
+    for (let columnIndex = 0; columnIndex <= columns; columnIndex += 1) {
+      const columnProgress = columnIndex / columns;
+      const x = -width * 0.5 + width * columnProgress;
+      const coastlineZ = coastZ + getCoastlineJitter(x);
+      const z = coastlineZ - depth * rowProgress;
       const ridge = Math.sin(x * 0.08 + z * 0.05) * 0.08;
 
       positions.push(x, ridge, z);
-      uvs.push(0.5 + x / size, 0.5 + z / size);
+      uvs.push(columnProgress, rowProgress);
     }
   }
 
-  for (let segmentIndex = 0; segmentIndex < radialSegments; segmentIndex += 1) {
-    indices.push(
-      0,
-      getRingVertexIndex(1, segmentIndex + 1),
-      getRingVertexIndex(1, segmentIndex)
-    );
-  }
+  for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
+    for (let columnIndex = 0; columnIndex < columns; columnIndex += 1) {
+      const nearCurrent = getVertexIndex(rowIndex, columnIndex);
+      const nearNext = getVertexIndex(rowIndex, columnIndex + 1);
+      const farCurrent = getVertexIndex(rowIndex + 1, columnIndex);
+      const farNext = getVertexIndex(rowIndex + 1, columnIndex + 1);
 
-  for (let ringIndex = 1; ringIndex < rings; ringIndex += 1) {
-    for (let segmentIndex = 0; segmentIndex < radialSegments; segmentIndex += 1) {
-      const innerCurrent = getRingVertexIndex(ringIndex, segmentIndex);
-      const innerNext = getRingVertexIndex(ringIndex, segmentIndex + 1);
-      const outerCurrent = getRingVertexIndex(ringIndex + 1, segmentIndex);
-      const outerNext = getRingVertexIndex(ringIndex + 1, segmentIndex + 1);
-
-      indices.push(innerCurrent, innerNext, outerCurrent);
-      indices.push(outerCurrent, innerNext, outerNext);
+      indices.push(nearCurrent, farCurrent, nearNext);
+      indices.push(nearNext, farCurrent, farNext);
     }
   }
 
@@ -943,7 +924,7 @@ export function createLowPolyOceanModel(gl, {
     }],
     texture: createTextureFromSource(gl, createOceanTextureCanvas()),
     offset: [0, 0, 0],
-    size: [size, 0.16, size],
+    size: [width, 0.16, depth],
     scale: 1
   };
 }
