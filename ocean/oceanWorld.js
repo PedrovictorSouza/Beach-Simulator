@@ -1,17 +1,19 @@
 import { createLowPolyOceanModel } from "../rendering/worldAssets.js";
 
+const OCEAN_SURFACE_Y = 0.3;
+
 export function createOceanSceneObject({ gl }) {
   return {
     model: createLowPolyOceanModel(gl),
     instances: [{
-      offset: [0, -0.52, 0],
+      offset: [0, OCEAN_SURFACE_Y, 0],
       scale: 1,
       yaw: 0,
       alpha: 0.78
     }],
     brightness: 1.16,
     wave: {
-      strength: 0.34,
+      strength: 0.18,
       scale: 0.16,
       speed: 1.35,
       chop: 0.08,
