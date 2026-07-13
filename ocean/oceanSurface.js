@@ -4,6 +4,8 @@ const OCEAN_WIDTH = 920;
 const OCEAN_DEPTH = 860;
 const OCEAN_Y = 0.16;
 const OCEAN_SHORE_Z = COASTAL_ZONE_LIMITS.landMinZ;
+const OCEAN_GRID_COLUMNS = 36;
+const OCEAN_GRID_ROWS = 28;
 
 const OCEAN_VERTEX_SOURCE = `
   attribute vec2 aCorner;
@@ -14,19 +16,27 @@ const OCEAN_VERTEX_SOURCE = `
   uniform float uWidth;
   uniform float uDepth;
   uniform float uWaterY;
+  uniform float uTime;
 
   varying vec2 vWorldXZ;
   varying float vShoreDistance;
 
   void main() {
-    vec3 world = vec3(
+    vec2 worldXZ = vec2(
       uCenterX + aCorner.x * uWidth,
-      uWaterY,
       uShoreZ - (1.0 - aCorner.y) * uDepth
     );
+    float shoreDistance = uShoreZ - worldXZ.y;
+    float shoreInfluence = 1.0 - smoothstep(0.0, 170.0, shoreDistance);
+    float swellInfluence = smoothstep(10.0, 80.0, shoreDistance);
+    float swell = sin(worldXZ.y * 0.045 + uTime * 1.55) * 0.52;
+    float crossWave = sin(worldXZ.x * 0.031 + worldXZ.y * 0.018 + uTime * 1.12) * 0.24;
+    float shorePulse = sin(shoreDistance * 0.16 - uTime * 2.8) * shoreInfluence * 0.46;
+    float waveHeight = (swell + crossWave) * swellInfluence + shorePulse;
+    vec3 world = vec3(worldXZ.x, uWaterY + waveHeight, worldXZ.y);
 
     vWorldXZ = world.xz;
-    vShoreDistance = uShoreZ - world.z;
+    vShoreDistance = shoreDistance;
     gl_Position = uViewProjection * vec4(world, 1.0);
   }
 `;
@@ -147,34 +157,54 @@ function createProgram(gl, vertexSource, fragmentSource) {
   return program;
 }
 
+function createOceanGridGeometry() {
+  const corners = [];
+  const indices = [];
+
+  for (let row = 0; row <= OCEAN_GRID_ROWS; row += 1) {
+    const zProgress = row / OCEAN_GRID_ROWS;
+
+    for (let column = 0; column <= OCEAN_GRID_COLUMNS; column += 1) {
+      const xProgress = column / OCEAN_GRID_COLUMNS;
+
+      corners.push(xProgress - 0.5, zProgress);
+    }
+  }
+
+  for (let row = 0; row < OCEAN_GRID_ROWS; row += 1) {
+    for (let column = 0; column < OCEAN_GRID_COLUMNS; column += 1) {
+      const topLeft = row * (OCEAN_GRID_COLUMNS + 1) + column;
+      const topRight = topLeft + 1;
+      const bottomLeft = topLeft + OCEAN_GRID_COLUMNS + 1;
+      const bottomRight = bottomLeft + 1;
+
+      indices.push(topLeft, topRight, bottomLeft, bottomLeft, topRight, bottomRight);
+    }
+  }
+
+  return {
+    corners: new Float32Array(corners),
+    indices: new Uint16Array(indices)
+  };
+}
+
 export function createOceanSurface(gl) {
   const program = createProgram(gl, OCEAN_VERTEX_SOURCE, OCEAN_FRAGMENT_SOURCE);
   const cornerBuffer = gl.createBuffer();
   const indexBuffer = gl.createBuffer();
+  const geometry = createOceanGridGeometry();
 
   gl.bindBuffer(gl.ARRAY_BUFFER, cornerBuffer);
-  gl.bufferData(
-    gl.ARRAY_BUFFER,
-    new Float32Array([
-      -0.5, 0.0,
-      0.5, 0.0,
-      -0.5, 1.0,
-      0.5, 1.0
-    ]),
-    gl.STATIC_DRAW
-  );
+  gl.bufferData(gl.ARRAY_BUFFER, geometry.corners, gl.STATIC_DRAW);
 
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-  gl.bufferData(
-    gl.ELEMENT_ARRAY_BUFFER,
-    new Uint16Array([0, 1, 2, 2, 1, 3]),
-    gl.STATIC_DRAW
-  );
+  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.STATIC_DRAW);
 
   return {
     program,
     cornerBuffer,
     indexBuffer,
+    indexCount: geometry.indices.length,
     attribs: {
       corner: gl.getAttribLocation(program, "aCorner")
     },
@@ -219,7 +249,7 @@ export function drawOceanSurface({
   gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oceanSurface.indexBuffer);
   gl.disable(gl.DEPTH_TEST);
   gl.depthMask(false);
-  gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+  gl.drawElements(gl.TRIANGLES, oceanSurface.indexCount, gl.UNSIGNED_SHORT, 0);
   gl.depthMask(true);
   gl.enable(gl.DEPTH_TEST);
 }
