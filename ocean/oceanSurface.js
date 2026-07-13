@@ -187,6 +187,7 @@ export function createOceanSurface(gl) {
   const program = createProgram(gl, OCEAN_VERTEX_SOURCE, OCEAN_FRAGMENT_SOURCE);
   const cornerBuffer = gl.createBuffer();
   const geometry = createOceanGridGeometry();
+  const maxVertexAttribs = gl.getParameter(gl.MAX_VERTEX_ATTRIBS);
 
   gl.bindBuffer(gl.ARRAY_BUFFER, cornerBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, geometry.corners, gl.STATIC_DRAW);
@@ -194,6 +195,7 @@ export function createOceanSurface(gl) {
   return {
     program,
     cornerBuffer,
+    maxVertexAttribs,
     vertexCount: geometry.vertexCount,
     rowVertexCount: geometry.rowVertexCount,
     attribs: {
@@ -232,6 +234,10 @@ export function drawOceanSurface({
   gl.uniform1f(uniforms.waterY, OCEAN_Y);
   gl.uniform1f(uniforms.time, timeSeconds);
   gl.uniform2fv(uniforms.cameraXZ, [targetX, targetZ]);
+
+  for (let index = 0; index < oceanSurface.maxVertexAttribs; index += 1) {
+    gl.disableVertexAttribArray(index);
+  }
 
   gl.bindBuffer(gl.ARRAY_BUFFER, oceanSurface.cornerBuffer);
   gl.enableVertexAttribArray(attribs.corner);
