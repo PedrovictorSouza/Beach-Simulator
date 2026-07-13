@@ -8,7 +8,8 @@ import { createCursorInput } from "./input/cursor.js";
 import { loadTerrainAssets } from "./terrain/terrainAssets.js";
 import {
   createTerrainSceneObjects,
-  getRestingaPalmTreeZ
+  getRestingaPalmTreeZ,
+  updateTerrainSceneObjects
 } from "./terrain/terrainWorld.js";
 
 const PALM_TREE_MODEL_FACE_YAW_OFFSET = 0;
@@ -34,6 +35,8 @@ class TerrainGameManager {
     this.renderingResources = null;
     this.camera = null;
     this.cursor = null;
+    this.terrainAssets = null;
+    this.terrainSceneObjects = [];
     this.sceneObjects = [];
     this.startTimeMs = 0;
     this.lastFrameTimeMs = 0;
@@ -288,6 +291,18 @@ class TerrainGameManager {
     }
   }
 
+  refreshTerrainSceneObjects() {
+    if (!this.terrainAssets || this.terrainSceneObjects.length === 0) {
+      return;
+    }
+
+    updateTerrainSceneObjects({
+      sceneObjects: this.terrainSceneObjects,
+      groundModel: this.terrainAssets.groundModel,
+      camera: this.camera
+    });
+  }
+
   render() {
     this.resizeCanvas();
     this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
@@ -299,6 +314,7 @@ class TerrainGameManager {
     this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
 
     this.setSceneUniforms(this.camera.getViewProjection(this.canvas.width, this.canvas.height));
+    this.refreshTerrainSceneObjects();
 
     for (const sceneObject of this.sceneObjects) {
       this.drawSceneObject(sceneObject);
@@ -318,12 +334,16 @@ class TerrainGameManager {
         onStatus: (message) => this.setStatus(message)
       })
     ]);
+    const terrainSceneObjects = createTerrainSceneObjects({
+      terrainAssets,
+      camera: this.camera
+    });
+
+    this.terrainAssets = terrainAssets;
+    this.terrainSceneObjects = terrainSceneObjects;
 
     return [
-      ...createTerrainSceneObjects({
-        terrainAssets,
-        camera: this.camera
-      }),
+      ...terrainSceneObjects,
       {
         model: palmTreeModel,
         instances: this.buildPalmTreeInstances(),
