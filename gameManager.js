@@ -13,6 +13,7 @@ import {
 } from "./terrain/terrainWorld.js";
 
 const PALM_TREE_MODEL_FACE_YAW_OFFSET = 0;
+const MAX_RENDER_PIXEL_RATIO = 1;
 const RESTINGA_PALM_TREE_LAYOUT = Object.freeze([
   [-84, 0.2, 0.18, 0.76],
   [-58, 0.72, -0.34, 0.9],
@@ -226,7 +227,7 @@ class TerrainGameManager {
   }
 
   resizeCanvas() {
-    const ratio = Math.min(this.windowRef.devicePixelRatio || 1, 2);
+    const ratio = Math.min(this.windowRef.devicePixelRatio || 1, MAX_RENDER_PIXEL_RATIO);
     const width = Math.max(1, Math.floor(this.canvas.clientWidth * ratio));
     const height = Math.max(1, Math.floor(this.canvas.clientHeight * ratio));
 
@@ -291,6 +292,11 @@ class TerrainGameManager {
   }
 
   drawSceneObject(sceneObject) {
+    if (sceneObject.terrainLayer) {
+      this.drawTerrainSceneObject(sceneObject);
+      return;
+    }
+
     const { uniforms } = this.renderingResources;
 
     this.setUniform3(uniforms.modelOffset, sceneObject.model.offset);
@@ -320,6 +326,41 @@ class TerrainGameManager {
 
       for (const primitive of sceneObject.model.primitives) {
         this.bindPrimitive(primitive);
+        this.gl.drawElements(this.gl.TRIANGLES, primitive.indexCount, primitive.indexType, 0);
+      }
+    }
+  }
+
+  drawTerrainSceneObject(sceneObject) {
+    const { uniforms } = this.renderingResources;
+
+    this.setUniform3(uniforms.modelOffset, sceneObject.model.offset);
+    this.setUniform1(uniforms.modelScale, sceneObject.model.scale);
+    this.setUniform1(uniforms.modelHeight, sceneObject.model.size[1]);
+    this.setUniform1(uniforms.brightness, sceneObject.brightness ?? 1);
+    this.setUniform1(uniforms.waveStrength, 0);
+    this.setUniform1(uniforms.waveScale, 1);
+    this.setUniform1(uniforms.waveSpeed, 1);
+    this.setUniform1(uniforms.waveChop, 0);
+    this.gl.uniform2fv(uniforms.waveDirection, [1, 0]);
+    this.gl.activeTexture(this.gl.TEXTURE0);
+    this.gl.bindTexture(this.gl.TEXTURE_2D, sceneObject.model.texture);
+
+    for (const primitive of sceneObject.model.primitives) {
+      this.bindPrimitive(primitive);
+
+      for (const instance of sceneObject.instances) {
+        this.setUniform3(uniforms.instanceOffset, instance.offset);
+        this.setUniform1(uniforms.instanceScale, instance.scale ?? 1);
+        this.setUniform1(uniforms.instanceYaw, instance.yaw || 0);
+        this.setUniform1(uniforms.instancePitch, 0);
+        this.setUniform1(uniforms.instanceRoll, 0);
+        this.setUniform3(uniforms.instanceTint, instance.tint || [1, 1, 1]);
+        this.setUniform1(uniforms.instanceTintStrength, instance.tintStrength || 0);
+        this.setUniform1(uniforms.instanceAlpha, 1);
+        this.setUniform1(uniforms.localYaw, 0);
+        this.setUniform3(uniforms.localPivot, [0, 0, 0]);
+        this.setUniform1(uniforms.swayStrength, 0);
         this.gl.drawElements(this.gl.TRIANGLES, primitive.indexCount, primitive.indexType, 0);
       }
     }
