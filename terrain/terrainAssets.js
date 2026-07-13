@@ -8,10 +8,10 @@ export const TERRAIN_ASSET_PATHS = Object.freeze({
     gltfPath: "./terrain/assets/ground/ground.gltf",
     txtPath: "./terrain/assets/ground/ground.txt"
   }),
-  iceground: Object.freeze({
-    gltfPath: "./terrain/assets/iceground/iceground.gltf",
-    binPath: "./terrain/assets/iceground/iceground.bin",
-    texturePath: "./terrain/assets/iceground/iceground.png"
+  sandground: Object.freeze({
+    gltfPath: "./terrain/assets/sandground/sandground.gltf",
+    binPath: "./terrain/assets/sandground/sandground.bin",
+    texturePath: "./terrain/assets/sandground/sandground.png"
   }),
   groundAlt: Object.freeze({
     gltfPath: "./terrain/assets/ground-2/ground-2.gltf",
@@ -21,7 +21,7 @@ export const TERRAIN_ASSET_PATHS = Object.freeze({
 });
 
 export async function loadTerrainAssets({ gl, onStatus }) {
-  const [groundModel, icegroundModel] = await Promise.all([
+  const [groundModel, sandgroundModel] = await Promise.all([
     loadPicoModel({
       gl,
       gltfPath: TERRAIN_ASSET_PATHS.ground.gltfPath,
@@ -30,9 +30,9 @@ export async function loadTerrainAssets({ gl, onStatus }) {
     }),
     loadTexturedModel({
       gl,
-      gltfPath: TERRAIN_ASSET_PATHS.iceground.gltfPath,
-      binPath: TERRAIN_ASSET_PATHS.iceground.binPath,
-      texturePath: TERRAIN_ASSET_PATHS.iceground.texturePath,
+      gltfPath: TERRAIN_ASSET_PATHS.sandground.gltfPath,
+      binPath: TERRAIN_ASSET_PATHS.sandground.binPath,
+      texturePath: TERRAIN_ASSET_PATHS.sandground.texturePath,
       normalizedSize: 3.8,
       onStatus
     })
@@ -40,6 +40,6 @@ export async function loadTerrainAssets({ gl, onStatus }) {
 
   return {
     groundModel,
-    icegroundModel
+    sandgroundModel
   };
 }

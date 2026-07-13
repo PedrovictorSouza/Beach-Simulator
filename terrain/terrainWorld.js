@@ -1,20 +1,24 @@
 const WORLD_LIMIT = 144;
 const GROUND_TILE_INSTANCE_SCALE = 0.375;
 const TERRAIN_DRAW_RADIUS = 96;
+const BERM_LAND_Z = 54;
+const BERM_WATER_Z = 20;
+const BERM_DRY_DEPTH = 30;
+const BERM_WET_OVERLAP = 6;
 
-function hashCell(x, z) {
-  const value = Math.sin(x * 12.9898 + z * 78.233) * 43758.5453;
-  return value - Math.floor(value);
+function getBermCoastlineJitter(x) {
+  return (
+    Math.sin(x * 0.055 + 0.4) * 3.6 +
+    Math.sin(x * 0.13 + 1.7) * 1.8
+  );
 }
 
-function isIceTerrainCell(x, z) {
-  const distanceFromCenter = Math.hypot(x, z);
+function isSandBermCell(x, z) {
+  const coastlineJitter = getBermCoastlineJitter(x);
+  const bermLandEdge = BERM_LAND_Z + coastlineJitter + BERM_DRY_DEPTH;
+  const bermWaterEdge = BERM_WATER_Z + coastlineJitter - BERM_WET_OVERLAP;
 
-  if (distanceFromCenter < 34) {
-    return false;
-  }
-
-  return hashCell(x, z) < 0.72;
+  return z >= bermWaterEdge && z <= bermLandEdge;
 }
 
 function buildTerrainInstances({ groundModel, camera }) {
@@ -23,7 +27,7 @@ function buildTerrainInstances({ groundModel, camera }) {
   const tileCountPerAxis = Math.max(1, Math.ceil((WORLD_LIMIT * 2) / tileSpan));
   const start = -WORLD_LIMIT + tileSpan * 0.5;
   const groundInstances = [];
-  const icegroundInstances = [];
+  const sandgroundInstances = [];
 
   for (let xIndex = 0; xIndex < tileCountPerAxis; xIndex += 1) {
     for (let zIndex = 0; zIndex < tileCountPerAxis; zIndex += 1) {
@@ -40,19 +44,19 @@ function buildTerrainInstances({ groundModel, camera }) {
         yaw: 0
       };
 
-      if (isIceTerrainCell(x, z)) {
-        icegroundInstances.push(instance);
+      if (isSandBermCell(x, z)) {
+        sandgroundInstances.push(instance);
       } else {
         groundInstances.push(instance);
       }
     }
   }
 
-  return { groundInstances, icegroundInstances };
+  return { groundInstances, sandgroundInstances };
 }
 
 export function createTerrainSceneObjects({ terrainAssets, camera }) {
-  const { groundInstances, icegroundInstances } = buildTerrainInstances({
+  const { groundInstances, sandgroundInstances } = buildTerrainInstances({
     groundModel: terrainAssets.groundModel,
     camera
   });
@@ -64,8 +68,8 @@ export function createTerrainSceneObjects({ terrainAssets, camera }) {
       brightness: 0.84
     },
     {
-      model: terrainAssets.icegroundModel,
-      instances: icegroundInstances,
+      model: terrainAssets.sandgroundModel,
+      instances: sandgroundInstances,
       brightness: 0.98
     }
   ];
