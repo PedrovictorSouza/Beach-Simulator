@@ -159,52 +159,43 @@ function createProgram(gl, vertexSource, fragmentSource) {
 
 function createOceanGridGeometry() {
   const corners = [];
-  const indices = [];
 
   for (let row = 0; row <= OCEAN_GRID_ROWS; row += 1) {
-    const zProgress = row / OCEAN_GRID_ROWS;
+    const currentZ = row / OCEAN_GRID_ROWS;
+    const nextZ = Math.min((row + 1) / OCEAN_GRID_ROWS, 1);
+
+    if (row === OCEAN_GRID_ROWS) {
+      break;
+    }
 
     for (let column = 0; column <= OCEAN_GRID_COLUMNS; column += 1) {
       const xProgress = column / OCEAN_GRID_COLUMNS;
 
-      corners.push(xProgress - 0.5, zProgress);
-    }
-  }
-
-  for (let row = 0; row < OCEAN_GRID_ROWS; row += 1) {
-    for (let column = 0; column < OCEAN_GRID_COLUMNS; column += 1) {
-      const topLeft = row * (OCEAN_GRID_COLUMNS + 1) + column;
-      const topRight = topLeft + 1;
-      const bottomLeft = topLeft + OCEAN_GRID_COLUMNS + 1;
-      const bottomRight = bottomLeft + 1;
-
-      indices.push(topLeft, topRight, bottomLeft, bottomLeft, topRight, bottomRight);
+      corners.push(xProgress - 0.5, currentZ);
+      corners.push(xProgress - 0.5, nextZ);
     }
   }
 
   return {
     corners: new Float32Array(corners),
-    indices: new Uint16Array(indices)
+    vertexCount: corners.length / 2,
+    rowVertexCount: (OCEAN_GRID_COLUMNS + 1) * 2
   };
 }
 
 export function createOceanSurface(gl) {
   const program = createProgram(gl, OCEAN_VERTEX_SOURCE, OCEAN_FRAGMENT_SOURCE);
   const cornerBuffer = gl.createBuffer();
-  const indexBuffer = gl.createBuffer();
   const geometry = createOceanGridGeometry();
 
   gl.bindBuffer(gl.ARRAY_BUFFER, cornerBuffer);
   gl.bufferData(gl.ARRAY_BUFFER, geometry.corners, gl.STATIC_DRAW);
 
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-  gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.STATIC_DRAW);
-
   return {
     program,
     cornerBuffer,
-    indexBuffer,
-    indexCount: geometry.indices.length,
+    vertexCount: geometry.vertexCount,
+    rowVertexCount: geometry.rowVertexCount,
     attribs: {
       corner: gl.getAttribLocation(program, "aCorner")
     },
@@ -246,10 +237,13 @@ export function drawOceanSurface({
   gl.enableVertexAttribArray(attribs.corner);
   gl.vertexAttribPointer(attribs.corner, 2, gl.FLOAT, false, 0, 0);
 
-  gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, oceanSurface.indexBuffer);
   gl.disable(gl.DEPTH_TEST);
   gl.depthMask(false);
-  gl.drawElements(gl.TRIANGLES, oceanSurface.indexCount, gl.UNSIGNED_SHORT, 0);
+
+  for (let offset = 0; offset < oceanSurface.vertexCount; offset += oceanSurface.rowVertexCount) {
+    gl.drawArrays(gl.TRIANGLE_STRIP, offset, oceanSurface.rowVertexCount);
+  }
+
   gl.depthMask(true);
   gl.enable(gl.DEPTH_TEST);
 }
