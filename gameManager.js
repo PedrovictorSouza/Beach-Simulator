@@ -10,7 +10,6 @@ import {
   createTerrainSceneObjects,
   getRestingaPalmTreeZ
 } from "./terrain/terrainWorld.js";
-import { createShoreSceneObject } from "./shore/shoreWorld.js";
 
 const PALM_TREE_MODEL_FACE_YAW_OFFSET = 0;
 const RESTINGA_PALM_TREE_LAYOUT = Object.freeze([
@@ -325,7 +324,6 @@ class TerrainGameManager {
         terrainAssets,
         camera: this.camera
       }),
-      createShoreSceneObject({ gl: this.gl }),
       {
         model: palmTreeModel,
         instances: this.buildPalmTreeInstances(),
