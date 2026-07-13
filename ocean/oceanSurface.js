@@ -8,6 +8,8 @@ const OCEAN_GRID_COLUMNS = 36;
 const OCEAN_GRID_ROWS = 28;
 
 const OCEAN_VERTEX_SOURCE = `
+  precision mediump float;
+
   attribute vec2 aCorner;
 
   uniform mat4 uViewProjection;
