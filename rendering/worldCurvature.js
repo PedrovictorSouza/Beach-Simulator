@@ -1,7 +1,7 @@
 export const WORLD_CURVATURE_CONFIG = Object.freeze({
-  enabled: true,
-  strength: 0.00105,
-  maxDrop: 18
+  enabled: false,
+  strength: 0,
+  maxDrop: 0
 });
 
 export function resolveWorldCurvatureOrigin(cameraTarget = [0, 0, 0]) {

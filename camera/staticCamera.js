@@ -1,20 +1,20 @@
 const WORLD_UP = [0, 1, 0];
 
 const DEFAULT_STATIC_CAMERA_CONFIG = Object.freeze({
-  target: [0, 6, 50],
+  target: [0, 6, 0],
   direction: [0.74, 1.22, 0.74],
-  distance: 164,
+  distance: 158,
   minDistance: 54,
-  maxDistance: 215,
+  maxDistance: 230,
   zoomSpeed: 0.16,
   panSpeed: 46,
   dragPanSpeed: 1,
   zoomFocusStrength: 0.38,
   targetBounds: {
-    minX: -92,
-    maxX: 92,
-    minZ: -116,
-    maxZ: 96
+    minX: -132,
+    maxX: 132,
+    minZ: -128,
+    maxZ: 62
   },
   fov: (42 * Math.PI) / 180,
   near: 0.1,

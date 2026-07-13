@@ -1,12 +1,11 @@
-const WORLD_LIMIT = 144;
+const WORLD_LIMIT = 240;
 const GROUND_TILE_INSTANCE_SCALE = 0.375;
 const TERRAIN_DRAW_RADIUS = 96;
-const BERM_LAND_Z = -24;
-const BERM_WATER_Z = -58;
-const BERM_DRY_DEPTH = 0;
-const BERM_WET_OVERLAP = 4;
-const RESTINGA_DEPTH = 42;
-const RESTINGA_TREE_INSET = 8;
+const BEACH_LAND_Z = 72;
+const BEACH_WATER_Z = -76;
+const BEACH_WET_OVERLAP = 6;
+const RESTINGA_DEPTH = 30;
+const RESTINGA_TREE_INSET = 6;
 const RESTINGA_GROUND_TINT = [0.9, 1.08, 0.78];
 const RESTINGA_GROUND_TINT_STRENGTH = 0.18;
 
@@ -14,24 +13,24 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-function getBermCoastlineJitter(x) {
+function getCoastlineJitter(x) {
   return (
     Math.sin(x * 0.055 + 0.4) * 3.6 +
     Math.sin(x * 0.13 + 1.7) * 1.8
   );
 }
 
-function getBermEdgesAtX(x) {
-  const coastlineJitter = getBermCoastlineJitter(x);
+function getBeachEdgesAtX(x) {
+  const coastlineJitter = getCoastlineJitter(x);
 
   return {
-    landEdgeZ: BERM_LAND_Z + coastlineJitter + BERM_DRY_DEPTH,
-    waterEdgeZ: BERM_WATER_Z + coastlineJitter - BERM_WET_OVERLAP
+    landEdgeZ: BEACH_LAND_Z + coastlineJitter,
+    waterEdgeZ: BEACH_WATER_Z + coastlineJitter - BEACH_WET_OVERLAP
   };
 }
 
 function getRestingaBoundsAtX(x) {
-  const { landEdgeZ } = getBermEdgesAtX(x);
+  const { landEdgeZ } = getBeachEdgesAtX(x);
 
   return {
     startZ: landEdgeZ,
@@ -39,8 +38,8 @@ function getRestingaBoundsAtX(x) {
   };
 }
 
-function isSandBermCell(x, z) {
-  const { landEdgeZ, waterEdgeZ } = getBermEdgesAtX(x);
+function isBeachSandCell(x, z) {
+  const { landEdgeZ, waterEdgeZ } = getBeachEdgesAtX(x);
 
   return z >= waterEdgeZ && z <= landEdgeZ;
 }
@@ -84,7 +83,7 @@ function buildTerrainInstances({ groundModel, camera }) {
         yaw: 0
       };
 
-      if (isSandBermCell(x, z)) {
+      if (isBeachSandCell(x, z)) {
         sandgroundInstances.push(instance);
       } else if (isRestingaCell(x, z)) {
         restingaGroundInstances.push({

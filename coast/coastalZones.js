@@ -12,10 +12,10 @@ export const NPC_WATER_PROFILES = Object.freeze({
 });
 
 export const COASTAL_ZONE_LIMITS = Object.freeze({
-  landMinZ: -24,
-  shallowMinZ: -58,
-  breakMinZ: -92,
-  swimMinZ: -126
+  landMinZ: -36,
+  shallowMinZ: -76,
+  breakMinZ: -114,
+  swimMinZ: -178
 });
 
 export const NPC_ALLOWED_COASTAL_ZONES = Object.freeze({
