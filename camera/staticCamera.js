@@ -1,13 +1,22 @@
 const WORLD_UP = [0, 1, 0];
 
 const DEFAULT_STATIC_CAMERA_CONFIG = Object.freeze({
-  target: [0, 6, 0],
-  direction: [0.95, 0.72, 0.95],
-  distance: 128,
-  minDistance: 58,
-  maxDistance: 190,
-  zoomSpeed: 0.12,
-  fov: (38 * Math.PI) / 180,
+  target: [0, 6, 50],
+  direction: [0.74, 1.22, 0.74],
+  distance: 164,
+  minDistance: 54,
+  maxDistance: 215,
+  zoomSpeed: 0.16,
+  panSpeed: 46,
+  dragPanSpeed: 1,
+  zoomFocusStrength: 0.38,
+  targetBounds: {
+    minX: -92,
+    maxX: 92,
+    minZ: -116,
+    maxZ: 96
+  },
+  fov: (42 * Math.PI) / 180,
   near: 0.1,
   far: 420
 });
@@ -34,6 +43,22 @@ function crossVec3(left, right) {
     left[1] * right[2] - left[2] * right[1],
     left[2] * right[0] - left[0] * right[2],
     left[0] * right[1] - left[1] * right[0]
+  ];
+}
+
+function scaleVec3(vector, scale) {
+  return [
+    vector[0] * scale,
+    vector[1] * scale,
+    vector[2] * scale
+  ];
+}
+
+function addVec3(left, right) {
+  return [
+    left[0] + right[0],
+    left[1] + right[1],
+    left[2] + right[2]
   ];
 }
 
@@ -114,6 +139,7 @@ function multiplyMat4(left, right) {
 }
 
 export function createStaticCamera(config = {}) {
+  const targetBounds = config.targetBounds || DEFAULT_STATIC_CAMERA_CONFIG.targetBounds;
   const state = {
     target: [...(config.target || DEFAULT_STATIC_CAMERA_CONFIG.target)],
     direction: normalizeVec3(config.direction || DEFAULT_STATIC_CAMERA_CONFIG.direction),
@@ -121,6 +147,15 @@ export function createStaticCamera(config = {}) {
     minDistance: Number(config.minDistance || DEFAULT_STATIC_CAMERA_CONFIG.minDistance),
     maxDistance: Number(config.maxDistance || DEFAULT_STATIC_CAMERA_CONFIG.maxDistance),
     zoomSpeed: Number(config.zoomSpeed || DEFAULT_STATIC_CAMERA_CONFIG.zoomSpeed),
+    panSpeed: Number(config.panSpeed || DEFAULT_STATIC_CAMERA_CONFIG.panSpeed),
+    dragPanSpeed: Number(config.dragPanSpeed || DEFAULT_STATIC_CAMERA_CONFIG.dragPanSpeed),
+    zoomFocusStrength: Number(config.zoomFocusStrength || DEFAULT_STATIC_CAMERA_CONFIG.zoomFocusStrength),
+    targetBounds: {
+      minX: Number(targetBounds.minX),
+      maxX: Number(targetBounds.maxX),
+      minZ: Number(targetBounds.minZ),
+      maxZ: Number(targetBounds.maxZ)
+    },
     fov: Number(config.fov || DEFAULT_STATIC_CAMERA_CONFIG.fov),
     near: Number(config.near || DEFAULT_STATIC_CAMERA_CONFIG.near),
     far: Number(config.far || DEFAULT_STATIC_CAMERA_CONFIG.far)
@@ -134,6 +169,30 @@ export function createStaticCamera(config = {}) {
     ];
   }
 
+  function getGroundBasis() {
+    const right = normalizeVec3(crossVec3(WORLD_UP, state.direction));
+    const forward = normalizeVec3(crossVec3(WORLD_UP, right));
+
+    return { right, forward };
+  }
+
+  function clampTarget() {
+    state.target[0] = clamp(state.target[0], state.targetBounds.minX, state.targetBounds.maxX);
+    state.target[2] = clamp(state.target[2], state.targetBounds.minZ, state.targetBounds.maxZ);
+  }
+
+  function moveTarget(delta) {
+    state.target = addVec3(state.target, delta);
+    clampTarget();
+  }
+
+  function getUnitsPerPixel(viewport = {}) {
+    const height = Math.max(1, Number(viewport.height) || 1);
+    const visibleHeight = Math.tan(state.fov * 0.5) * state.distance * 2;
+
+    return visibleHeight / height;
+  }
+
   return {
     getTarget() {
       return [...state.target];
@@ -144,7 +203,7 @@ export function createStaticCamera(config = {}) {
     getDistance() {
       return state.distance;
     },
-    zoomBy(deltaY) {
+    zoomBy(deltaY, focus = null) {
       const previousDistance = state.distance;
       state.distance = clamp(
         state.distance + deltaY * state.zoomSpeed,
@@ -152,7 +211,46 @@ export function createStaticCamera(config = {}) {
         state.maxDistance
       );
 
-      return state.distance !== previousDistance;
+      const changed = state.distance !== previousDistance;
+      if (changed && focus) {
+        const width = Math.max(1, Number(focus.width) || 1);
+        const height = Math.max(1, Number(focus.height) || 1);
+        const normalizedX = ((Number(focus.x) || 0) / width) * 2 - 1;
+        const normalizedY = ((Number(focus.y) || 0) / height) * 2 - 1;
+        const zoomAmount = previousDistance - state.distance;
+        const { right, forward } = getGroundBasis();
+        const rightShift = scaleVec3(right, normalizedX * zoomAmount * state.zoomFocusStrength);
+        const forwardShift = scaleVec3(forward, -normalizedY * zoomAmount * state.zoomFocusStrength);
+
+        moveTarget(addVec3(rightShift, forwardShift));
+      }
+
+      return changed;
+    },
+    panByScreenDelta(deltaX, deltaY, viewport = {}) {
+      const { right, forward } = getGroundBasis();
+      const unitsPerPixel = getUnitsPerPixel(viewport) * state.dragPanSpeed;
+      const rightShift = scaleVec3(right, -deltaX * unitsPerPixel);
+      const forwardShift = scaleVec3(forward, -deltaY * unitsPerPixel);
+
+      moveTarget(addVec3(rightShift, forwardShift));
+    },
+    panByDirection(direction, deltaSeconds) {
+      const x = Number(direction?.x) || 0;
+      const z = Number(direction?.z) || 0;
+
+      if (x === 0 && z === 0) {
+        return false;
+      }
+
+      const { right, forward } = getGroundBasis();
+      const distanceScale = clamp(state.distance / DEFAULT_STATIC_CAMERA_CONFIG.distance, 0.55, 1.6);
+      const amount = state.panSpeed * Math.max(0, deltaSeconds) * distanceScale;
+      const rightShift = scaleVec3(right, x * amount);
+      const forwardShift = scaleVec3(forward, z * amount);
+
+      moveTarget(addVec3(rightShift, forwardShift));
+      return true;
     },
     getViewProjection(width, height) {
       const aspect = width / height;

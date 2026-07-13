@@ -25,6 +25,7 @@ class TerrainGameManager {
     this.cursor = null;
     this.sceneObjects = [];
     this.startTimeMs = 0;
+    this.lastFrameTimeMs = 0;
     this.animationFrameId = null;
   }
 
@@ -41,6 +42,7 @@ class TerrainGameManager {
     this.root = root;
     this.windowRef = windowRef;
     this.startTimeMs = this.getNowMs();
+    this.lastFrameTimeMs = this.startTimeMs;
     this.camera = createStaticCamera();
     this.mount();
     this.initializeCursor();
@@ -74,17 +76,37 @@ class TerrainGameManager {
     this.canvas.classList.add("cursor-debug-ready");
     this.cursor = createCursorInput({
       target: this.canvas,
+      windowRef: this.windowRef,
       onChange: (cursorState) => this.applyCursorDebugState(cursorState),
+      onPan: (cursorState) => this.applyCursorPan(cursorState),
       onZoom: (cursorState) => this.applyCursorZoom(cursorState)
     });
   }
 
   applyCursorDebugState(cursorState) {
-    this.canvas.classList.toggle("cursor-debug-pressed", cursorState.pressed);
+    this.canvas.classList.toggle("cursor-debug-pressed", cursorState.pressed || cursorState.panning);
   }
 
   applyCursorZoom(cursorState) {
-    if (this.camera.zoomBy(cursorState.deltaY) && this.renderingResources) {
+    const changed = this.camera.zoomBy(cursorState.deltaY, {
+      x: cursorState.x,
+      y: cursorState.y,
+      width: this.canvas.clientWidth,
+      height: this.canvas.clientHeight
+    });
+
+    if (changed && this.renderingResources) {
+      this.render();
+    }
+  }
+
+  applyCursorPan(cursorState) {
+    this.camera.panByScreenDelta(cursorState.deltaX, cursorState.deltaY, {
+      width: this.canvas.clientWidth,
+      height: this.canvas.clientHeight
+    });
+
+    if (this.renderingResources) {
       this.render();
     }
   }
@@ -125,11 +147,25 @@ class TerrainGameManager {
     const requestFrame = this.windowRef.requestAnimationFrame?.bind(this.windowRef);
     const scheduleFrame = requestFrame || ((callback) => this.windowRef.setTimeout(callback, 16));
     const tick = () => {
+      const now = this.getNowMs();
+      const deltaSeconds = Math.min(Math.max((now - this.lastFrameTimeMs) / 1000, 0), 0.05);
+      this.lastFrameTimeMs = now;
+
+      this.updateKeyboardCamera(deltaSeconds);
       this.render();
       this.animationFrameId = scheduleFrame(tick);
     };
 
     this.animationFrameId = scheduleFrame(tick);
+  }
+
+  updateKeyboardCamera(deltaSeconds) {
+    const keyboardPan = this.cursor?.getKeyboardPan?.();
+    if (!keyboardPan) {
+      return;
+    }
+
+    this.camera.panByDirection(keyboardPan, deltaSeconds);
   }
 
   buildPalmTreeInstances() {
