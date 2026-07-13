@@ -115,7 +115,7 @@ class TerrainGameManager {
     });
 
     if (changed && this.renderingResources) {
-      this.render();
+      this.renderIfLoopIsIdle();
     }
   }
 
@@ -126,7 +126,7 @@ class TerrainGameManager {
     });
 
     if (this.renderingResources) {
-      this.render();
+      this.renderIfLoopIsIdle();
     }
   }
 
@@ -156,6 +156,12 @@ class TerrainGameManager {
 
   getElapsedSeconds() {
     return (this.getNowMs() - this.startTimeMs) / 1000;
+  }
+
+  renderIfLoopIsIdle() {
+    if (this.animationFrameId === null) {
+      this.render();
+    }
   }
 
   updateFpsCounter(nowMs) {
