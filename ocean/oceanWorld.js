@@ -2,9 +2,9 @@ import { createLowPolyOceanModel } from "../rendering/worldAssets.js";
 
 const OCEAN_SURFACE_Y = 0.3;
 
-export function createOceanSceneObject({ gl }) {
+export function createOceanSceneObject({ gl, modelOptions = {} }) {
   return {
-    model: createLowPolyOceanModel(gl),
+    model: createLowPolyOceanModel(gl, modelOptions),
     instances: [{
       offset: [0, OCEAN_SURFACE_Y, 0],
       scale: 1,
