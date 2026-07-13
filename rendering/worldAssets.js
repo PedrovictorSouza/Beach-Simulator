@@ -806,8 +806,8 @@ function createShoreTextureCanvas() {
 
 export function createLowPolyShoreModel(gl, {
   width = 760,
-  landZ = -42,
-  waterZ = -76,
+  landZ = -26,
+  waterZ = -58,
   rings = 4,
   segments = 96
 } = {}) {
@@ -869,7 +869,7 @@ export function createLowPolyShoreModel(gl, {
 export function createLowPolyOceanModel(gl, {
   width = 900,
   depth = 520,
-  coastZ = -76,
+  coastZ = -58,
   rows = 12,
   columns = 40
 } = {}) {

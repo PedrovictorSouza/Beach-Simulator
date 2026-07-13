@@ -1,13 +1,13 @@
 const WORLD_LIMIT = 240;
 const GROUND_TILE_INSTANCE_SCALE = 0.375;
 const TERRAIN_DRAW_RADIUS = 96;
-const BEACH_LAND_Z = 72;
-const BEACH_WATER_Z = -76;
+const BEACH_LAND_Z = 82;
+const BEACH_WATER_Z = -58;
 const BEACH_WET_OVERLAP = 6;
-const RESTINGA_DEPTH = 30;
+const RESTINGA_DEPTH = 58;
 const RESTINGA_TREE_INSET = 6;
-const RESTINGA_GROUND_TINT = [0.9, 1.08, 0.78];
-const RESTINGA_GROUND_TINT_STRENGTH = 0.18;
+const RESTINGA_GROUND_TINT = [0.72, 1.18, 0.48];
+const RESTINGA_GROUND_TINT_STRENGTH = 0.34;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -115,7 +115,7 @@ export function createTerrainSceneObjects({ terrainAssets, camera }) {
     {
       model: terrainAssets.groundModel,
       instances: restingaGroundInstances,
-      brightness: 0.92
+      brightness: 1.02
     },
     {
       model: terrainAssets.sandgroundModel,

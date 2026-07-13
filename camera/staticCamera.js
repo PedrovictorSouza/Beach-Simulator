@@ -1,9 +1,9 @@
 const WORLD_UP = [0, 1, 0];
 
 const DEFAULT_STATIC_CAMERA_CONFIG = Object.freeze({
-  target: [0, 6, 0],
-  direction: [0.74, 1.22, 0.74],
-  distance: 158,
+  target: [0, 6, 10],
+  direction: [0, 1.22, -0.74],
+  distance: 150,
   minDistance: 54,
   maxDistance: 230,
   zoomSpeed: 0.16,
@@ -13,8 +13,8 @@ const DEFAULT_STATIC_CAMERA_CONFIG = Object.freeze({
   targetBounds: {
     minX: -132,
     maxX: 132,
-    minZ: -128,
-    maxZ: 62
+    minZ: -106,
+    maxZ: 94
   },
   fov: (42 * Math.PI) / 180,
   near: 0.1,
@@ -260,7 +260,10 @@ export function createStaticCamera(config = {}) {
       return multiplyMat4(projection, view);
     },
     isPlanarPointVisible(x, z, radius) {
-      return Math.hypot(x - state.target[0], z - state.target[2]) <= radius;
+      return (
+        Math.abs(x - state.target[0]) <= radius * 1.45 &&
+        Math.abs(z - state.target[2]) <= radius
+      );
     }
   };
 }
