@@ -6,11 +6,24 @@ import { WORLD_CURVATURE_CONFIG } from "./rendering/worldCurvature.js";
 import { createStaticCamera } from "./camera/staticCamera.js";
 import { createCursorInput } from "./input/cursor.js";
 import { loadTerrainAssets } from "./terrain/terrainAssets.js";
-import { createTerrainSceneObjects } from "./terrain/terrainWorld.js";
+import {
+  createTerrainSceneObjects,
+  getRestingaPalmTreeZ
+} from "./terrain/terrainWorld.js";
 import { createOceanSceneObject } from "./ocean/oceanWorld.js";
 import { createShoreSceneObject } from "./shore/shoreWorld.js";
 
 const PALM_TREE_MODEL_FACE_YAW_OFFSET = 0;
+const RESTINGA_PALM_TREE_LAYOUT = Object.freeze([
+  [-84, 0.2, 0.18, 0.76],
+  [-58, 0.72, -0.34, 0.9],
+  [-34, 0.42, 0.38, 0.84],
+  [-10, 0.84, -0.12, 0.96],
+  [18, 0.28, 0.44, 0.86],
+  [42, 0.66, -0.26, 0.92],
+  [68, 0.36, 0.12, 0.8],
+  [88, 0.78, -0.42, 0.74]
+]);
 
 class TerrainGameManager {
   constructor() {
@@ -169,18 +182,9 @@ class TerrainGameManager {
   }
 
   buildPalmTreeInstances() {
-    return [
-      [-18, 0, -10, 0.18, 0.95],
-      [12, 0, -22, -0.34, 0.9],
-      [28, 0, 8, 0.48, 1],
-      [-30, 0, 20, -0.18, 0.86],
-      [4, 0, 32, 0.08, 0.82],
-      [-48, 0, -34, 0.38, 0.78],
-      [52, 0, -28, -0.26, 0.82],
-      [46, 0, 42, 0.16, 0.74]
-    ].map(([x, y, z, yaw, scale], index) => ({
+    return RESTINGA_PALM_TREE_LAYOUT.map(([x, laneProgress, yaw, scale], index) => ({
       id: `palm-tree-${index + 1}`,
-      offset: [x, y, z],
+      offset: [x, 0, getRestingaPalmTreeZ(x, laneProgress)],
       scale,
       yaw: PALM_TREE_MODEL_FACE_YAW_OFFSET + yaw
     }));
