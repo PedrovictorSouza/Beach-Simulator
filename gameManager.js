@@ -86,7 +86,7 @@ class TerrainGameManager {
 
   mount() {
     this.root.innerHTML = `
-      <canvas class="world-canvas" aria-label="Planeta com terrain"></canvas>
+      <canvas class="world-canvas" aria-label="Oceano"></canvas>
       <div class="boot-status" role="status">Carregando terrain...</div>
     `;
     this.canvas = this.root.querySelector(".world-canvas");
