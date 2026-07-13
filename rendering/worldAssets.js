@@ -756,27 +756,6 @@ function createTextureFromSource(gl, source, { filter = gl.NEAREST } = {}) {
   return texture;
 }
 
-function createOceanTextureCanvas() {
-  const canvas = document.createElement("canvas");
-  canvas.width = 64;
-  canvas.height = 64;
-
-  const context = canvas.getContext("2d");
-  context.fillStyle = "#1688a6";
-  context.fillRect(0, 0, canvas.width, canvas.height);
-  context.fillStyle = "#2fb7c9";
-  context.fillRect(0, 0, 32, 32);
-  context.fillStyle = "#0f6484";
-  context.fillRect(32, 32, 32, 32);
-  context.fillStyle = "rgba(198, 247, 255, 0.62)";
-  context.fillRect(6, 10, 22, 4);
-  context.fillRect(38, 44, 18, 4);
-  context.fillStyle = "rgba(255, 255, 255, 0.24)";
-  context.fillRect(12, 36, 34, 3);
-
-  return canvas;
-}
-
 function createShoreTextureCanvas() {
   const canvas = document.createElement("canvas");
   canvas.width = 64;
@@ -862,69 +841,6 @@ export function createLowPolyShoreModel(gl, {
     texture: createTextureFromSource(gl, createShoreTextureCanvas()),
     offset: [0, 0, 0],
     size: [width, 0.12, Math.abs(waterZ - landZ)],
-    scale: 1
-  };
-}
-
-export function createLowPolyOceanModel(gl, {
-  width = 900,
-  depth = 520,
-  coastZ = -58,
-  rows = 12,
-  columns = 40
-} = {}) {
-  const positions = [];
-  const uvs = [];
-  const indices = [];
-
-  const getCoastlineJitter = (x) => (
-    Math.sin(x * 0.055 + 0.4) * 3.6 +
-    Math.sin(x * 0.13 + 1.7) * 1.8
-  );
-
-  const getVertexIndex = (rowIndex, columnIndex) => rowIndex * (columns + 1) + columnIndex;
-
-  for (let rowIndex = 0; rowIndex <= rows; rowIndex += 1) {
-    const rowProgress = rowIndex / rows;
-
-    for (let columnIndex = 0; columnIndex <= columns; columnIndex += 1) {
-      const columnProgress = columnIndex / columns;
-      const x = -width * 0.5 + width * columnProgress;
-      const coastlineZ = coastZ + getCoastlineJitter(x);
-      const z = coastlineZ - depth * rowProgress;
-      const ridge = Math.sin(x * 0.08 + z * 0.05) * 0.08;
-
-      positions.push(x, ridge, z);
-      uvs.push(columnProgress, rowProgress);
-    }
-  }
-
-  for (let rowIndex = 0; rowIndex < rows; rowIndex += 1) {
-    for (let columnIndex = 0; columnIndex < columns; columnIndex += 1) {
-      const nearCurrent = getVertexIndex(rowIndex, columnIndex);
-      const nearNext = getVertexIndex(rowIndex, columnIndex + 1);
-      const farCurrent = getVertexIndex(rowIndex + 1, columnIndex);
-      const farNext = getVertexIndex(rowIndex + 1, columnIndex + 1);
-
-      indices.push(nearCurrent, farCurrent, nearNext);
-      indices.push(nearNext, farCurrent, farNext);
-    }
-  }
-
-  const flatMesh = buildFlatShadedInterleaved(
-    new Float32Array(positions),
-    new Float32Array(uvs),
-    new Uint16Array(indices)
-  );
-
-  return {
-    primitives: [{
-      ...createGLPrimitive(gl, flatMesh.interleaved, flatMesh.indices),
-      positions: new Float32Array(positions)
-    }],
-    texture: createTextureFromSource(gl, createOceanTextureCanvas()),
-    offset: [0, 0, 0],
-    size: [width, 0.16, depth],
     scale: 1
   };
 }

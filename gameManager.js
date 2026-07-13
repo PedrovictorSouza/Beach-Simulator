@@ -10,18 +10,9 @@ import {
   createTerrainSceneObjects,
   getRestingaPalmTreeZ
 } from "./terrain/terrainWorld.js";
-import { createOceanSceneObject } from "./ocean/oceanWorld.js";
 import { createShoreSceneObject } from "./shore/shoreWorld.js";
 
 const PALM_TREE_MODEL_FACE_YAW_OFFSET = 0;
-const WORLD_SCENE_MODE = "ocean-only";
-const OCEAN_ONLY_MODEL_OPTIONS = Object.freeze({
-  width: 900,
-  depth: 720,
-  coastZ: 170,
-  rows: 12,
-  columns: 40
-});
 const RESTINGA_PALM_TREE_LAYOUT = Object.freeze([
   [-84, 0.2, 0.18, 0.76],
   [-58, 0.72, -0.34, 0.9],
@@ -86,7 +77,7 @@ class TerrainGameManager {
 
   mount() {
     this.root.innerHTML = `
-      <canvas class="world-canvas" aria-label="Oceano"></canvas>
+      <canvas class="world-canvas" aria-label="Terrain"></canvas>
       <div class="boot-status" role="status">Carregando terrain...</div>
     `;
     this.canvas = this.root.querySelector(".world-canvas");
@@ -316,16 +307,6 @@ class TerrainGameManager {
   }
 
   async loadWorld() {
-    if (WORLD_SCENE_MODE === "ocean-only") {
-      this.setStatus("Carregando oceano...");
-      return [
-        createOceanSceneObject({
-          gl: this.gl,
-          modelOptions: OCEAN_ONLY_MODEL_OPTIONS
-        })
-      ];
-    }
-
     const [terrainAssets, palmTreeModel] = await Promise.all([
       loadTerrainAssets({
         gl: this.gl,
@@ -344,7 +325,6 @@ class TerrainGameManager {
         terrainAssets,
         camera: this.camera
       }),
-      createOceanSceneObject({ gl: this.gl }),
       createShoreSceneObject({ gl: this.gl }),
       {
         model: palmTreeModel,
