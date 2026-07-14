@@ -40,11 +40,15 @@ const OCEAN_VERTEX_SOURCE = `
     float shorePulse = shoreWave * shoreInfluence * 0.95;
     float tideLift = sin(uTime * 0.16) * shoreInfluence * 0.38;
     float waveHeight = (swell + crossWave) * swellInfluence + shorePulse + tideLift;
-    vec3 world = vec3(worldXZ.x, uWaterY + waveHeight, worldXZ.y);
+    float steppedWaveHeight = floor(waveHeight * 4.0 + 0.5) / 4.0;
+    vec3 world = vec3(worldXZ.x, uWaterY + steppedWaveHeight, worldXZ.y);
 
     vWorldXZ = world.xz;
     vShoreDistance = shoreDistance;
-    gl_Position = uViewProjection * vec4(world, 1.0);
+    vec4 clipPosition = uViewProjection * vec4(world, 1.0);
+    vec2 snappedPosition = floor((clipPosition.xy / clipPosition.w) * 180.0 + 0.5) / 180.0;
+    clipPosition.xy = snappedPosition * clipPosition.w;
+    gl_Position = clipPosition;
   }
 `;
 
@@ -95,43 +99,51 @@ const OCEAN_FRAGMENT_SOURCE = `
   }
 
   void main() {
+    vec2 pixelWorldXZ = floor(vWorldXZ / 2.4 + 0.5) * 2.4;
+    float pixelShoreDistance = floor(vShoreDistance / 2.4 + 0.5) * 2.4;
     float tideCycle = sin(uTime * 0.16);
-    float waveRunup = sin(uTime * 0.72 + sin(vWorldXZ.x * 0.02) * 0.4);
+    float waveRunup = sin(uTime * 0.72 + sin(pixelWorldXZ.x * 0.02) * 0.4);
     float waterline = -3.0 - tideCycle * 7.0 - waveRunup * 2.5;
-    float shoreMask = smoothstep(waterline - 1.5, waterline + 3.0, vShoreDistance);
-    float distanceFromCamera = length(vWorldXZ - uCameraXZ);
+    float shoreMask = smoothstep(waterline - 1.5, waterline + 3.0, pixelShoreDistance);
+    float distanceFromCamera = length(pixelWorldXZ - uCameraXZ);
     float horizonFade = 1.0 - smoothstep(470.0, 760.0, distanceFromCamera);
 
     vec2 flow = vec2(0.009, -0.024) * uTime;
-    float distortion = noise(vWorldXZ * 0.018 + vec2(uTime * 0.035, 0.0));
-    vec2 waterUv = vWorldXZ * 0.032 + flow + vec2(distortion - 0.5) * 0.26;
+    float distortion = noise(pixelWorldXZ * 0.018 + vec2(uTime * 0.035, 0.0));
+    vec2 waterUv = pixelWorldXZ * 0.032 + flow + vec2(distortion - 0.5) * 0.26;
 
     float foamCells = animeCellPattern(waterUv);
-    float bandNoise = noise(vec2(vWorldXZ.x * 0.045 + uTime * 0.42, vWorldXZ.y * 0.03));
-    float lateralWarp = sin(vWorldXZ.x * 0.035 + uTime * 0.22) * 2.8;
-    lateralWarp += (noise(vec2(vWorldXZ.x * 0.028, uTime * 0.12)) - 0.5) * 5.0;
-    float breakerCycle = mod(vShoreDistance + lateralWarp + uTime * 8.5, 34.0);
+    float bandNoise = noise(vec2(pixelWorldXZ.x * 0.045 + uTime * 0.42, pixelWorldXZ.y * 0.03));
+    float lateralWarp = sin(pixelWorldXZ.x * 0.035 + uTime * 0.22) * 2.8;
+    lateralWarp += (noise(vec2(pixelWorldXZ.x * 0.028, uTime * 0.12)) - 0.5) * 5.0;
+    float breakerCycle = mod(pixelShoreDistance + lateralWarp + uTime * 8.5, 34.0);
     float breakerLine = 1.0 - smoothstep(2.0, 6.5, abs(breakerCycle - 17.0));
-    float surfZone = smoothstep(waterline + 4.0, waterline + 10.0, vShoreDistance);
-    surfZone *= 1.0 - smoothstep(82.0, 118.0, vShoreDistance);
+    float surfZone = smoothstep(waterline + 4.0, waterline + 10.0, pixelShoreDistance);
+    surfZone *= 1.0 - smoothstep(82.0, 118.0, pixelShoreDistance);
     float brokenFoam = breakerLine * surfZone * mix(0.72, 1.0, bandNoise);
-    float shoreWash = 1.0 - smoothstep(2.0, 9.0, abs(vShoreDistance - waterline - 3.0));
+    float shoreWash = 1.0 - smoothstep(2.0, 9.0, abs(pixelShoreDistance - waterline - 3.0));
     shoreWash *= smoothstep(0.12, 0.78, bandNoise);
     float surfBand = max(brokenFoam, shoreWash);
-    float openWaterCells = foamCells * smoothstep(92.0, 150.0, vShoreDistance);
+    float openWaterCells = foamCells * smoothstep(92.0, 150.0, pixelShoreDistance);
 
     vec3 deepColor = vec3(0.035, 0.22, 0.42);
     vec3 midColor = vec3(0.05, 0.55, 0.76);
     vec3 shallowColor = vec3(0.38, 0.82, 0.88);
     vec3 highlightColor = vec3(0.92, 0.98, 0.94);
 
-    float depthRamp = smoothstep(10.0, 220.0, vShoreDistance);
+    float depthRamp = smoothstep(10.0, 220.0, pixelShoreDistance);
     vec3 color = mix(shallowColor, deepColor, depthRamp);
     color = mix(color, midColor, openWaterCells * 0.34);
     color = mix(color, highlightColor, max(openWaterCells * 0.48, surfBand * 0.96));
 
+    vec2 screenPixel = floor(gl_FragCoord.xy / 4.0);
+    float jitterFrame = floor(uTime * 6.0);
+    float pixelJitter = (hash1(screenPixel + vec2(jitterFrame, jitterFrame * 0.37)) - 0.5) * 0.035;
+    color = floor(clamp(color + pixelJitter, 0.0, 1.0) * 10.0 + 0.5) / 10.0;
+
     float alpha = mix(0.68, 0.92, depthRamp) * shoreMask * horizonFade;
     alpha = max(alpha, surfBand * 0.72);
+    alpha = floor(alpha * 12.0 + 0.5) / 12.0;
 
     if (alpha < 0.02) {
       discard;

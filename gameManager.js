@@ -1,33 +1,11 @@
-import {
-  createWorldRenderingResources,
-  loadPicoModel
-} from "./rendering/worldAssets.js";
-import { WORLD_CURVATURE_CONFIG } from "./rendering/worldCurvature.js";
+import { createWorldRenderer } from "./rendering/worldRenderer.js";
 import { createStaticCamera } from "./camera/staticCamera.js";
 import { createCursorInput } from "./input/cursor.js";
 import { loadTerrainAssets } from "./terrain/terrainAssets.js";
 import {
   createTerrainSceneObjects,
-  getRestingaPalmTreeZ,
   updateTerrainSceneObjects
 } from "./terrain/terrainWorld.js";
-import {
-  createOceanSurface,
-  drawOceanSurface
-} from "./ocean/oceanSurface.js";
-
-const PALM_TREE_MODEL_FACE_YAW_OFFSET = 0;
-const MAX_RENDER_PIXEL_RATIO = 1;
-const RESTINGA_PALM_TREE_LAYOUT = Object.freeze([
-  [-84, 0.2, 0.18, 0.76],
-  [-58, 0.72, -0.34, 0.9],
-  [-34, 0.42, 0.38, 0.84],
-  [-10, 0.84, -0.12, 0.96],
-  [18, 0.28, 0.44, 0.86],
-  [42, 0.66, -0.26, 0.92],
-  [68, 0.36, 0.12, 0.8],
-  [88, 0.78, -0.42, 0.74]
-]);
 
 class TerrainGameManager {
   constructor() {
@@ -37,9 +15,7 @@ class TerrainGameManager {
     this.canvas = null;
     this.statusElement = null;
     this.fpsElement = null;
-    this.gl = null;
-    this.renderingResources = null;
-    this.oceanSurface = null;
+    this.renderer = null;
     this.camera = null;
     this.cursor = null;
     this.terrainAssets = null;
@@ -69,7 +45,7 @@ class TerrainGameManager {
     this.camera = createStaticCamera();
     this.mount();
     this.initializeCursor();
-    this.initializeWebGl();
+    this.initializeRenderer();
     this.loadWorld()
       .then((sceneObjects) => {
         this.sceneObjects = sceneObjects;
@@ -120,7 +96,7 @@ class TerrainGameManager {
       height: this.canvas.clientHeight
     });
 
-    if (changed && this.renderingResources) {
+    if (changed && this.renderer) {
       this.renderIfLoopIsIdle();
     }
   }
@@ -131,31 +107,17 @@ class TerrainGameManager {
       height: this.canvas.clientHeight
     });
 
-    if (this.renderingResources) {
+    if (this.renderer) {
       this.renderIfLoopIsIdle();
     }
   }
 
-  initializeWebGl() {
-    this.gl = this.canvas.getContext("webgl", {
-      antialias: false,
-      alpha: true,
-      premultipliedAlpha: false,
-      preserveDrawingBuffer: false
-    });
-
-    if (!this.gl) {
-      this.setStatus("WebGL indisponivel.");
-      throw new Error("WebGL indisponivel");
-    }
-
-    this.renderingResources = createWorldRenderingResources(this.gl);
-
+  initializeRenderer() {
     try {
-      this.oceanSurface = createOceanSurface(this.gl);
+      this.renderer = createWorldRenderer({ canvas: this.canvas });
     } catch (error) {
-      console.warn("Shader do oceano desativado.", error);
-      this.oceanSurface = null;
+      this.setStatus("Falha ao inicializar renderizacao.");
+      throw error;
     }
   }
 
@@ -229,155 +191,6 @@ class TerrainGameManager {
     this.camera.panByDirection(keyboardPan, deltaSeconds);
   }
 
-  buildPalmTreeInstances() {
-    return RESTINGA_PALM_TREE_LAYOUT.map(([x, laneProgress, yaw, scale], index) => ({
-      id: `palm-tree-${index + 1}`,
-      offset: [x, 0, getRestingaPalmTreeZ(x, laneProgress)],
-      scale,
-      yaw: PALM_TREE_MODEL_FACE_YAW_OFFSET + yaw
-    }));
-  }
-
-  resizeCanvas() {
-    const ratio = Math.min(this.windowRef.devicePixelRatio || 1, MAX_RENDER_PIXEL_RATIO);
-    const width = Math.max(1, Math.floor(this.canvas.clientWidth * ratio));
-    const height = Math.max(1, Math.floor(this.canvas.clientHeight * ratio));
-
-    if (this.canvas.width !== width || this.canvas.height !== height) {
-      this.canvas.width = width;
-      this.canvas.height = height;
-    }
-  }
-
-  setUniform3(location, value) {
-    if (location) {
-      this.gl.uniform3fv(location, value);
-    }
-  }
-
-  setUniform1(location, value) {
-    if (location) {
-      this.gl.uniform1f(location, value);
-    }
-  }
-
-  setSceneUniforms(viewProjection) {
-    const { program, uniforms } = this.renderingResources;
-    const cameraTarget = this.camera.getTarget();
-
-    this.gl.useProgram(program);
-    this.gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
-    this.setUniform1(uniforms.jitterAmount, 0);
-    this.setUniform1(uniforms.waveStrength, 0);
-    this.setUniform1(uniforms.waveScale, 1);
-    this.setUniform1(uniforms.waveSpeed, 1);
-    this.setUniform1(uniforms.waveChop, 0);
-    this.gl.uniform2fv(uniforms.waveDirection, [1, 0]);
-    this.setUniform3(uniforms.worldCurvatureOrigin, this.camera.getCurvatureOrigin());
-    this.setUniform1(uniforms.worldCurvatureStrength, WORLD_CURVATURE_CONFIG.strength);
-    this.setUniform1(uniforms.worldCurvatureMaxDrop, WORLD_CURVATURE_CONFIG.maxDrop);
-    this.gl.uniform2fv(uniforms.pixelSnap, [this.canvas.width * 0.5, this.canvas.height * 0.5]);
-    this.setUniform1(uniforms.time, this.getElapsedSeconds());
-    this.setUniform3(uniforms.fogOrigin, cameraTarget);
-    this.setUniform3(uniforms.fogColor, [0.82, 0.9, 0.94]);
-    this.setUniform1(uniforms.fogNear, 84);
-    this.setUniform1(uniforms.fogFar, 170);
-    this.setUniform1(uniforms.fogIntensity, 0.28);
-    this.gl.uniform1i(uniforms.texture, 0);
-  }
-
-  bindPrimitive(primitive) {
-    const { attribs } = this.renderingResources;
-
-    this.gl.bindBuffer(this.gl.ARRAY_BUFFER, primitive.vertexBuffer);
-    this.gl.enableVertexAttribArray(attribs.position);
-    this.gl.vertexAttribPointer(attribs.position, 3, this.gl.FLOAT, false, 32, 0);
-    this.gl.enableVertexAttribArray(attribs.texCoord);
-    this.gl.vertexAttribPointer(attribs.texCoord, 2, this.gl.FLOAT, false, 32, 12);
-
-    if (attribs.normal >= 0) {
-      this.gl.enableVertexAttribArray(attribs.normal);
-      this.gl.vertexAttribPointer(attribs.normal, 3, this.gl.FLOAT, false, 32, 20);
-    }
-
-    this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, primitive.indexBuffer);
-  }
-
-  drawSceneObject(sceneObject) {
-    if (sceneObject.terrainLayer) {
-      this.drawTerrainSceneObject(sceneObject);
-      return;
-    }
-
-    const { uniforms } = this.renderingResources;
-
-    this.setUniform3(uniforms.modelOffset, sceneObject.model.offset);
-    this.setUniform1(uniforms.modelScale, sceneObject.model.scale);
-    this.setUniform1(uniforms.modelHeight, sceneObject.model.size[1]);
-    this.setUniform1(uniforms.brightness, sceneObject.brightness ?? 1);
-    this.setUniform1(uniforms.waveStrength, sceneObject.wave?.strength ?? 0);
-    this.setUniform1(uniforms.waveScale, sceneObject.wave?.scale ?? 1);
-    this.setUniform1(uniforms.waveSpeed, sceneObject.wave?.speed ?? 1);
-    this.setUniform1(uniforms.waveChop, sceneObject.wave?.chop ?? 0);
-    this.gl.uniform2fv(uniforms.waveDirection, sceneObject.wave?.direction || [1, 0]);
-    this.gl.activeTexture(this.gl.TEXTURE0);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, sceneObject.model.texture);
-
-    for (const instance of sceneObject.instances) {
-      this.setUniform3(uniforms.instanceOffset, instance.offset);
-      this.setUniform1(uniforms.instanceScale, instance.scale ?? 1);
-      this.setUniform1(uniforms.instanceYaw, instance.yaw || 0);
-      this.setUniform1(uniforms.instancePitch, instance.pitch || 0);
-      this.setUniform1(uniforms.instanceRoll, instance.roll || 0);
-      this.setUniform3(uniforms.instanceTint, instance.tint || [1, 1, 1]);
-      this.setUniform1(uniforms.instanceTintStrength, instance.tintStrength || 0);
-      this.setUniform1(uniforms.instanceAlpha, instance.alpha ?? 1);
-      this.setUniform1(uniforms.localYaw, instance.localYaw || 0);
-      this.setUniform3(uniforms.localPivot, instance.localPivot || [0, 0, 0]);
-      this.setUniform1(uniforms.swayStrength, instance.swayStrength || 0);
-
-      for (const primitive of sceneObject.model.primitives) {
-        this.bindPrimitive(primitive);
-        this.gl.drawElements(this.gl.TRIANGLES, primitive.indexCount, primitive.indexType, 0);
-      }
-    }
-  }
-
-  drawTerrainSceneObject(sceneObject) {
-    const { uniforms } = this.renderingResources;
-
-    this.setUniform3(uniforms.modelOffset, sceneObject.model.offset);
-    this.setUniform1(uniforms.modelScale, sceneObject.model.scale);
-    this.setUniform1(uniforms.modelHeight, sceneObject.model.size[1]);
-    this.setUniform1(uniforms.brightness, sceneObject.brightness ?? 1);
-    this.setUniform1(uniforms.waveStrength, 0);
-    this.setUniform1(uniforms.waveScale, 1);
-    this.setUniform1(uniforms.waveSpeed, 1);
-    this.setUniform1(uniforms.waveChop, 0);
-    this.gl.uniform2fv(uniforms.waveDirection, [1, 0]);
-    this.gl.activeTexture(this.gl.TEXTURE0);
-    this.gl.bindTexture(this.gl.TEXTURE_2D, sceneObject.model.texture);
-
-    for (const primitive of sceneObject.model.primitives) {
-      this.bindPrimitive(primitive);
-
-      for (const instance of sceneObject.instances) {
-        this.setUniform3(uniforms.instanceOffset, instance.offset);
-        this.setUniform1(uniforms.instanceScale, instance.scale ?? 1);
-        this.setUniform1(uniforms.instanceYaw, instance.yaw || 0);
-        this.setUniform1(uniforms.instancePitch, 0);
-        this.setUniform1(uniforms.instanceRoll, 0);
-        this.setUniform3(uniforms.instanceTint, instance.tint || [1, 1, 1]);
-        this.setUniform1(uniforms.instanceTintStrength, instance.tintStrength || 0);
-        this.setUniform1(uniforms.instanceAlpha, 1);
-        this.setUniform1(uniforms.localYaw, 0);
-        this.setUniform3(uniforms.localPivot, [0, 0, 0]);
-        this.setUniform1(uniforms.swayStrength, 0);
-        this.gl.drawElements(this.gl.TRIANGLES, primitive.indexCount, primitive.indexType, 0);
-      }
-    }
-  }
-
   refreshTerrainSceneObjects() {
     if (!this.terrainAssets || this.terrainSceneObjects.length === 0) {
       return;
@@ -391,54 +204,24 @@ class TerrainGameManager {
   }
 
   render() {
-    this.resizeCanvas();
-    this.gl.viewport(0, 0, this.canvas.width, this.canvas.height);
-    this.gl.clearColor(0, 0, 0, 0);
-    this.gl.clear(this.gl.COLOR_BUFFER_BIT | this.gl.DEPTH_BUFFER_BIT);
-    this.gl.enable(this.gl.DEPTH_TEST);
-    this.gl.disable(this.gl.CULL_FACE);
-    this.gl.enable(this.gl.BLEND);
-    this.gl.blendFunc(this.gl.SRC_ALPHA, this.gl.ONE_MINUS_SRC_ALPHA);
-
-    const viewProjection = this.camera.getViewProjection(this.canvas.width, this.canvas.height);
-
-    this.setSceneUniforms(viewProjection);
+    const { width, height } = this.renderer.resize(this.windowRef.devicePixelRatio);
+    const viewProjection = this.camera.getViewProjection(width, height);
     this.refreshTerrainSceneObjects();
 
-    for (const sceneObject of this.sceneObjects) {
-      this.drawSceneObject(sceneObject);
-    }
-
-    this.drawOcean(viewProjection);
-  }
-
-  drawOcean(viewProjection) {
-    if (!this.oceanSurface) {
-      return;
-    }
-
-    drawOceanSurface({
-      gl: this.gl,
-      oceanSurface: this.oceanSurface,
+    this.renderer.renderFrame({
       viewProjection,
+      sceneObjects: this.sceneObjects,
       cameraTarget: this.camera.getTarget(),
       timeSeconds: this.getElapsedSeconds()
     });
   }
 
   async loadWorld() {
-    const [terrainAssets, palmTreeModel] = await Promise.all([
-      loadTerrainAssets({
-        gl: this.gl,
-        onStatus: (message) => this.setStatus(message)
-      }),
-      loadPicoModel({
-        gl: this.gl,
-        gltfPath: "./Trees/PalmTree/plamTree.gltf",
-        txtPath: "./Trees/PalmTree/plamTree.txt",
-        onStatus: (message) => this.setStatus(message)
-      })
-    ]);
+    const gl = this.renderer.getContext();
+    const terrainAssets = await loadTerrainAssets({
+      gl,
+      onStatus: (message) => this.setStatus(message)
+    });
     const terrainSceneObjects = createTerrainSceneObjects({
       terrainAssets,
       camera: this.camera
@@ -447,14 +230,7 @@ class TerrainGameManager {
     this.terrainAssets = terrainAssets;
     this.terrainSceneObjects = terrainSceneObjects;
 
-    return [
-      ...terrainSceneObjects,
-      {
-        model: palmTreeModel,
-        instances: this.buildPalmTreeInstances(),
-        brightness: 1.05
-      }
-    ];
+    return terrainSceneObjects;
   }
 }
 

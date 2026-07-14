@@ -1,4 +1,4 @@
-const GROUND_TILE_INSTANCE_SCALE = 4.8;
+const GROUND_TILE_INSTANCE_SCALE = 1.6;
 const TERRAIN_BASE_CAMERA_DISTANCE = 150;
 const TERRAIN_WINDOW_BASE_HALF_WIDTH = 152;
 const TERRAIN_WINDOW_BASE_HALF_DEPTH = 112;
@@ -10,6 +10,12 @@ const RESTINGA_DEPTH = 58;
 const RESTINGA_TREE_INSET = 6;
 const RESTINGA_GROUND_TINT = [0.72, 1.18, 0.48];
 const RESTINGA_GROUND_TINT_STRENGTH = 0.34;
+const PALM_TREE_MODEL_FACE_YAW_OFFSET = 0;
+const RESTINGA_PALM_TREE_SPACING = 36;
+const RESTINGA_PALM_TREE_LANES = Object.freeze([
+  Object.freeze({ xOffset: 0, start: 0.12, spread: 0.18 }),
+  Object.freeze({ xOffset: 18, start: 0.58, spread: 0.24 })
+]);
 const terrainSceneViewKeys = new WeakMap();
 
 function clamp(value, min, max) {
@@ -96,13 +102,46 @@ function isRestingaCell(x, z) {
   return z > startZ && z <= endZ;
 }
 
-export function getRestingaPalmTreeZ(x, laneProgress = 0.5) {
+function getRestingaPalmTreeZ(x, laneProgress = 0.5) {
   const { startZ, endZ } = getRestingaBoundsAtX(x);
   const laneStartZ = startZ + RESTINGA_TREE_INSET;
   const laneEndZ = Math.max(laneStartZ, endZ - RESTINGA_TREE_INSET);
   const progress = clamp(Number(laneProgress) || 0, 0, 1);
 
   return Number((laneStartZ + (laneEndZ - laneStartZ) * progress).toFixed(4));
+}
+
+function getDeterministicUnit(seed) {
+  const value = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+
+  return value - Math.floor(value);
+}
+
+function buildRestingaPalmTreeInstances({ tileRange, terrainSurfaceY }) {
+  const minX = tileRange.startXIndex * tileRange.tileSpan;
+  const maxX = tileRange.endXIndex * tileRange.tileSpan;
+  const startColumn = Math.floor(minX / RESTINGA_PALM_TREE_SPACING) - 1;
+  const endColumn = Math.ceil(maxX / RESTINGA_PALM_TREE_SPACING) + 1;
+  const instances = [];
+
+  for (let column = startColumn; column <= endColumn; column += 1) {
+    for (let laneIndex = 0; laneIndex < RESTINGA_PALM_TREE_LANES.length; laneIndex += 1) {
+      const lane = RESTINGA_PALM_TREE_LANES[laneIndex];
+      const seed = column * 11 + laneIndex * 101;
+      const xJitter = (getDeterministicUnit(seed) - 0.5) * 9;
+      const x = Number((column * RESTINGA_PALM_TREE_SPACING + lane.xOffset + xJitter).toFixed(4));
+      const laneProgress = lane.start + getDeterministicUnit(seed + 1) * lane.spread;
+
+      instances.push({
+        id: `palm-tree-${column}-${laneIndex}`,
+        offset: [x, terrainSurfaceY, getRestingaPalmTreeZ(x, laneProgress)],
+        scale: 6.8 + getDeterministicUnit(seed + 2) * 1.6,
+        yaw: PALM_TREE_MODEL_FACE_YAW_OFFSET + (getDeterministicUnit(seed + 3) - 0.5) * 0.9
+      });
+    }
+  }
+
+  return instances;
 }
 
 function buildTerrainInstances({ tileRange }) {
@@ -164,6 +203,12 @@ export function createTerrainSceneObjects({ terrainAssets, camera }) {
       model: terrainAssets.sandgroundModel,
       instances: [],
       brightness: 0.98
+    },
+    {
+      terrainObject: "palm-tree",
+      model: terrainAssets.palmTreeModel,
+      instances: [],
+      brightness: 1.05
     }
   ];
 
@@ -188,6 +233,10 @@ export function updateTerrainSceneObjects({ sceneObjects, groundModel, camera })
     restingaGroundInstances,
     sandgroundInstances
   } = buildTerrainInstances({ tileRange });
+  const palmTreeInstances = buildRestingaPalmTreeInstances({
+    tileRange,
+    terrainSurfaceY: groundModel.size[1] * GROUND_TILE_INSTANCE_SCALE
+  });
 
   for (const sceneObject of sceneObjects) {
     if (sceneObject.terrainLayer === "ground") {
@@ -196,6 +245,8 @@ export function updateTerrainSceneObjects({ sceneObjects, groundModel, camera })
       sceneObject.instances = restingaGroundInstances;
     } else if (sceneObject.terrainLayer === "sand") {
       sceneObject.instances = sandgroundInstances;
+    } else if (sceneObject.terrainObject === "palm-tree") {
+      sceneObject.instances = palmTreeInstances;
     }
   }
 

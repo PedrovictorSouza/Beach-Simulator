@@ -4,22 +4,6 @@ import {
   fetchJsonAsset
 } from "./assetFetch.ts";
 
-export const FULL_UV_RECT = [0, 0, 1, 1];
-export const WORLD_MARKER_HEIGHT = 0.04;
-export const WORLD_MARKER_SIZE = [1.05, 1.05];
-export const NPC_MARKER_SIZE = [0.9, 0.9];
-export const NPC_MARKER_OFFSET = 1.65;
-export const ACT_TWO_MONSTER_SIZE = [2.6, 2.42];
-export const ACT_TWO_SQUIRTLE_POSITION = [19.55, 0.02, -12.2];
-export const ACT_TWO_SQUIRTLE_SIZE = [2.24, 2.12];
-export const ACT_TWO_BULBASAUR_SIZE = [2.26, 2.14];
-export const ACT_TWO_CHARMANDER_SIZE = [2.18, 2.08];
-export const ACT_TWO_POKEDEX_CACHE_POSITION = [9.65, 0.02, -8.65];
-export const ACT_TWO_REPAIR_PLANT_POSITION = [28.4, 0.02, -4.4];
-export const ACT_TWO_REPAIR_PLANT_SIZE = [2.8, 2.42];
-export const GROUND_GRASS_SIZE = [1.18, 0.96];
-export const GROUND_FLOWER_SIZE = [0.94, 0.72];
-
 const SCENE_VERTEX_SOURCE = `
   attribute vec3 aPosition;
   attribute vec2 aTexCoord;
@@ -43,9 +27,6 @@ const SCENE_VERTEX_SOURCE = `
   uniform float uWaveSpeed;
   uniform float uWaveChop;
   uniform vec2 uWaveDirection;
-  uniform vec3 uWorldCurvatureOrigin;
-  uniform float uWorldCurvatureStrength;
-  uniform float uWorldCurvatureMaxDrop;
   uniform vec2 uPixelSnap;
   uniform float uTime;
   uniform vec3 uFogOrigin;
@@ -53,12 +34,6 @@ const SCENE_VERTEX_SOURCE = `
   varying vec2 vTexCoord;
   varying vec3 vWorldNormal;
   varying float vFogDistance;
-
-  vec3 applyWorldCurvature(vec3 world) {
-    vec2 delta = world.xz - uWorldCurvatureOrigin.xz;
-    float drop = min(dot(delta, delta) * uWorldCurvatureStrength, uWorldCurvatureMaxDrop);
-    return vec3(world.x, world.y - drop, world.z);
-  }
 
   void main() {
     vec3 local = aPosition * uModelScale + uModelOffset;
@@ -130,8 +105,7 @@ const SCENE_VERTEX_SOURCE = `
       normal.y,
       normal.x * sine + normal.z * cosine
     ));
-    vec3 curvedWorld = applyWorldCurvature(world);
-    vec4 clip = uViewProjection * vec4(curvedWorld, 1.0);
+    vec4 clip = uViewProjection * vec4(world, 1.0);
 
     float phase = uTime * 3.5 + world.x * 1.7 + world.y * 2.3 + world.z * 1.1;
     vec2 jitter = vec2(sin(phase), cos(phase * 0.83)) * (0.0054 * uJitterAmount);
@@ -205,18 +179,9 @@ const SPRITE_VERTEX_SOURCE = `
   uniform vec3 uQuadUp;
   uniform vec4 uUvRect;
   uniform float uSpriteRotation;
-  uniform vec3 uWorldCurvatureOrigin;
-  uniform float uWorldCurvatureStrength;
-  uniform float uWorldCurvatureMaxDrop;
   uniform vec2 uPixelSnap;
 
   varying vec2 vTexCoord;
-
-  vec3 applyWorldCurvature(vec3 world) {
-    vec2 delta = world.xz - uWorldCurvatureOrigin.xz;
-    float drop = min(dot(delta, delta) * uWorldCurvatureStrength, uWorldCurvatureMaxDrop);
-    return vec3(world.x, world.y - drop, world.z);
-  }
 
   void main() {
     float rotationSine = sin(uSpriteRotation);
@@ -225,9 +190,8 @@ const SPRITE_VERTEX_SOURCE = `
       aCorner.x * rotationCosine - aCorner.y * rotationSine,
       aCorner.x * rotationSine + aCorner.y * rotationCosine
     );
-    vec3 curvedWorldPosition = applyWorldCurvature(uWorldPosition);
     vec3 world =
-      curvedWorldPosition +
+      uWorldPosition +
       uQuadRight * (rotatedCorner.x * uSpriteSize.x) +
       uQuadUp * (rotatedCorner.y * uSpriteSize.y);
 
@@ -464,9 +428,6 @@ export function createWorldRenderingResources(gl) {
     waveSpeed: gl.getUniformLocation(program, "uWaveSpeed"),
     waveChop: gl.getUniformLocation(program, "uWaveChop"),
     waveDirection: gl.getUniformLocation(program, "uWaveDirection"),
-    worldCurvatureOrigin: gl.getUniformLocation(program, "uWorldCurvatureOrigin"),
-    worldCurvatureStrength: gl.getUniformLocation(program, "uWorldCurvatureStrength"),
-    worldCurvatureMaxDrop: gl.getUniformLocation(program, "uWorldCurvatureMaxDrop"),
     pixelSnap: gl.getUniformLocation(program, "uPixelSnap"),
     time: gl.getUniformLocation(program, "uTime"),
     fogOrigin: gl.getUniformLocation(program, "uFogOrigin"),
@@ -495,9 +456,6 @@ export function createWorldRenderingResources(gl) {
     uvRect: gl.getUniformLocation(spriteProgram, "uUvRect"),
     spriteRotation: gl.getUniformLocation(spriteProgram, "uSpriteRotation"),
     spriteAlpha: gl.getUniformLocation(spriteProgram, "uSpriteAlpha"),
-    worldCurvatureOrigin: gl.getUniformLocation(spriteProgram, "uWorldCurvatureOrigin"),
-    worldCurvatureStrength: gl.getUniformLocation(spriteProgram, "uWorldCurvatureStrength"),
-    worldCurvatureMaxDrop: gl.getUniformLocation(spriteProgram, "uWorldCurvatureMaxDrop"),
     pixelSnap: gl.getUniformLocation(spriteProgram, "uPixelSnap"),
     spriteTexture: gl.getUniformLocation(spriteProgram, "uSpriteTexture")
   };

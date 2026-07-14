@@ -3,7 +3,7 @@ const WORLD_UP = [0, 1, 0];
 const DEFAULT_STATIC_CAMERA_CONFIG = Object.freeze({
   target: [0, 6, 10],
   direction: [0, 1.22, -0.74],
-  distance: 150,
+  distance: 195,
   minDistance: 54,
   maxDistance: 230,
   zoomSpeed: 0.16,
