@@ -60,7 +60,11 @@ import { createWorldRenderingResources } from "./worldAssets.js";
  * @property {number} timeSeconds
  */
 
-const MAX_RENDER_PIXEL_RATIO = 1;
+const LOGICAL_RENDER_WIDTH = 480;
+const LOGICAL_RENDER_HEIGHT = 272;
+const INTERNAL_RENDER_SCALE = 2;
+const INTERNAL_RENDER_WIDTH = LOGICAL_RENDER_WIDTH * INTERNAL_RENDER_SCALE;
+const INTERNAL_RENDER_HEIGHT = LOGICAL_RENDER_HEIGHT * INTERNAL_RENDER_SCALE;
 const DEFAULT_WAVE_DIRECTION = [1, 0];
 const DEFAULT_FOG_COLOR = [0.82, 0.9, 0.94];
 
@@ -93,10 +97,9 @@ class WorldRenderer {
     return this.gl;
   }
 
-  resize(devicePixelRatio = 1) {
-    const ratio = Math.min(devicePixelRatio || 1, MAX_RENDER_PIXEL_RATIO);
-    const width = Math.max(1, Math.floor(this.canvas.clientWidth * ratio));
-    const height = Math.max(1, Math.floor(this.canvas.clientHeight * ratio));
+  resize() {
+    const width = INTERNAL_RENDER_WIDTH;
+    const height = INTERNAL_RENDER_HEIGHT;
 
     if (this.canvas.width !== width || this.canvas.height !== height) {
       this.canvas.width = width;
@@ -129,7 +132,10 @@ class WorldRenderer {
     this.setUniform1(uniforms.waveSpeed, 1);
     this.setUniform1(uniforms.waveChop, 0);
     this.gl.uniform2fv(uniforms.waveDirection, DEFAULT_WAVE_DIRECTION);
-    this.gl.uniform2fv(uniforms.pixelSnap, [this.canvas.width * 0.5, this.canvas.height * 0.5]);
+    this.gl.uniform2fv(uniforms.pixelSnap, [
+      LOGICAL_RENDER_WIDTH * 0.5,
+      LOGICAL_RENDER_HEIGHT * 0.5
+    ]);
     this.setUniform1(uniforms.time, timeSeconds);
     this.setUniform3(uniforms.fogOrigin, cameraTarget);
     this.setUniform3(uniforms.fogColor, DEFAULT_FOG_COLOR);

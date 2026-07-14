@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Daydream";
+  src: url("../fonts/daydream/Daydream DEMO.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
 :root {
   color-scheme: dark;
   font-family: Arial, Helvetica, sans-serif;
@@ -9,8 +17,7 @@
 }
 
 html,
-body,
-#app {
+body {
   width: 100%;
   height: 100%;
   margin: 0;
@@ -18,17 +25,24 @@ body,
 }
 
 body {
-  background: #101826;
+  display: grid;
+  place-items: center;
+  background: #080a0f;
 }
 
 #app {
   position: relative;
+  width: min(100vw, 176.470588vh);
+  height: min(100vh, 56.666667vw);
+  overflow: hidden;
+  background: #101826;
 }
 
 .world-canvas {
   display: block;
   width: 100%;
   height: 100%;
+  image-rendering: pixelated;
   touch-action: none;
   cursor: crosshair;
 }
@@ -44,7 +58,7 @@ body {
 }
 
 .boot-status {
-  position: fixed;
+  position: absolute;
   left: 16px;
   bottom: 16px;
   padding: 8px 10px;
@@ -54,8 +68,97 @@ body {
   font-size: 13px;
 }
 
+.hud-stack {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(15rem, calc(100% - 2rem));
+  max-height: calc(100% - 2rem);
+  pointer-events: none;
+}
+
+.bather-counter {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  min-height: 3.5rem;
+  color: #fff8d8;
+  background: #171923;
+  border: 4px solid #f2e7b5;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 #080a0f;
+  font-family: "Daydream", monospace;
+  pointer-events: none;
+  user-select: none;
+}
+
+.bather-counter__label {
+  flex: none;
+  padding: 0.625rem 0.5rem 0.625rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1.25;
+}
+
+.bather-counter__count {
+  display: grid;
+  place-items: center;
+  align-self: stretch;
+  min-width: 3.5rem;
+  padding: 0.25rem 0.5rem;
+  border-left: 4px solid #f2e7b5;
+  color: #fff8d8;
+  background: transparent;
+  font-size: 2.5rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.task-list {
+  width: 100%;
+  color: #fff8d8;
+  background: #171923;
+  border: 4px solid #f2e7b5;
+  box-shadow: 4px 4px 0 #080a0f;
+  font-family: "Daydream", monospace;
+  user-select: none;
+}
+
+.task-list__title {
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 4px solid #f2e7b5;
+  font-size: 1rem;
+  font-weight: 400;
+  line-height: 1.25;
+}
+
+.task-list__items {
+  max-height: 6.5rem;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  pointer-events: auto;
+}
+
+.task-list__item,
+.task-list__empty {
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.task-list__item + .task-list__item {
+  border-top: 2px solid #f2e7b5;
+}
+
 .fps-counter {
-  position: fixed;
+  position: absolute;
   right: 16px;
   bottom: 16px;
   z-index: 10;

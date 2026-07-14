@@ -4,8 +4,25 @@ import { createCursorInput } from "./input/cursor.js";
 import { loadTerrainAssets } from "./terrain/terrainAssets.js";
 import {
   createTerrainSceneObjects,
+  getBeachSandZNearRestinga,
+  getTerrainSurfaceY,
   updateTerrainSceneObjects
 } from "./terrain/terrainWorld.js";
+import {
+  createNpcSceneObjects,
+  loadNpcAssets,
+  updateNpcSceneObjects
+} from "./npcs/npcWorld.js";
+import { createNpcSystem, NPC_TYPES } from "./npcs/npcSystem.js";
+import {
+  createKioskSceneObjects,
+  loadKioskAssets
+} from "./scenery/kioskWorld.js";
+import { createBatherCounterView } from "./ui/batherCounterView.js";
+import { createTaskListModel, createTaskListView } from "./ui/taskList.js";
+
+const KIOSK_POSITION_X = -48;
+const KIOSK_RESTINGA_INSET = 18;
 
 class TerrainGameManager {
   constructor() {
@@ -20,6 +37,15 @@ class TerrainGameManager {
     this.cursor = null;
     this.terrainAssets = null;
     this.terrainSceneObjects = [];
+    this.npcAssets = null;
+    this.npcSceneObjects = [];
+    this.npcSystem = null;
+    this.batherCounterView = null;
+    this.taskListModel = null;
+    this.taskListView = null;
+    this.kioskAssets = null;
+    this.kioskSceneObjects = [];
+    this.terrainSurfaceY = 0;
     this.sceneObjects = [];
     this.startTimeMs = 0;
     this.lastFrameTimeMs = 0;
@@ -44,6 +70,7 @@ class TerrainGameManager {
     this.lastFrameTimeMs = this.startTimeMs;
     this.camera = createStaticCamera();
     this.mount();
+    this.initializeUi();
     this.initializeCursor();
     this.initializeRenderer();
     this.loadWorld()
@@ -65,6 +92,7 @@ class TerrainGameManager {
   mount() {
     this.root.innerHTML = `
       <canvas class="world-canvas" aria-label="Terrain"></canvas>
+      <aside class="hud-stack" aria-label="Game status"></aside>
       <div class="boot-status" role="status">Carregando terrain...</div>
       <div class="fps-counter" aria-label="Frames por segundo">FPS --</div>
     `;
@@ -82,6 +110,24 @@ class TerrainGameManager {
       onPan: (cursorState) => this.applyCursorPan(cursorState),
       onZoom: (cursorState) => this.applyCursorZoom(cursorState)
     });
+  }
+
+  initializeUi() {
+    const hudRoot = this.root.querySelector(".hud-stack");
+
+    this.batherCounterView = createBatherCounterView({ root: hudRoot });
+    this.batherCounterView.render(0);
+    this.taskListModel = createTaskListModel();
+    this.taskListView = createTaskListView({ root: hudRoot });
+    this.taskListView.render(this.taskListModel.getSnapshot());
+  }
+
+  updateBatherCounter(npcs) {
+    const batherCount = npcs.reduce((count, npc) => (
+      npc.type === NPC_TYPES.BATHER ? count + 1 : count
+    ), 0);
+
+    this.batherCounterView?.render(batherCount);
   }
 
   applyCursorDebugState(cursorState) {
@@ -174,6 +220,7 @@ class TerrainGameManager {
       this.lastFrameTimeMs = now;
 
       this.updateKeyboardCamera(deltaSeconds);
+      this.updateNpcWorld(deltaSeconds);
       this.render();
       this.updateFpsCounter(now);
       this.animationFrameId = scheduleFrame(tick);
@@ -203,6 +250,21 @@ class TerrainGameManager {
     });
   }
 
+  updateNpcWorld(deltaSeconds) {
+    if (!this.npcSystem || this.npcSceneObjects.length === 0) {
+      return;
+    }
+
+    this.npcSystem.update(deltaSeconds);
+    const npcs = this.npcSystem.getSnapshot();
+    updateNpcSceneObjects({
+      sceneObjects: this.npcSceneObjects,
+      npcs,
+      terrainSurfaceY: this.terrainSurfaceY
+    });
+    this.updateBatherCounter(npcs);
+  }
+
   render() {
     const { width, height } = this.renderer.resize(this.windowRef.devicePixelRatio);
     const viewProjection = this.camera.getViewProjection(width, height);
@@ -226,11 +288,42 @@ class TerrainGameManager {
       terrainAssets,
       camera: this.camera
     });
+    const npcAssets = await loadNpcAssets({
+      gl,
+      onStatus: (message) => this.setStatus(message)
+    });
+    const npcSystem = createNpcSystem();
+    const npcs = npcSystem.getSnapshot();
+    const terrainSurfaceY = getTerrainSurfaceY(terrainAssets.groundModel);
+    const npcSceneObjects = createNpcSceneObjects({
+      npcAssets,
+      npcs,
+      terrainSurfaceY
+    });
+    const kioskAssets = await loadKioskAssets({
+      gl,
+      onStatus: (message) => this.setStatus(message)
+    });
+    const kioskSceneObjects = createKioskSceneObjects({
+      kioskAssets,
+      position: [
+        KIOSK_POSITION_X,
+        terrainSurfaceY,
+        getBeachSandZNearRestinga(KIOSK_POSITION_X, KIOSK_RESTINGA_INSET)
+      ]
+    });
 
     this.terrainAssets = terrainAssets;
     this.terrainSceneObjects = terrainSceneObjects;
+    this.npcAssets = npcAssets;
+    this.npcSceneObjects = npcSceneObjects;
+    this.npcSystem = npcSystem;
+    this.updateBatherCounter(npcs);
+    this.kioskAssets = kioskAssets;
+    this.kioskSceneObjects = kioskSceneObjects;
+    this.terrainSurfaceY = terrainSurfaceY;
 
-    return terrainSceneObjects;
+    return [...terrainSceneObjects, ...kioskSceneObjects, ...npcSceneObjects];
   }
 }
 

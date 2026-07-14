@@ -125,6 +125,20 @@ Regras de leitura:
 
 Este projeto e um jogo, nao um site responsivo.
 
+### Regra universal de resolucao e stage
+
+- A resolucao logica autoritativa do stage e da UI e `480 x 272` pixels.
+- `480 x 272` tem prioridade sobre a proporcao `16:9` matematicamente exata.
+- O mundo 3D usa framebuffer interno `960 x 544`, exatamente `2x` a resolucao logica.
+- O framebuffer interno deve usar apenas multiplos inteiros de `480 x 272` e nunca depender do viewport ou de `devicePixelRatio`.
+- O snapping de vertices deve continuar usando a grade logica `480 x 272`, mesmo quando o framebuffer interno for maior.
+- O stage deve preservar essa proporcao, ficar centralizado e usar letterbox quando o viewport tiver outra proporcao.
+- E proibido esticar, cortar ou adaptar a camera para preencher barras externas ao stage.
+- A ampliacao visual do canvas deve preservar pixels, sem suavizacao.
+- Toda UI do jogo deve permanecer posicionada dentro dos limites do stage.
+- O input deve usar os limites visuais do canvas para converter coordenadas, nunca o viewport inteiro.
+- Qualquer alteracao dessa resolucao exige pedido explicito do usuario.
+
 A IA nao deve aplicar solucoes genericas de layout web quando estiver mexendo em:
 
 - `game-stage`

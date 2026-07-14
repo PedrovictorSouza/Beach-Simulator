@@ -32,6 +32,7 @@ const SCENE_VERTEX_SOURCE = `
   uniform vec3 uFogOrigin;
 
   varying vec2 vTexCoord;
+  varying float vClipW;
   varying vec3 vWorldNormal;
   varying float vFogDistance;
 
@@ -114,7 +115,8 @@ const SCENE_VERTEX_SOURCE = `
     vec2 snapped = floor((clip.xy / clip.w) * uPixelSnap + 0.5) / uPixelSnap;
     clip.xy = snapped * clip.w;
     gl_Position = clip;
-    vTexCoord = aTexCoord;
+    vTexCoord = aTexCoord * clip.w;
+    vClipW = clip.w;
     vWorldNormal = normal;
     vFogDistance = length(world.xz - uFogOrigin.xz);
   }
@@ -133,11 +135,40 @@ const SCENE_FRAGMENT_SOURCE = `
   uniform float uFogFar;
   uniform float uFogIntensity;
   varying vec2 vTexCoord;
+  varying float vClipW;
   varying vec3 vWorldNormal;
   varying float vFogDistance;
 
+  float psxDither(vec2 position) {
+    vec2 cell = mod(floor(position), 4.0);
+
+    if (cell.y < 0.5) {
+      if (cell.x < 0.5) return -4.0;
+      if (cell.x < 1.5) return 0.0;
+      if (cell.x < 2.5) return -3.0;
+      return 1.0;
+    }
+    if (cell.y < 1.5) {
+      if (cell.x < 0.5) return 2.0;
+      if (cell.x < 1.5) return -2.0;
+      if (cell.x < 2.5) return 3.0;
+      return -1.0;
+    }
+    if (cell.y < 2.5) {
+      if (cell.x < 0.5) return -3.0;
+      if (cell.x < 1.5) return 1.0;
+      if (cell.x < 2.5) return -4.0;
+      return 0.0;
+    }
+    if (cell.x < 0.5) return 3.0;
+    if (cell.x < 1.5) return -1.0;
+    if (cell.x < 2.5) return 2.0;
+    return -2.0;
+  }
+
   void main() {
-    vec4 texel = texture2D(uTexture, vTexCoord);
+    vec2 affineTexCoord = vTexCoord / max(vClipW, 0.0001);
+    vec4 texel = texture2D(uTexture, affineTexCoord);
     if (texel.a < 0.02) {
       discard;
     }
@@ -148,11 +179,8 @@ const SCENE_FRAGMENT_SOURCE = `
     float sideFace = 1.0 - smoothstep(0.45, 0.86, normal.y);
     float halfShadow = sideFace * (1.0 - smoothstep(0.05, 0.72, light));
     float deepShadow = sideFace * (1.0 - smoothstep(-0.34, 0.16, light));
-    vec2 ditherCell = floor(gl_FragCoord.xy / 2.0);
-    float checker = mod(ditherCell.x + ditherCell.y, 2.0);
     float solidShade = mix(1.0, 0.82, halfShadow);
-    float ditherShade = mix(0.66, 0.78, checker);
-    float shade = mix(solidShade, ditherShade, deepShadow);
+    float shade = mix(solidShade, 0.7, deepShadow);
     vec3 litColor = texel.rgb * shade * uBrightness;
     vec3 tintedColor = mix(
       litColor,
@@ -163,8 +191,12 @@ const SCENE_FRAGMENT_SOURCE = `
     float fogProgress = clamp((vFogDistance - uFogNear) / fogRange, 0.0, 1.0);
     float fogBlend = smoothstep(0.0, 1.0, fogProgress) * clamp(uFogIntensity, 0.0, 1.0);
     vec3 foggedColor = mix(tintedColor, uFogColor, fogBlend);
+    float ditherOffset = psxDither(gl_FragCoord.xy) / 255.0;
+    vec3 psxColor = floor(
+      clamp(foggedColor + vec3(ditherOffset), 0.0, 1.0) * 31.0 + 0.5
+    ) / 31.0;
 
-    gl_FragColor = vec4(foggedColor, texel.a * clamp(uInstanceAlpha, 0.0, 1.0));
+    gl_FragColor = vec4(psxColor, texel.a * clamp(uInstanceAlpha, 0.0, 1.0));
   }
 `;
 

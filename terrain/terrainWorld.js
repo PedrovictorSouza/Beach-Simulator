@@ -81,6 +81,12 @@ function getBeachEdgesAtX(x) {
   };
 }
 
+export function getBeachSandZNearRestinga(x, inset = 16) {
+  const { landEdgeZ, waterEdgeZ } = getBeachEdgesAtX(x);
+
+  return Number(clamp(landEdgeZ - Math.max(0, inset), waterEdgeZ, landEdgeZ).toFixed(4));
+}
+
 function getRestingaBoundsAtX(x) {
   const { landEdgeZ } = getBeachEdgesAtX(x);
 
@@ -184,6 +190,10 @@ function buildTerrainInstances({ tileRange }) {
   return { groundInstances, restingaGroundInstances, sandgroundInstances };
 }
 
+export function getTerrainSurfaceY(groundModel) {
+  return groundModel.size[1] * GROUND_TILE_INSTANCE_SCALE;
+}
+
 export function createTerrainSceneObjects({ terrainAssets, camera }) {
   const terrainSceneObjects = [
     {
@@ -235,7 +245,7 @@ export function updateTerrainSceneObjects({ sceneObjects, groundModel, camera })
   } = buildTerrainInstances({ tileRange });
   const palmTreeInstances = buildRestingaPalmTreeInstances({
     tileRange,
-    terrainSurfaceY: groundModel.size[1] * GROUND_TILE_INSTANCE_SCALE
+    terrainSurfaceY: getTerrainSurfaceY(groundModel)
   });
 
   for (const sceneObject of sceneObjects) {
