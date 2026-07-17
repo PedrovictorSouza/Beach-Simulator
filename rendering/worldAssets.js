@@ -207,8 +207,6 @@ const SPRITE_VERTEX_SOURCE = `
   uniform mat4 uViewProjection;
   uniform vec3 uWorldPosition;
   uniform vec2 uSpriteSize;
-  uniform vec3 uQuadRight;
-  uniform vec3 uQuadUp;
   uniform vec4 uUvRect;
   uniform float uSpriteRotation;
   uniform vec2 uPixelSnap;
@@ -222,12 +220,8 @@ const SPRITE_VERTEX_SOURCE = `
       aCorner.x * rotationCosine - aCorner.y * rotationSine,
       aCorner.x * rotationSine + aCorner.y * rotationCosine
     );
-    vec3 world =
-      uWorldPosition +
-      uQuadRight * (rotatedCorner.x * uSpriteSize.x) +
-      uQuadUp * (rotatedCorner.y * uSpriteSize.y);
-
-    vec4 clip = uViewProjection * vec4(world, 1.0);
+    vec4 clip = uViewProjection * vec4(uWorldPosition, 1.0);
+    clip.xy += (rotatedCorner * uSpriteSize / uPixelSnap) * clip.w;
     vec2 snapped = floor((clip.xy / clip.w) * uPixelSnap + 0.5) / uPixelSnap;
     clip.xy = snapped * clip.w;
     gl_Position = clip;

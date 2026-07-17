@@ -20,6 +20,7 @@ const CAMERA_KEYS = Object.freeze([
   "s",
   "w"
 ]);
+const MAX_SELECT_MOVEMENT_PX = 6;
 
 function normalizeWheelDelta(event, target) {
   if (event.deltaMode === 1) {
@@ -65,7 +66,8 @@ export function createCursorInput({
   windowRef = target?.ownerDocument?.defaultView,
   onChange = () => {},
   onPan = () => {},
-  onZoom = () => {}
+  onZoom = () => {},
+  onSelect = () => {}
 } = {}) {
   if (!target) {
     throw new Error("Cursor precisa de um target DOM.");
@@ -132,7 +134,19 @@ export function createCursorInput({
     });
   };
 
-  const onPointerUp = (event) => {
+  const finishPointer = (event, { cancelled = false } = {}) => {
+    const pointerPosition = readPointerPosition(event, target);
+    const movement = state.lastPointer ? Math.hypot(
+      pointerPosition.x - state.lastPointer.x,
+      pointerPosition.y - state.lastPointer.y
+    ) : Infinity;
+    const shouldSelect = (
+      !cancelled &&
+      event.button === 0 &&
+      state.pressed &&
+      movement <= MAX_SELECT_MOVEMENT_PX
+    );
+
     if (target.releasePointerCapture && target.hasPointerCapture?.(event.pointerId)) {
       target.releasePointerCapture(event.pointerId);
     }
@@ -142,7 +156,18 @@ export function createCursorInput({
       panning: false,
       lastPointer: null
     });
+
+    if (shouldSelect) {
+      onSelect({
+        ...state,
+        ...pointerPosition,
+        pointerType: event.pointerType || "mouse"
+      });
+    }
   };
+
+  const onPointerUp = (event) => finishPointer(event);
+  const onPointerCancel = (event) => finishPointer(event, { cancelled: true });
 
   const onWheel = (event) => {
     event.preventDefault();
@@ -182,7 +207,7 @@ export function createCursorInput({
   target.addEventListener("pointerleave", onPointerLeave);
   target.addEventListener("pointerdown", onPointerDown);
   target.addEventListener("pointerup", onPointerUp);
-  target.addEventListener("pointercancel", onPointerUp);
+  target.addEventListener("pointercancel", onPointerCancel);
   target.addEventListener("wheel", onWheel, { passive: false });
   target.addEventListener("contextmenu", onContextMenu);
   windowRef?.addEventListener("keydown", onKeyDown);
@@ -201,7 +226,7 @@ export function createCursorInput({
       target.removeEventListener("pointerleave", onPointerLeave);
       target.removeEventListener("pointerdown", onPointerDown);
       target.removeEventListener("pointerup", onPointerUp);
-      target.removeEventListener("pointercancel", onPointerUp);
+      target.removeEventListener("pointercancel", onPointerCancel);
       target.removeEventListener("wheel", onWheel);
       target.removeEventListener("contextmenu", onContextMenu);
       windowRef?.removeEventListener("keydown", onKeyDown);

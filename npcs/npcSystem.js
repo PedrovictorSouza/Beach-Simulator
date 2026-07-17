@@ -15,46 +15,14 @@ const ARRIVAL_DISTANCE = 0.35;
 const RESTLESSNESS_LIMIT = 100;
 const RESTLESSNESS_RATE = 14;
 const RELAXING_DURATION_SECONDS = 3.5;
-const ACTIVITY_WAYPOINTS = Object.freeze([
-  Object.freeze([-38, 12]),
+const ACTIVITY_WAYPOINT_OFFSETS = Object.freeze([
+  Object.freeze([-36, 12]),
   Object.freeze([-18, 48]),
   Object.freeze([8, 28]),
   Object.freeze([34, 54]),
   Object.freeze([42, 4]),
   Object.freeze([16, -28]),
-  Object.freeze([-20, -18])
-]);
-const INITIAL_BATHERS = Object.freeze([
-  Object.freeze({
-    id: "bather-1",
-    position: Object.freeze([-30, 22]),
-    activityOffset: 0,
-    restlessness: 15
-  }),
-  Object.freeze({
-    id: "bather-2",
-    position: Object.freeze([-12, 8]),
-    activityOffset: 2,
-    restlessness: 72
-  }),
-  Object.freeze({
-    id: "bather-3",
-    position: Object.freeze([8, 44]),
-    activityOffset: 4,
-    restlessness: 38
-  }),
-  Object.freeze({
-    id: "bather-4",
-    position: Object.freeze([28, 18]),
-    activityOffset: 6,
-    restlessness: 88
-  }),
-  Object.freeze({
-    id: "bather-5",
-    position: Object.freeze([40, -16]),
-    activityOffset: 1,
-    restlessness: 54
-  })
+  Object.freeze([-24, -18])
 ]);
 
 function beginMovement(entity, state, destination) {
@@ -68,8 +36,12 @@ function beginMovement(entity, state, destination) {
 function selectNextActivity(entity) {
   const waypointIndex = (
     entity.activityCursor + entity.activityOffset
-  ) % ACTIVITY_WAYPOINTS.length;
-  const waypoint = ACTIVITY_WAYPOINTS[waypointIndex];
+  ) % ACTIVITY_WAYPOINT_OFFSETS.length;
+  const waypointOffset = ACTIVITY_WAYPOINT_OFFSETS[waypointIndex];
+  const waypoint = [
+    entity.home[0] + waypointOffset[0],
+    waypointOffset[1]
+  ];
 
   entity.activityCursor += 1;
   beginMovement(entity, NPC_STATES.WALKING_TO_ACTIVITY, waypoint);
@@ -108,25 +80,58 @@ function moveEntity(entity, deltaSeconds) {
   return false;
 }
 
+function createEntitySnapshot(entity) {
+  return {
+    id: entity.id,
+    type: entity.type,
+    state: entity.state,
+    position: [...entity.position],
+    destination: entity.destination ? [...entity.destination] : null,
+    restlessness: entity.restlessness,
+    currentSpeed: entity.currentSpeed,
+    walkDistance: entity.walkDistance,
+    yaw: entity.yaw,
+    scale: entity.scale
+  };
+}
+
 export function createNpcSystem() {
-  const entities = INITIAL_BATHERS.map((definition) => ({
-    id: definition.id,
-    type: NPC_TYPES.BATHER,
-    state: NPC_STATES.IDLE,
-    position: [...definition.position],
-    home: [...definition.position],
-    destination: null,
-    activityOffset: definition.activityOffset,
-    activityCursor: 0,
-    restlessness: definition.restlessness,
-    stateElapsedSeconds: 0,
-    currentSpeed: 0,
-    walkDistance: 0,
-    yaw: 0,
-    scale: 1
-  }));
+  const entities = [];
+  let nextBatherId = 1;
 
   return {
+    addBather({ position }) {
+      if (
+        !Array.isArray(position) ||
+        position.length !== 2 ||
+        !position.every(Number.isFinite)
+      ) {
+        throw new Error("Banhista precisa de uma posicao [x, z] valida.");
+      }
+
+      const entity = {
+        id: `bather-${nextBatherId}`,
+        type: NPC_TYPES.BATHER,
+        state: NPC_STATES.IDLE,
+        position: [...position],
+        home: [...position],
+        destination: null,
+        activityOffset: (nextBatherId - 1) % ACTIVITY_WAYPOINT_OFFSETS.length,
+        activityCursor: 0,
+        restlessness: 0,
+        stateElapsedSeconds: 0,
+        currentSpeed: 0,
+        walkDistance: 0,
+        yaw: 0,
+        scale: 1
+      };
+
+      nextBatherId += 1;
+      selectNextActivity(entity);
+      entities.push(entity);
+
+      return createEntitySnapshot(entity);
+    },
     update(deltaSeconds) {
       const stepSeconds = Math.min(Math.max(Number(deltaSeconds) || 0, 0), 0.05);
 
@@ -169,18 +174,7 @@ export function createNpcSystem() {
       }
     },
     getSnapshot() {
-      return entities.map((entity) => ({
-        id: entity.id,
-        type: entity.type,
-        state: entity.state,
-        position: [...entity.position],
-        destination: entity.destination ? [...entity.destination] : null,
-        restlessness: entity.restlessness,
-        currentSpeed: entity.currentSpeed,
-        walkDistance: entity.walkDistance,
-        yaw: entity.yaw,
-        scale: entity.scale
-      }));
+      return entities.map(createEntitySnapshot);
     }
   };
 }

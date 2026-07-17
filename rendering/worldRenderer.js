@@ -16,6 +16,7 @@ import { createWorldRenderingResources } from "./worldAssets.js";
  * @property {number[]} size
  * @property {WebGLTexture} texture
  * @property {ScenePrimitive[]} primitives
+ * @property {number[]} [spriteSize]
  */
 
 /**
@@ -48,6 +49,7 @@ import { createWorldRenderingResources } from "./worldAssets.js";
  * @property {SceneModel} model
  * @property {SceneInstance[]} instances
  * @property {number} [brightness]
+ * @property {boolean} [screenSpaceSprite]
  * @property {string} [terrainLayer]
  * @property {SceneWave} [wave]
  */
@@ -83,6 +85,7 @@ class WorldRenderer {
     }
 
     this.resources = createWorldRenderingResources(this.gl);
+    this.spriteSizeBuffer = new Float32Array(2);
     this.oceanSurface = null;
     this.disposed = false;
 
@@ -122,7 +125,12 @@ class WorldRenderer {
   }
 
   setSceneUniforms({ viewProjection, cameraTarget, timeSeconds }) {
-    const { program, uniforms } = this.resources;
+    const {
+      program,
+      uniforms,
+      spriteProgram,
+      spriteUniforms
+    } = this.resources;
 
     this.gl.useProgram(program);
     this.gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
@@ -143,6 +151,16 @@ class WorldRenderer {
     this.setUniform1(uniforms.fogFar, 170);
     this.setUniform1(uniforms.fogIntensity, 0.28);
     this.gl.uniform1i(uniforms.texture, 0);
+
+    this.gl.useProgram(spriteProgram);
+    this.gl.uniformMatrix4fv(spriteUniforms.viewProjection, false, viewProjection);
+    this.gl.uniform2fv(spriteUniforms.pixelSnap, [
+      LOGICAL_RENDER_WIDTH * 0.5,
+      LOGICAL_RENDER_HEIGHT * 0.5
+    ]);
+    this.gl.uniform4fv(spriteUniforms.uvRect, [0, 0, 1, 1]);
+    this.gl.uniform1i(spriteUniforms.spriteTexture, 0);
+    this.gl.useProgram(program);
   }
 
   bindPrimitive(primitive) {
@@ -164,6 +182,47 @@ class WorldRenderer {
 
   /** @param {SceneObject} sceneObject */
   drawSceneObject(sceneObject) {
+    const {
+      program,
+      spriteProgram,
+      spriteAttribs,
+      spriteUniforms,
+      spriteQuadBuffer,
+      spriteQuadIndices
+    } = this.resources;
+
+    if (sceneObject.screenSpaceSprite) {
+      this.gl.useProgram(spriteProgram);
+      this.gl.bindBuffer(this.gl.ARRAY_BUFFER, spriteQuadBuffer);
+      this.gl.enableVertexAttribArray(spriteAttribs.corner);
+      this.gl.vertexAttribPointer(spriteAttribs.corner, 2, this.gl.FLOAT, false, 16, 0);
+      this.gl.enableVertexAttribArray(spriteAttribs.texCoord);
+      this.gl.vertexAttribPointer(spriteAttribs.texCoord, 2, this.gl.FLOAT, false, 16, 8);
+      this.gl.bindBuffer(this.gl.ELEMENT_ARRAY_BUFFER, spriteQuadIndices);
+      this.gl.activeTexture(this.gl.TEXTURE0);
+      this.gl.bindTexture(this.gl.TEXTURE_2D, sceneObject.model.texture);
+
+      for (const instance of sceneObject.instances) {
+        const scale = instance.scale ?? 1;
+
+        this.spriteSizeBuffer[0] = Math.max(
+          1,
+          Math.round(sceneObject.model.spriteSize[0] * scale)
+        );
+        this.spriteSizeBuffer[1] = Math.max(
+          1,
+          Math.round(sceneObject.model.spriteSize[1] * scale)
+        );
+        this.setUniform3(spriteUniforms.worldPosition, instance.offset);
+        this.gl.uniform2fv(spriteUniforms.spriteSize, this.spriteSizeBuffer);
+        this.setUniform1(spriteUniforms.spriteRotation, 0);
+        this.setUniform1(spriteUniforms.spriteAlpha, instance.alpha ?? 1);
+        this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+      }
+      return;
+    }
+
+    this.gl.useProgram(program);
     if (sceneObject.terrainLayer) {
       this.drawTerrainSceneObject(sceneObject);
       return;

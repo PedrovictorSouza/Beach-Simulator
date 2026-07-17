@@ -1,0 +1,17 @@
+{
+  "show_grid":false,
+  "gif_file_increment":true,
+  "rmb_action":1,
+  "theme":"classic",
+  "snap_is_default":true,
+  "auto_save_frequency":10,
+  "warn_on_exit":true,
+  "invert_mouse_controls":false,
+  "os_mouse":false,
+  "window_width":576,
+  "window_height":612,
+  "last_path":"",
+  "recent_files":["unnamed_20.txt","unnamed_19.txt","Factory.txt","unnamed_18.txt","Tree-3.txt"],
+  "invert_zoom":false,
+  "texture_grid_size":16
+}

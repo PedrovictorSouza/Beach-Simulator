@@ -6,3 +6,4 @@ material/
 .playwright/
 .DS_Store
 test-results/
+.vercel

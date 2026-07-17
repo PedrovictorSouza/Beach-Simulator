@@ -1,11 +1,17 @@
+import {
+  BEACH_ZONES,
+  createBeachGrid,
+  getBeachEdgesAtX
+} from "./beachGrid.js";
+
 const GROUND_TILE_INSTANCE_SCALE = 1.6;
 const TERRAIN_BASE_CAMERA_DISTANCE = 150;
 const TERRAIN_WINDOW_BASE_HALF_WIDTH = 152;
 const TERRAIN_WINDOW_BASE_HALF_DEPTH = 112;
 const TERRAIN_WINDOW_TILE_MARGIN = 3;
-const BEACH_LAND_Z = 82;
-const BEACH_WATER_Z = -58;
-const BEACH_WET_OVERLAP = 6;
+const BEACH_GAMEPLAY_MIN_X = -140;
+const BEACH_GAMEPLAY_MAX_X = 140;
+const BEACH_SAND_EDGE_INSET = 10;
 const RESTINGA_DEPTH = 58;
 const RESTINGA_TREE_INSET = 6;
 const RESTINGA_GROUND_TINT = [0.72, 1.18, 0.48];
@@ -37,9 +43,14 @@ function getTerrainWindowScale(camera) {
   return clamp(distance / TERRAIN_BASE_CAMERA_DISTANCE, 0.86, 1.7);
 }
 
-function getTerrainTileRange({ groundModel, camera }) {
+export function getTerrainTileSpan(groundModel) {
   const tileFootprint = Math.max(groundModel.size[0], groundModel.size[2]);
-  const tileSpan = tileFootprint * GROUND_TILE_INSTANCE_SCALE;
+
+  return tileFootprint * GROUND_TILE_INSTANCE_SCALE;
+}
+
+function getTerrainTileRange({ groundModel, camera }) {
+  const tileSpan = getTerrainTileSpan(groundModel);
   const target = readCameraPlanarTarget(camera);
   const windowScale = getTerrainWindowScale(camera);
   const halfWidth = TERRAIN_WINDOW_BASE_HALF_WIDTH * windowScale;
@@ -65,26 +76,36 @@ function getTerrainTileRange({ groundModel, camera }) {
   };
 }
 
-function getCoastlineJitter(x) {
-  return (
-    Math.sin(x * 0.055 + 0.4) * 3.6 +
-    Math.sin(x * 0.13 + 1.7) * 1.8
-  );
-}
-
-function getBeachEdgesAtX(x) {
-  const coastlineJitter = getCoastlineJitter(x);
-
-  return {
-    landEdgeZ: BEACH_LAND_Z + coastlineJitter,
-    waterEdgeZ: BEACH_WATER_Z + coastlineJitter - BEACH_WET_OVERLAP
-  };
-}
-
 export function getBeachSandZNearRestinga(x, inset = 16) {
   const { landEdgeZ, waterEdgeZ } = getBeachEdgesAtX(x);
 
   return Number(clamp(landEdgeZ - Math.max(0, inset), waterEdgeZ, landEdgeZ).toFixed(4));
+}
+
+function getBeachXAtProgress(horizontalProgress) {
+  const progress = clamp(Number(horizontalProgress) || 0, 0, 1);
+
+  return Number((
+    BEACH_GAMEPLAY_MIN_X + (BEACH_GAMEPLAY_MAX_X - BEACH_GAMEPLAY_MIN_X) * progress
+  ).toFixed(4));
+}
+
+export function getBeachEntryPosition(entryProgress) {
+  const x = getBeachXAtProgress(entryProgress);
+  const { landEdgeZ } = getBeachEdgesAtX(x);
+
+  return [x, Number(landEdgeZ.toFixed(4))];
+}
+
+export function getBeachSandPosition(horizontalProgress, depthProgress) {
+  const x = getBeachXAtProgress(horizontalProgress);
+  const progress = clamp(Number(depthProgress) || 0, 0, 1);
+  const { landEdgeZ, waterEdgeZ } = getBeachEdgesAtX(x);
+  const nearWaterZ = waterEdgeZ + BEACH_SAND_EDGE_INSET;
+  const nearRestingaZ = landEdgeZ - BEACH_SAND_EDGE_INSET;
+  const z = nearWaterZ + (nearRestingaZ - nearWaterZ) * progress;
+
+  return [x, Number(z.toFixed(4))];
 }
 
 function getRestingaBoundsAtX(x) {
@@ -94,18 +115,6 @@ function getRestingaBoundsAtX(x) {
     startZ: landEdgeZ,
     endZ: landEdgeZ + RESTINGA_DEPTH
   };
-}
-
-function isBeachSandCell(x, z) {
-  const { landEdgeZ, waterEdgeZ } = getBeachEdgesAtX(x);
-
-  return z >= waterEdgeZ && z <= landEdgeZ;
-}
-
-function isRestingaCell(x, z) {
-  const { startZ, endZ } = getRestingaBoundsAtX(x);
-
-  return z > startZ && z <= endZ;
 }
 
 function getRestingaPalmTreeZ(x, laneProgress = 0.5) {
@@ -162,30 +171,32 @@ function buildTerrainInstances({ tileRange }) {
   const restingaGroundInstances = [];
   const sandgroundInstances = [];
 
-  for (let xIndex = startXIndex; xIndex <= endXIndex; xIndex += 1) {
-    for (let zIndex = startZIndex; zIndex <= endZIndex; zIndex += 1) {
-      const x = Number((xIndex * tileSpan).toFixed(4));
-      const z = Number((zIndex * tileSpan).toFixed(4));
+  const beachGrid = createBeachGrid({ tileSize: tileSpan });
 
-      const instance = {
-        offset: [x, 0, z],
-        scale: GROUND_TILE_INSTANCE_SCALE,
-        yaw: 0
-      };
+  beachGrid.visitTilesInRange({
+    startXIndex,
+    endXIndex,
+    startZIndex,
+    endZIndex
+  }, ({ centerX, centerZ, zone }) => {
+    const instance = {
+      offset: [centerX, 0, centerZ],
+      scale: GROUND_TILE_INSTANCE_SCALE,
+      yaw: 0
+    };
 
-      if (isBeachSandCell(x, z)) {
-        sandgroundInstances.push(instance);
-      } else if (isRestingaCell(x, z)) {
-        restingaGroundInstances.push({
-          ...instance,
-          tint: RESTINGA_GROUND_TINT,
-          tintStrength: RESTINGA_GROUND_TINT_STRENGTH
-        });
-      } else {
-        groundInstances.push(instance);
-      }
+    if (zone === BEACH_ZONES.SAND) {
+      sandgroundInstances.push(instance);
+    } else if (zone === BEACH_ZONES.RESTINGA) {
+      restingaGroundInstances.push({
+        ...instance,
+        tint: RESTINGA_GROUND_TINT,
+        tintStrength: RESTINGA_GROUND_TINT_STRENGTH
+      });
+    } else {
+      groundInstances.push(instance);
     }
-  }
+  });
 
   return { groundInstances, restingaGroundInstances, sandgroundInstances };
 }
