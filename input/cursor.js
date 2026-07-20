@@ -5,8 +5,13 @@ const DEFAULT_CURSOR_STATE = Object.freeze({
   screenY: 0,
   pressed: false,
   panning: false,
+  rotating: false,
   inside: false,
   keyboardPan: { x: 0, z: 0 },
+  edgePan: { x: 0, z: 0 },
+  keyboardRotation: 0,
+  dragged: false,
+  invertedPan: false,
   lastPointer: null
 });
 
@@ -17,10 +22,34 @@ const CAMERA_KEYS = Object.freeze([
   "arrowdown",
   "a",
   "d",
+  "e",
+  "q",
   "s",
   "w"
 ]);
 const MAX_SELECT_MOVEMENT_PX = 6;
+const MAX_WHEEL_DELTA = 120;
+const EDGE_SCROLL_MIN_PX = 16;
+const EDGE_SCROLL_MAX_PX = 48;
+const EDGE_SCROLL_VIEWPORT_RATIO = 0.06;
+const KEYBOARD_HORIZONTAL_SPEED_MULTIPLIER = 2;
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function normalizeDirection(direction) {
+  const length = Math.hypot(direction.x, direction.z);
+
+  if (length <= 1) {
+    return direction;
+  }
+
+  return {
+    x: direction.x / length,
+    z: direction.z / length
+  };
+}
 
 function normalizeWheelDelta(event, target) {
   if (event.deltaMode === 1) {
@@ -51,10 +80,49 @@ function getKeyboardPan(keys) {
   const up = keys.has("arrowup") || keys.has("w");
   const down = keys.has("arrowdown") || keys.has("s");
 
-  return {
+  return normalizeDirection({
     x: (right ? 1 : 0) - (left ? 1 : 0),
     z: (up ? 1 : 0) - (down ? 1 : 0)
-  };
+  });
+}
+
+function getKeyboardRotation(keys) {
+  return (keys.has("e") ? 1 : 0) - (keys.has("q") ? 1 : 0);
+}
+
+function getEdgePan(position, target) {
+  const width = Math.max(1, target.clientWidth);
+  const height = Math.max(1, target.clientHeight);
+  const edgeSize = clamp(
+    Math.min(width, height) * EDGE_SCROLL_VIEWPORT_RATIO,
+    EDGE_SCROLL_MIN_PX,
+    EDGE_SCROLL_MAX_PX
+  );
+  const horizontal = position.x < edgeSize ?
+    -(1 - position.x / edgeSize) :
+    position.x > width - edgeSize ?
+      1 - (width - position.x) / edgeSize :
+      0;
+  const vertical = position.y < edgeSize ?
+    1 - position.y / edgeSize :
+    position.y > height - edgeSize ?
+      -(1 - (height - position.y) / edgeSize) :
+      0;
+
+  return normalizeDirection({ x: horizontal, z: vertical });
+}
+
+function isInteractiveElement(element) {
+  const tagName = element?.tagName?.toLowerCase();
+
+  return Boolean(
+    element?.isContentEditable ||
+    element?.closest?.("button, input, select, textarea, [contenteditable='true']") ||
+    tagName === "button" ||
+    tagName === "input" ||
+    tagName === "select" ||
+    tagName === "textarea"
+  );
 }
 
 function isCameraKey(event) {
@@ -66,6 +134,7 @@ export function createCursorInput({
   windowRef = target?.ownerDocument?.defaultView,
   onChange = () => {},
   onPan = () => {},
+  onRotate = () => {},
   onZoom = () => {},
   onSelect = () => {}
 } = {}) {
@@ -75,6 +144,7 @@ export function createCursorInput({
 
   let state = { ...DEFAULT_CURSOR_STATE };
   const keys = new Set();
+  const documentRef = target.ownerDocument;
 
   const emit = (event, patch = {}) => {
     const pointerPosition = typeof event?.clientX === "number" ?
@@ -89,31 +159,77 @@ export function createCursorInput({
     onChange({ ...state });
   };
 
-  const onPointerEnter = (event) => emit(event, { inside: true });
-  const onPointerLeave = (event) => emit(event, {
-    pressed: false,
-    panning: false,
-    inside: false,
-    lastPointer: null
-  });
+  const onPointerEnter = (event) => {
+    const position = readPointerPosition(event, target);
+
+    emit(event, {
+      inside: true,
+      edgePan: getEdgePan(position, target)
+    });
+  };
+  const onPointerLeave = (event) => {
+    if (
+      (state.pressed || state.panning || state.rotating) &&
+      target.hasPointerCapture?.(event.pointerId)
+    ) {
+      return;
+    }
+
+    emit(event, {
+      pressed: false,
+      panning: false,
+      rotating: false,
+      inside: false,
+      edgePan: { x: 0, z: 0 },
+      dragged: false,
+      invertedPan: false,
+      lastPointer: null
+    });
+  };
 
   const onPointerMove = (event) => {
-    if (state.panning && state.lastPointer) {
+    if ((state.panning || state.rotating) && state.lastPointer) {
       event.preventDefault();
       const position = readPointerPosition(event, target);
       const deltaX = position.x - state.lastPointer.x;
       const deltaY = position.y - state.lastPointer.y;
 
-      emit(event, { lastPointer: position });
-      onPan({
-        ...state,
-        deltaX,
-        deltaY
+      emit(event, {
+        lastPointer: position,
+        edgePan: { x: 0, z: 0 }
       });
+      const movement = { ...state, deltaX, deltaY };
+
+      if (state.panning) {
+        onPan(movement);
+      } else {
+        onRotate(movement);
+      }
       return;
     }
 
-    emit(event);
+    if (state.pressed && state.lastPointer) {
+      const position = readPointerPosition(event, target);
+      const deltaX = position.x - state.lastPointer.x;
+      const deltaY = position.y - state.lastPointer.y;
+
+      if (Math.hypot(deltaX, deltaY) > MAX_SELECT_MOVEMENT_PX) {
+        event.preventDefault();
+        emit(event, {
+          pressed: false,
+          panning: true,
+          dragged: true,
+          invertedPan: true,
+          edgePan: { x: 0, z: 0 },
+          lastPointer: position
+        });
+        onPan({ ...state, deltaX, deltaY });
+        return;
+      }
+    }
+
+    const position = readPointerPosition(event, target);
+    emit(event, { edgePan: getEdgePan(position, target) });
   };
 
   const onPointerDown = (event) => {
@@ -121,15 +237,20 @@ export function createCursorInput({
       target.setPointerCapture(event.pointerId);
     }
 
-    const isPanButton = event.button === 2 || event.button === 1;
-    if (isPanButton) {
+    const isPanButton = event.button === 2;
+    const isRotateButton = event.button === 1;
+    if (isPanButton || isRotateButton) {
       event.preventDefault();
     }
 
     emit(event, {
       pressed: event.button === 0,
       panning: isPanButton,
+      rotating: isRotateButton,
       inside: true,
+      edgePan: { x: 0, z: 0 },
+      dragged: false,
+      invertedPan: false,
       lastPointer: readPointerPosition(event, target)
     });
   };
@@ -144,6 +265,7 @@ export function createCursorInput({
       !cancelled &&
       event.button === 0 &&
       state.pressed &&
+      !state.dragged &&
       movement <= MAX_SELECT_MOVEMENT_PX
     );
 
@@ -154,6 +276,10 @@ export function createCursorInput({
     emit(event, {
       pressed: false,
       panning: false,
+      rotating: false,
+      edgePan: getEdgePan(pointerPosition, target),
+      dragged: false,
+      invertedPan: false,
       lastPointer: null
     });
 
@@ -171,10 +297,18 @@ export function createCursorInput({
 
   const onWheel = (event) => {
     event.preventDefault();
-    emit(event, { inside: true });
+    const position = readPointerPosition(event, target);
+    emit(event, {
+      inside: true,
+      edgePan: getEdgePan(position, target)
+    });
     onZoom({
       ...state,
-      deltaY: normalizeWheelDelta(event, target)
+      deltaY: clamp(
+        normalizeWheelDelta(event, target),
+        -MAX_WHEEL_DELTA,
+        MAX_WHEEL_DELTA
+      )
     });
   };
 
@@ -183,13 +317,16 @@ export function createCursorInput({
   };
 
   const onKeyDown = (event) => {
-    if (!isCameraKey(event)) {
+    if (!isCameraKey(event) || isInteractiveElement(event.target)) {
       return;
     }
 
     event.preventDefault();
     keys.add(event.key.toLowerCase());
-    emit(null, { keyboardPan: getKeyboardPan(keys) });
+    emit(null, {
+      keyboardPan: getKeyboardPan(keys),
+      keyboardRotation: getKeyboardRotation(keys)
+    });
   };
 
   const onKeyUp = (event) => {
@@ -199,7 +336,30 @@ export function createCursorInput({
 
     event.preventDefault();
     keys.delete(event.key.toLowerCase());
-    emit(null, { keyboardPan: getKeyboardPan(keys) });
+    emit(null, {
+      keyboardPan: getKeyboardPan(keys),
+      keyboardRotation: getKeyboardRotation(keys)
+    });
+  };
+  const clearTransientInput = () => {
+    keys.clear();
+    emit(null, {
+      keyboardPan: { x: 0, z: 0 },
+      edgePan: { x: 0, z: 0 },
+      keyboardRotation: 0,
+      pressed: false,
+      panning: false,
+      rotating: false,
+      inside: false,
+      dragged: false,
+      invertedPan: false,
+      lastPointer: null
+    });
+  };
+  const onVisibilityChange = () => {
+    if (documentRef?.hidden) {
+      clearTransientInput();
+    }
   };
 
   target.addEventListener("pointerenter", onPointerEnter);
@@ -212,6 +372,8 @@ export function createCursorInput({
   target.addEventListener("contextmenu", onContextMenu);
   windowRef?.addEventListener("keydown", onKeyDown);
   windowRef?.addEventListener("keyup", onKeyUp);
+  windowRef?.addEventListener("blur", clearTransientInput);
+  documentRef?.addEventListener("visibilitychange", onVisibilityChange);
 
   return {
     getState() {
@@ -219,6 +381,24 @@ export function createCursorInput({
     },
     getKeyboardPan() {
       return { ...state.keyboardPan };
+    },
+    getNavigationIntent() {
+      const edgePan = state.inside && !state.panning && !state.rotating ?
+        state.edgePan :
+        { x: 0, z: 0 };
+      const pan = normalizeDirection({
+        x: state.keyboardPan.x + edgePan.x,
+        z: state.keyboardPan.z + edgePan.z
+      });
+
+      return {
+        pan,
+        panSpeed: {
+          x: state.keyboardPan.x === 0 ? 1 : KEYBOARD_HORIZONTAL_SPEED_MULTIPLIER,
+          z: 1
+        },
+        rotation: state.keyboardRotation
+      };
     },
     destroy() {
       target.removeEventListener("pointerenter", onPointerEnter);
@@ -231,6 +411,8 @@ export function createCursorInput({
       target.removeEventListener("contextmenu", onContextMenu);
       windowRef?.removeEventListener("keydown", onKeyDown);
       windowRef?.removeEventListener("keyup", onKeyUp);
+      windowRef?.removeEventListener("blur", clearTransientInput);
+      documentRef?.removeEventListener("visibilitychange", onVisibilityChange);
     }
   };
 }

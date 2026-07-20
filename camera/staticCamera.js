@@ -8,7 +8,13 @@ const DEFAULT_STATIC_CAMERA_CONFIG = Object.freeze({
   maxDistance: 230,
   zoomSpeed: 0.16,
   panSpeed: 46,
+  panAcceleration: 5.5,
+  panDeceleration: 8,
   dragPanSpeed: 1,
+  dragRotateSpeed: 0.007,
+  rotationSpeed: 1.25,
+  rotationAcceleration: 7,
+  rotationDeceleration: 10,
   zoomFocusStrength: 0.38,
   targetBounds: {
     minX: -132,
@@ -60,6 +66,31 @@ function addVec3(left, right) {
     left[1] + right[1],
     left[2] + right[2]
   ];
+}
+
+function approach(current, target, maxDelta) {
+  if (current < target) {
+    return Math.min(target, current + maxDelta);
+  }
+
+  return Math.max(target, current - maxDelta);
+}
+
+function approachDirection(current, target, maxDelta) {
+  const deltaX = target.x - current.x;
+  const deltaZ = target.z - current.z;
+  const distance = Math.hypot(deltaX, deltaZ);
+
+  if (distance === 0 || distance <= maxDelta) {
+    return { ...target };
+  }
+
+  const scale = maxDelta / distance;
+
+  return {
+    x: current.x + deltaX * scale,
+    z: current.z + deltaZ * scale
+  };
 }
 
 function createIdentityMat4() {
@@ -148,7 +179,25 @@ export function createStaticCamera(config = {}) {
     maxDistance: Number(config.maxDistance || DEFAULT_STATIC_CAMERA_CONFIG.maxDistance),
     zoomSpeed: Number(config.zoomSpeed || DEFAULT_STATIC_CAMERA_CONFIG.zoomSpeed),
     panSpeed: Number(config.panSpeed || DEFAULT_STATIC_CAMERA_CONFIG.panSpeed),
+    panAcceleration: Number(
+      config.panAcceleration || DEFAULT_STATIC_CAMERA_CONFIG.panAcceleration
+    ),
+    panDeceleration: Number(
+      config.panDeceleration || DEFAULT_STATIC_CAMERA_CONFIG.panDeceleration
+    ),
     dragPanSpeed: Number(config.dragPanSpeed || DEFAULT_STATIC_CAMERA_CONFIG.dragPanSpeed),
+    dragRotateSpeed: Number(
+      config.dragRotateSpeed || DEFAULT_STATIC_CAMERA_CONFIG.dragRotateSpeed
+    ),
+    rotationSpeed: Number(
+      config.rotationSpeed || DEFAULT_STATIC_CAMERA_CONFIG.rotationSpeed
+    ),
+    rotationAcceleration: Number(
+      config.rotationAcceleration || DEFAULT_STATIC_CAMERA_CONFIG.rotationAcceleration
+    ),
+    rotationDeceleration: Number(
+      config.rotationDeceleration || DEFAULT_STATIC_CAMERA_CONFIG.rotationDeceleration
+    ),
     zoomFocusStrength: Number(config.zoomFocusStrength || DEFAULT_STATIC_CAMERA_CONFIG.zoomFocusStrength),
     targetBounds: {
       minX: Number(targetBounds.minX),
@@ -158,7 +207,9 @@ export function createStaticCamera(config = {}) {
     },
     fov: Number(config.fov || DEFAULT_STATIC_CAMERA_CONFIG.fov),
     near: Number(config.near || DEFAULT_STATIC_CAMERA_CONFIG.near),
-    far: Number(config.far || DEFAULT_STATIC_CAMERA_CONFIG.far)
+    far: Number(config.far || DEFAULT_STATIC_CAMERA_CONFIG.far),
+    panVelocity: { x: 0, z: 0 },
+    rotationVelocity: 0
   };
 
   function getEye() {
@@ -186,6 +237,19 @@ export function createStaticCamera(config = {}) {
     clampTarget();
   }
 
+  function rotateHorizontal(radians) {
+    if (!Number.isFinite(radians) || radians === 0) {
+      return false;
+    }
+
+    const horizontalLength = Math.hypot(state.direction[0], state.direction[2]);
+    const yaw = Math.atan2(state.direction[0], state.direction[2]) + radians;
+
+    state.direction[0] = Math.sin(yaw) * horizontalLength;
+    state.direction[2] = Math.cos(yaw) * horizontalLength;
+    return true;
+  }
+
   function getUnitsPerPixel(viewport = {}) {
     const height = Math.max(1, Number(viewport.height) || 1);
     const visibleHeight = Math.tan(state.fov * 0.5) * state.distance * 2;
@@ -202,6 +266,9 @@ export function createStaticCamera(config = {}) {
     },
     getDistance() {
       return state.distance;
+    },
+    getDirection() {
+      return [...state.direction];
     },
     zoomBy(deltaY, focus = null) {
       const previousDistance = state.distance;
@@ -228,6 +295,7 @@ export function createStaticCamera(config = {}) {
       return changed;
     },
     panByScreenDelta(deltaX, deltaY, viewport = {}) {
+      state.panVelocity = { x: 0, z: 0 };
       const { right, forward } = getGroundBasis();
       const unitsPerPixel = getUnitsPerPixel(viewport) * state.dragPanSpeed;
       const rightShift = scaleVec3(right, -deltaX * unitsPerPixel);
@@ -235,22 +303,70 @@ export function createStaticCamera(config = {}) {
 
       moveTarget(addVec3(rightShift, forwardShift));
     },
-    panByDirection(direction, deltaSeconds) {
+    panByDirection(direction, deltaSeconds, speed = {}) {
       const x = Number(direction?.x) || 0;
       const z = Number(direction?.z) || 0;
+      const speedX = Math.max(0, Number(speed.x) || 1);
+      const speedZ = Math.max(0, Number(speed.z) || 1);
+      const inputLength = Math.hypot(x, z);
+      const normalizedX = inputLength > 1 ? x / inputLength : x;
+      const normalizedZ = inputLength > 1 ? z / inputLength : z;
+      const stepSeconds = Math.max(0, deltaSeconds);
+      const smoothing = normalizedX === 0 && normalizedZ === 0 ?
+        state.panDeceleration :
+        state.panAcceleration;
 
-      if (x === 0 && z === 0) {
+      state.panVelocity = approachDirection(
+        state.panVelocity,
+        { x: normalizedX, z: normalizedZ },
+        smoothing * stepSeconds
+      );
+
+      if (state.panVelocity.x === 0 && state.panVelocity.z === 0) {
         return false;
       }
 
       const { right, forward } = getGroundBasis();
       const distanceScale = clamp(state.distance / DEFAULT_STATIC_CAMERA_CONFIG.distance, 0.55, 1.6);
-      const amount = state.panSpeed * Math.max(0, deltaSeconds) * distanceScale;
-      const rightShift = scaleVec3(right, x * amount);
-      const forwardShift = scaleVec3(forward, z * amount);
+      const amount = state.panSpeed * stepSeconds * distanceScale;
+      const rightShift = scaleVec3(
+        right,
+        state.panVelocity.x * amount * speedX
+      );
+      const forwardShift = scaleVec3(
+        forward,
+        state.panVelocity.z * amount * speedZ
+      );
 
       moveTarget(addVec3(rightShift, forwardShift));
       return true;
+    },
+    rotateByScreenDelta(deltaX) {
+      state.rotationVelocity = 0;
+      return rotateHorizontal(
+        (Number(deltaX) || 0) * state.dragRotateSpeed
+      );
+    },
+    rotateByDirection(direction, deltaSeconds) {
+      const normalizedDirection = clamp(Number(direction) || 0, -1, 1);
+      const stepSeconds = Math.max(0, deltaSeconds);
+      const smoothing = normalizedDirection === 0 ?
+        state.rotationDeceleration :
+        state.rotationAcceleration;
+
+      state.rotationVelocity = approach(
+        state.rotationVelocity,
+        normalizedDirection,
+        smoothing * stepSeconds
+      );
+
+      return rotateHorizontal(
+        state.rotationVelocity * state.rotationSpeed * stepSeconds
+      );
+    },
+    stopMotion() {
+      state.panVelocity = { x: 0, z: 0 };
+      state.rotationVelocity = 0;
     },
     getViewProjection(width, height) {
       const aspect = width / height;

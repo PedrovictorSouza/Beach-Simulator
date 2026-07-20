@@ -11,15 +11,12 @@ export const SPAWN_TYPES = Object.freeze({
 
 const BASE_INTERVAL_SECONDS = Object.freeze({ min: 30, max: 120 });
 const FIVE_STAR_INTERVAL_SECONDS = Object.freeze({ min: 15, max: 60 });
-const INITIAL_OBJECT_COUNT = Object.freeze({ min: 6, max: 10 });
-const INITIAL_ENVIRONMENT_TYPES = Object.freeze([
-  SPAWNABLE_OBJECT_TYPES.POOP,
+const INITIAL_OBJECT_COUNT = 5;
+const INITIAL_CLEANUP_TYPES = Object.freeze([
   SPAWNABLE_OBJECT_TYPES.BANANA,
   SPAWNABLE_OBJECT_TYPES.PAPER,
   SPAWNABLE_OBJECT_TYPES.CAN,
   SPAWNABLE_OBJECT_TYPES.BOTTLE,
-  SPAWNABLE_OBJECT_TYPES.LOG,
-  SPAWNABLE_OBJECT_TYPES.STONE,
   SPAWNABLE_OBJECT_TYPES.SYRINGE
 ]);
 const INITIAL_COLLECTIBLE_TYPES = Object.freeze([
@@ -32,7 +29,11 @@ const BATHER_LITTER_TYPES = Object.freeze([
   SPAWNABLE_OBJECT_TYPES.CAN,
   SPAWNABLE_OBJECT_TYPES.BOTTLE
 ]);
-const BATHER_LITTER_CHANCE = 0.15;
+const BATHER_LITTER_CHANCE = Object.freeze({
+  WITHOUT_TRASH_CANS: 0.35,
+  WITH_TRASH_CANS: 0.08,
+  BEVERAGE_STORE_BONUS: 0.2
+});
 const BATHER_LITTER_DELAY_SECONDS = Object.freeze({ min: 12, max: 30 });
 const BATHER_LITTER_OFFSET = 1.5;
 const SPAWN_CHANNELS = Object.freeze({
@@ -84,6 +85,9 @@ export function createSpawnManager({ random = Math.random } = {}) {
 
   let running = false;
   let elapsedSeconds = 0;
+  let activeBatherEventSequence = null;
+  let firstBatherSpawned = false;
+  let immediateBatherRequested = false;
   const timeline = createScheduledSpawnQueue();
   const readyEvents = [];
   const knownBatherIds = new Set();
@@ -101,6 +105,8 @@ export function createSpawnManager({ random = Math.random } = {}) {
   };
   const getSnapshot = () => Object.freeze({
     running,
+    firstBatherSpawned,
+    immediateBatherRequested,
     secondsUntilNextSpawn: getSecondsUntilNextSpawn(),
     scheduledCount: timeline.size,
     readyCount: readyEvents.length
@@ -129,15 +135,27 @@ export function createSpawnManager({ random = Math.random } = {}) {
       readRandomUnit()
     );
 
-    timeline.enqueue({
+    const event = timeline.enqueue({
       executeAt: fromSeconds + delaySeconds,
       channel: SPAWN_CHANNELS.BATHERS,
       designPriority: policy.designPriority,
       attentionCost: policy.attentionCost
     });
+
+    activeBatherEventSequence = event.sequence;
   };
 
-  const scheduleLitterForNewBathers = (bathers) => {
+  const scheduleLitterForNewBathers = (bathers, buildingServices) => {
+    const baseLitterChance = buildingServices.hasTrashCans ?
+      BATHER_LITTER_CHANCE.WITH_TRASH_CANS :
+      BATHER_LITTER_CHANCE.WITHOUT_TRASH_CANS;
+    const litterChance = clamp(
+      baseLitterChance + (buildingServices.hasBeverageStore ?
+        BATHER_LITTER_CHANCE.BEVERAGE_STORE_BONUS : 0),
+      0,
+      1
+    );
+
     for (const bather of bathers) {
       const batherId = String(bather?.id || "").trim();
 
@@ -146,7 +164,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
       }
 
       knownBatherIds.add(batherId);
-      if (readRandomUnit() >= BATHER_LITTER_CHANCE) {
+      if (readRandomUnit() >= litterChance) {
         continue;
       }
 
@@ -232,16 +250,13 @@ export function createSpawnManager({ random = Math.random } = {}) {
   return Object.freeze({
     getSnapshot,
     planInitialPopulation() {
-      const count = INITIAL_OBJECT_COUNT.min + readRandomIndex(
-        INITIAL_OBJECT_COUNT.max - INITIAL_OBJECT_COUNT.min + 1
-      );
       const types = [
         INITIAL_COLLECTIBLE_TYPES[readRandomIndex(INITIAL_COLLECTIBLE_TYPES.length)]
       ];
 
-      while (types.length < count) {
+      while (types.length < INITIAL_OBJECT_COUNT) {
         types.push(
-          INITIAL_ENVIRONMENT_TYPES[readRandomIndex(INITIAL_ENVIRONMENT_TYPES.length)]
+          INITIAL_CLEANUP_TYPES[readRandomIndex(INITIAL_CLEANUP_TYPES.length)]
         );
       }
 
@@ -254,6 +269,9 @@ export function createSpawnManager({ random = Math.random } = {}) {
         readyEvents.length = 0;
         knownBatherIds.clear();
         litterPlanByEventSequence.clear();
+        activeBatherEventSequence = null;
+        firstBatherSpawned = false;
+        immediateBatherRequested = false;
         scheduleNextBather(averageRating);
       }
 
@@ -264,7 +282,28 @@ export function createSpawnManager({ random = Math.random } = {}) {
 
       return getSnapshot();
     },
-    update(deltaSeconds, { averageRating = 0, bathers = [] } = {}) {
+    requestImmediateBather() {
+      if (!running || firstBatherSpawned || immediateBatherRequested) {
+        return false;
+      }
+
+      const policy = SPAWN_CHANNEL_POLICIES[SPAWN_CHANNELS.BATHERS];
+      const event = timeline.enqueue({
+        executeAt: elapsedSeconds,
+        channel: SPAWN_CHANNELS.BATHERS,
+        designPriority: policy.designPriority,
+        attentionCost: policy.attentionCost
+      });
+
+      activeBatherEventSequence = event.sequence;
+      immediateBatherRequested = true;
+      return true;
+    },
+    update(deltaSeconds, {
+      averageRating = 0,
+      bathers = [],
+      buildingServices = {}
+    } = {}) {
       if (!Number.isFinite(deltaSeconds) || deltaSeconds < 0) {
         throw new Error("deltaSeconds precisa ser um numero finito e nao negativo.");
       }
@@ -278,7 +317,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
       }
 
       elapsedSeconds += deltaSeconds;
-      scheduleLitterForNewBathers(bathers);
+      scheduleLitterForNewBathers(bathers, buildingServices);
       const requests = [];
       const bathersById = new Map(bathers.map((bather) => [bather.id, bather]));
 
@@ -290,6 +329,12 @@ export function createSpawnManager({ random = Math.random } = {}) {
         const event = dequeueHighestDesignPriority();
 
         if (event.channel === SPAWN_CHANNELS.BATHERS) {
+          if (event.sequence !== activeBatherEventSequence) {
+            continue;
+          }
+
+          firstBatherSpawned = true;
+          immediateBatherRequested = false;
           requests.push(Object.freeze({
             type: SPAWN_TYPES.BATHER,
             entryProgress: readRandomUnit()

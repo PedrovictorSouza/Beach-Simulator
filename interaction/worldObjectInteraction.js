@@ -76,6 +76,32 @@ function getProjectedInstance(instance, sceneObject, viewProjection, viewport) {
   };
 }
 
+export function getWorldObjectScreenPosition({
+  objectId,
+  sceneObjects,
+  viewProjection,
+  viewport
+}) {
+  for (const sceneObject of sceneObjects) {
+    const instance = sceneObject.instances.find((item) => item.id === objectId);
+
+    if (!instance) {
+      continue;
+    }
+
+    const projected = getProjectedInstance(
+      instance,
+      sceneObject,
+      viewProjection,
+      viewport
+    );
+
+    return projected ? Object.freeze({ x: projected.x, y: projected.y }) : null;
+  }
+
+  return null;
+}
+
 export function findWorldObjectSelection({
   pointer,
   sceneObjects,

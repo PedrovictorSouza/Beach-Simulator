@@ -135,9 +135,13 @@ export function createTaskListModel(initialTasks = []) {
   });
 }
 
-export function createTaskListView({ root }) {
+export function createTaskListView({ root, onTaskComplete = () => {} }) {
   if (!root) {
     throw new Error("TaskListView precisa de um elemento root.");
+  }
+
+  if (typeof onTaskComplete !== "function") {
+    throw new Error("TaskListView precisa de um callback de conclusao valido.");
   }
 
   const documentRef = root.ownerDocument;
@@ -161,17 +165,21 @@ export function createTaskListView({ root }) {
   return Object.freeze({
     render(tasks) {
       const nextTasks = Array.isArray(tasks) ? tasks : [];
+      const completedTasks = [];
       const taskElements = nextTasks.map((task) => {
         const itemElement = documentRef.createElement("li");
         const labelElement = documentRef.createElement("span");
+        const hasProgress = Number.isFinite(task.target) && task.target > 0;
+        const completed = hasProgress && task.progress >= task.target;
 
         itemElement.className = "task-list__item";
         itemElement.dataset.taskId = task.id;
         labelElement.className = "task-list__label";
-        labelElement.textContent = task.label;
+        labelElement.textContent = completed ? "TASK COMPLETE!" : task.label;
+        labelElement.classList.toggle("task-list__label--complete", completed);
         itemElement.append(labelElement);
 
-        if (Number.isFinite(task.target) && task.target > 0) {
+        if (hasProgress) {
           const previousProgress = progressByTaskId.get(task.id);
           const previousPercent = previousProgress === undefined ?
             task.progress / task.target * 100 :
@@ -179,6 +187,8 @@ export function createTaskListView({ root }) {
           const currentPercent = task.progress / task.target * 100;
           const progressed = previousProgress !== undefined &&
             task.progress > previousProgress;
+          const justCompleted = previousProgress !== undefined &&
+            previousProgress < task.target && completed;
           const progressRow = documentRef.createElement("div");
           const progressTrack = documentRef.createElement("div");
           const progressFill = documentRef.createElement("div");
@@ -202,6 +212,11 @@ export function createTaskListView({ root }) {
             progressCount.classList.add("task-list__progress-count--updated");
           }
 
+          if (justCompleted) {
+            labelElement.classList.add("task-list__label--completed-now");
+            completedTasks.push(task);
+          }
+
           progressTrack.append(progressFill);
           progressRow.append(progressTrack, progressCount);
           itemElement.append(progressRow);
@@ -221,6 +236,8 @@ export function createTaskListView({ root }) {
       listElement.replaceChildren(...taskElements);
       listElement.hidden = nextTasks.length === 0;
       emptyElement.hidden = nextTasks.length > 0;
+
+      completedTasks.forEach(onTaskComplete);
     }
   });
 }

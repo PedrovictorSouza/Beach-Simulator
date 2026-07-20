@@ -728,6 +728,36 @@ function createTextureFromImage(gl, image) {
   return texture;
 }
 
+function createTextureFromColor(gl, color) {
+  const rgba = new Uint8Array([
+    ...color.slice(0, 3).map((channel) => (
+      Math.round(Math.min(1, Math.max(0, Number(channel) || 0)) * 255)
+    )),
+    255
+  ]);
+  const texture = gl.createTexture();
+
+  gl.bindTexture(gl.TEXTURE_2D, texture);
+  gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+  gl.texImage2D(
+    gl.TEXTURE_2D,
+    0,
+    gl.RGBA,
+    1,
+    1,
+    0,
+    gl.RGBA,
+    gl.UNSIGNED_BYTE,
+    rgba
+  );
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+
+  return texture;
+}
+
 function createTextureFromSource(gl, source, { filter = gl.NEAREST } = {}) {
   const texture = gl.createTexture();
   const textureFilter = filter || gl.NEAREST;
@@ -1339,6 +1369,10 @@ function createGroundFlowerCanvas({ revived = false } = {}) {
 export function createWorldTextureFactory(gl) {
   return {
     LINEAR: gl.LINEAR,
+
+    fromColor(color) {
+      return createTextureFromColor(gl, color);
+    },
 
     fromCanvas(canvas) {
       return createTextureFromSource(gl, canvas);

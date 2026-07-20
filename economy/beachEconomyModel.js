@@ -44,6 +44,27 @@ export function createBeachEconomyModel() {
       notify();
       return getSnapshot();
     },
+    recordExpense({ sourceId, amountInCents }) {
+      const normalizedSourceId = String(sourceId || "").trim();
+      const normalizedAmount = Number(amountInCents);
+
+      if (!normalizedSourceId) {
+        throw new Error("Saida de dinheiro precisa de sourceId.");
+      }
+
+      if (!Number.isSafeInteger(normalizedAmount) || normalizedAmount <= 0) {
+        throw new Error("Saida de dinheiro precisa de amountInCents inteiro e positivo.");
+      }
+
+      if (normalizedAmount > moneyInCents) {
+        throw new Error("Saldo insuficiente para registrar a despesa.");
+      }
+
+      moneyInCents -= normalizedAmount;
+      transactionCount += 1;
+      notify();
+      return getSnapshot();
+    },
     subscribe(observer) {
       if (typeof observer !== "function") {
         throw new Error("Observer da economia precisa ser uma funcao.");

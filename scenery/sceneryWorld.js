@@ -1,4 +1,7 @@
-import { loadTexturedModel } from "../rendering/worldAssets.js";
+import {
+  createWorldTextureFactory,
+  loadTexturedModel
+} from "../rendering/worldAssets.js";
 
 export const SCENERY_TYPES = Object.freeze({
   KIOSK: "kiosk",
@@ -65,6 +68,59 @@ export function createScenerySceneObjects({ sceneryAsset, position }) {
         }
       ],
       brightness: definition.brightness
+    }
+  ];
+}
+
+export function createSceneryPlaceholderSceneObjects({
+  gl,
+  sceneryType,
+  model,
+  position,
+  tint,
+  normalizedSize = 18
+}) {
+  const normalizedType = String(sceneryType || "").trim();
+  const modelSpan = Math.max(...(model?.size || []));
+
+  if (!normalizedType) {
+    throw new Error("Placeholder de cenario precisa de sceneryType.");
+  }
+
+  if (!Number.isFinite(modelSpan) || modelSpan <= 0) {
+    throw new Error("Placeholder de cenario precisa de um modelo valido.");
+  }
+
+  if (!Array.isArray(position) || position.length !== 3 || !position.every(Number.isFinite)) {
+    throw new Error("Placeholder de cenario precisa de position [x, y, z].");
+  }
+
+  if (!Array.isArray(tint) || tint.length !== 3 || !tint.every(Number.isFinite)) {
+    throw new Error("Placeholder de cenario precisa de tint RGB.");
+  }
+
+  if (!Number.isFinite(normalizedSize) || normalizedSize <= 0) {
+    throw new Error("Placeholder de cenario precisa de normalizedSize positivo.");
+  }
+
+  return [
+    {
+      worldObject: "scenery",
+      sceneryType: normalizedType,
+      placeholder: true,
+      model: {
+        ...model,
+        texture: createWorldTextureFactory(gl).fromColor(tint)
+      },
+      instances: [
+        {
+          id: `${normalizedType}-main`,
+          offset: [...position],
+          scale: normalizedSize / modelSpan,
+          yaw: 0
+        }
+      ],
+      brightness: 1.15
     }
   ];
 }

@@ -15,6 +15,15 @@ const ARRIVAL_DISTANCE = 0.35;
 const RESTLESSNESS_LIMIT = 100;
 const RESTLESSNESS_RATE = 14;
 const RELAXING_DURATION_SECONDS = 3.5;
+const ENTERTAINMENT_COMPLAINT_SECONDS = 10;
+const WIFI_COMPLAINT_SECONDS = 16;
+const TOILET_COMPLAINT_SECONDS = 24;
+const TOILET_LEAVE_SECONDS = 34;
+const BATHER_COMPLAINTS = Object.freeze({
+  ENTERTAINMENT: "There is nothing to do!",
+  WIFI: "I need internet!",
+  TOILET: "I need a toilet!"
+});
 const ACTIVITY_WAYPOINT_OFFSETS = Object.freeze([
   Object.freeze([-36, 12]),
   Object.freeze([-18, 48]),
@@ -91,8 +100,39 @@ function createEntitySnapshot(entity) {
     currentSpeed: entity.currentSpeed,
     walkDistance: entity.walkDistance,
     yaw: entity.yaw,
-    scale: entity.scale
+    scale: entity.scale,
+    complaint: entity.complaint,
+    departing: entity.departing
   };
+}
+
+function updateBatherNeeds(entity, stepSeconds, buildingServices) {
+  entity.beachElapsedSeconds += stepSeconds;
+  const needsElapsed = entity.beachElapsedSeconds - entity.needsDelaySeconds;
+  const toiletOperational = buildingServices.toiletOperational ??
+    buildingServices.hasToiletBuilding;
+
+  if (!toiletOperational && needsElapsed >= TOILET_COMPLAINT_SECONDS) {
+    entity.complaint = BATHER_COMPLAINTS.TOILET;
+
+    if (!entity.departing && needsElapsed >= TOILET_LEAVE_SECONDS) {
+      entity.departing = true;
+      beginMovement(entity, NPC_STATES.RETURNING_HOME, entity.home);
+    }
+    return;
+  }
+
+  if (!buildingServices.hasWifiSpot && needsElapsed >= WIFI_COMPLAINT_SECONDS) {
+    entity.complaint = BATHER_COMPLAINTS.WIFI;
+    return;
+  }
+
+  if (!buildingServices.hasBeverageStore && needsElapsed >= ENTERTAINMENT_COMPLAINT_SECONDS) {
+    entity.complaint = BATHER_COMPLAINTS.ENTERTAINMENT;
+    return;
+  }
+
+  entity.complaint = null;
 }
 
 export function createNpcSystem() {
@@ -123,7 +163,11 @@ export function createNpcSystem() {
         currentSpeed: 0,
         walkDistance: 0,
         yaw: 0,
-        scale: 1
+        scale: 1,
+        beachElapsedSeconds: 0,
+        needsDelaySeconds: ((nextBatherId - 1) % 3) * 2,
+        complaint: null,
+        departing: false
       };
 
       nextBatherId += 1;
@@ -132,10 +176,20 @@ export function createNpcSystem() {
 
       return createEntitySnapshot(entity);
     },
-    update(deltaSeconds) {
+    update(deltaSeconds, { buildingServices = {} } = {}) {
       const stepSeconds = Math.min(Math.max(Number(deltaSeconds) || 0, 0), 0.05);
+      const departedIds = new Set();
 
       for (const entity of entities) {
+        updateBatherNeeds(entity, stepSeconds, buildingServices);
+
+        if (entity.departing) {
+          if (moveEntity(entity, stepSeconds)) {
+            departedIds.add(entity.id);
+          }
+          continue;
+        }
+
         if (entity.state !== NPC_STATES.RELAXING) {
           entity.restlessness = Math.min(
             RESTLESSNESS_LIMIT,
@@ -170,6 +224,14 @@ export function createNpcSystem() {
         if (entity.state === NPC_STATES.RETURNING_HOME && moveEntity(entity, stepSeconds)) {
           entity.state = NPC_STATES.IDLE;
           entity.stateElapsedSeconds = 0;
+        }
+      }
+
+      if (departedIds.size > 0) {
+        for (let index = entities.length - 1; index >= 0; index -= 1) {
+          if (departedIds.has(entities[index].id)) {
+            entities.splice(index, 1);
+          }
         }
       }
     },

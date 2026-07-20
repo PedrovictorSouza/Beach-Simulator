@@ -63,6 +63,9 @@ export function createBeachGrid({
     throw new Error("chunkSizeInTiles precisa ser um inteiro positivo.");
   }
 
+  const occupiedTiles = new Set();
+  const getTileKey = (xIndex, zIndex) => `${xIndex}:${zIndex}`;
+
   function getTileAtWorldPosition(x, z) {
     assertFiniteNumber(x, "x");
     assertFiniteNumber(z, "z");
@@ -126,10 +129,82 @@ export function createBeachGrid({
     }
   }
 
+  function reserveWorldBounds({ centerX, centerZ, width, depth, padding = 0 }) {
+    [centerX, centerZ, width, depth, padding].forEach((value) => (
+      assertFiniteNumber(value, "reserva do grid")
+    ));
+
+    if (width <= 0 || depth <= 0 || padding < 0) {
+      throw new Error("Reserva do grid precisa de dimensoes positivas.");
+    }
+
+    const halfWidth = width * 0.5 + padding + tileSize * 0.5;
+    const halfDepth = depth * 0.5 + padding + tileSize * 0.5;
+    const startXIndex = Math.ceil((centerX - halfWidth) / tileSize);
+    const endXIndex = Math.floor((centerX + halfWidth) / tileSize);
+    const startZIndex = Math.ceil((centerZ - halfDepth) / tileSize);
+    const endZIndex = Math.floor((centerZ + halfDepth) / tileSize);
+
+    for (let xIndex = startXIndex; xIndex <= endXIndex; xIndex += 1) {
+      for (let zIndex = startZIndex; zIndex <= endZIndex; zIndex += 1) {
+        occupiedTiles.add(getTileKey(xIndex, zIndex));
+      }
+    }
+  }
+
+  function claimNearestAvailableTile({ x, z, zone, maxRadiusInTiles = 64 }) {
+    assertFiniteNumber(x, "x");
+    assertFiniteNumber(z, "z");
+
+    if (!Object.values(BEACH_ZONES).includes(zone)) {
+      throw new Error("Celula reivindicada precisa de uma zona valida.");
+    }
+
+    if (!Number.isSafeInteger(maxRadiusInTiles) || maxRadiusInTiles < 0) {
+      throw new Error("Raio de busca do grid precisa ser um inteiro positivo.");
+    }
+
+    const origin = getTileAtWorldPosition(x, z);
+
+    for (let radius = 0; radius <= maxRadiusInTiles; radius += 1) {
+      for (let xOffset = -radius; xOffset <= radius; xOffset += 1) {
+        for (let zOffset = -radius; zOffset <= radius; zOffset += 1) {
+          if (Math.max(Math.abs(xOffset), Math.abs(zOffset)) !== radius) {
+            continue;
+          }
+
+          const xIndex = origin.xIndex + xOffset;
+          const zIndex = origin.zIndex + zOffset;
+          const key = getTileKey(xIndex, zIndex);
+          const centerX = Number((xIndex * tileSize).toFixed(4));
+          const centerZ = Number((zIndex * tileSize).toFixed(4));
+
+          if (occupiedTiles.has(key) || getBeachZoneAt(centerX, centerZ) !== zone) {
+            continue;
+          }
+
+          occupiedTiles.add(key);
+          return Object.freeze({ xIndex, zIndex, centerX, centerZ, zone });
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function releaseWorldPosition(x, z) {
+    const tile = getTileAtWorldPosition(x, z);
+
+    occupiedTiles.delete(getTileKey(tile.xIndex, tile.zIndex));
+  }
+
   return Object.freeze({
     tileSize,
     chunkSizeInTiles,
     getTileAtWorldPosition,
-    visitTilesInRange
+    visitTilesInRange,
+    reserveWorldBounds,
+    claimNearestAvailableTile,
+    releaseWorldPosition
   });
 }

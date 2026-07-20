@@ -135,12 +135,16 @@ export async function createWorldObjectPlaceholderSceneObjects({
 export function addWorldObjectPlaceholderSceneInstance({
   sceneObjects,
   request,
-  terrainSurfaceY
+  terrainSurfaceY,
+  resolvePosition
 }) {
   const placeholderSceneObject = sceneObjects.find(
     (sceneObject) => sceneObject.spawnableType === request?.type
   );
-  const position = request?.placement?.position;
+  const requestedPosition = request?.placement?.position;
+  const position = typeof resolvePosition === "function" ?
+    resolvePosition(request) :
+    requestedPosition;
 
   if (!placeholderSceneObject) {
     throw new Error("Lote de objetos clicaveis nao foi inicializado.");
