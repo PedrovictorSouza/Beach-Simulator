@@ -102,6 +102,32 @@ export function getWorldObjectScreenPosition({
   return null;
 }
 
+export function createWorldOverlayProjector({ root, canvas, camera }) {
+  const viewport = {
+    width: canvas.clientWidth,
+    height: canvas.clientHeight
+  };
+  const viewProjection = camera.getViewProjection(viewport.width, viewport.height);
+  const rootRect = root.getBoundingClientRect();
+  const canvasRect = canvas.getBoundingClientRect();
+  const offsetX = canvasRect.left - rootRect.left;
+  const offsetY = canvasRect.top - rootRect.top;
+
+  return (objectId, sceneObjects) => {
+    const projected = getWorldObjectScreenPosition({
+      objectId,
+      sceneObjects,
+      viewProjection,
+      viewport
+    });
+
+    return projected ? Object.freeze({
+      x: offsetX + projected.x,
+      y: offsetY + projected.y
+    }) : null;
+  };
+}
+
 export function findWorldObjectSelection({
   pointer,
   sceneObjects,

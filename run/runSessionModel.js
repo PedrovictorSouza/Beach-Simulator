@@ -1,6 +1,7 @@
 export const RUN_PHASES = Object.freeze({
   DAY_INTRO: "day-intro",
-  ACTIVE: "active"
+  ACTIVE: "active",
+  DAY_COMPLETE: "day-complete"
 });
 
 function createSnapshot({ day, totalDays, phase }) {
@@ -28,6 +29,11 @@ export function createRunSessionModel({ initialDay = 1, totalDays = 5 } = {}) {
     getSnapshot,
     activateDay() {
       phase = RUN_PHASES.ACTIVE;
+
+      return getSnapshot();
+    },
+    completeDay() {
+      phase = RUN_PHASES.DAY_COMPLETE;
 
       return getSnapshot();
     }

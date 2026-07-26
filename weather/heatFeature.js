@@ -1,0 +1,117 @@
+const HEAT_PROFILES = Object.freeze([
+  Object.freeze({ base: 15, peak: 8 }),
+  Object.freeze({ base: 46, peak: 14 }),
+  Object.freeze({ base: 72, peak: 18 })
+]);
+const LOW_HEAT_LIMIT = 35;
+const HIGH_HEAT_LIMIT = 70;
+
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function createHeatSnapshot(value) {
+  const heat = clamp(Math.round(value), 0, 100);
+  const low = heat < LOW_HEAT_LIMIT;
+  const high = heat >= HIGH_HEAT_LIMIT;
+  const attractionMultiplier = low ?
+    0.65 + (heat / LOW_HEAT_LIMIT) * 0.35 :
+    high ? 1 - ((heat - HIGH_HEAT_LIMIT) / 30) * 0.3 : 1;
+
+  return Object.freeze({
+    heat,
+    level: low ? "LOW" : high ? "HIGH" : "COMFORTABLE",
+    attractionMultiplier,
+    beverageSalesMultiplier: low ? 0.75 : high ? 1.5 : 1,
+    beverageSaleLabel: high ? "SUN CARE" : "DRINK"
+  });
+}
+
+export function createHeatModel({ random = Math.random } = {}) {
+  if (typeof random !== "function") {
+    throw new Error("HeatModel precisa de uma funcao random.");
+  }
+
+  let profile = HEAT_PROFILES[1];
+  let snapshot = createHeatSnapshot(profile.base);
+
+  return Object.freeze({
+    getSnapshot: () => snapshot,
+    startDay() {
+      const randomUnit = clamp(Number(random()) || 0, 0, 1);
+      const profileIndex = Math.min(
+        HEAT_PROFILES.length - 1,
+        Math.floor(randomUnit * HEAT_PROFILES.length)
+      );
+
+      profile = HEAT_PROFILES[profileIndex];
+      snapshot = createHeatSnapshot(profile.base);
+      return snapshot;
+    },
+    update({ elapsedSeconds = 0, durationSeconds = 1 } = {}) {
+      const dayProgress = clamp(elapsedSeconds / durationSeconds, 0, 1);
+      const heat = profile.base + Math.sin(dayProgress * Math.PI) * profile.peak;
+
+      snapshot = createHeatSnapshot(heat);
+      return snapshot;
+    }
+  });
+}
+
+export function createHeatMeterView({ root }) {
+  if (!root) {
+    throw new Error("HeatMeterView precisa de um elemento root.");
+  }
+
+  const documentRef = root.ownerDocument;
+  const element = documentRef.createElement("div");
+  const labelElement = documentRef.createElement("span");
+  const levelElement = documentRef.createElement("strong");
+  const trackElement = documentRef.createElement("span");
+  const fillElement = documentRef.createElement("span");
+
+  element.className = "time-counter heat-meter";
+  element.setAttribute("role", "status");
+  Object.assign(element.style, {
+    left: "50%",
+    right: "auto",
+    transform: "translateX(-50%)",
+    gridTemplateColumns: "auto 1fr",
+    gap: "0.35rem 0.6rem",
+    minWidth: "11rem",
+    minHeight: "3.5rem",
+    fontSize: "0.75rem"
+  });
+  labelElement.textContent = "HEAT";
+  levelElement.style.textAlign = "right";
+  trackElement.setAttribute("role", "meter");
+  Object.assign(trackElement.style, {
+    gridColumn: "1 / -1",
+    display: "block",
+    width: "100%",
+    height: "0.75rem",
+    background: "#080a0f",
+    border: "2px solid #f2e7b5"
+  });
+  Object.assign(fillElement.style, {
+    display: "block",
+    height: "100%",
+    transition: "width 200ms steps(4, end)"
+  });
+  trackElement.append(fillElement);
+  element.append(labelElement, levelElement, trackElement);
+  root.append(element);
+
+  return Object.freeze({
+    render({ heat, level }) {
+      levelElement.textContent = level;
+      fillElement.style.width = `${heat}%`;
+      fillElement.style.background = level === "LOW" ?
+        "#6bbfe8" : level === "HIGH" ? "#e85d4f" : "#f7d154";
+      trackElement.setAttribute("aria-valuemin", "0");
+      trackElement.setAttribute("aria-valuemax", "100");
+      trackElement.setAttribute("aria-valuenow", String(heat));
+      element.setAttribute("aria-label", `Heat ${level.toLowerCase()}: ${heat}%`);
+    }
+  });
+}

@@ -57,6 +57,14 @@ body {
   outline-offset: -3px;
 }
 
+.world-canvas.cursor-debug-space {
+  cursor: grab;
+}
+
+.world-canvas.cursor-debug-space.cursor-debug-pressed {
+  cursor: grabbing;
+}
+
 .boot-status {
   position: absolute;
   left: 16px;
@@ -104,6 +112,82 @@ body {
   transform: translate(-50%, -50%) rotate(45deg);
 }
 
+.pickup-feedback-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 28;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.pickup-feedback,
+.pickup-feedback-hook {
+  position: absolute;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.pickup-feedback {
+  padding: 0.2rem 0.35rem;
+  color: #fff8d8;
+  background: #171923;
+  border: 2px solid #fff8d8;
+  box-shadow: 3px 3px 0 #080a0f;
+  font-family: "Daydream", monospace;
+  font-size: 0.9rem;
+  line-height: 1;
+  transform: translate(-50%, -100%);
+  animation: pickup-feedback-rise 0.7s steps(6, end) forwards;
+}
+
+.pickup-feedback--valuable {
+  color: #f2c94c;
+  border-color: #f2c94c;
+}
+
+.pickup-feedback-hook {
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 3px solid #f2c94c;
+  box-shadow: 3px 3px 0 #080a0f;
+  transform: translate(-50%, calc(-100% - 0.4rem)) rotate(45deg);
+  animation: pickup-feedback-hook 0.3s steps(2, end) 6;
+}
+
+@keyframes pickup-feedback-rise {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -80%) scale(0.75);
+  }
+  35% {
+    transform: translate(-50%, -130%) scale(1.15);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -210%) scale(1);
+  }
+}
+
+@keyframes pickup-feedback-hook {
+  0%,
+  49% {
+    opacity: 1;
+    scale: 1;
+  }
+  50%,
+  100% {
+    opacity: 0.25;
+    scale: 0.65;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pickup-feedback,
+  .pickup-feedback-hook {
+    animation: none;
+  }
+}
+
 .game-hud {
   position: absolute;
   inset: 0;
@@ -138,6 +222,63 @@ body {
   overscroll-behavior: contain;
   pointer-events: auto;
   scrollbar-width: thin;
+}
+
+.building-button {
+  position: absolute;
+  left: 1rem;
+  bottom: 1rem;
+  z-index: 1;
+  min-width: 11rem;
+  min-height: 3.5rem;
+  padding: 0.75rem 1rem;
+  color: #7b8192;
+  background: #171923;
+  border: 4px solid #7b8192;
+  box-shadow: 4px 4px 0 #080a0f;
+  font-family: "Daydream", monospace;
+  font-size: 1.1rem;
+  line-height: 1;
+  pointer-events: auto;
+  cursor: not-allowed;
+}
+
+.building-button--available {
+  color: #080a0f;
+  background: #f2c94c;
+  border-color: #fff8d8;
+  box-shadow: 4px 4px 0 #080a0f, 0 0 0 4px rgba(242, 201, 76, 0.45);
+  cursor: pointer;
+  animation: building-button-highlight 0.8s steps(2, end) infinite;
+}
+
+.building-button--available:hover,
+.building-button--available:focus-visible {
+  background: #fff8d8;
+  outline: 3px solid #45d66f;
+  outline-offset: 3px;
+}
+
+.building-button--available:active {
+  transform: translate(2px, 2px);
+  box-shadow: 2px 2px 0 #080a0f;
+}
+
+@keyframes building-button-highlight {
+  0%,
+  49% {
+    filter: brightness(1);
+  }
+  50%,
+  100% {
+    filter: brightness(1.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .building-button--available {
+    animation: none;
+  }
 }
 
 .time-counter {
@@ -734,6 +875,40 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   .building-choice--visible .building-choice__dialog {
+    animation: none;
+  }
+}
+
+.beverage-store-modal {
+  position: absolute;
+  inset: 0;
+  z-index: 36;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+  background: rgba(8, 10, 15, 0.78);
+  pointer-events: auto;
+}
+
+.beverage-store-modal[hidden] {
+  display: none;
+}
+
+.beverage-store-modal__dialog {
+  width: min(30rem, 100%);
+  min-height: 12rem;
+  background: #171923;
+  border: 4px solid #f2e7b5;
+  box-shadow: 6px 6px 0 #080a0f;
+  outline: none;
+}
+
+.beverage-store-modal--visible .beverage-store-modal__dialog {
+  animation: building-choice-enter 0.25s steps(4, end);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .beverage-store-modal--visible .beverage-store-modal__dialog {
     animation: none;
   }
 }

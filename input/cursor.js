@@ -10,6 +10,7 @@ const DEFAULT_CURSOR_STATE = Object.freeze({
   keyboardPan: { x: 0, z: 0 },
   edgePan: { x: 0, z: 0 },
   keyboardRotation: 0,
+  spacePressed: false,
   dragged: false,
   invertedPan: false,
   lastPointer: null
@@ -129,6 +130,10 @@ function isCameraKey(event) {
   return CAMERA_KEYS.includes(event.key.toLowerCase());
 }
 
+function isSpaceKey(event) {
+  return event.code === "Space" || event.key === " ";
+}
+
 export function createCursorInput({
   target,
   windowRef = target?.ownerDocument?.defaultView,
@@ -136,7 +141,8 @@ export function createCursorInput({
   onPan = () => {},
   onRotate = () => {},
   onZoom = () => {},
-  onSelect = () => {}
+  onSelect = () => {},
+  onPrimaryPress = () => false
 } = {}) {
   if (!target) {
     throw new Error("Cursor precisa de um target DOM.");
@@ -239,19 +245,27 @@ export function createCursorInput({
 
     const isPanButton = event.button === 2;
     const isRotateButton = event.button === 1;
+    const pointerPosition = readPointerPosition(event, target);
+    const primaryPressCanSelect = event.button === 0 && !state.spacePressed && onPrimaryPress({
+      ...state,
+      ...pointerPosition,
+      pointerType: event.pointerType || "mouse"
+    });
     if (isPanButton || isRotateButton) {
       event.preventDefault();
     }
 
     emit(event, {
-      pressed: event.button === 0,
-      panning: isPanButton,
+      pressed: event.button === 0 && primaryPressCanSelect,
+      panning: isPanButton || (event.button === 0 && (
+        state.spacePressed || !primaryPressCanSelect
+      )),
       rotating: isRotateButton,
       inside: true,
       edgePan: { x: 0, z: 0 },
       dragged: false,
-      invertedPan: false,
-      lastPointer: readPointerPosition(event, target)
+      invertedPan: event.button === 0,
+      lastPointer: pointerPosition
     });
   };
 
@@ -317,28 +331,32 @@ export function createCursorInput({
   };
 
   const onKeyDown = (event) => {
-    if (!isCameraKey(event) || isInteractiveElement(event.target)) {
+    if ((!isCameraKey(event) && !isSpaceKey(event)) || isInteractiveElement(event.target)) {
       return;
     }
 
     event.preventDefault();
-    keys.add(event.key.toLowerCase());
+    const key = isSpaceKey(event) ? "space" : event.key.toLowerCase();
+    keys.add(key);
     emit(null, {
       keyboardPan: getKeyboardPan(keys),
-      keyboardRotation: getKeyboardRotation(keys)
+      keyboardRotation: getKeyboardRotation(keys),
+      spacePressed: keys.has("space")
     });
   };
 
   const onKeyUp = (event) => {
-    if (!isCameraKey(event)) {
+    if ((!isCameraKey(event) && !isSpaceKey(event)) || isInteractiveElement(event.target)) {
       return;
     }
 
     event.preventDefault();
-    keys.delete(event.key.toLowerCase());
+    const key = isSpaceKey(event) ? "space" : event.key.toLowerCase();
+    keys.delete(key);
     emit(null, {
       keyboardPan: getKeyboardPan(keys),
-      keyboardRotation: getKeyboardRotation(keys)
+      keyboardRotation: getKeyboardRotation(keys),
+      spacePressed: keys.has("space")
     });
   };
   const clearTransientInput = () => {
@@ -347,6 +365,7 @@ export function createCursorInput({
       keyboardPan: { x: 0, z: 0 },
       edgePan: { x: 0, z: 0 },
       keyboardRotation: 0,
+      spacePressed: false,
       pressed: false,
       panning: false,
       rotating: false,

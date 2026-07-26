@@ -22,7 +22,8 @@ const TOILET_LEAVE_SECONDS = 34;
 const BATHER_COMPLAINTS = Object.freeze({
   ENTERTAINMENT: "There is nothing to do!",
   WIFI: "I need internet!",
-  TOILET: "I need a toilet!"
+  TOILET: "I need a toilet!",
+  TOILET_LEAVING: "No toilet. I'm leaving!"
 });
 const ACTIVITY_WAYPOINT_OFFSETS = Object.freeze([
   Object.freeze([-36, 12]),
@@ -112,11 +113,17 @@ function updateBatherNeeds(entity, stepSeconds, buildingServices) {
   const toiletOperational = buildingServices.toiletOperational ??
     buildingServices.hasToiletBuilding;
 
+  if (entity.departing) {
+    entity.complaint = BATHER_COMPLAINTS.TOILET_LEAVING;
+    return;
+  }
+
   if (!toiletOperational && needsElapsed >= TOILET_COMPLAINT_SECONDS) {
     entity.complaint = BATHER_COMPLAINTS.TOILET;
 
     if (!entity.departing && needsElapsed >= TOILET_LEAVE_SECONDS) {
       entity.departing = true;
+      entity.complaint = BATHER_COMPLAINTS.TOILET_LEAVING;
       beginMovement(entity, NPC_STATES.RETURNING_HOME, entity.home);
     }
     return;
