@@ -7,6 +7,7 @@ const RUNTIME_ASSET_DIRECTORIES = Object.freeze([
   "Trees/PalmTree",
   "kiosk",
   "beach-house",
+  "beberage",
   "npcs/bather-1"
 ]);
 
