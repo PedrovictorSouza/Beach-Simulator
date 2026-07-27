@@ -9,10 +9,20 @@ export const SPAWN_TYPES = Object.freeze({
   BATHER: SPAWNABLE_OBJECT_TYPES.BATHER
 });
 
+export const SPAWN_CADENCES = Object.freeze({
+  REGULAR: "regular",
+  WAVE: "wave",
+  WELCOME: "welcome"
+});
+
 const BASE_INTERVAL_SECONDS = Object.freeze({ min: 30, max: 120 });
 const FIVE_STAR_INTERVAL_SECONDS = Object.freeze({ min: 15, max: 60 });
 const WELCOME_BATHER_INTERVAL_SECONDS = Object.freeze({ min: 12, max: 20 });
+const WAVE_BATHER_INTERVAL_SECONDS = Object.freeze({ min: 8, max: 12 });
+const WAVE_BATHER_CHANCE = 0.25;
 const WELCOME_BATHER_TARGET = 3;
+const BATHER_ENTRY_LANES = Object.freeze([0.1, 0.9, 0.5, 0.28, 0.72]);
+const BATHER_ENTRY_LANE_JITTER = 0.06;
 const BEVERAGE_STORE_BATHER_RATE_MULTIPLIER = 1.05;
 const BATHER_LITTER_TYPES = Object.freeze([
   SPAWNABLE_OBJECT_TYPES.BANANA,
@@ -27,6 +37,7 @@ const BATHER_LITTER_CHANCE = Object.freeze({
 });
 const BATHER_LITTER_DELAY_SECONDS = Object.freeze({ min: 12, max: 30 });
 const FIRST_BATHER_LITTER_DELAY_SECONDS = Object.freeze({ min: 10, max: 15 });
+const WELCOME_LITTER_TARGET = 2;
 const BATHER_LITTER_OFFSET = 1.5;
 const SPAWN_CHANNELS = Object.freeze({
   BATHERS: "bathers",
@@ -82,7 +93,10 @@ export function createSpawnManager({ random = Math.random } = {}) {
   let immediateBatherRequested = false;
   let spawnedBatherCount = 0;
   let welcomeSequenceActive = false;
+  let welcomeLitterFloorActive = false;
+  let activeBatherCadence = null;
   let guaranteedFirstLitterPending = false;
+  let scheduledBatherLitterCount = 0;
   const timeline = createScheduledSpawnQueue();
   const readyEvents = [];
   const knownBatherIds = new Set();
@@ -93,6 +107,13 @@ export function createSpawnManager({ random = Math.random } = {}) {
     length - 1,
     Math.floor(readRandomUnit() * length)
   );
+  const getBatherEntryProgress = () => {
+    const laneIndex = (spawnedBatherCount - 1) % BATHER_ENTRY_LANES.length;
+    const laneProgress = BATHER_ENTRY_LANES[laneIndex];
+    const jitter = (readRandomUnit() * 2 - 1) * BATHER_ENTRY_LANE_JITTER;
+
+    return clamp(laneProgress + jitter, 0.03, 0.97);
+  };
   const getSecondsUntilNextSpawn = () => {
     const nextEvent = timeline.peek();
 
@@ -102,6 +123,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
     running,
     firstBatherSpawned,
     immediateBatherRequested,
+    nextBatherCadence: activeBatherCadence,
     secondsUntilNextSpawn: getSecondsUntilNextSpawn(),
     scheduledCount: timeline.size,
     readyCount: readyEvents.length
@@ -113,9 +135,18 @@ export function createSpawnManager({ random = Math.random } = {}) {
     buildingServices = {},
     attractionMultiplier = 1
   ) => {
-    const interval = welcomeSequenceActive && spawnedBatherCount < WELCOME_BATHER_TARGET ?
+    const welcomeCadence = welcomeSequenceActive &&
+      spawnedBatherCount < WELCOME_BATHER_TARGET;
+    const waveCadence = !welcomeCadence &&
+      firstBatherSpawned &&
+      activeBatherCadence === SPAWN_CADENCES.REGULAR &&
+      readRandomUnit() < WAVE_BATHER_CHANCE;
+    const cadence = welcomeCadence ?
+      SPAWN_CADENCES.WELCOME :
+      (waveCadence ? SPAWN_CADENCES.WAVE : SPAWN_CADENCES.REGULAR);
+    const interval = welcomeCadence ?
       WELCOME_BATHER_INTERVAL_SECONDS :
-      getIntervalRange(averageRating);
+      (waveCadence ? WAVE_BATHER_INTERVAL_SECONDS : getIntervalRange(averageRating));
     const policy = SPAWN_CHANNEL_POLICIES[SPAWN_CHANNELS.BATHERS];
     const buildingRateMultiplier = buildingServices.hasBeverageStore ?
       BEVERAGE_STORE_BATHER_RATE_MULTIPLIER :
@@ -139,6 +170,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
     });
 
     activeBatherEventSequence = event.sequence;
+    activeBatherCadence = cadence;
   };
 
   const scheduleLitterForNewBathers = (bathers, buildingServices) => {
@@ -160,7 +192,13 @@ export function createSpawnManager({ random = Math.random } = {}) {
       }
 
       knownBatherIds.add(batherId);
-      const guaranteedLitter = guaranteedFirstLitterPending;
+      const guaranteedWelcomeLitter = welcomeLitterFloorActive &&
+        !buildingServices.hasTrashCans &&
+        spawnedBatherCount >= WELCOME_BATHER_TARGET &&
+        scheduledBatherLitterCount < WELCOME_LITTER_TARGET;
+      const guaranteedFirstLitter = guaranteedFirstLitterPending;
+      const guaranteedLitter = guaranteedFirstLitter ||
+        guaranteedWelcomeLitter;
       guaranteedFirstLitterPending = false;
 
       if (!guaranteedLitter && readRandomUnit() >= litterChance) {
@@ -171,7 +209,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
       const litterType = BATHER_LITTER_TYPES[
         readRandomIndex(BATHER_LITTER_TYPES.length)
       ];
-      const delayRange = guaranteedLitter ?
+      const delayRange = guaranteedFirstLitter ?
         FIRST_BATHER_LITTER_DELAY_SECONDS :
         BATHER_LITTER_DELAY_SECONDS;
       const delaySeconds = interpolate(
@@ -185,11 +223,19 @@ export function createSpawnManager({ random = Math.random } = {}) {
         designPriority: policy.designPriority,
         attentionCost: policy.attentionCost
       });
+      const scheduledPosition = Array.isArray(bather?.position) ?
+        Object.freeze([...bather.position]) :
+        null;
 
       litterPlanByEventSequence.set(event.sequence, Object.freeze({
         batherId,
-        litterType
+        litterType,
+        scheduledPosition
       }));
+      scheduledBatherLitterCount += 1;
+      if (scheduledBatherLitterCount >= WELCOME_LITTER_TARGET) {
+        welcomeLitterFloorActive = false;
+      }
     }
   };
 
@@ -197,12 +243,17 @@ export function createSpawnManager({ random = Math.random } = {}) {
     const plan = litterPlanByEventSequence.get(event.sequence);
     litterPlanByEventSequence.delete(event.sequence);
 
-    const bather = plan ? bathersById.get(plan.batherId) : null;
-    if (!bather || !Array.isArray(bather.position)) {
+    const activePosition = plan ? bathersById.get(plan.batherId)?.position : null;
+    const position = Array.isArray(activePosition) &&
+      activePosition.every(Number.isFinite) ?
+      activePosition :
+      plan?.scheduledPosition;
+
+    if (!Array.isArray(position)) {
       return null;
     }
 
-    const [x, z] = bather.position;
+    const [x, z] = position;
     if (!Number.isFinite(x) || !Number.isFinite(z)) {
       return null;
     }
@@ -263,7 +314,10 @@ export function createSpawnManager({ random = Math.random } = {}) {
         immediateBatherRequested = false;
         spawnedBatherCount = 0;
         welcomeSequenceActive = false;
+        welcomeLitterFloorActive = false;
+        activeBatherCadence = null;
         guaranteedFirstLitterPending = false;
+        scheduledBatherLitterCount = 0;
         scheduleNextBather(averageRating);
       }
 
@@ -288,8 +342,10 @@ export function createSpawnManager({ random = Math.random } = {}) {
       });
 
       activeBatherEventSequence = event.sequence;
+      activeBatherCadence = SPAWN_CADENCES.WELCOME;
       immediateBatherRequested = true;
       welcomeSequenceActive = true;
+      welcomeLitterFloorActive = true;
       guaranteedFirstLitterPending = true;
       return true;
     },
@@ -336,7 +392,8 @@ export function createSpawnManager({ random = Math.random } = {}) {
           }
           requests.push(Object.freeze({
             type: SPAWN_TYPES.BATHER,
-            entryProgress: readRandomUnit()
+            cadence: activeBatherCadence,
+            entryProgress: getBatherEntryProgress()
           }));
           scheduleNextBather(
             averageRating,

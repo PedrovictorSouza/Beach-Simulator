@@ -1,5 +1,8 @@
 const STAR_COUNT = 5;
-const STAR_CHARACTER = "\u2605";
+const STAR_IMAGE_URL = new URL(
+  "../2d-objects/HUD/star-HUD.png",
+  import.meta.url
+).href;
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -26,14 +29,18 @@ export function createRatingCounterView({ root }) {
 
   for (let index = 0; index < STAR_COUNT; index += 1) {
     const slotElement = documentRef.createElement("span");
-    const emptyElement = documentRef.createElement("span");
+    const emptyElement = documentRef.createElement("img");
     const fillElement = documentRef.createElement("span");
+    const fillImageElement = documentRef.createElement("img");
 
     slotElement.className = "rating-counter__star";
     emptyElement.className = "rating-counter__star-empty";
-    emptyElement.textContent = STAR_CHARACTER;
+    emptyElement.src = STAR_IMAGE_URL;
+    emptyElement.alt = "";
     fillElement.className = "rating-counter__star-fill";
-    fillElement.textContent = STAR_CHARACTER;
+    fillImageElement.src = STAR_IMAGE_URL;
+    fillImageElement.alt = "";
+    fillElement.append(fillImageElement);
     slotElement.append(emptyElement, fillElement);
     starsElement.append(slotElement);
     starFillElements.push(fillElement);
@@ -67,7 +74,9 @@ export function createRatingCounterView({ root }) {
         "aria-label",
         nextReviewCount === 0 ?
           "Beach rating: no reviews" :
-          `Beach rating: ${nextRating.toFixed(1)} out of 5 from ${nextReviewCount} reviews`
+          `Beach rating: ${nextRating.toFixed(1)} out of 5 from ${nextReviewCount} ${
+            nextReviewCount === 1 ? "review" : "reviews"
+          }`
       );
     }
   });

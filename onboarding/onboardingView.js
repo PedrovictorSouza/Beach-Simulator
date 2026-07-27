@@ -1,10 +1,15 @@
 const HAND_IMAGE_URL = new URL("../2d-objects/hand.png", import.meta.url).href;
+const BATHER_THUMB_IMAGE_URL = new URL(
+  "../2d-objects/HUD/bather-thumb.png",
+  import.meta.url
+).href;
 const HUD_REVEAL_DELAY_MS = 200;
 const BLINK_DURATION_MS = 1200;
 const TARGET_GAP_PX = 8;
 const READING_WORDS_PER_MINUTE = 200;
 const MINIMUM_READING_TIME_MS = 4000;
 const AUTO_DISMISS_GRACE_MS = 10000;
+const NOTICE_TYPEWRITER_CHARACTER_DELAY_MS = 28;
 const WORLD_HINT_MARGIN_PX = 24;
 const WORLD_HINT_OFFSET_PX = 40;
 
@@ -19,11 +24,12 @@ export function createOnboardingView({ root, windowRef = window }) {
   const worldArrowTailElement = root.ownerDocument.createElement("span");
   const worldArrowHeadElement = root.ownerDocument.createElement("span");
   const noticeElement = root.ownerDocument.createElement("aside");
-  const noticeImageElement = root.ownerDocument.createElement("div");
+  const noticeImageElement = root.ownerDocument.createElement("img");
   const noticeTextElement = root.ownerDocument.createElement("p");
   const noticeButtonElement = root.ownerDocument.createElement("button");
   let hideTimeoutId = null;
   let noticeTimeoutId = null;
+  let noticeTypewriterId = null;
   let resolveNotice = null;
 
   handElement.className = "onboarding-hand";
@@ -44,8 +50,9 @@ export function createOnboardingView({ root, windowRef = window }) {
   noticeElement.setAttribute("aria-label", "Game tip");
   noticeElement.hidden = true;
   noticeImageElement.className = "onboarding-notice__image";
+  noticeImageElement.src = BATHER_THUMB_IMAGE_URL;
+  noticeImageElement.alt = "";
   noticeImageElement.setAttribute("aria-hidden", "true");
-  noticeImageElement.textContent = "?";
   noticeTextElement.className = "onboarding-notice__text";
   noticeButtonElement.className = "onboarding-notice__button";
   noticeButtonElement.type = "button";
@@ -59,6 +66,8 @@ export function createOnboardingView({ root, windowRef = window }) {
 
   const hideNotice = () => {
     windowRef.clearTimeout(noticeTimeoutId);
+    windowRef.clearInterval(noticeTypewriterId);
+    noticeTypewriterId = null;
     noticeElement.classList.remove("onboarding-notice--visible");
     noticeElement.hidden = true;
     resolveNotice?.();
@@ -141,7 +150,7 @@ export function createOnboardingView({ root, windowRef = window }) {
       }
 
       hideNotice();
-      noticeTextElement.textContent = normalizedMessage;
+      noticeTextElement.textContent = "";
       noticeElement.hidden = false;
       void noticeElement.offsetWidth;
       noticeElement.classList.add("onboarding-notice--visible");
@@ -151,12 +160,32 @@ export function createOnboardingView({ root, windowRef = window }) {
         MINIMUM_READING_TIME_MS,
         Math.ceil(wordCount / READING_WORDS_PER_MINUTE * 60000)
       );
+      const reduceMotion = windowRef.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      const typewriterDurationMs = reduceMotion ? 0 : (
+        normalizedMessage.length * NOTICE_TYPEWRITER_CHARACTER_DELAY_MS
+      );
+
+      if (reduceMotion) {
+        noticeTextElement.textContent = normalizedMessage;
+      } else {
+        let characterIndex = 0;
+
+        noticeTypewriterId = windowRef.setInterval(() => {
+          characterIndex += 1;
+          noticeTextElement.textContent = normalizedMessage.slice(0, characterIndex);
+
+          if (characterIndex >= normalizedMessage.length) {
+            windowRef.clearInterval(noticeTypewriterId);
+            noticeTypewriterId = null;
+          }
+        }, NOTICE_TYPEWRITER_CHARACTER_DELAY_MS);
+      }
 
       return new Promise((resolve) => {
         resolveNotice = resolve;
         noticeTimeoutId = windowRef.setTimeout(
           hideNotice,
-          readingTimeMs + AUTO_DISMISS_GRACE_MS
+          typewriterDurationMs + readingTimeMs + AUTO_DISMISS_GRACE_MS
         );
       });
     }

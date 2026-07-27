@@ -5,6 +5,11 @@ const HEAT_PROFILES = Object.freeze([
 ]);
 const LOW_HEAT_LIMIT = 35;
 const HIGH_HEAT_LIMIT = 70;
+export const HEAT_LEVELS = Object.freeze({
+  LOW: "LOW",
+  COMFORTABLE: "COMFORTABLE",
+  HIGH: "HIGH"
+});
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -20,7 +25,9 @@ function createHeatSnapshot(value) {
 
   return Object.freeze({
     heat,
-    level: low ? "LOW" : high ? "HIGH" : "COMFORTABLE",
+    level: low ?
+      HEAT_LEVELS.LOW :
+      high ? HEAT_LEVELS.HIGH : HEAT_LEVELS.COMFORTABLE,
     attractionMultiplier,
     beverageSalesMultiplier: low ? 0.75 : high ? 1.5 : 1,
     beverageSaleLabel: high ? "SUN CARE" : "DRINK"
@@ -78,8 +85,8 @@ export function createHeatMeterView({ root }) {
     transform: "translateX(-50%)",
     gridTemplateColumns: "auto 1fr",
     gap: "0.35rem 0.6rem",
-    minWidth: "11rem",
-    minHeight: "3.5rem",
+    minWidth: "9rem",
+    minHeight: "2.5rem",
     fontSize: "0.75rem"
   });
   labelElement.textContent = "HEAT";
@@ -91,7 +98,7 @@ export function createHeatMeterView({ root }) {
     width: "100%",
     height: "0.75rem",
     background: "#080a0f",
-    border: "2px solid #f2e7b5"
+    border: 0
   });
   Object.assign(fillElement.style, {
     display: "block",
@@ -106,8 +113,8 @@ export function createHeatMeterView({ root }) {
     render({ heat, level }) {
       levelElement.textContent = level;
       fillElement.style.width = `${heat}%`;
-      fillElement.style.background = level === "LOW" ?
-        "#6bbfe8" : level === "HIGH" ? "#e85d4f" : "#f7d154";
+      fillElement.style.background = level === HEAT_LEVELS.LOW ?
+        "#6bbfe8" : level === HEAT_LEVELS.HIGH ? "#e85d4f" : "#f7d154";
       trackElement.setAttribute("aria-valuemin", "0");
       trackElement.setAttribute("aria-valuemax", "100");
       trackElement.setAttribute("aria-valuenow", String(heat));

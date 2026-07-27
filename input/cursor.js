@@ -142,7 +142,8 @@ export function createCursorInput({
   onRotate = () => {},
   onZoom = () => {},
   onSelect = () => {},
-  onPrimaryPress = () => false
+  onPrimaryPress = () => false,
+  onCancel = () => false
 } = {}) {
   if (!target) {
     throw new Error("Cursor precisa de um target DOM.");
@@ -246,6 +247,16 @@ export function createCursorInput({
     const isPanButton = event.button === 2;
     const isRotateButton = event.button === 1;
     const pointerPosition = readPointerPosition(event, target);
+    const cancelled = isPanButton && onCancel({
+      ...state,
+      ...pointerPosition,
+      reason: "secondary-pointer"
+    });
+
+    if (cancelled) {
+      event.preventDefault();
+      return;
+    }
     const primaryPressCanSelect = event.button === 0 && !state.spacePressed && onPrimaryPress({
       ...state,
       ...pointerPosition,
@@ -331,6 +342,15 @@ export function createCursorInput({
   };
 
   const onKeyDown = (event) => {
+    if (
+      event.key === "Escape" &&
+      !isInteractiveElement(event.target) &&
+      onCancel({ ...state, reason: "escape" })
+    ) {
+      event.preventDefault();
+      return;
+    }
+
     if ((!isCameraKey(event) && !isSpaceKey(event)) || isInteractiveElement(event.target)) {
       return;
     }

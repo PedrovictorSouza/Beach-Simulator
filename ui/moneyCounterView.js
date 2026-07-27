@@ -1,3 +1,8 @@
+const MONEY_THUMB_IMAGE_URL = new URL(
+  "../2d-objects/HUD/money-thumb.png",
+  import.meta.url
+).href;
+
 const DISPLAY_MONEY_FORMATTER = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -17,14 +22,16 @@ export function createMoneyCounterView({ root }) {
 
   const documentRef = root.ownerDocument;
   const element = documentRef.createElement("div");
-  const labelElement = documentRef.createElement("span");
+  const labelElement = documentRef.createElement("img");
   const amountElement = documentRef.createElement("strong");
 
   element.className = "money-counter";
   element.setAttribute("role", "status");
   element.setAttribute("aria-live", "polite");
   labelElement.className = "money-counter__label";
-  labelElement.textContent = "Money";
+  labelElement.src = MONEY_THUMB_IMAGE_URL;
+  labelElement.alt = "";
+  labelElement.setAttribute("aria-hidden", "true");
   amountElement.className = "money-counter__amount";
   element.append(labelElement, amountElement);
   root.append(element);

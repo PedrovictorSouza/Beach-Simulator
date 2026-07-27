@@ -1,0 +1,17 @@
+{
+  "show_grid":false,
+  "gif_file_increment":true,
+  "rmb_action":1,
+  "theme":"classic",
+  "snap_is_default":true,
+  "auto_save_frequency":10,
+  "warn_on_exit":true,
+  "invert_mouse_controls":false,
+  "os_mouse":false,
+  "window_width":1152,
+  "window_height":782,
+  "last_path":"",
+  "recent_files":["beer-bottle.txt","unnamed_21.txt","shark.txt","beach-house.txt","house_2.txt"],
+  "invert_zoom":false,
+  "texture_grid_size":16
+}

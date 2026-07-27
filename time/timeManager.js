@@ -1,4 +1,4 @@
-const DEFAULT_DAY_DURATION_SECONDS = 5 * 60;
+const DEFAULT_DAY_DURATION_SECONDS = 2 * 60;
 
 function createSnapshot({ durationSeconds, remainingSeconds, running }) {
   return Object.freeze({
@@ -56,6 +56,13 @@ export function createTimeManager({
       }
 
       running = true;
+
+      return notify();
+    },
+    reset() {
+      remainingSeconds = dayDurationSeconds;
+      running = false;
+      displayedSecond = Math.ceil(remainingSeconds);
 
       return notify();
     },

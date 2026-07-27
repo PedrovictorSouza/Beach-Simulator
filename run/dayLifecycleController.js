@@ -19,7 +19,10 @@ export function createDayLifecycleController({
       runSessionModel.activateDay();
       timeManager.start();
       if (startWithSpawning) {
-        startSpawning({ averageRating });
+        startSpawning({
+          averageRating,
+          immediateBather: true
+        });
       }
     },
     startSpawning,

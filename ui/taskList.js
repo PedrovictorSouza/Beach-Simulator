@@ -146,20 +146,15 @@ export function createTaskListView({ root, onTaskComplete = () => {} }) {
 
   const documentRef = root.ownerDocument;
   const element = documentRef.createElement("section");
-  const titleElement = documentRef.createElement("h2");
   const listElement = documentRef.createElement("ol");
-  const emptyElement = documentRef.createElement("p");
   const progressByTaskId = new Map();
 
   element.className = "task-list";
   element.setAttribute("aria-label", "Tasks");
-  titleElement.className = "task-list__title";
-  titleElement.textContent = "Tasks";
+  element.hidden = true;
   listElement.className = "task-list__items";
   listElement.setAttribute("aria-live", "polite");
-  emptyElement.className = "task-list__empty";
-  emptyElement.textContent = "No tasks";
-  element.append(titleElement, listElement, emptyElement);
+  element.append(listElement);
   root.append(element);
 
   return Object.freeze({
@@ -234,8 +229,7 @@ export function createTaskListView({ root, onTaskComplete = () => {} }) {
       }
 
       listElement.replaceChildren(...taskElements);
-      listElement.hidden = nextTasks.length === 0;
-      emptyElement.hidden = nextTasks.length > 0;
+      element.hidden = nextTasks.length === 0;
 
       completedTasks.forEach(onTaskComplete);
     }

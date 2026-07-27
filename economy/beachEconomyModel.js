@@ -1,7 +1,16 @@
-function createSnapshot({ moneyInCents, transactionCount }) {
+function createSnapshot({
+  moneyInCents,
+  transactionCount,
+  totalIncomeInCents,
+  totalExpenseInCents
+}) {
   return Object.freeze({
     moneyInCents,
-    transactionCount
+    transactionCount,
+    totalIncomeInCents,
+    totalExpenseInCents,
+    netChangeInCents: totalIncomeInCents - totalExpenseInCents,
+    economicActivityInCents: totalIncomeInCents + totalExpenseInCents
   });
 }
 
@@ -9,8 +18,15 @@ export function createBeachEconomyModel() {
   const observers = new Set();
   let moneyInCents = 0;
   let transactionCount = 0;
+  let totalIncomeInCents = 0;
+  let totalExpenseInCents = 0;
 
-  const getSnapshot = () => createSnapshot({ moneyInCents, transactionCount });
+  const getSnapshot = () => createSnapshot({
+    moneyInCents,
+    transactionCount,
+    totalIncomeInCents,
+    totalExpenseInCents
+  });
   const notify = () => {
     const snapshot = getSnapshot();
 
@@ -40,6 +56,7 @@ export function createBeachEconomyModel() {
       }
 
       moneyInCents = nextMoneyInCents;
+      totalIncomeInCents += normalizedAmount;
       transactionCount += 1;
       notify();
       return getSnapshot();
@@ -61,6 +78,35 @@ export function createBeachEconomyModel() {
       }
 
       moneyInCents -= normalizedAmount;
+      totalExpenseInCents += normalizedAmount;
+      transactionCount += 1;
+      notify();
+      return getSnapshot();
+    },
+    refundExpense({ sourceId, amountInCents }) {
+      const normalizedSourceId = String(sourceId || "").trim();
+      const normalizedAmount = Number(amountInCents);
+
+      if (!normalizedSourceId) {
+        throw new Error("Reembolso precisa de sourceId.");
+      }
+
+      if (!Number.isSafeInteger(normalizedAmount) || normalizedAmount <= 0) {
+        throw new Error("Reembolso precisa de amountInCents inteiro e positivo.");
+      }
+
+      if (normalizedAmount > totalExpenseInCents) {
+        throw new Error("Reembolso excede as despesas registradas.");
+      }
+
+      const nextMoneyInCents = moneyInCents + normalizedAmount;
+
+      if (!Number.isSafeInteger(nextMoneyInCents)) {
+        throw new Error("Saldo da praia excedeu o limite seguro.");
+      }
+
+      moneyInCents = nextMoneyInCents;
+      totalExpenseInCents -= normalizedAmount;
       transactionCount += 1;
       notify();
       return getSnapshot();

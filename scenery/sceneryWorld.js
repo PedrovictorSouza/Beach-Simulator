@@ -5,8 +5,11 @@ import {
 
 export const SCENERY_TYPES = Object.freeze({
   KIOSK: "kiosk",
-  BEACH_HOUSE: "beach-house"
+  BEACH_HOUSE: "beach-house",
+  BEVERAGE_STORE: "beverage-store"
 });
+
+const BEVERAGE_STORE_MODEL_FACE_YAW_OFFSET = (Math.PI * 3) / 2;
 
 const SCENERY_DEFINITIONS = Object.freeze({
   [SCENERY_TYPES.KIOSK]: Object.freeze({
@@ -23,6 +26,14 @@ const SCENERY_DEFINITIONS = Object.freeze({
     texturePath: "./beach-house/beach-house.png",
     normalizedSize: 34,
     modelFaceYawOffset: (Math.PI * 3) / 2,
+    brightness: 1.05
+  }),
+  [SCENERY_TYPES.BEVERAGE_STORE]: Object.freeze({
+    gltfPath: "./beberage/Beberage.gltf",
+    binPath: "./beberage/Beberage.bin",
+    texturePath: "./beberage/Beberage.png",
+    normalizedSize: 16,
+    modelFaceYawOffset: BEVERAGE_STORE_MODEL_FACE_YAW_OFFSET,
     brightness: 1.05
   })
 });

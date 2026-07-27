@@ -27,7 +27,11 @@ const KIOSK_RESTINGA_INSET = 18;
 const BEACH_HOUSE_POSITION_X = 12;
 const BEACH_HOUSE_RESTINGA_INSET = 36;
 const BEACH_HOUSE_RESTINGA_TILE_OFFSET = 2;
-const INITIAL_OBJECT_COUNT = 5;
+const INITIAL_CLEANUP_COUNT = 5;
+const INITIAL_CLEANUP_MIN_HORIZONTAL_PROGRESS = 0.12;
+const INITIAL_CLEANUP_MAX_HORIZONTAL_PROGRESS = 0.88;
+const INITIAL_CLEANUP_MIN_DEPTH_PROGRESS = 0.42;
+const INITIAL_CLEANUP_MAX_DEPTH_PROGRESS = 0.55;
 const INITIAL_CLEANUP_TYPES = Object.freeze([
   SPAWNABLE_OBJECT_TYPES.BANANA,
   SPAWNABLE_OBJECT_TYPES.PAPER,
@@ -35,19 +39,14 @@ const INITIAL_CLEANUP_TYPES = Object.freeze([
   SPAWNABLE_OBJECT_TYPES.BOTTLE,
   SPAWNABLE_OBJECT_TYPES.SYRINGE
 ]);
-const INITIAL_COLLECTIBLE_TYPES = Object.freeze([
-  SPAWNABLE_OBJECT_TYPES.MONEY,
-  SPAWNABLE_OBJECT_TYPES.RING
-]);
-
 function pickRandom(items) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
 export function planInitialPopulation() {
-  const types = [pickRandom(INITIAL_COLLECTIBLE_TYPES)];
+  const types = [];
 
-  while (types.length < INITIAL_OBJECT_COUNT) {
+  while (types.length < INITIAL_CLEANUP_COUNT) {
     types.push(pickRandom(INITIAL_CLEANUP_TYPES));
   }
 
@@ -59,8 +58,20 @@ export function planInitialPopulation() {
       source: SPAWN_SOURCES.SPAWN_MANAGER,
       zone: pickRandom(definition.spawnZones),
       placement: Object.freeze({
-        xProgress: Math.random(),
-        zProgress: Math.random()
+        xProgress: (
+          INITIAL_CLEANUP_MIN_HORIZONTAL_PROGRESS +
+          Math.random() * (
+            INITIAL_CLEANUP_MAX_HORIZONTAL_PROGRESS -
+            INITIAL_CLEANUP_MIN_HORIZONTAL_PROGRESS
+          )
+        ),
+        zProgress: (
+          INITIAL_CLEANUP_MIN_DEPTH_PROGRESS +
+          Math.random() * (
+            INITIAL_CLEANUP_MAX_DEPTH_PROGRESS -
+            INITIAL_CLEANUP_MIN_DEPTH_PROGRESS
+          )
+        )
       })
     });
   }));
@@ -127,6 +138,11 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
       )
     ]
   });
+  const beverageStoreAsset = await loadSceneryAsset({
+    gl,
+    type: SCENERY_TYPES.BEVERAGE_STORE,
+    onStatus
+  });
   const beachGrid = createBeachGrid({ tileSize: terrainTileSpan });
 
   reserveScenery(
@@ -179,6 +195,7 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
     worldObjectSceneObjects,
     beachGrid,
     beachHouseSceneObjects,
+    beverageStoreAsset,
     terrainSurfaceY,
     resolveWorldObjectPosition,
     npcs

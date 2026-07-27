@@ -1,0 +1,19 @@
+{
+  "asset": { "version": "2.0" },
+  "scene": 0,
+  "scenes": [{ "nodes": [0,1,2,3,4,5] }],
+  "nodes": [{"mesh":0},{"mesh":1},{"mesh":2},{"mesh":3},{"mesh":4},{"mesh":5}],
+  "meshes": [{"primitives":[{"attributes":{"POSITION":0,"TEXCOORD_0":1},"indices":2,"material":0}]},{"primitives":[{"attributes":{"POSITION":3,"TEXCOORD_0":4},"indices":5,"material":0}]},{"primitives":[{"attributes":{"POSITION":6,"TEXCOORD_0":7},"indices":8,"material":0}]},{"primitives":[{"attributes":{"POSITION":9,"TEXCOORD_0":10},"indices":11,"material":0}]},{"primitives":[{"attributes":{"POSITION":12,"TEXCOORD_0":13},"indices":14,"material":0}]},{"primitives":[{"attributes":{"POSITION":15,"TEXCOORD_0":16},"indices":17,"material":0}]}],
+  "materials": [{
+    "pbrMetallicRoughness": {
+      "baseColorTexture": { "index": 0 },
+      "metallicFactor": 0.0,
+      "roughnessFactor": 1.0
+    }
+  }],
+  "textures": [{ "source": 0 }],
+  "images": [{ "uri": "shark.png" }],
+  "accessors": [{"bufferView":0,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC3","min":[-0.25,0.25,-0.75],"max":[0,2.25,0.75]},{"bufferView":1,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC2"},{"bufferView":2,"byteOffset":0,"componentType":5123,"count":84,"type":"SCALAR"},{"bufferView":3,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC3","min":[-1.5,-0.75,-4.5],"max":[1.125,0.75,4.125]},{"bufferView":4,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC2"},{"bufferView":5,"byteOffset":0,"componentType":5123,"count":84,"type":"SCALAR"},{"bufferView":6,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC3","min":[0.75,-0.767638,-0.75],"max":[2.74656,-0.00851854,0.75]},{"bufferView":7,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC2"},{"bufferView":8,"byteOffset":0,"componentType":5123,"count":84,"type":"SCALAR"},{"bufferView":9,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC3","min":[-3.24656,-0.767638,-0.75],"max":[-1.25,-0.00851854,0.75]},{"bufferView":10,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC2"},{"bufferView":11,"byteOffset":0,"componentType":5123,"count":84,"type":"SCALAR"},{"bufferView":12,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC3","min":[-0.25,0,-6],"max":[5.55112e-17,2,-4.5]},{"bufferView":13,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC2"},{"bufferView":14,"byteOffset":0,"componentType":5123,"count":84,"type":"SCALAR"},{"bufferView":15,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC3","min":[-0.25,-2,-6],"max":[5.55112e-17,3.02925e-16,-4.5]},{"bufferView":16,"byteOffset":0,"componentType":5126,"count":84,"type":"VEC2"},{"bufferView":17,"byteOffset":0,"componentType":5123,"count":84,"type":"SCALAR"}],
+  "bufferViews": [{"buffer":0,"byteOffset":0,"byteLength":1008,"target":34962},{"buffer":0,"byteOffset":1008,"byteLength":672,"target":34962},{"buffer":0,"byteOffset":1680,"byteLength":168,"target":34963},{"buffer":0,"byteOffset":1848,"byteLength":1008,"target":34962},{"buffer":0,"byteOffset":2856,"byteLength":672,"target":34962},{"buffer":0,"byteOffset":3528,"byteLength":168,"target":34963},{"buffer":0,"byteOffset":3696,"byteLength":1008,"target":34962},{"buffer":0,"byteOffset":4704,"byteLength":672,"target":34962},{"buffer":0,"byteOffset":5376,"byteLength":168,"target":34963},{"buffer":0,"byteOffset":5544,"byteLength":1008,"target":34962},{"buffer":0,"byteOffset":6552,"byteLength":672,"target":34962},{"buffer":0,"byteOffset":7224,"byteLength":168,"target":34963},{"buffer":0,"byteOffset":7392,"byteLength":1008,"target":34962},{"buffer":0,"byteOffset":8400,"byteLength":672,"target":34962},{"buffer":0,"byteOffset":9072,"byteLength":168,"target":34963},{"buffer":0,"byteOffset":9240,"byteLength":1008,"target":34962},{"buffer":0,"byteOffset":10248,"byteLength":672,"target":34962},{"buffer":0,"byteOffset":10920,"byteLength":168,"target":34963}],
+  "buffers": [{ "uri": "shark.bin", "byteLength": 11088 }]
+}

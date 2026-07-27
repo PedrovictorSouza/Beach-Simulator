@@ -42,7 +42,7 @@ export function createPickupFeedbackView({ root, windowRef = window }) {
       element.className = valuable ?
         "pickup-feedback pickup-feedback--valuable" :
         "pickup-feedback";
-      element.textContent = text || (valuable ? "$5" : "+1");
+      element.textContent = text || "+$1.00";
       place(element, { x, y });
       layer.append(element);
       windowRef.setTimeout(() => element.remove(), FEEDBACK_DURATION_MS);
