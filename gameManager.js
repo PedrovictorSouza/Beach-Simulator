@@ -3,10 +3,11 @@ import { createStaticCamera } from "./camera/staticCamera.js";
 import { createCursorInput } from "./input/cursor.js";
 import {
   getBeachEntryPosition,
-  getBeachSandPosition,
   updateTerrainSceneObjects
 } from "./terrain/terrainWorld.js";
-import { BEACH_ZONES } from "./terrain/beachGrid.js";
+import {
+  BEACH_ZONES
+} from "./terrain/beachGrid.js";
 import { updateNpcSceneObjects } from "./npcs/npcWorld.js";
 import {
   BATHER_PROBLEM_SOURCES,
@@ -103,15 +104,6 @@ const FIRST_BUILDING_DEFERRED_TYPES = Object.freeze([
   BUILDING_TYPES.LIFEGUARD_BUILDING,
   BUILDING_TYPES.TOILET_BUILDING
 ]);
-const BUILDING_PLOTS = Object.freeze([
-  Object.freeze([0.22, 0.72]),
-  Object.freeze([0.42, 0.66]),
-  Object.freeze([0.62, 0.72]),
-  Object.freeze([0.30, 0.42]),
-  Object.freeze([0.54, 0.40]),
-  Object.freeze([0.76, 0.50])
-]);
-
 class TerrainGameManager {
   constructor() {
     this.started = false;
@@ -125,6 +117,7 @@ class TerrainGameManager {
     this.cursor = null;
     this.terrainAssets = null;
     this.beverageStoreAsset = null;
+    this.beachHouseAsset = null;
     this.terrainSceneObjects = [];
     this.beachGrid = null;
     this.npcSceneObjects = [];
@@ -170,6 +163,12 @@ class TerrainGameManager {
     this.buildingOnboardingShown = false;
     this.selectedRunBuilding = null;
     this.pendingBuildingPlacement = null;
+    this.buildingPlacementTile = null;
+    this.buildingPlacementGridSceneObject = null;
+    this.buildingPlacementPreviewSceneObject = null;
+    this.diagnosticSelectionSceneObject = null;
+    this.diagnosticSelectedTiles = new Map();
+    this.diagnosticClipboardText = "";
     this.preferredBuildingType = null;
     this.playerExperienceModel = null;
     this.timeManager = null;
@@ -270,12 +269,17 @@ class TerrainGameManager {
     this.cursor = createCursorInput({
       target: this.canvas,
       windowRef: this.windowRef,
-      onChange: (cursorState) => this.applyCursorDebugState(cursorState),
+      onChange: (cursorState) => {
+        this.applyCursorDebugState(cursorState);
+        this.updateBuildingPlacementPreview(cursorState);
+      },
       onPan: (cursorState) => this.applyCursorPan(cursorState),
       onRotate: (cursorState) => this.applyCursorRotate(cursorState),
       onZoom: (cursorState) => this.applyCursorZoom(cursorState),
       onPrimaryPress: (cursorState) => (
-        this.isBuildingPlacementActive() || this.hasWorldObjectInteraction(cursorState)
+        cursorState.shiftKey ? true : this.isBuildingPlacementActive() ?
+          Boolean(this.updateBuildingPlacementPreview(cursorState)) :
+          this.hasWorldObjectInteraction(cursorState)
       ),
       onSelect: (cursorState) => this.selectWorldObject(cursorState),
       onCancel: () => this.cancelPendingBuildingPlacement()
@@ -635,6 +639,7 @@ class TerrainGameManager {
         purchaseSourceId,
         building: this.selectedRunBuilding
       };
+      this.startBuildingPlacement();
     } catch (error) {
       console.error(error);
     } finally {
@@ -659,11 +664,298 @@ class TerrainGameManager {
     });
     this.pendingBuildingPlacement = null;
     this.selectedRunBuilding = null;
+    this.removeBuildingPlacementPreview();
     this.renderIfLoopIsIdle();
     return true;
   }
 
-  async confirmPendingBuildingPlacement() {
+  getBuildingPlacementTile(cursorState) {
+    if (!this.beachGrid || !cursorState) {
+      return null;
+    }
+
+    const point = this.getGroundPointAtCursor(cursorState);
+
+    if (!point) {
+      return null;
+    }
+
+    const tile = this.beachGrid.getTileAtWorldPosition(point[0], point[2]);
+
+    if (
+      !tile ||
+      tile.zone !== BEACH_ZONES.SAND ||
+      !this.beachGrid.isTileAvailable(tile) ||
+      !this.beachGrid.isBuildableTile(tile)
+    ) {
+      return null;
+    }
+
+    return tile;
+  }
+
+  getGroundPointAtCursor(cursorState) {
+    if (!cursorState || !this.renderer) {
+      return null;
+    }
+
+    const cssWidth = Math.max(1, this.canvas.clientWidth);
+    const cssHeight = Math.max(1, this.canvas.clientHeight);
+    const { width, height } = this.renderer.resize();
+
+    return this.camera.getGroundPointFromScreen({
+      x: cursorState.x * width / cssWidth,
+      y: cursorState.y * height / cssHeight,
+      width,
+      height,
+      groundY: this.terrainSurfaceY
+    });
+  }
+
+  createBuildingPlacementGrid() {
+    const model = this.terrainAssets?.sandgroundModel || this.terrainAssets?.groundModel;
+
+    if (!model || !this.beachGrid) {
+      return null;
+    }
+
+    const tileScale = this.beachGrid.tileSize / Math.max(model.size[0], model.size[2]);
+    const instances = [];
+
+    this.beachGrid.visitTilesInRange({
+      startXIndex: -24,
+      endXIndex: 24,
+      startZIndex: -16,
+      endZIndex: 16
+    }, (tile) => {
+      if (tile.zone !== BEACH_ZONES.SAND) {
+        return;
+      }
+
+      const available = this.isBuildingPlacementTileAvailable(tile);
+
+      instances.push({
+        id: `building-placement-grid-${tile.xIndex}-${tile.zIndex}`,
+        offset: [tile.centerX, 0.08, tile.centerZ],
+        scale: tileScale,
+        tint: available ? [0.2, 0.95, 0.55] : [0.95, 0.25, 0.18],
+        tintStrength: 0.8,
+        alpha: available ? 0.22 : 0.12
+      });
+    });
+
+    return {
+      worldObject: "building-placement-grid",
+      model,
+      instances,
+      brightness: 1.15
+    };
+  }
+
+  createBuildingPlacementPreview() {
+    const pendingPlacement = this.pendingBuildingPlacement;
+    const building = pendingPlacement?.building;
+
+    if (!pendingPlacement || !building) {
+      return null;
+    }
+
+    const position = [0, this.terrainSurfaceY, 0];
+    const sceneObjects = (
+      pendingPlacement.type === BUILDING_TYPES.BEVERAGE_STORE && this.beverageStoreAsset
+    ) ? createScenerySceneObjects({
+      sceneryAsset: this.beverageStoreAsset,
+      position
+    }) : (
+      pendingPlacement.type === BUILDING_TYPES.BEACH_HOUSE && this.beachHouseAsset
+    ) ? createScenerySceneObjects({
+      sceneryAsset: this.beachHouseAsset,
+      position
+    }) : createSceneryPlaceholderSceneObjects({
+      gl: this.renderer.getContext(),
+      sceneryType: pendingPlacement.type,
+      model: this.terrainAssets.groundModel,
+      position,
+      tint: building.color,
+      normalizedSize: BUILDING_PLACEHOLDER_SIZE
+    });
+    const sceneObject = sceneObjects[0];
+
+    sceneObject.worldObject = "building-placement-preview";
+    sceneObject.instances = sceneObject.instances.map((instance) => ({
+      ...instance,
+      id: "building-placement-preview",
+      alpha: 0.58
+    }));
+
+    return sceneObject;
+  }
+
+  isBuildingPlacementTileAvailable(tile) {
+    if (
+      !tile ||
+      tile.zone !== BEACH_ZONES.SAND ||
+      !this.beachGrid.isBuildableTile(tile) ||
+      !this.beachGrid.isTileAvailable(tile)
+    ) {
+      return false;
+    }
+
+    return true;
+  }
+
+  startBuildingPlacement() {
+    this.removeBuildingPlacementPreview();
+    this.buildingPlacementTile = null;
+    this.buildingPlacementPreviewSceneObject = this.createBuildingPlacementPreview();
+    this.buildingPlacementGridSceneObject = this.createBuildingPlacementGrid();
+
+    if (this.buildingPlacementGridSceneObject) {
+      this.sceneObjects.push(this.buildingPlacementGridSceneObject);
+    }
+    if (this.buildingPlacementPreviewSceneObject) {
+      this.sceneObjects.push(this.buildingPlacementPreviewSceneObject);
+    }
+
+    this.renderIfLoopIsIdle();
+  }
+
+  updateBuildingPlacementPreview(cursorState) {
+    if (!this.isBuildingPlacementActive()) {
+      return null;
+    }
+
+    const tile = this.getBuildingPlacementTile(cursorState);
+    this.buildingPlacementTile = tile;
+
+    const instance = this.buildingPlacementPreviewSceneObject?.instances?.[0];
+    if (instance) {
+      instance.offset = tile ?
+        [tile.centerX, this.terrainSurfaceY, tile.centerZ] :
+        [0, this.terrainSurfaceY, 0];
+      instance.tint = tile ? [1, 1, 1] : [1, 0.18, 0.12];
+      instance.tintStrength = tile ? 0 : 0.8;
+      instance.alpha = tile ? 0.58 : 0.28;
+    }
+
+    this.renderIfLoopIsIdle();
+    return tile;
+  }
+
+  removeBuildingPlacementPreview() {
+    for (const sceneObject of [
+      this.buildingPlacementGridSceneObject,
+      this.buildingPlacementPreviewSceneObject
+    ]) {
+      if (!sceneObject) {
+        continue;
+      }
+
+      const index = this.sceneObjects.indexOf(sceneObject);
+      if (index >= 0) {
+        this.sceneObjects.splice(index, 1);
+      }
+    }
+
+    this.buildingPlacementGridSceneObject = null;
+    this.buildingPlacementPreviewSceneObject = null;
+    this.buildingPlacementTile = null;
+  }
+
+  getDiagnosticTile(cursorState) {
+    if (!this.beachGrid || !cursorState) {
+      return null;
+    }
+
+    const point = this.getGroundPointAtCursor(cursorState);
+
+    if (!point) {
+      return null;
+    }
+
+    const tile = this.beachGrid.getTileAtWorldPosition(point[0], point[2]);
+    const diagnostics = this.beachGrid.getTileDiagnostics(tile);
+
+    return diagnostics ? {
+      ...diagnostics,
+      key: `${diagnostics.xIndex}:${diagnostics.zIndex}`
+    } : null;
+  }
+
+  updateDiagnosticSelectionSceneObject() {
+    if (this.diagnosticSelectionSceneObject) {
+      const index = this.sceneObjects.indexOf(this.diagnosticSelectionSceneObject);
+
+      if (index >= 0) {
+        this.sceneObjects.splice(index, 1);
+      }
+    }
+
+    if (this.diagnosticSelectedTiles.size === 0 || !this.terrainAssets?.sandgroundModel) {
+      this.diagnosticSelectionSceneObject = null;
+      return;
+    }
+
+    const model = this.terrainAssets.sandgroundModel;
+    const tileScale = this.beachGrid.tileSize / Math.max(model.size[0], model.size[2]);
+    this.diagnosticSelectionSceneObject = {
+      worldObject: "building-grid-diagnostic-selection",
+      model,
+      instances: [...this.diagnosticSelectedTiles.values()].map((tile) => ({
+        id: `diagnostic-${tile.key}`,
+        offset: [tile.centerX, 0.16, tile.centerZ],
+        scale: tileScale,
+        tint: [1, 0.86, 0.08],
+        tintStrength: 0.95,
+        alpha: 0.72
+      })),
+      brightness: 1.2
+    };
+    this.sceneObjects.push(this.diagnosticSelectionSceneObject);
+  }
+
+  async copyDiagnosticSelection() {
+    const text = JSON.stringify({
+      type: "beach-grid-diagnostic",
+      tiles: [...this.diagnosticSelectedTiles.values()]
+    }, null, 2);
+
+    this.diagnosticClipboardText = text;
+
+    try {
+      await this.windowRef.navigator?.clipboard?.writeText(text);
+    } catch (error) {
+      console.warn("Nao foi possivel copiar o diagnostico para o clipboard.", error);
+    }
+  }
+
+  selectDiagnosticTile(cursorState) {
+    const tile = this.getDiagnosticTile(cursorState);
+
+    if (!tile) {
+      return;
+    }
+
+    if (this.diagnosticSelectedTiles.has(tile.key)) {
+      this.diagnosticSelectedTiles.delete(tile.key);
+    } else {
+      this.diagnosticSelectedTiles.set(tile.key, tile);
+    }
+
+    if (!this.buildingPlacementGridSceneObject) {
+      this.buildingPlacementGridSceneObject = this.createBuildingPlacementGrid();
+
+      if (this.buildingPlacementGridSceneObject) {
+        this.sceneObjects.push(this.buildingPlacementGridSceneObject);
+      }
+    }
+
+    this.updateDiagnosticSelectionSceneObject();
+    void this.copyDiagnosticSelection();
+    this.renderIfLoopIsIdle();
+  }
+
+  async confirmPendingBuildingPlacement(cursorState) {
     const pendingPlacement = this.pendingBuildingPlacement;
 
     if (!pendingPlacement) {
@@ -672,32 +964,42 @@ class TerrainGameManager {
 
     const { type, building } = pendingPlacement;
     const isFirstConstruction = this.constructedBuildingCount === 0;
+    const selectedTile = this.updateBuildingPlacementPreview(cursorState);
+
+    if (!selectedTile) {
+      return;
+    }
+
+    let claimedTile = null;
 
     try {
-      this.buildingServicesModel.addBuilding(type);
       const buildingNumber = this.constructedBuildingCount + 1;
-      const [horizontalProgress, depthProgress] = (
-        BUILDING_PLOTS[this.constructedBuildingCount % BUILDING_PLOTS.length]
-      );
-      const [desiredX, desiredZ] = getBeachSandPosition(
-        horizontalProgress,
-        depthProgress
-      );
-      const buildingTile = this.beachGrid?.claimNearestAvailableTile({
-        x: desiredX,
-        z: desiredZ,
+      claimedTile = this.beachGrid.claimNearestAvailableTile({
+        x: selectedTile.centerX,
+        z: selectedTile.centerZ,
         zone: BEACH_ZONES.SAND,
-        maxRadiusInTiles: 12
+        maxRadiusInTiles: 0,
+        reason: `building:${type}-${buildingNumber}`
       });
+
+      if (!claimedTile) {
+        return;
+      }
+
       const buildingPosition = [
-        buildingTile?.centerX ?? desiredX,
+        claimedTile.centerX,
         this.terrainSurfaceY,
-        buildingTile?.centerZ ?? desiredZ
+        claimedTile.centerZ
       ];
       const newBuildingSceneObjects = (
         type === BUILDING_TYPES.BEVERAGE_STORE && this.beverageStoreAsset
       ) ? createScenerySceneObjects({
         sceneryAsset: this.beverageStoreAsset,
+        position: buildingPosition
+      }) : (
+        type === BUILDING_TYPES.BEACH_HOUSE && this.beachHouseAsset
+      ) ? createScenerySceneObjects({
+        sceneryAsset: this.beachHouseAsset,
         position: buildingPosition
       }) : createSceneryPlaceholderSceneObjects({
         gl: this.renderer.getContext(),
@@ -715,6 +1017,8 @@ class TerrainGameManager {
         }));
       }
 
+      this.buildingServicesModel.addBuilding(type);
+      this.removeBuildingPlacementPreview();
       this.runBuildingSceneObjects.push(...newBuildingSceneObjects);
       this.sceneObjects.push(...newBuildingSceneObjects);
       this.constructedBuildingCount += 1;
@@ -741,6 +1045,16 @@ class TerrainGameManager {
         immediateBather: true
       });
     } catch (error) {
+      if (claimedTile) {
+        this.beachGrid.releaseWorldPosition(claimedTile.centerX, claimedTile.centerZ);
+      }
+      this.beachEconomyModel.refundExpense({
+        sourceId: pendingPlacement.purchaseSourceId,
+        amountInCents: BUILDING_ACCESS_COST_IN_CENTS
+      });
+      this.pendingBuildingPlacement = null;
+      this.selectedRunBuilding = null;
+      this.removeBuildingPlacementPreview();
       console.error(error);
     }
   }
@@ -826,8 +1140,13 @@ class TerrainGameManager {
   }
 
   selectWorldObject(cursorState) {
+    if (cursorState.shiftKey) {
+      this.selectDiagnosticTile(cursorState);
+      return;
+    }
+
     if (this.isBuildingPlacementActive()) {
-      void this.confirmPendingBuildingPlacement();
+      void this.confirmPendingBuildingPlacement(cursorState);
       return;
     }
 
@@ -1262,6 +1581,7 @@ class TerrainGameManager {
 
     this.terrainAssets = world.terrainAssets;
     this.beverageStoreAsset = world.beverageStoreAsset;
+    this.beachHouseAsset = world.beachHouseAsset;
     this.terrainSceneObjects = world.terrainSceneObjects;
     this.npcSceneObjects = world.npcSceneObjects;
     this.npcSystem = world.npcSystem;

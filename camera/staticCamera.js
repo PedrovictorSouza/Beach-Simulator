@@ -375,6 +375,40 @@ export function createStaticCamera(config = {}) {
 
       return multiplyMat4(projection, view);
     },
+    getGroundPointFromScreen({ x, y, width, height, groundY = 0 } = {}) {
+      const viewportWidth = Math.max(1, Number(width) || 1);
+      const viewportHeight = Math.max(1, Number(height) || 1);
+      const normalizedX = ((Number(x) || 0) / viewportWidth) * 2 - 1;
+      const normalizedY = 1 - ((Number(y) || 0) / viewportHeight) * 2;
+      const aspect = viewportWidth / viewportHeight;
+      const tanHalfFov = Math.tan(state.fov * 0.5);
+      const { right } = getGroundBasis();
+      const cameraUp = normalizeVec3(crossVec3(state.direction, right));
+      const ray = normalizeVec3(addVec3(
+        scaleVec3(state.direction, -1),
+        addVec3(
+          scaleVec3(right, normalizedX * tanHalfFov * aspect),
+          scaleVec3(cameraUp, normalizedY * tanHalfFov)
+        )
+      ));
+      const eye = getEye();
+
+      if (Math.abs(ray[1]) < 0.0001) {
+        return null;
+      }
+
+      const distance = (groundY - eye[1]) / ray[1];
+
+      if (distance <= 0) {
+        return null;
+      }
+
+      return [
+        eye[0] + ray[0] * distance,
+        groundY,
+        eye[2] + ray[2] * distance
+      ];
+    },
     isPlanarPointVisible(x, z, radius) {
       return (
         Math.abs(x - state.target[0]) <= radius * 1.45 &&

@@ -13,6 +13,13 @@ const BUILDING_CATALOG = Object.freeze([
     color: Object.freeze([0.92, 0.3, 0.22])
   }),
   Object.freeze({
+    type: BUILDING_TYPES.BEACH_HOUSE,
+    label: "Beach House",
+    role: "Beach shelter",
+    description: "Adds a new place for bathers to relax.",
+    color: Object.freeze([0.9, 0.7, 0.48])
+  }),
+  Object.freeze({
     type: BUILDING_TYPES.LIFEGUARD_BUILDING,
     label: "Lifeguard Building",
     role: "Beach safety",

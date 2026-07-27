@@ -10,6 +10,9 @@ const DEFAULT_CURSOR_STATE = Object.freeze({
   keyboardPan: { x: 0, z: 0 },
   edgePan: { x: 0, z: 0 },
   keyboardRotation: 0,
+  shiftKey: false,
+  metaKey: false,
+  ctrlKey: false,
   spacePressed: false,
   dragged: false,
   invertedPan: false,
@@ -161,6 +164,11 @@ export function createCursorInput({
     state = {
       ...state,
       ...pointerPosition,
+      ...(event ? {
+        shiftKey: Boolean(event.shiftKey),
+        metaKey: Boolean(event.metaKey),
+        ctrlKey: Boolean(event.ctrlKey)
+      } : {}),
       ...patch
     };
     onChange({ ...state });
@@ -260,6 +268,9 @@ export function createCursorInput({
     const primaryPressCanSelect = event.button === 0 && !state.spacePressed && onPrimaryPress({
       ...state,
       ...pointerPosition,
+      shiftKey: Boolean(event.shiftKey),
+      metaKey: Boolean(event.metaKey),
+      ctrlKey: Boolean(event.ctrlKey),
       pointerType: event.pointerType || "mouse"
     });
     if (isPanButton || isRotateButton) {

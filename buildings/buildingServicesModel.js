@@ -1,5 +1,6 @@
 export const BUILDING_TYPES = Object.freeze({
   BEVERAGE_STORE: "beverage-store",
+  BEACH_HOUSE: "beach-house",
   LIFEGUARD_BUILDING: "lifeguard-building",
   WIFI_SPOT: "wifi-spot",
   TOILET_BUILDING: "toilet-building",

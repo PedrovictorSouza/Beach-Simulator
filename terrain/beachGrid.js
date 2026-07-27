@@ -7,6 +7,12 @@ export const BEACH_ZONES = Object.freeze({
 const BEACH_LAND_Z = 82;
 const BEACH_WATER_Z = -58;
 const BEACH_WET_OVERLAP = 6;
+const BUILDING_ALLOWED_X_MIN = -24;
+const BUILDING_ALLOWED_X_MAX = 24;
+const BUILDING_ALLOWED_Z_MIN = 9;
+const BUILDING_ALLOWED_Z_MAX = 11;
+const BUILDING_RESERVED_X_MIN = -10;
+const BUILDING_RESERVED_X_MAX = -6;
 const DEFAULT_CHUNK_SIZE_IN_TILES = 8;
 
 function assertFiniteNumber(value, name) {
@@ -63,8 +69,25 @@ export function createBeachGrid({
     throw new Error("chunkSizeInTiles precisa ser um inteiro positivo.");
   }
 
-  const occupiedTiles = new Set();
+  const occupiedTiles = new Map();
   const getTileKey = (xIndex, zIndex) => `${xIndex}:${zIndex}`;
+
+  function isBuildableTile({ xIndex, zIndex }) {
+    const centerX = Number((xIndex * tileSize).toFixed(4));
+    const centerZ = Number((zIndex * tileSize).toFixed(4));
+    const insideSelectedArea = (
+      xIndex >= BUILDING_ALLOWED_X_MIN &&
+      xIndex <= BUILDING_ALLOWED_X_MAX &&
+      zIndex >= BUILDING_ALLOWED_Z_MIN &&
+      zIndex <= BUILDING_ALLOWED_Z_MAX &&
+      !(
+        xIndex >= BUILDING_RESERVED_X_MIN &&
+        xIndex <= BUILDING_RESERVED_X_MAX
+      )
+    );
+
+    return insideSelectedArea && getBeachZoneAt(centerX, centerZ) === BEACH_ZONES.SAND;
+  }
 
   function getTileAtWorldPosition(x, z) {
     assertFiniteNumber(x, "x");
@@ -129,7 +152,14 @@ export function createBeachGrid({
     }
   }
 
-  function reserveWorldBounds({ centerX, centerZ, width, depth, padding = 0 }) {
+  function reserveWorldBounds({
+    centerX,
+    centerZ,
+    width,
+    depth,
+    padding = 0,
+    reason = "reserved-area"
+  }) {
     [centerX, centerZ, width, depth, padding].forEach((value) => (
       assertFiniteNumber(value, "reserva do grid")
     ));
@@ -147,12 +177,18 @@ export function createBeachGrid({
 
     for (let xIndex = startXIndex; xIndex <= endXIndex; xIndex += 1) {
       for (let zIndex = startZIndex; zIndex <= endZIndex; zIndex += 1) {
-        occupiedTiles.add(getTileKey(xIndex, zIndex));
+        occupiedTiles.set(getTileKey(xIndex, zIndex), reason);
       }
     }
   }
 
-  function claimNearestAvailableTile({ x, z, zone, maxRadiusInTiles = 64 }) {
+  function claimNearestAvailableTile({
+    x,
+    z,
+    zone,
+    maxRadiusInTiles = 64,
+    reason = "claimed-tile"
+  }) {
     assertFiniteNumber(x, "x");
     assertFiniteNumber(z, "z");
 
@@ -183,13 +219,85 @@ export function createBeachGrid({
             continue;
           }
 
-          occupiedTiles.add(key);
+          occupiedTiles.set(key, reason);
           return Object.freeze({ xIndex, zIndex, centerX, centerZ, zone });
         }
       }
     }
 
     return null;
+  }
+
+  function isTileAvailable({ xIndex, zIndex, zone = BEACH_ZONES.SAND }) {
+    if (!Number.isSafeInteger(xIndex) || !Number.isSafeInteger(zIndex)) {
+      return false;
+    }
+
+    const centerX = Number((xIndex * tileSize).toFixed(4));
+    const centerZ = Number((zIndex * tileSize).toFixed(4));
+
+    return (
+      !occupiedTiles.has(getTileKey(xIndex, zIndex)) &&
+      getBeachZoneAt(centerX, centerZ) === zone
+    );
+  }
+
+  function getTileDiagnostics({ xIndex, zIndex }) {
+    if (!Number.isSafeInteger(xIndex) || !Number.isSafeInteger(zIndex)) {
+      return null;
+    }
+
+    const centerX = Number((xIndex * tileSize).toFixed(4));
+    const centerZ = Number((zIndex * tileSize).toFixed(4));
+    const key = getTileKey(xIndex, zIndex);
+
+    return Object.freeze({
+      xIndex,
+      zIndex,
+      centerX,
+      centerZ,
+      zone: getBeachZoneAt(centerX, centerZ),
+      buildableSand: isBuildableTile({ xIndex, zIndex }),
+      occupied: occupiedTiles.has(key),
+      occupancyReason: occupiedTiles.get(key) || null
+    });
+  }
+
+  function isAreaAvailable({
+    centerX,
+    centerZ,
+    width,
+    depth,
+    zone = BEACH_ZONES.SAND,
+    buildableSandOnly = false
+  }) {
+    [centerX, centerZ, width, depth].forEach((value) => (
+      assertFiniteNumber(value, "area do grid")
+    ));
+
+    if (width <= 0 || depth <= 0) {
+      return false;
+    }
+
+    const halfWidth = width * 0.5 + tileSize * 0.5;
+    const halfDepth = depth * 0.5 + tileSize * 0.5;
+    const startXIndex = Math.ceil((centerX - halfWidth) / tileSize);
+    const endXIndex = Math.floor((centerX + halfWidth) / tileSize);
+    const startZIndex = Math.ceil((centerZ - halfDepth) / tileSize);
+    const endZIndex = Math.floor((centerZ + halfDepth) / tileSize);
+
+    for (let xIndex = startXIndex; xIndex <= endXIndex; xIndex += 1) {
+      for (let zIndex = startZIndex; zIndex <= endZIndex; zIndex += 1) {
+        if (
+          !isTileAvailable({ xIndex, zIndex, zone }) ||
+          (buildableSandOnly && !isBuildableTile({ xIndex, zIndex }))
+        ) {
+          return false;
+        }
+      }
+    }
+
+    return true;
   }
 
   function releaseWorldPosition(x, z) {
@@ -202,9 +310,13 @@ export function createBeachGrid({
     tileSize,
     chunkSizeInTiles,
     getTileAtWorldPosition,
+    getTileDiagnostics,
+    isBuildableTile,
     visitTilesInRange,
     reserveWorldBounds,
     claimNearestAvailableTile,
+    isTileAvailable,
+    isAreaAvailable,
     releaseWorldPosition
   });
 }

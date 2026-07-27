@@ -24,9 +24,6 @@ import { createWorldObjectPlaceholderSceneObjects } from "../objects/worldObject
 
 const KIOSK_POSITION_X = -48;
 const KIOSK_RESTINGA_INSET = 18;
-const BEACH_HOUSE_POSITION_X = 12;
-const BEACH_HOUSE_RESTINGA_INSET = 36;
-const BEACH_HOUSE_RESTINGA_TILE_OFFSET = 2;
 const INITIAL_CLEANUP_COUNT = 5;
 const INITIAL_CLEANUP_MIN_HORIZONTAL_PROGRESS = 0.12;
 const INITIAL_CLEANUP_MAX_HORIZONTAL_PROGRESS = 0.88;
@@ -92,10 +89,11 @@ function reserveScenery(beachGrid, sceneObjects, padding) {
     beachGrid.reserveWorldBounds({
       centerX: instance.offset[0],
       centerZ: instance.offset[2],
-      width,
-      depth,
-      padding
-    });
+    width,
+    depth,
+    padding,
+    reason: sceneObject.sceneryType || sceneObject.worldObject || "scenery"
+  });
   }
 }
 
@@ -126,18 +124,6 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
     type: SCENERY_TYPES.BEACH_HOUSE,
     onStatus
   });
-  const beachHouseSceneObjects = createScenerySceneObjects({
-    sceneryAsset: beachHouseAsset,
-    position: [
-      BEACH_HOUSE_POSITION_X,
-      terrainSurfaceY,
-      getBeachSandZNearRestinga(
-        BEACH_HOUSE_POSITION_X,
-        BEACH_HOUSE_RESTINGA_INSET -
-          terrainTileSpan * BEACH_HOUSE_RESTINGA_TILE_OFFSET
-      )
-    ]
-  });
   const beverageStoreAsset = await loadSceneryAsset({
     gl,
     type: SCENERY_TYPES.BEVERAGE_STORE,
@@ -147,8 +133,8 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
 
   reserveScenery(
     beachGrid,
-    [...kioskSceneObjects, ...beachHouseSceneObjects],
-    terrainTileSpan
+    kioskSceneObjects,
+    0
   );
 
   const resolveWorldObjectPosition = (request) => {
@@ -159,7 +145,8 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
     const tile = beachGrid.claimNearestAvailableTile({
       x: desiredPosition[0],
       z: desiredPosition[1],
-      zone: BEACH_ZONES.SAND
+      zone: BEACH_ZONES.SAND,
+      reason: `world-object:${request.id || request.type}`
     });
 
     if (!tile) {
@@ -194,7 +181,8 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
     spawnManager,
     worldObjectSceneObjects,
     beachGrid,
-    beachHouseSceneObjects,
+    beachHouseAsset,
+    beachHouseSceneObjects: [],
     beverageStoreAsset,
     terrainSurfaceY,
     resolveWorldObjectPosition,
