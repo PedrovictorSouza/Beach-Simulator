@@ -13,6 +13,10 @@ const BUILDING_ALLOWED_Z_MIN = 9;
 const BUILDING_ALLOWED_Z_MAX = 11;
 const BUILDING_RESERVED_X_MIN = -10;
 const BUILDING_RESERVED_X_MAX = -6;
+const SUN_SHADE_ALLOWED_X_MIN = -24;
+const SUN_SHADE_ALLOWED_X_MAX = 24;
+const SUN_SHADE_ALLOWED_Z_MIN = 4;
+const SUN_SHADE_ALLOWED_Z_MAX = 6;
 const DEFAULT_CHUNK_SIZE_IN_TILES = 8;
 
 function assertFiniteNumber(value, name) {
@@ -87,6 +91,19 @@ export function createBeachGrid({
     );
 
     return insideSelectedArea && getBeachZoneAt(centerX, centerZ) === BEACH_ZONES.SAND;
+  }
+
+  function isSunShadeTile({ xIndex, zIndex }) {
+    const centerX = Number((xIndex * tileSize).toFixed(4));
+    const centerZ = Number((zIndex * tileSize).toFixed(4));
+
+    return (
+      xIndex >= SUN_SHADE_ALLOWED_X_MIN &&
+      xIndex <= SUN_SHADE_ALLOWED_X_MAX &&
+      zIndex >= SUN_SHADE_ALLOWED_Z_MIN &&
+      zIndex <= SUN_SHADE_ALLOWED_Z_MAX &&
+      getBeachZoneAt(centerX, centerZ) === BEACH_ZONES.SAND
+    );
   }
 
   function getTileAtWorldPosition(x, z) {
@@ -258,6 +275,7 @@ export function createBeachGrid({
       centerZ,
       zone: getBeachZoneAt(centerX, centerZ),
       buildableSand: isBuildableTile({ xIndex, zIndex }),
+      sunShadePlacement: isSunShadeTile({ xIndex, zIndex }),
       occupied: occupiedTiles.has(key),
       occupancyReason: occupiedTiles.get(key) || null
     });
@@ -312,6 +330,7 @@ export function createBeachGrid({
     getTileAtWorldPosition,
     getTileDiagnostics,
     isBuildableTile,
+    isSunShadeTile,
     visitTilesInRange,
     reserveWorldBounds,
     claimNearestAvailableTile,

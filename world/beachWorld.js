@@ -143,6 +143,16 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
     type: SCENERY_TYPES.WIFI_SPOT,
     onStatus
   });
+  const sunShadeAsset = await loadSceneryAsset({
+    gl,
+    type: SCENERY_TYPES.SUN_SHADE,
+    onStatus
+  });
+  const trashCansAsset = await loadSceneryAsset({
+    gl,
+    type: SCENERY_TYPES.TRASH_CANS,
+    onStatus
+  });
   const beachGrid = createBeachGrid({ tileSize: terrainTileSpan });
 
   reserveScenery(
@@ -199,6 +209,8 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
     beachHouseSceneObjects: [],
     beverageStoreAsset,
     wifiSpotAsset,
+    sunShadeAsset,
+    trashCansAsset,
     terrainSurfaceY,
     resolveWorldObjectPosition,
     npcs

@@ -7,11 +7,14 @@ export const SCENERY_TYPES = Object.freeze({
   KIOSK: "kiosk",
   BEACH_HOUSE: "beach-house",
   BEVERAGE_STORE: "beverage-store",
-  WIFI_SPOT: "wifi-spot"
+  WIFI_SPOT: "wifi-spot",
+  SUN_SHADE: "sun-shade",
+  TRASH_CANS: "trash-cans"
 });
 
 const BEVERAGE_STORE_MODEL_FACE_YAW_OFFSET = (Math.PI * 3) / 2;
 const WIFI_SPOT_MODEL_FACE_YAW_OFFSET = Math.PI / 2;
+const TRASH_CANS_MODEL_FACE_YAW_OFFSET = 0;
 
 const SCENERY_DEFINITIONS = Object.freeze({
   [SCENERY_TYPES.KIOSK]: Object.freeze({
@@ -44,6 +47,22 @@ const SCENERY_DEFINITIONS = Object.freeze({
     texturePath: "./wifi-spot/wifi-spot.png",
     normalizedSize: 16,
     modelFaceYawOffset: WIFI_SPOT_MODEL_FACE_YAW_OFFSET,
+    brightness: 1.05
+  }),
+  [SCENERY_TYPES.SUN_SHADE]: Object.freeze({
+    gltfPath: "./objects/sun-shade/sun-shade.gltf",
+    binPath: "./objects/sun-shade/sun-shade.bin",
+    texturePath: "./objects/sun-shade/sun-shade.png",
+    normalizedSize: 12,
+    modelFaceYawOffset: 0,
+    brightness: 1.05
+  }),
+  [SCENERY_TYPES.TRASH_CANS]: Object.freeze({
+    gltfPath: "./objects/Trash-Can/Trash-can.gltf",
+    binPath: "./objects/Trash-Can/Trash-can.bin",
+    texturePath: "./objects/Trash-Can/Trash-can.png",
+    normalizedSize: 8,
+    modelFaceYawOffset: TRASH_CANS_MODEL_FACE_YAW_OFFSET,
     brightness: 1.05
   })
 });

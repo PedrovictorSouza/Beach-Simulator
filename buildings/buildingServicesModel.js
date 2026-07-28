@@ -16,8 +16,14 @@ export const BUILDING_SERVICE_MOTIVES = Object.freeze({
   SAFETY: "safety"
 });
 
+export const BEACH_AMENITY_TYPES = Object.freeze({
+  SUN_SHADE: "sun-shade"
+});
+
 export const BEVERAGE_PURCHASE_PRICE_IN_CENTS = 100;
 export const BEVERAGE_PURCHASE_DURATION_SECONDS = 5;
+export const SUN_SHADE_RENTAL_INTERVAL_SECONDS = 15;
+export const SUN_SHADE_RENTAL_REWARD_IN_CENTS = 100;
 
 const SERVICE_ADVERTISEMENT_DEFINITIONS = Object.freeze([
   Object.freeze({
@@ -150,7 +156,10 @@ export function createBuildingServicesModel() {
     hasBuilding(type) {
       return ownedTypes.has(type);
     },
-    update(deltaSeconds, { batherCount = 0, bathers = [] } = {}) {
+    update(
+      deltaSeconds,
+      { batherCount = 0, bathers = [], sunShadeUsers = [] } = {}
+    ) {
       const stepSeconds = Math.max(0, Number(deltaSeconds) || 0);
       const activeBathers = Array.isArray(bathers) ? bathers : [];
       const normalizedBatherCount = activeBathers.length > 0 ?
@@ -197,6 +206,31 @@ export function createBuildingServicesModel() {
 
           serviceUsageSecondsByKey.set(usageKey, usageSeconds);
         }
+      }
+
+      for (const bather of Array.isArray(sunShadeUsers) ? sunShadeUsers : []) {
+        const batherId = String(bather?.id || "").trim();
+
+        if (!batherId) {
+          continue;
+        }
+
+        const usageKey = `${BEACH_AMENITY_TYPES.SUN_SHADE}:${batherId}`;
+        activeUsageKeys.add(usageKey);
+        let usageSeconds = (serviceUsageSecondsByKey.get(usageKey) || 0) + stepSeconds;
+
+        while (usageSeconds >= SUN_SHADE_RENTAL_INTERVAL_SECONDS) {
+          usageSeconds -= SUN_SHADE_RENTAL_INTERVAL_SECONDS;
+          revenueSequence += 1;
+          notifyRevenue(Object.freeze({
+            sequence: revenueSequence,
+            buildingType: BEACH_AMENITY_TYPES.SUN_SHADE,
+            batherId,
+            amountInCents: SUN_SHADE_RENTAL_REWARD_IN_CENTS
+          }));
+        }
+
+        serviceUsageSecondsByKey.set(usageKey, usageSeconds);
       }
 
       for (const usageKey of serviceUsageSecondsByKey.keys()) {

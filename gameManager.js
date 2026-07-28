@@ -12,11 +12,13 @@ import {
 import { updateNpcSceneObjects } from "./npcs/npcWorld.js";
 import {
   BATHER_PROBLEM_SOURCES,
+  NPC_STATES,
   NPC_TYPES
 } from "./npcs/npcSystem.js";
 import {
   createSceneryPlaceholderSceneObjects,
-  createScenerySceneObjects
+  createScenerySceneObjects,
+  SCENERY_TYPES
 } from "./scenery/sceneryWorld.js";
 import { createBatherCounterView } from "./ui/batherCounterView.js";
 import { presentBatherNeedFeedback } from "./ui/batherNeedPresenter.js";
@@ -48,15 +50,17 @@ import { createTimeManager } from "./time/timeManager.js";
 import { createTimeCounterView } from "./ui/timeCounterView.js";
 import { createNpcComplaintView } from "./ui/npcComplaintView.js";
 import { createPickupFeedbackView } from "./ui/pickupFeedbackView.js";
-import { createBeverageStoreModalView } from "./ui/beverageStoreModalView.js";
+import { createBuildingInteractionModalView } from "./ui/buildingInteractionModalView.js";
 import { createBuildingButtonView } from "./ui/buildingButton.js";
 import { createOnboardingView } from "./onboarding/onboardingView.js";
 import { createCleanBeachGuide } from "./onboarding/cleanBeachGuide.js";
+import { createWorldInteractionGuide } from "./onboarding/worldInteractionGuide.js";
 import {
   createBuildingChoiceModel,
   createBuildingChoiceView
 } from "./ui/buildingChoice.js";
 import {
+  BEACH_AMENITY_TYPES,
   BUILDING_TYPES,
   createBuildingServicesModel
 } from "./buildings/buildingServicesModel.js";
@@ -99,6 +103,7 @@ const CLEAN_BEACH_TARGET = 5;
 const WELCOME_BATHERS_TASK_ID = "welcome-more-bathers";
 const BUILD_FIRST_CONSTRUCTION_TASK_ID = "build-first-construction";
 const BUILDING_ACCESS_COST_IN_CENTS = 500;
+const SUN_SHADE_COST_IN_CENTS = 500;
 const BUILDING_PLACEHOLDER_SIZE = 10;
 const BUILDING_CONSTRUCTION_ANIMATION_DURATION_SECONDS = 0.65;
 const SHARK_WATERLINE_OFFSET = -3.6;
@@ -109,19 +114,22 @@ const TASK_COMPLETE_ANIMATION_MS = 1200;
 const BATHER_ONBOARDING_NOTICE = "Bathers are your customers. Keep them happy to earn better reviews.";
 const BUILDING_REVENUE_LABELS = Object.freeze({
   [BUILDING_TYPES.BEVERAGE_STORE]: "DRINK",
-  [BUILDING_TYPES.WIFI_SPOT]: "WI-FI"
+  [BUILDING_TYPES.WIFI_SPOT]: "WI-FI",
+  [BEACH_AMENITY_TYPES.SUN_SHADE]: "SUN-SHADE"
 });
 const BATHER_SERVICE_DECISION_LABELS = Object.freeze({
   [BUILDING_TYPES.LIFEGUARD_BUILDING]: "LIFEGUARD",
   [BUILDING_TYPES.WIFI_SPOT]: "WI-FI",
   [BUILDING_TYPES.TOILET_BUILDING]: "TOILET",
-  [BUILDING_TYPES.VOLLEYBALL_COURT]: "VOLLEYBALL"
+  [BUILDING_TYPES.VOLLEYBALL_COURT]: "VOLLEYBALL",
+  [BEACH_AMENITY_TYPES.SUN_SHADE]: "SUN-SHADE"
 });
 const BATHER_SERVICE_COMPLETION_LABELS = Object.freeze({
   [BUILDING_TYPES.LIFEGUARD_BUILDING]: "LIFEGUARD +SAFETY",
   [BUILDING_TYPES.WIFI_SPOT]: "WI-FI +CONNECTION",
   [BUILDING_TYPES.TOILET_BUILDING]: "TOILET +RELIEF",
-  [BUILDING_TYPES.VOLLEYBALL_COURT]: "VOLLEYBALL +FUN"
+  [BUILDING_TYPES.VOLLEYBALL_COURT]: "VOLLEYBALL +FUN",
+  [BEACH_AMENITY_TYPES.SUN_SHADE]: "SUN-SHADE"
 });
 const BUILDING_TYPE_BY_BATHER_PROBLEM = Object.freeze({
   [BATHER_PROBLEM_SOURCES.HEAT]: BUILDING_TYPES.BEVERAGE_STORE,
@@ -215,6 +223,8 @@ class TerrainGameManager {
     this.beverageStoreAsset = null;
     this.beachHouseAsset = null;
     this.wifiSpotAsset = null;
+    this.sunShadeAsset = null;
+    this.trashCansAsset = null;
     this.terrainSceneObjects = [];
     this.beachGrid = null;
     this.npcSceneObjects = [];
@@ -251,6 +261,7 @@ class TerrainGameManager {
     this.taskListView = null;
     this.cleanBeachController = null;
     this.cleanBeachGuide = null;
+    this.worldInteractionGuide = null;
     this.completedTaskRemovalIds = new Set();
     this.unsubscribeTaskList = null;
     this.runSessionModel = null;
@@ -261,7 +272,7 @@ class TerrainGameManager {
     this.onboardingView = null;
     this.buildingChoiceModel = null;
     this.buildingChoiceView = null;
-    this.beverageStoreModalView = null;
+    this.buildingInteractionModalView = null;
     this.buildingServicesModel = null;
     this.buildingChoiceActive = false;
     this.buildingButtonView = null;
@@ -269,6 +280,7 @@ class TerrainGameManager {
     this.unsubscribeBuildingRevenue = null;
     this.buildingAccessUnlocked = false;
     this.constructedBuildingCount = 0;
+    this.sunShadeCount = 0;
     this.buildingOnboardingShown = false;
     this.selectedRunBuilding = null;
     this.pendingBuildingPlacement = null;
@@ -289,6 +301,7 @@ class TerrainGameManager {
     this.unsubscribeTimeManager = null;
     this.beachHouseSceneObjects = [];
     this.runBuildingSceneObjects = [];
+    this.sunShadeSceneObjects = [];
     this.constructionAnimations = [];
     this.terrainSurfaceY = 0;
     this.resolveWorldObjectPosition = null;
@@ -342,11 +355,19 @@ class TerrainGameManager {
           taskId: CLEAN_BEACH_TASK_ID,
           windowRef: this.windowRef
         });
+        this.worldInteractionGuide = createWorldInteractionGuide({
+          root: this.root,
+          canvas: this.canvas,
+          camera: this.camera,
+          sceneObjects: this.sceneObjects,
+          onboardingView: this.onboardingView,
+          isRunActive: () => this.isRunActive()
+        });
         this.statusElement?.remove();
         this.render();
         this.startRenderLoop();
         this.windowRef.addEventListener("resize", () => {
-          this.cleanBeachGuide.markProjectionDirty();
+          this.markOnboardingProjectionDirty();
           this.render();
         });
         this.startScreenView.setReady();
@@ -406,7 +427,10 @@ class TerrainGameManager {
     this.batherCounterView = createBatherCounterView({ root: hudRoot });
     this.batherCounterView.render(0);
     this.beachEconomyModel = createBeachEconomyModel();
-    this.moneyCounterView = createMoneyCounterView({ root: hudRoot });
+    this.moneyCounterView = createMoneyCounterView({
+      root: hudRoot,
+      windowRef: this.windowRef
+    });
     this.unsubscribeBeachEconomy = this.beachEconomyModel.subscribe(
       (snapshot) => this.updateMoneyCounter(snapshot)
     );
@@ -458,7 +482,9 @@ class TerrainGameManager {
     this.unsubscribeBuildingEconomy = this.beachEconomyModel.subscribe(
       (snapshot) => this.updateBuildingAccess(snapshot)
     );
-    this.beverageStoreModalView = createBeverageStoreModalView({ root: this.root });
+    this.buildingInteractionModalView = createBuildingInteractionModalView({
+      root: this.root
+    });
     this.buildingServicesModel = createBuildingServicesModel();
     this.unsubscribeBuildingRevenue = this.buildingServicesModel.subscribeToRevenue(
       (event) => this.handleBuildingRevenue(event)
@@ -674,6 +700,11 @@ class TerrainGameManager {
       sourceId: `${event.buildingType}-${event.batherId}-${event.sequence}`,
       amountInCents: event.amountInCents
     });
+    if (event.buildingType === BEACH_AMENITY_TYPES.SUN_SHADE) {
+      this.showMoneyGainFromBather(event.batherId);
+    } else {
+      this.showMoneyGainFromBuilding(event.buildingType);
+    }
     this.pendingBatherRevenue.push({
       batherId: event.batherId,
       amountInCents: event.amountInCents,
@@ -694,6 +725,7 @@ class TerrainGameManager {
       sourceId: `beverage-purchase-${event.batherId}-${event.sequence}`,
       amountInCents: event.amountInCents
     });
+    this.showMoneyGainFromBuilding(BUILDING_TYPES.BEVERAGE_STORE);
     this.pendingBeveragePurchases.push(event);
   }
 
@@ -821,6 +853,7 @@ class TerrainGameManager {
       this.pendingBuildingPlacement = {
         type,
         purchaseSourceId,
+        costInCents: BUILDING_ACCESS_COST_IN_CENTS,
         building: this.selectedRunBuilding
       };
       this.startBuildingPlacement();
@@ -838,6 +871,44 @@ class TerrainGameManager {
     return Boolean(this.pendingBuildingPlacement);
   }
 
+  getSunShadePurchaseCostInCents() {
+    return this.sunShadeCount === 0 ? 0 : SUN_SHADE_COST_IN_CENTS;
+  }
+
+  startSunShadePlacement() {
+    if (!this.isRunActive() || this.isBuildingPlacementActive()) {
+      return false;
+    }
+
+    const costInCents = this.getSunShadePurchaseCostInCents();
+    const sunShadeNumber = this.sunShadeCount + 1;
+    const purchaseSourceId = `sun-shade-${sunShadeNumber}`;
+
+    try {
+      if (costInCents > 0) {
+        this.beachEconomyModel.recordExpense({
+          sourceId: purchaseSourceId,
+          amountInCents: costInCents
+        });
+      }
+
+      this.pendingBuildingPlacement = {
+        type: SCENERY_TYPES.SUN_SHADE,
+        purchaseSourceId,
+        costInCents,
+        building: {
+          color: [1, 1, 1]
+        }
+      };
+      this.startBuildingPlacement();
+      this.gameModeView.render("BUILD");
+      return true;
+    } catch (error) {
+      console.error(error);
+      return false;
+    }
+  }
+
   cancelPendingBuildingPlacement() {
     const pendingPlacement = this.pendingBuildingPlacement;
 
@@ -845,10 +916,12 @@ class TerrainGameManager {
       return false;
     }
 
-    this.beachEconomyModel.refundExpense({
-      sourceId: pendingPlacement.purchaseSourceId,
-      amountInCents: BUILDING_ACCESS_COST_IN_CENTS
-    });
+    if (pendingPlacement.costInCents > 0) {
+      this.beachEconomyModel.refundExpense({
+        sourceId: pendingPlacement.purchaseSourceId,
+        amountInCents: pendingPlacement.costInCents
+      });
+    }
     this.pendingBuildingPlacement = null;
     this.selectedRunBuilding = null;
     this.removeBuildingPlacementPreview();
@@ -871,6 +944,14 @@ class TerrainGameManager {
     return this.beachGrid.getTileAtWorldPosition(point[0], point[2]);
   }
 
+  isPlacementTileAllowed(tile, placementType = this.pendingBuildingPlacement?.type) {
+    if (placementType === SCENERY_TYPES.SUN_SHADE) {
+      return this.beachGrid.isSunShadeTile(tile);
+    }
+
+    return this.beachGrid.isBuildableTile(tile);
+  }
+
   getBuildingPlacementTile(cursorState) {
     const tile = this.getBuildingPlacementCursorTile(cursorState);
 
@@ -878,7 +959,7 @@ class TerrainGameManager {
       !tile ||
       tile.zone !== BEACH_ZONES.SAND ||
       !this.beachGrid.isTileAvailable(tile) ||
-      !this.beachGrid.isBuildableTile(tile)
+      !this.isPlacementTileAllowed(tile)
     ) {
       return null;
     }
@@ -968,6 +1049,16 @@ class TerrainGameManager {
     ) ? createScenerySceneObjects({
       sceneryAsset: this.wifiSpotAsset,
       position
+    }) : (
+      pendingPlacement.type === SCENERY_TYPES.SUN_SHADE && this.sunShadeAsset
+    ) ? createScenerySceneObjects({
+      sceneryAsset: this.sunShadeAsset,
+      position
+    }) : (
+      pendingPlacement.type === BUILDING_TYPES.TRASH_CANS && this.trashCansAsset
+    ) ? createScenerySceneObjects({
+      sceneryAsset: this.trashCansAsset,
+      position
     }) : createSceneryPlaceholderSceneObjects({
       gl: this.renderer.getContext(),
       sceneryType: pendingPlacement.type,
@@ -992,7 +1083,7 @@ class TerrainGameManager {
     if (
       !tile ||
       tile.zone !== BEACH_ZONES.SAND ||
-      !this.beachGrid.isBuildableTile(tile) ||
+      !this.isPlacementTileAllowed(tile) ||
       !this.beachGrid.isTileAvailable(tile)
     ) {
       return false;
@@ -1161,6 +1252,7 @@ class TerrainGameManager {
     }
 
     const { type, building } = pendingPlacement;
+    const isSunShadePlacement = type === SCENERY_TYPES.SUN_SHADE;
     const isFirstConstruction = this.constructedBuildingCount === 0;
     const selectedTile = this.updateBuildingPlacementPreview(cursorState);
 
@@ -1171,13 +1263,15 @@ class TerrainGameManager {
     let claimedTile = null;
 
     try {
-      const buildingNumber = this.constructedBuildingCount + 1;
+      const placementNumber = isSunShadePlacement ?
+        this.sunShadeCount + 1 :
+        this.constructedBuildingCount + 1;
       claimedTile = this.beachGrid.claimNearestAvailableTile({
         x: selectedTile.centerX,
         z: selectedTile.centerZ,
         zone: BEACH_ZONES.SAND,
         maxRadiusInTiles: 0,
-        reason: `building:${type}-${buildingNumber}`
+        reason: `${isSunShadePlacement ? "sun-shade" : "building"}:${type}-${placementNumber}`
       });
 
       if (!claimedTile) {
@@ -1204,6 +1298,16 @@ class TerrainGameManager {
     ) ? createScenerySceneObjects({
       sceneryAsset: this.wifiSpotAsset,
       position: buildingPosition
+    }) : (
+      isSunShadePlacement && this.sunShadeAsset
+    ) ? createScenerySceneObjects({
+      sceneryAsset: this.sunShadeAsset,
+      position: buildingPosition
+    }) : (
+      type === BUILDING_TYPES.TRASH_CANS && this.trashCansAsset
+    ) ? createScenerySceneObjects({
+      sceneryAsset: this.trashCansAsset,
+      position: buildingPosition
     }) : createSceneryPlaceholderSceneObjects({
         gl: this.renderer.getContext(),
         sceneryType: type,
@@ -1216,21 +1320,26 @@ class TerrainGameManager {
       for (const sceneObject of newBuildingSceneObjects) {
         sceneObject.instances = sceneObject.instances.map((instance) => ({
           ...instance,
-          id: `${type}-${buildingNumber}`
+          id: `${type}-${placementNumber}`
         }));
       }
 
-      this.buildingServicesModel.addBuilding(type);
+      if (!isSunShadePlacement) {
+        this.buildingServicesModel.addBuilding(type);
+        this.runBuildingSceneObjects.push(...newBuildingSceneObjects);
+        this.constructedBuildingCount += 1;
+      } else {
+        this.sunShadeSceneObjects.push(...newBuildingSceneObjects);
+        this.sunShadeCount += 1;
+      }
       this.removeBuildingPlacementPreview();
-      this.runBuildingSceneObjects.push(...newBuildingSceneObjects);
       this.sceneObjects.push(...newBuildingSceneObjects);
       this.startConstructionAnimation(newBuildingSceneObjects);
-      this.constructedBuildingCount += 1;
       this.pendingBuildingPlacement = null;
       this.selectedRunBuilding = null;
       this.gameModeView.render("LIVE");
 
-      if (!isFirstConstruction) {
+      if (isSunShadePlacement || !isFirstConstruction) {
         this.render();
         return;
       }
@@ -1245,6 +1354,7 @@ class TerrainGameManager {
       });
       this.render();
       await this.onboardingView.showNotice(BATHER_ONBOARDING_NOTICE);
+      this.worldInteractionGuide?.showForObject(`${SCENERY_TYPES.KIOSK}-main`);
       this.dayLifecycleController.startSpawning({
         averageRating: this.beachRatingModel.getSnapshot().averageRating,
         immediateBather: true
@@ -1253,10 +1363,12 @@ class TerrainGameManager {
       if (claimedTile) {
         this.beachGrid.releaseWorldPosition(claimedTile.centerX, claimedTile.centerZ);
       }
-      this.beachEconomyModel.refundExpense({
-        sourceId: pendingPlacement.purchaseSourceId,
-        amountInCents: BUILDING_ACCESS_COST_IN_CENTS
-      });
+      if (pendingPlacement.costInCents > 0) {
+        this.beachEconomyModel.refundExpense({
+          sourceId: pendingPlacement.purchaseSourceId,
+          amountInCents: pendingPlacement.costInCents
+        });
+      }
       this.pendingBuildingPlacement = null;
       this.selectedRunBuilding = null;
       this.removeBuildingPlacementPreview();
@@ -1333,6 +1445,46 @@ class TerrainGameManager {
     this.moneyCounterView?.render(moneyInCents);
   }
 
+  showMoneyGainAtPosition(position) {
+    return this.pickupFeedbackView?.showMoneyGain({
+      ...position,
+      targetElement: this.moneyCounterView?.getElement?.()
+    });
+  }
+
+  showMoneyGainFromBuilding(buildingType) {
+    if (!buildingType) {
+      return false;
+    }
+
+    const projectToOverlay = createWorldOverlayProjector({
+      root: this.root,
+      canvas: this.canvas,
+      camera: this.camera
+    });
+    const position = projectToOverlay(
+      `${buildingType}-main`,
+      this.runBuildingSceneObjects
+    );
+
+    return position ? this.showMoneyGainAtPosition(position) : false;
+  }
+
+  showMoneyGainFromBather(batherId) {
+    if (!batherId) {
+      return false;
+    }
+
+    const projectToOverlay = createWorldOverlayProjector({
+      root: this.root,
+      canvas: this.canvas,
+      camera: this.camera
+    });
+    const position = projectToOverlay(batherId, this.npcSceneObjects);
+
+    return position ? this.showMoneyGainAtPosition(position) : false;
+  }
+
   updateRatingCounter(snapshot) {
     this.ratingCounterView?.render(snapshot);
   }
@@ -1386,19 +1538,24 @@ class TerrainGameManager {
     }
   }
 
+  getInteractiveBuildingSceneObjects() {
+    return this.sceneObjects.filter((sceneObject) => (
+      sceneObject.sceneryType === SCENERY_TYPES.KIOSK ||
+      sceneObject.sceneryType === BUILDING_TYPES.BEVERAGE_STORE
+    ));
+  }
+
   hasWorldObjectInteraction(cursorState) {
     if (!this.isRunActive() || this.buildingChoiceActive) {
       return false;
     }
 
-    const beverageStoreSelection = this.findSceneObjectAtCursor(
+    const buildingSelection = this.findSceneObjectAtCursor(
       cursorState,
-      this.runBuildingSceneObjects.filter(
-        (sceneObject) => sceneObject.sceneryType === BUILDING_TYPES.BEVERAGE_STORE
-      )
+      this.getInteractiveBuildingSceneObjects()
     );
 
-    return Boolean(beverageStoreSelection || this.findSceneObjectAtCursor(cursorState));
+    return Boolean(buildingSelection || this.findSceneObjectAtCursor(cursorState));
   }
 
   selectWorldObject(cursorState) {
@@ -1416,16 +1573,25 @@ class TerrainGameManager {
       return;
     }
 
-    const beverageStoreSelection = this.findSceneObjectAtCursor(
+    const interactiveBuildingSceneObjects = this.getInteractiveBuildingSceneObjects();
+    const buildingSelection = this.findSceneObjectAtCursor(
       cursorState,
-      this.runBuildingSceneObjects.filter(
-        (sceneObject) => sceneObject.sceneryType === BUILDING_TYPES.BEVERAGE_STORE
-      )
+      interactiveBuildingSceneObjects
     );
 
-    if (beverageStoreSelection) {
-      this.focusCameraOnBuilding(beverageStoreSelection.objectId);
-      this.beverageStoreModalView.show({
+    if (buildingSelection) {
+      const sceneObject = interactiveBuildingSceneObjects.find((candidate) => (
+        candidate.instances?.some((instance) => instance.id === buildingSelection.objectId)
+      ));
+      const buildingType = sceneObject?.sceneryType;
+
+      if (buildingType === SCENERY_TYPES.KIOSK) {
+        this.worldInteractionGuide?.hide();
+      }
+      this.focusCameraOnBuilding(buildingType, buildingSelection.objectId);
+      this.buildingInteractionModalView.show({
+        buildingType,
+        actions: this.getBuildingInteractionActions(buildingType),
         onClose: () => this.restoreCameraAfterBuildingModal()
       });
       return;
@@ -1471,6 +1637,7 @@ class TerrainGameManager {
         collection.rewardAmountInCents + collection.bonusAmountInCents
       );
       const totalRewardInDollars = totalRewardInCents / 100;
+      this.showMoneyGainAtPosition(position);
       this.pickupFeedbackView.showCollection({
         ...position,
         valuable: collection.valuable,
@@ -1498,9 +1665,9 @@ class TerrainGameManager {
     this.renderIfLoopIsIdle();
   }
 
-  focusCameraOnBuilding(objectId) {
-    const sceneObject = this.runBuildingSceneObjects.find((candidate) => (
-      candidate.sceneryType === BUILDING_TYPES.BEVERAGE_STORE &&
+  focusCameraOnBuilding(buildingType, objectId) {
+    const sceneObject = this.getInteractiveBuildingSceneObjects().find((candidate) => (
+      candidate.sceneryType === buildingType &&
       candidate.instances?.some((instance) => instance.id === objectId)
     ));
     const instance = sceneObject?.instances?.find((candidate) => candidate.id === objectId);
@@ -1543,23 +1710,50 @@ class TerrainGameManager {
         pitch: BUILDING_CAMERA_FOCUS_PITCH
       }
     );
-    this.cleanBeachGuide?.markProjectionDirty();
+    this.markOnboardingProjectionDirty();
     return true;
   }
 
   restoreCameraAfterBuildingModal() {
     const restored = this.cameraTargetMotionNode?.restore();
     if (restored) {
-      this.cleanBeachGuide?.markProjectionDirty();
+      this.markOnboardingProjectionDirty();
     }
+  }
+
+  markOnboardingProjectionDirty() {
+    this.cleanBeachGuide?.markProjectionDirty();
+    this.worldInteractionGuide?.markProjectionDirty();
   }
 
   isCameraNavigationLocked() {
     return Boolean(
       this.buildingChoiceActive ||
-      this.beverageStoreModalView?.isOpen?.() ||
+      this.buildingInteractionModalView?.isOpen?.() ||
       this.cameraTargetMotionNode?.isActive?.()
     );
+  }
+
+  getBuildingInteractionActions(buildingType) {
+    if (buildingType !== SCENERY_TYPES.KIOSK) {
+      return [];
+    }
+
+    const costInCents = this.getSunShadePurchaseCostInCents();
+    const canAfford = Number(this.beachEconomyModel?.getSnapshot().moneyInCents) >= costInCents;
+    const costLabel = costInCents === 0 ? "FREE" : "$5";
+
+    return [{
+      label: `PLACE SUN-SHADE — ${costLabel}`,
+      description: costInCents === 0 ?
+        "Your first sun-shade is free." :
+        "Each additional sun-shade costs $5.",
+      disabled: !canAfford,
+      onSelect: () => {
+        this.buildingInteractionModalView.close();
+        this.startSunShadePlacement();
+      }
+    }];
   }
 
   applyCursorZoom(cursorState) {
@@ -1578,7 +1772,7 @@ class TerrainGameManager {
       this.playerExperienceModel?.recordNavigation(
         Math.min(Math.abs(cursorState.deltaY) / 120, 1)
       );
-      this.cleanBeachGuide.markProjectionDirty();
+      this.markOnboardingProjectionDirty();
       this.renderIfLoopIsIdle();
     }
   }
@@ -1599,7 +1793,7 @@ class TerrainGameManager {
     this.playerExperienceModel?.recordNavigation(
       Math.min(Math.hypot(cursorState.deltaX, cursorState.deltaY) / 40, 1)
     );
-    this.cleanBeachGuide.markProjectionDirty();
+    this.markOnboardingProjectionDirty();
 
     if (this.renderer) {
       this.renderIfLoopIsIdle();
@@ -1617,7 +1811,7 @@ class TerrainGameManager {
       this.playerExperienceModel?.recordNavigation(
         Math.min(Math.abs(cursorState.deltaX) / 80, 1)
       );
-      this.cleanBeachGuide.markProjectionDirty();
+      this.markOnboardingProjectionDirty();
       this.renderIfLoopIsIdle();
     }
   }
@@ -1685,7 +1879,7 @@ class TerrainGameManager {
 
       this.updateNavigationCamera(deltaSeconds);
       if (this.cameraTargetMotionNode?.update(deltaSeconds)) {
-        this.cleanBeachGuide?.markProjectionDirty();
+        this.markOnboardingProjectionDirty();
       }
       if (this.isRunActive() && !this.buildingChoiceActive) {
         this.playerExperienceModel?.update(deltaSeconds);
@@ -1744,7 +1938,7 @@ class TerrainGameManager {
       sceneObjects: this.worldObjectSceneObjects,
       objectId: null
     });
-    this.cleanBeachGuide.markProjectionDirty();
+    this.markOnboardingProjectionDirty();
   }
 
   refreshTerrainSceneObjects() {
@@ -1914,16 +2108,23 @@ class TerrainGameManager {
     const bathers = this.npcSystem.getSnapshot().filter(
       (npc) => npc.type === NPC_TYPES.BATHER
     );
+    const sunShadeUsers = bathers.filter((bather) => (
+      bather.state === NPC_STATES.RELAXING &&
+      bather.activityBuildingType === BEACH_AMENITY_TYPES.SUN_SHADE
+    ));
+    const sunShadePositions = this.getSunShadeWorldPositions();
     this.buildingServicesModel.update(deltaSeconds, {
       batherCount: bathers.length,
-      bathers
+      bathers,
+      sunShadeUsers
     });
     const servicePositions = this.getBuildingServiceWorldPositions();
     this.npcSystem.update(deltaSeconds, {
       buildingServices: this.buildingServicesModel.getSnapshot(),
       heat: this.heatModel.getSnapshot(),
       beverageStorePosition: servicePositions[BUILDING_TYPES.BEVERAGE_STORE] || null,
-      servicePositions
+      servicePositions,
+      sunShadePositions
     });
     const npcs = this.npcSystem.getSnapshot();
     updateNpcSceneObjects({
@@ -2080,6 +2281,19 @@ class TerrainGameManager {
     return positions;
   }
 
+  getSunShadeWorldPositions() {
+    return this.sunShadeSceneObjects.flatMap((sceneObject) => (
+      sceneObject.instances
+        .map((instance) => (
+          Array.isArray(instance.offset) && instance.offset.length === 3 &&
+          instance.offset.every(Number.isFinite) ?
+            [instance.offset[0], instance.offset[2]] :
+            null
+        ))
+        .filter(Boolean)
+    ));
+  }
+
   getBeverageStoreWorldPosition() {
     return this.getBuildingServiceWorldPositions()[BUILDING_TYPES.BEVERAGE_STORE] || null;
   }
@@ -2115,6 +2329,7 @@ class TerrainGameManager {
 
     this.npcComplaintView?.render(complaints);
     this.cleanBeachGuide?.render();
+    this.worldInteractionGuide?.render();
   }
 
   async loadWorld() {
@@ -2128,6 +2343,8 @@ class TerrainGameManager {
     this.beverageStoreAsset = world.beverageStoreAsset;
     this.beachHouseAsset = world.beachHouseAsset;
     this.wifiSpotAsset = world.wifiSpotAsset;
+    this.sunShadeAsset = world.sunShadeAsset;
+    this.trashCansAsset = world.trashCansAsset;
     this.terrainSceneObjects = world.terrainSceneObjects;
     this.npcSceneObjects = world.npcSceneObjects;
     this.sharkSceneObject = this.npcSceneObjects.find((sceneObject) => (
@@ -2210,6 +2427,7 @@ class TerrainGameManager {
       const position = projectToOverlay(bather.id, this.npcSceneObjects);
 
       if (position) {
+        this.showMoneyGainAtPosition(position);
         this.pickupFeedbackView.showCollection({
           ...position,
           valuable: true,

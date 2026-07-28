@@ -226,10 +226,19 @@ body {
 }
 
 .pickup-feedback,
-.pickup-feedback-hook {
+.pickup-feedback-hook,
+.money-gain-animation {
   position: absolute;
   image-rendering: pixelated;
   pointer-events: none;
+}
+
+.money-gain-animation {
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+  filter: drop-shadow(0.16rem 0.16rem 0 #080a0f);
+  transform: translate(-50%, -50%) scale(1.05);
 }
 
 .pickup-feedback {
@@ -1203,7 +1212,7 @@ body {
   }
 }
 
-.beverage-store-modal {
+.building-interaction-modal {
   position: absolute;
   inset: 0;
   z-index: 36;
@@ -1220,11 +1229,11 @@ body {
   pointer-events: auto;
 }
 
-.beverage-store-modal[hidden] {
+.building-interaction-modal[hidden] {
   display: none;
 }
 
-.beverage-store-modal__dialog {
+.building-interaction-modal__dialog {
   box-sizing: border-box;
   width: 50%;
   min-height: 100%;
@@ -1237,16 +1246,52 @@ body {
   transition: transform 0.25s steps(4, end);
 }
 
-.beverage-store-modal--visible .beverage-store-modal__dialog {
+.building-interaction-modal__title {
+  margin: 0 0 1rem;
+  color: #f2e7b5;
+  font-size: 1.1rem;
+  text-transform: uppercase;
+}
+
+.building-interaction-modal__actions {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.building-interaction-modal__action {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  color: #171923;
+  background: #f2c94c;
+  border: 3px solid #080a0f;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.building-interaction-modal__action:disabled {
+  color: #92949d;
+  background: #343744;
+  cursor: not-allowed;
+}
+
+.building-interaction-modal__description {
+  margin: -0.2rem 0 0.35rem;
+  color: #d3d5df;
+  font-size: 0.75rem;
+  line-height: 1.35;
+}
+
+.building-interaction-modal--visible .building-interaction-modal__dialog {
   transform: translateX(0);
 }
 
-.beverage-store-modal--closing .beverage-store-modal__dialog {
+.building-interaction-modal--closing .building-interaction-modal__dialog {
   transform: translateX(100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .beverage-store-modal__dialog {
+  .building-interaction-modal__dialog {
     transition: none;
   }
 }

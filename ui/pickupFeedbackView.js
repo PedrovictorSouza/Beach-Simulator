@@ -1,6 +1,12 @@
 const FEEDBACK_DURATION_MS = 700;
 const HOOK_DURATION_MS = 3000;
+const MONEY_GAIN_DURATION_MS = 850;
+const MONEY_GAIN_ARC_HEIGHT_PX = 54;
 const STAGE_MARGIN_PX = 32;
+const MONEY_IMAGE_URL = new URL(
+  "../2d-objects/money.png",
+  import.meta.url
+).href;
 
 export function createPickupFeedbackView({ root, windowRef = window }) {
   const layer = root.ownerDocument.createElement("div");
@@ -25,6 +31,78 @@ export function createPickupFeedbackView({ root, windowRef = window }) {
     element.style.top = `${top}px`;
   };
 
+  const getRootPoint = (element) => {
+    const rootRect = root.getBoundingClientRect();
+    const elementRect = element.getBoundingClientRect();
+
+    return {
+      x: elementRect.left - rootRect.left + elementRect.width * 0.5,
+      y: elementRect.top - rootRect.top + elementRect.height * 0.5
+    };
+  };
+
+  const scheduleFrame = windowRef.requestAnimationFrame?.bind(windowRef) ||
+    ((callback) => windowRef.setTimeout(callback, 16));
+
+  const animateMoneyGain = ({ x, y, targetElement }) => {
+    if (
+      !targetElement ||
+      !Number.isFinite(x) ||
+      !Number.isFinite(y)
+    ) {
+      return false;
+    }
+
+    const element = root.ownerDocument.createElement("img");
+    const target = getRootPoint(targetElement);
+    const start = { x, y };
+    const control = {
+      x: (start.x + target.x) * 0.5,
+      y: Math.min(start.y, target.y) - MONEY_GAIN_ARC_HEIGHT_PX
+    };
+    const startTime = windowRef.performance?.now?.() ?? Date.now();
+    const reduceMotion = windowRef.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const duration = reduceMotion ? 180 : MONEY_GAIN_DURATION_MS;
+
+    element.className = "money-gain-animation";
+    element.src = MONEY_IMAGE_URL;
+    element.alt = "Money gained";
+    element.setAttribute("aria-hidden", "true");
+    element.style.left = `${start.x}px`;
+    element.style.top = `${start.y}px`;
+    layer.append(element);
+
+    const update = () => {
+      const elapsed = (windowRef.performance?.now?.() ?? Date.now()) - startTime;
+      const linearProgress = Math.min(1, Math.max(0, elapsed / duration));
+      const progress = 1 - (1 - linearProgress) ** 3;
+      const inverseProgress = 1 - progress;
+      const nextX = inverseProgress ** 2 * start.x +
+        2 * inverseProgress * progress * control.x +
+        progress ** 2 * target.x;
+      const nextY = inverseProgress ** 2 * start.y +
+        2 * inverseProgress * progress * control.y +
+        progress ** 2 * target.y;
+
+      element.style.left = `${nextX}px`;
+      element.style.top = `${nextY}px`;
+      element.style.opacity = `${1 - linearProgress * 0.15}`;
+      element.style.transform = `translate(-50%, -50%) scale(${1.05 - progress * 0.25})`;
+
+      if (linearProgress >= 1) {
+        element.remove();
+        return;
+      }
+
+      scheduleFrame(update);
+    };
+
+    scheduleFrame(update);
+    return true;
+  };
+
   return Object.freeze({
     showValuableHook(position) {
       windowRef.clearTimeout(hookTimeoutId);
@@ -46,6 +124,9 @@ export function createPickupFeedbackView({ root, windowRef = window }) {
       place(element, { x, y });
       layer.append(element);
       windowRef.setTimeout(() => element.remove(), FEEDBACK_DURATION_MS);
+    },
+    showMoneyGain({ x, y, targetElement }) {
+      return animateMoneyGain({ x, y, targetElement });
     }
   });
 }

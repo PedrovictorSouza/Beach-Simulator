@@ -7,6 +7,7 @@ import {
 import {
   BEVERAGE_PURCHASE_PRICE_IN_CENTS,
   BEVERAGE_PURCHASE_DURATION_SECONDS,
+  BEACH_AMENITY_TYPES,
   BUILDING_SERVICE_MOTIVES,
   BUILDING_TYPES
 } from "../buildings/buildingServicesModel.js";
@@ -31,6 +32,7 @@ const RESTLESSNESS_RATE = 14;
 const RELAXING_DURATION_SECONDS = 3.5;
 const AUTONOMY_RESELECTION_RESTLESSNESS = 80;
 const SERVICE_ACTIVITY_DURATIONS = Object.freeze({
+  [BEACH_AMENITY_TYPES.SUN_SHADE]: 45,
   [BUILDING_TYPES.LIFEGUARD_BUILDING]: 3,
   [BUILDING_TYPES.WIFI_SPOT]: 7,
   [BUILDING_TYPES.TOILET_BUILDING]: 4,
@@ -64,6 +66,9 @@ const ACTIVITY_REPEAT_UTILITY = -24;
 const ACTIVITY_VARIATION_UTILITY = 12;
 const ACTIVITY_PROXIMITY_RANGE = 70;
 const HIGH_HEAT_BEVERAGE_PURCHASE_CHANCE = 0.75;
+const SUN_SHADE_MIN_PURCHASE_CHANCE = 0.12;
+const SUN_SHADE_HEAT_PURCHASE_CHANCE = 0.68;
+const SUN_SHADE_HEAT_UTILITY = 52;
 const SERVICE_NEED_THRESHOLD = 26;
 const SERVICE_DISTANCE_ATTENUATION = 0.018;
 const SERVICE_REPEAT_UTILITY = -18;
@@ -244,6 +249,67 @@ function createServiceActivityCandidate(
   });
 }
 
+function createSunShadeActivityCandidates(
+  entity,
+  sunShadePositions,
+  heat,
+  random,
+  serviceUseCounts
+) {
+  if (!Array.isArray(sunShadePositions) || sunShadePositions.length === 0) {
+    return [];
+  }
+
+  const heatValue = Math.max(0, Math.min(100, Number(heat?.heat) || 0));
+  const purchaseChance = SUN_SHADE_MIN_PURCHASE_CHANCE +
+    SUN_SHADE_HEAT_PURCHASE_CHANCE * heatValue / 100;
+
+  if (sampleUnit(random) >= purchaseChance) {
+    return [];
+  }
+
+  const serviceUseCount = Math.max(
+    0,
+    Math.floor(Number(serviceUseCounts[BEACH_AMENITY_TYPES.SUN_SHADE]) || 0)
+  );
+
+  if (serviceUseCount >= sunShadePositions.length) {
+    return [];
+  }
+
+  return sunShadePositions
+    .filter((position) => (
+      Array.isArray(position) &&
+      position.length === 2 &&
+      position.every(Number.isFinite)
+    ))
+    .map((position) => {
+      const distance = Math.hypot(
+        position[0] - entity.position[0],
+        position[1] - entity.position[1]
+      );
+      const proximityUtility = Math.max(0, ACTIVITY_PROXIMITY_RANGE - distance);
+      const noveltyUtility = entity.lastServiceBuildingType === BEACH_AMENITY_TYPES.SUN_SHADE
+        ? SERVICE_REPEAT_UTILITY
+        : 0;
+      const variationUtility = sampleUnit(random) * SERVICE_VARIATION_UTILITY;
+      const rawUtility = (
+        SUN_SHADE_HEAT_UTILITY * heatValue / 100 +
+        proximityUtility * 0.4 +
+        noveltyUtility +
+        variationUtility -
+        serviceUseCount * 20
+      );
+
+      return Object.freeze({
+        buildingType: BEACH_AMENITY_TYPES.SUN_SHADE,
+        motive: null,
+        waypoint: Object.freeze([...position]),
+        utility: rawUtility / (1 + SERVICE_DISTANCE_ATTENUATION * distance)
+      });
+    });
+}
+
 function selectNextActivity(
   entity,
   random,
@@ -251,6 +317,8 @@ function selectNextActivity(
     buildingServices = {},
     servicePositions = {},
     serviceUseCounts = {},
+    sunShadePositions = [],
+    heat = {},
     notifyServiceDecision = null
   } = {}
 ) {
@@ -289,7 +357,18 @@ function selectNextActivity(
       })
       .filter(Boolean)
     : [];
-  const allCandidates = [...candidates, ...serviceCandidates];
+  const sunShadeCandidates = createSunShadeActivityCandidates(
+    entity,
+    sunShadePositions,
+    heat,
+    random,
+    serviceUseCounts
+  );
+  const allCandidates = [
+    ...candidates,
+    ...serviceCandidates,
+    ...sunShadeCandidates
+  ];
   const selected = allCandidates.reduce((best, candidate) => (
     candidate.utility > best.utility ? candidate : best
   ));
@@ -299,7 +378,8 @@ function selectNextActivity(
   entity.activityChoice = Object.freeze({
     candidateIndices: Object.freeze(candidates.map(({ waypointIndex }) => waypointIndex)),
     candidateServiceTypes: Object.freeze(
-      serviceCandidates.map(({ buildingType }) => buildingType)
+      [...serviceCandidates, ...sunShadeCandidates]
+        .map(({ buildingType }) => buildingType)
     ),
     selectedIndex: selected.waypointIndex ?? null,
     selectedServiceType: selected.buildingType ?? null,
@@ -753,7 +833,8 @@ export function createNpcSystem({ random = Math.random } = {}) {
         buildingServices = {},
         heat = {},
         beverageStorePosition = null,
-        servicePositions = {}
+        servicePositions = {},
+        sunShadePositions = []
       } = {}
     ) {
       const stepSeconds = Math.min(Math.max(Number(deltaSeconds) || 0, 0), 0.05);
@@ -780,6 +861,8 @@ export function createNpcSystem({ random = Math.random } = {}) {
             buildingServices,
             servicePositions,
             serviceUseCounts,
+            sunShadePositions,
+            heat,
             notifyServiceDecision
           });
 
@@ -829,6 +912,8 @@ export function createNpcSystem({ random = Math.random } = {}) {
               buildingServices,
               servicePositions,
               serviceUseCounts,
+              sunShadePositions,
+              heat,
               notifyServiceDecision
             });
           }
