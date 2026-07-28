@@ -12,6 +12,7 @@ const POSITIVE_REVIEW_MOTIVES = new Set([
   BUILDING_SERVICE_MOTIVES.CLEANLINESS,
   BUILDING_SERVICE_MOTIVES.SAFETY
 ]);
+const SATISFIED_MOTIVE_THRESHOLD = 25;
 
 function getBandForRating(rating) {
   if (rating >= 5) {
@@ -33,7 +34,8 @@ export function evaluateBatherReview({
   toleranceUsed,
   toleranceLimit,
   toleranceIssues = [],
-  availableServiceMotives = []
+  availableServiceMotives = [],
+  motiveNeeds = {}
 }) {
   const normalizedLimit = Math.max(1, Number(toleranceLimit) || 1);
   const normalizedUsed = Math.min(
@@ -53,11 +55,18 @@ export function evaluateBatherReview({
     baseRating = 2;
   }
 
+  const availableMotives = Array.isArray(availableServiceMotives) ?
+    availableServiceMotives : [];
+  const satisfiedServiceMotives = availableMotives.filter((motive) => (
+    !POSITIVE_REVIEW_MOTIVES.has(motive) &&
+    Number.isFinite(Number(motiveNeeds?.[motive])) &&
+    Number(motiveNeeds[motive]) <= SATISFIED_MOTIVE_THRESHOLD
+  ));
   const positiveServiceMotives = Object.freeze([
-    ...new Set(
-      (Array.isArray(availableServiceMotives) ? availableServiceMotives : [])
-        .filter((motive) => POSITIVE_REVIEW_MOTIVES.has(motive))
-    )
+    ...new Set([
+      ...availableMotives.filter((motive) => POSITIVE_REVIEW_MOTIVES.has(motive)),
+      ...satisfiedServiceMotives
+    ])
   ]);
   const serviceBonus = positiveServiceMotives.length;
   const rating = Math.min(5, baseRating + serviceBonus);

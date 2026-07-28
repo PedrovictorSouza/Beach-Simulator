@@ -74,6 +74,9 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
   const windowRef = documentRef.defaultView;
   const element = documentRef.createElement("div");
   const titleElement = documentRef.createElement("strong");
+  const forecastElement = documentRef.createElement("section");
+  const forecastTitleElement = documentRef.createElement("strong");
+  const forecastLinesElement = documentRef.createElement("div");
   const continueButton = documentRef.createElement("button");
   const playAgainButton = documentRef.createElement("button");
   let resolveDayAdvance = null;
@@ -83,6 +86,11 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
   titleElement.className = "run-intro__title";
   titleElement.setAttribute("role", "status");
   titleElement.setAttribute("aria-live", "assertive");
+  forecastElement.className = "day-forecast";
+  forecastElement.hidden = true;
+  forecastTitleElement.className = "day-forecast__title";
+  forecastLinesElement.className = "day-forecast__lines";
+  forecastElement.append(forecastTitleElement, forecastLinesElement);
   continueButton.className = "run-intro__action";
   continueButton.type = "button";
   continueButton.textContent = "CONTINUE";
@@ -103,7 +111,12 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
   playAgainButton.textContent = "PLAY AGAIN";
   playAgainButton.hidden = true;
   playAgainButton.addEventListener("click", () => onPlayAgain?.());
-  element.append(titleElement, continueButton, playAgainButton);
+  element.append(
+    titleElement,
+    forecastElement,
+    continueButton,
+    playAgainButton
+  );
   root.append(element);
 
   function setHudActive(active) {
@@ -116,12 +129,16 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
 
   return Object.freeze({
     setHudActive,
-    async playDay(day, { notice = "" } = {}) {
+    async playDay(day, { notice = "", forecast = null } = {}) {
       if (!Number.isSafeInteger(day) || day <= 0) {
         throw new Error("RunPresentationView precisa de um dia inteiro positivo.");
       }
 
       const normalizedNotice = String(notice || "").trim();
+      const forecastLines = Array.isArray(forecast?.lines) ?
+        forecast.lines.map((line) => String(line || "").trim()).filter(Boolean) :
+        [];
+      const hasForecast = forecastLines.length > 0;
 
       setHudActive(false);
       titleElement.style.removeProperty("font-size");
@@ -136,15 +153,31 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
       titleElement.textContent = [`DAY ${day}`, normalizedNotice]
         .filter(Boolean)
         .join("\n");
+      forecastTitleElement.textContent = String(
+        forecast?.title || "TODAY'S OUTLOOK"
+      );
+      forecastLinesElement.replaceChildren(...forecastLines.map((line) => {
+        const lineElement = documentRef.createElement("span");
+
+        lineElement.className = "day-forecast__line";
+        lineElement.textContent = line;
+        return lineElement;
+      }));
+      forecastElement.hidden = !hasForecast;
       playAgainButton.hidden = true;
-      continueButton.hidden = !normalizedNotice;
+      continueButton.hidden = !(normalizedNotice || hasForecast);
       element.hidden = false;
       element.classList.remove("run-intro--playing");
-      element.classList.toggle("run-intro--waiting", Boolean(normalizedNotice));
+      element.classList.toggle(
+        "run-intro--waiting",
+        normalizedNotice || hasForecast
+      );
+      element.classList.toggle("run-intro--forecast", hasForecast);
+      element.classList.toggle("run-intro--summary", Boolean(normalizedNotice));
       void element.offsetWidth;
       element.classList.add("run-intro--playing");
 
-      if (normalizedNotice) {
+      if (normalizedNotice || hasForecast) {
         await new Promise((resolve) => {
           resolveDayAdvance = resolve;
         });
@@ -155,8 +188,11 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
       }
 
       continueButton.hidden = true;
+      forecastElement.hidden = true;
       element.classList.remove("run-intro--playing");
       element.classList.remove("run-intro--waiting");
+      element.classList.remove("run-intro--forecast");
+      element.classList.remove("run-intro--summary");
       element.hidden = true;
     },
     showRunReport(input) {
@@ -165,7 +201,10 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
       setHudActive(false);
       element.classList.remove("run-intro--playing");
       element.classList.remove("run-intro--waiting");
+      element.classList.remove("run-intro--forecast");
+      element.classList.remove("run-intro--summary");
       continueButton.hidden = true;
+      forecastElement.hidden = true;
       titleElement.style.fontSize = "1rem";
       titleElement.style.lineHeight = "1.6";
       titleElement.style.textAlign = "center";

@@ -314,6 +314,28 @@ body {
   transition-delay: 0s;
 }
 
+.game-mode {
+  position: absolute;
+  top: 4.25rem;
+  right: 1rem;
+  min-width: 4.5rem;
+  padding: 0.35rem 0.55rem;
+  color: #fff8d8;
+  background: rgba(23, 25, 35, 0.86);
+  border: 0.12rem solid #fff8d8;
+  box-shadow: 0.18rem 0.18rem 0 #171923;
+  font-size: 0.7rem;
+  line-height: 1;
+  text-align: center;
+  text-shadow: 0.08rem 0.08rem 0 #171923;
+}
+
+.game-mode[data-mode="build"] {
+  color: #171923;
+  background: #f2c94c;
+  border-color: #171923;
+}
+
 .hud-stack {
   position: absolute;
   top: 1rem;
@@ -439,6 +461,44 @@ body {
     0.25rem 0.25rem #080a0f;
 }
 
+.run-intro--forecast .run-intro__title {
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.run-intro--forecast.run-intro--summary .run-intro__title {
+  font-size: 0.9rem;
+  line-height: 1.15;
+}
+
+.day-forecast {
+  display: grid;
+  gap: 0.35rem;
+  width: min(18rem, calc(100% - 2rem));
+  padding: 0.55rem 0.75rem;
+  color: #171923;
+  background: rgba(255, 248, 216, 0.94);
+  border: 0.15rem solid #171923;
+  box-shadow: 0.25rem 0.25rem 0 #080a0f;
+  text-align: center;
+}
+
+.day-forecast__title {
+  color: #e34ba9;
+  font-size: 0.75rem;
+  line-height: 1;
+}
+
+.day-forecast__lines {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.day-forecast__line {
+  font-size: 0.7rem;
+  line-height: 1.15;
+}
+
 .run-intro__action {
   min-width: 10rem;
   padding: 0.65rem 1rem;
@@ -526,6 +586,11 @@ body {
   user-select: none;
 }
 
+.bather-counter {
+  flex-wrap: wrap;
+  width: 12rem;
+}
+
 .bather-counter__label,
 .money-counter__label,
 .rating-counter__label {
@@ -569,6 +634,60 @@ body {
 .bather-counter__count {
   font-size: 3.2rem;
   transform: rotate(30deg);
+}
+
+.bather-counter__mood {
+  flex-basis: 100%;
+  display: grid;
+  gap: 0.12rem;
+  width: 12rem;
+  margin: -0.2rem 0 0.2rem;
+  padding: 0.3rem 0.45rem 0.35rem;
+  color: #171923;
+  background:
+    linear-gradient(
+      to right,
+      #63dc70 var(--bather-mood-score),
+      #3d4050 var(--bather-mood-score)
+    ) bottom / 100% 0.2rem no-repeat,
+    rgba(255, 248, 216, 0.86);
+  border: 0.12rem solid #171923;
+  font-size: 0.55rem;
+  line-height: 1.2;
+  text-shadow: none;
+}
+
+.bather-counter__mood[data-mood-band="uneasy"] {
+  background:
+    linear-gradient(
+      to right,
+      #f2c94c var(--bather-mood-score),
+      #3d4050 var(--bather-mood-score)
+    ) bottom / 100% 0.2rem no-repeat,
+    rgba(255, 248, 216, 0.86);
+}
+
+.bather-counter__mood[data-mood-band="upset"] {
+  background:
+    linear-gradient(
+      to right,
+      #e34ba9 var(--bather-mood-score),
+      #3d4050 var(--bather-mood-score)
+    ) bottom / 100% 0.2rem no-repeat,
+    rgba(255, 248, 216, 0.86);
+}
+
+.bather-counter__mood-title,
+.bather-counter__mood-need {
+  display: block;
+}
+
+.bather-counter__mood-title {
+  color: #080a0f;
+}
+
+.bather-counter__mood-need {
+  color: #5b5d68;
 }
 
 .rating-counter__stars {
@@ -1088,10 +1207,16 @@ body {
   position: absolute;
   inset: 0;
   z-index: 36;
-  display: grid;
-  place-items: center;
-  padding: 1rem;
-  background: rgba(8, 10, 15, 0.78);
+  display: flex;
+  align-items: stretch;
+  justify-content: flex-end;
+  background: linear-gradient(
+    90deg,
+    rgba(8, 10, 15, 0.08) 0%,
+    rgba(8, 10, 15, 0.08) 50%,
+    rgba(8, 10, 15, 0.78) 50%,
+    rgba(8, 10, 15, 0.78) 100%
+  );
   pointer-events: auto;
 }
 
@@ -1100,21 +1225,29 @@ body {
 }
 
 .beverage-store-modal__dialog {
-  width: min(30rem, 100%);
-  min-height: 12rem;
+  box-sizing: border-box;
+  width: 50%;
+  min-height: 100%;
+  padding: 1rem;
   background: #171923;
-  border: 4px solid #f2e7b5;
-  box-shadow: 6px 6px 0 #080a0f;
+  border-left: 4px solid #f2e7b5;
+  box-shadow: -6px 0 0 #080a0f;
   outline: none;
+  transform: translateX(100%);
+  transition: transform 0.25s steps(4, end);
 }
 
 .beverage-store-modal--visible .beverage-store-modal__dialog {
-  animation: building-choice-enter 0.25s steps(4, end);
+  transform: translateX(0);
+}
+
+.beverage-store-modal--closing .beverage-store-modal__dialog {
+  transform: translateX(100%);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .beverage-store-modal--visible .beverage-store-modal__dialog {
-    animation: none;
+  .beverage-store-modal__dialog {
+    transition: none;
   }
 }
 

@@ -93,6 +93,12 @@ function approachDirection(current, target, maxDelta) {
   };
 }
 
+function isValidTarget(target) {
+  return Array.isArray(target) &&
+    target.length === 3 &&
+    target.every(Number.isFinite);
+}
+
 function createIdentityMat4() {
   return new Float32Array([
     1, 0, 0, 0,
@@ -261,14 +267,80 @@ export function createStaticCamera(config = {}) {
     getTarget() {
       return [...state.target];
     },
+    setTarget(target) {
+      if (!isValidTarget(target)) {
+        throw new Error("Camera target precisa ser [x, y, z].");
+      }
+
+      state.target = [...target];
+      clampTarget();
+      return [...state.target];
+    },
     getCurvatureOrigin() {
       return [state.target[0], 0, state.target[2]];
     },
     getDistance() {
       return state.distance;
     },
+    getDistanceForScreenWidth(worldWidth, screenFraction = 0.5, aspect = 16 / 9) {
+      const normalizedWidth = Math.max(0, Number(worldWidth) || 0);
+      const normalizedFraction = clamp(Number(screenFraction) || 0, 0.01, 1);
+      const normalizedAspect = Math.max(0.01, Number(aspect) || 1);
+      const distance = normalizedWidth / (
+        2 * Math.tan(state.fov * 0.5) * normalizedAspect * normalizedFraction
+      );
+
+      return clamp(distance, state.minDistance, state.maxDistance);
+    },
+    getHorizontalScreenHalfSpan(aspect = 16 / 9, distance = state.distance) {
+      const normalizedAspect = Math.max(0.01, Number(aspect) || 1);
+      const normalizedDistance = Math.max(0, Number(distance) || 0);
+
+      return Math.tan(state.fov * 0.5) * normalizedAspect * normalizedDistance;
+    },
+    setDistance(distance) {
+      if (!Number.isFinite(distance)) {
+        throw new Error("Camera distance precisa ser um numero finito.");
+      }
+
+      state.distance = clamp(distance, state.minDistance, state.maxDistance);
+      return state.distance;
+    },
     getDirection() {
       return [...state.direction];
+    },
+    getYaw() {
+      return Math.atan2(state.direction[0], state.direction[2]);
+    },
+    getPitch() {
+      return Math.atan2(
+        state.direction[1],
+        Math.hypot(state.direction[0], state.direction[2])
+      );
+    },
+    setYaw(yaw) {
+      if (!Number.isFinite(yaw)) {
+        throw new Error("Camera yaw precisa ser um numero finito.");
+      }
+
+      const horizontalLength = Math.hypot(state.direction[0], state.direction[2]);
+      const horizontalX = Math.sin(yaw) * horizontalLength;
+      state.direction[0] = Math.abs(horizontalX) < 1e-12 ? 0 : horizontalX;
+      state.direction[2] = Math.cos(yaw) * horizontalLength;
+      return state.direction.slice();
+    },
+    setPitch(pitch) {
+      if (!Number.isFinite(pitch)) {
+        throw new Error("Camera pitch precisa ser um numero finito.");
+      }
+
+      const yaw = Math.atan2(state.direction[0], state.direction[2]);
+      const horizontalLength = Math.cos(pitch);
+      const horizontalX = Math.sin(yaw) * horizontalLength;
+      state.direction[0] = Math.abs(horizontalX) < 1e-12 ? 0 : horizontalX;
+      state.direction[1] = Math.sin(pitch);
+      state.direction[2] = Math.cos(yaw) * horizontalLength;
+      return state.direction.slice();
     },
     zoomBy(deltaY, focus = null) {
       const previousDistance = state.distance;

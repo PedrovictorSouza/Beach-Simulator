@@ -16,13 +16,23 @@ const POSITIVE_SERVICE_LABELS = Object.freeze({
 
 export function presentDayClosing({
   charges = [],
+  publicSupportInCents = 0,
   totalPaidInCents = 0
 } = {}) {
   const lines = [];
+  const normalizedPublicSupportInCents = Math.max(
+    0,
+    Math.trunc(Number(publicSupportInCents) || 0)
+  );
   const normalizedPaidInCents = Math.max(
     0,
     Math.trunc(Number(totalPaidInCents) || 0)
   );
+
+  if (normalizedPublicSupportInCents > 0) {
+    const amount = normalizedPublicSupportInCents / 100;
+    lines.push(`PUBLIC BEACH FUND +$${amount}`);
+  }
 
   if (normalizedPaidInCents > 0) {
     const amount = normalizedPaidInCents % 100 === 0 ?

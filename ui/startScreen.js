@@ -54,7 +54,7 @@ export function createStartScreenView({ root }) {
 
       ready = true;
       button.disabled = false;
-      button.textContent = "START";
+      button.textContent = "PRESS START";
       button.focus();
     },
     waitForStart() {

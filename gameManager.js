@@ -1,5 +1,6 @@
 import { createWorldRenderer } from "./rendering/worldRenderer.js";
 import { createStaticCamera } from "./camera/staticCamera.js";
+import { createCameraTargetMotionNode } from "./camera/cameraTargetMotionNode.js";
 import { createCursorInput } from "./input/cursor.js";
 import {
   getBeachEntryPosition,
@@ -25,7 +26,10 @@ import { createTaskListModel, createTaskListView } from "./ui/taskList.js";
 import { createBeachEconomyModel } from "./economy/beachEconomyModel.js";
 import { createBeachRatingModel } from "./ratings/beachRatingModel.js";
 import { evaluateBatherReview } from "./ratings/batherReviewPolicy.js";
-import { findMainReviewProblem } from "./ratings/dayReviewSummary.js";
+import {
+  findMainReviewProblem,
+  summarizeReviewProblems
+} from "./ratings/dayReviewSummary.js";
 import { createReviewRewardModel } from "./ratings/reviewRewardModel.js";
 import {
   createRunSessionModel,
@@ -39,6 +43,7 @@ import {
   presentDayResult
 } from "./ui/dayClosingPresenter.js";
 import { createStartScreenView } from "./ui/startScreen.js";
+import { createGameModeView } from "./ui/gameModeView.js";
 import { createTimeManager } from "./time/timeManager.js";
 import { createTimeCounterView } from "./ui/timeCounterView.js";
 import { createNpcComplaintView } from "./ui/npcComplaintView.js";
@@ -61,6 +66,7 @@ import {
 } from "./spawn/spawnManager.js";
 import {
   getSpawnableObjectDto,
+  SPAWNABLE_OBJECT_TYPES,
   SPAWNABLE_OBJECT_TRAITS,
   SPAWN_SOURCES
 } from "./spawn/spawnableObjectDto.js";
@@ -83,16 +89,39 @@ import {
 
 const COLLECTION_REWARD_IN_CENTS = 100;
 const CLEAN_BEACH_TASK_ID = "clean-the-beach";
+const LOGICAL_STAGE_WIDTH = 480;
+const LOGICAL_STAGE_HEIGHT = 272;
+const BUILDING_CAMERA_FOCUS_SCREEN_FRACTION = 0.44;
+const BUILDING_CAMERA_PERSPECTIVE_ANGLE = (10 * Math.PI) / 180;
+const BUILDING_CAMERA_FOCUS_YAW = Math.PI - BUILDING_CAMERA_PERSPECTIVE_ANGLE;
+const BUILDING_CAMERA_FOCUS_PITCH = 0;
 const CLEAN_BEACH_TARGET = 5;
 const WELCOME_BATHERS_TASK_ID = "welcome-more-bathers";
 const BUILD_FIRST_CONSTRUCTION_TASK_ID = "build-first-construction";
 const BUILDING_ACCESS_COST_IN_CENTS = 500;
 const BUILDING_PLACEHOLDER_SIZE = 10;
+const BUILDING_CONSTRUCTION_ANIMATION_DURATION_SECONDS = 0.65;
+const SHARK_WATERLINE_OFFSET = -3.6;
+const SHARK_SWIM_HEIGHT = 0.35;
+const SHARK_SWIM_PITCH = 0.08;
+const SHARK_SWIM_ROLL = 0.04;
 const TASK_COMPLETE_ANIMATION_MS = 1200;
 const BATHER_ONBOARDING_NOTICE = "Bathers are your customers. Keep them happy to earn better reviews.";
 const BUILDING_REVENUE_LABELS = Object.freeze({
   [BUILDING_TYPES.BEVERAGE_STORE]: "DRINK",
   [BUILDING_TYPES.WIFI_SPOT]: "WI-FI"
+});
+const BATHER_SERVICE_DECISION_LABELS = Object.freeze({
+  [BUILDING_TYPES.LIFEGUARD_BUILDING]: "LIFEGUARD",
+  [BUILDING_TYPES.WIFI_SPOT]: "WI-FI",
+  [BUILDING_TYPES.TOILET_BUILDING]: "TOILET",
+  [BUILDING_TYPES.VOLLEYBALL_COURT]: "VOLLEYBALL"
+});
+const BATHER_SERVICE_COMPLETION_LABELS = Object.freeze({
+  [BUILDING_TYPES.LIFEGUARD_BUILDING]: "LIFEGUARD +SAFETY",
+  [BUILDING_TYPES.WIFI_SPOT]: "WI-FI +CONNECTION",
+  [BUILDING_TYPES.TOILET_BUILDING]: "TOILET +RELIEF",
+  [BUILDING_TYPES.VOLLEYBALL_COURT]: "VOLLEYBALL +FUN"
 });
 const BUILDING_TYPE_BY_BATHER_PROBLEM = Object.freeze({
   [BATHER_PROBLEM_SOURCES.HEAT]: BUILDING_TYPES.BEVERAGE_STORE,
@@ -104,6 +133,72 @@ const FIRST_BUILDING_DEFERRED_TYPES = Object.freeze([
   BUILDING_TYPES.LIFEGUARD_BUILDING,
   BUILDING_TYPES.TOILET_BUILDING
 ]);
+
+function createDayForecast({ heat = {}, averageRating = 0, buildingServices = {} } = {}) {
+  const ratingProgress = Math.min(
+    1,
+    Math.max(0, Number(averageRating) || 0) / 5
+  );
+  const attractionMultiplier = Math.min(
+    2,
+    Math.max(0.25, Number(heat.attractionMultiplier) || 1)
+  );
+  const crowdScore = attractionMultiplier * (
+    0.85 + ratingProgress * 0.15
+  ) * (buildingServices.hasBeverageStore ? 1.05 : 1);
+  const crowd = crowdScore >= 1 ? "BUSY" : crowdScore >= 0.72 ? "STEADY" : "QUIET";
+  const litterScore = 35 + (
+    buildingServices.hasBeverageStore ? 20 : 0
+  ) - (buildingServices.hasTrashCans ? 27 : 0);
+  const litterPressure = litterScore <= 15 ? "LOW" : litterScore <= 35 ?
+    "MEDIUM" : "HIGH";
+  const sharkRisk = buildingServices.lifeguardOperational ? "LOW" : "HIGH";
+
+  return Object.freeze({
+    title: "TODAY'S OUTLOOK",
+    lines: Object.freeze([
+      `HEAT ${heat.level || "COMFORTABLE"}`,
+      `CROWD ${crowd}`,
+      `SHARK RISK ${sharkRisk}`,
+      `LITTER PRESSURE ${litterPressure}`
+    ])
+  });
+}
+
+function createDayProblemMap({
+  reviews = [],
+  remainingVisitorLitterCount = 0,
+  sharkEvents = 0,
+  lifeguardOperational = false
+} = {}) {
+  const problemCounts = new Map(
+    summarizeReviewProblems(reviews).map(({ source, count }) => [source, count])
+  );
+  const lines = [];
+  const mainProblem = findMainReviewProblem(reviews);
+
+  if (mainProblem === BATHER_PROBLEM_SOURCES.HEAT) {
+    lines.push("HEAT WAS THE BIGGEST PROBLEM");
+  }
+
+  if (remainingVisitorLitterCount > 0) {
+    lines.push("LITTER HURT YOUR RATING");
+  }
+
+  if (problemCounts.get(BATHER_PROBLEM_SOURCES.ENTERTAINMENT) > 0) {
+    lines.push("LOW ENTERTAINMENT");
+  }
+
+  if (sharkEvents > 0 && !lifeguardOperational) {
+    lines.push("SHARK RISK UNCONTROLLED");
+  }
+
+  return Object.freeze({
+    title: "BEACH PROBLEMS",
+    lines: Object.freeze(lines.length > 0 ? lines : ["NO MAJOR PROBLEMS"])
+  });
+}
+
 class TerrainGameManager {
   constructor() {
     this.started = false;
@@ -114,19 +209,28 @@ class TerrainGameManager {
     this.fpsElement = null;
     this.renderer = null;
     this.camera = null;
+    this.cameraTargetMotionNode = null;
     this.cursor = null;
     this.terrainAssets = null;
     this.beverageStoreAsset = null;
     this.beachHouseAsset = null;
+    this.wifiSpotAsset = null;
     this.terrainSceneObjects = [];
     this.beachGrid = null;
     this.npcSceneObjects = [];
     this.npcSystem = null;
+    this.sharkSceneObject = null;
+    this.activeSharkEvent = null;
+    this.sharkEventsToday = 0;
     this.spawnManager = null;
     this.worldObjectSceneObjects = [];
     this.visitorLitterObjectIds = new Set();
     this.currentVisitorCleanupTaskId = null;
     this.pendingBatherRevenue = [];
+    this.pendingBatherServiceDecisions = [];
+    this.pendingBatherServiceCompletions = [];
+    this.pendingBeverageDecisions = [];
+    this.pendingBeveragePurchases = [];
     this.pendingBatherReviews = [];
     this.pendingBatherToleranceFeedback = [];
     this.batherCounterView = null;
@@ -139,6 +243,10 @@ class TerrainGameManager {
     this.unsubscribeBeachRating = null;
     this.unsubscribeBatherDepartures = null;
     this.unsubscribeBatherToleranceChanges = null;
+    this.unsubscribeBatherServiceDecisions = null;
+    this.unsubscribeBatherServiceCompletions = null;
+    this.unsubscribeBatherBeverageDecisions = null;
+    this.unsubscribeBatherBeveragePurchases = null;
     this.taskListModel = null;
     this.taskListView = null;
     this.cleanBeachController = null;
@@ -148,6 +256,7 @@ class TerrainGameManager {
     this.runSessionModel = null;
     this.dayLifecycleController = null;
     this.runPresentationView = null;
+    this.gameModeView = null;
     this.startScreenView = null;
     this.onboardingView = null;
     this.buildingChoiceModel = null;
@@ -180,6 +289,7 @@ class TerrainGameManager {
     this.unsubscribeTimeManager = null;
     this.beachHouseSceneObjects = [];
     this.runBuildingSceneObjects = [];
+    this.constructionAnimations = [];
     this.terrainSurfaceY = 0;
     this.resolveWorldObjectPosition = null;
     this.sceneObjects = [];
@@ -205,13 +315,16 @@ class TerrainGameManager {
     this.windowRef = windowRef;
     this.startTimeMs = this.getNowMs();
     this.lastFrameTimeMs = this.startTimeMs;
-    this.camera = createStaticCamera();
+    this.camera = createStaticCamera({ minDistance: 22 });
+    this.cameraTargetMotionNode = createCameraTargetMotionNode({
+      camera: this.camera
+    });
     this.playerExperienceModel = createPlayerExperienceModel({
       initialPressureCount: CLEAN_BEACH_TARGET
     });
     this.mount();
-    this.startScreenView = createStartScreenView({ root: this.root });
     this.initializeUi();
+    this.startScreenView = createStartScreenView({ root: this.root });
     this.initializeCursor();
     this.initializeRenderer();
     this.loadWorld()
@@ -329,6 +442,7 @@ class TerrainGameManager {
       hudRoot: gameHudRoot,
       onPlayAgain: () => this.windowRef.location.reload()
     });
+    this.gameModeView = createGameModeView({ root: gameHudRoot });
     this.onboardingView = createOnboardingView({
       root: this.root,
       windowRef: this.windowRef
@@ -366,14 +480,22 @@ class TerrainGameManager {
 
   async beginRun({ notice = "" } = {}) {
     const { day } = this.runSessionModel.getSnapshot();
+    this.sharkEventsToday = 0;
+    const heatForecast = this.heatModel.startDay();
+    const forecast = createDayForecast({
+      heat: heatForecast,
+      averageRating: this.beachRatingModel.getSnapshot().averageRating,
+      buildingServices: this.buildingServicesModel.getSnapshot()
+    });
 
-    await this.runPresentationView.playDay(day, { notice });
-    this.heatMeterView.render(this.heatModel.startDay());
+    await this.runPresentationView.playDay(day, { notice, forecast });
+    this.heatMeterView.render(heatForecast);
     this.dayLifecycleController.startDay({
       averageRating: this.beachRatingModel.getSnapshot().averageRating,
       startWithSpawning: day !== 1
     });
     this.runPresentationView.setHudActive(true);
+    this.gameModeView.render("LIVE");
 
     if (day > 1 && this.constructedBuildingCount > 0) {
       this.startDailyCleanupTask(day);
@@ -432,6 +554,7 @@ class TerrainGameManager {
       npcs: [],
       terrainSurfaceY: this.terrainSurfaceY
     });
+    this.clearSharkEvent();
     this.updateBatherCounter([]);
     const dayReviews = [];
     for (const bather of this.pendingBatherReviews.splice(0)) {
@@ -449,6 +572,16 @@ class TerrainGameManager {
       reviews: dayReviews,
       closing
     });
+    const dayProblemMap = createDayProblemMap({
+      reviews: dayReviews,
+      remainingVisitorLitterCount: this.visitorLitterObjectIds.size,
+      sharkEvents: this.sharkEventsToday,
+      lifeguardOperational: closing.services?.lifeguardOperational
+    });
+    const dayProblemNotice = [
+      dayProblemMap.title,
+      ...dayProblemMap.lines
+    ].join("\n");
     this.runPresentationView.setHudActive(false);
     const completedRun = this.runSessionModel.getSnapshot();
 
@@ -462,7 +595,9 @@ class TerrainGameManager {
         totalBathers: ratingSnapshot.reviewCount,
         buildingsBuilt: this.constructedBuildingCount,
         reviews: ratingSnapshot.reviews,
-        closingNotice
+        closingNotice: [closingNotice, dayProblemNotice]
+          .filter(Boolean)
+          .join("\n")
       });
       this.disposeObservers();
       return;
@@ -470,7 +605,11 @@ class TerrainGameManager {
 
     this.runSessionModel.prepareNextDay();
     this.timeManager.reset();
-    await this.beginRun({ notice: dayResultNotice });
+    await this.beginRun({
+      notice: [dayResultNotice, dayProblemNotice]
+        .filter(Boolean)
+        .join("\n")
+    });
   }
 
   isRunActive() {
@@ -483,6 +622,10 @@ class TerrainGameManager {
       "unsubscribeBeachRating",
       "unsubscribeBatherDepartures",
       "unsubscribeBatherToleranceChanges",
+      "unsubscribeBatherServiceDecisions",
+      "unsubscribeBatherServiceCompletions",
+      "unsubscribeBatherBeverageDecisions",
+      "unsubscribeBatherBeveragePurchases",
       "unsubscribeTaskList",
       "unsubscribeBuildingEconomy",
       "unsubscribeBuildingRevenue",
@@ -538,6 +681,46 @@ class TerrainGameManager {
     });
   }
 
+  handleBeveragePurchase(event) {
+    if (
+      !event?.batherId ||
+      !Number.isSafeInteger(event.amountInCents) ||
+      event.amountInCents <= 0
+    ) {
+      return;
+    }
+
+    this.beachEconomyModel.recordIncome({
+      sourceId: `beverage-purchase-${event.batherId}-${event.sequence}`,
+      amountInCents: event.amountInCents
+    });
+    this.pendingBeveragePurchases.push(event);
+  }
+
+  handleBeverageDecision(event) {
+    if (!event?.batherId) {
+      return;
+    }
+
+    this.pendingBeverageDecisions.push(event);
+  }
+
+  handleBatherServiceDecision(event) {
+    if (!event?.batherId || !event?.buildingType) {
+      return;
+    }
+
+    this.pendingBatherServiceDecisions.push(event);
+  }
+
+  handleBatherServiceCompletion(event) {
+    if (!event?.batherId || !event?.buildingType) {
+      return;
+    }
+
+    this.pendingBatherServiceCompletions.push(event);
+  }
+
   scheduleCompletedTaskRemoval(task) {
     const taskId = String(task?.id || "");
 
@@ -577,6 +760,7 @@ class TerrainGameManager {
     }
 
     this.buildingChoiceActive = true;
+    this.gameModeView.render("BUILD");
 
     try {
       const ownedTypes = this.buildingServicesModel.getSnapshot().owned;
@@ -644,6 +828,9 @@ class TerrainGameManager {
       console.error(error);
     } finally {
       this.buildingChoiceActive = false;
+      if (!this.isBuildingPlacementActive()) {
+        this.gameModeView.render("LIVE");
+      }
     }
   }
 
@@ -665,11 +852,12 @@ class TerrainGameManager {
     this.pendingBuildingPlacement = null;
     this.selectedRunBuilding = null;
     this.removeBuildingPlacementPreview();
+    this.gameModeView.render("LIVE");
     this.renderIfLoopIsIdle();
     return true;
   }
 
-  getBuildingPlacementTile(cursorState) {
+  getBuildingPlacementCursorTile(cursorState) {
     if (!this.beachGrid || !cursorState) {
       return null;
     }
@@ -680,7 +868,11 @@ class TerrainGameManager {
       return null;
     }
 
-    const tile = this.beachGrid.getTileAtWorldPosition(point[0], point[2]);
+    return this.beachGrid.getTileAtWorldPosition(point[0], point[2]);
+  }
+
+  getBuildingPlacementTile(cursorState) {
+    const tile = this.getBuildingPlacementCursorTile(cursorState);
 
     if (
       !tile ||
@@ -767,9 +959,14 @@ class TerrainGameManager {
       sceneryAsset: this.beverageStoreAsset,
       position
     }) : (
-      pendingPlacement.type === BUILDING_TYPES.BEACH_HOUSE && this.beachHouseAsset
+      pendingPlacement.type === BUILDING_TYPES.LIFEGUARD_BUILDING && this.beachHouseAsset
     ) ? createScenerySceneObjects({
       sceneryAsset: this.beachHouseAsset,
+      position
+    }) : (
+      pendingPlacement.type === BUILDING_TYPES.WIFI_SPOT && this.wifiSpotAsset
+    ) ? createScenerySceneObjects({
+      sceneryAsset: this.wifiSpotAsset,
       position
     }) : createSceneryPlaceholderSceneObjects({
       gl: this.renderer.getContext(),
@@ -825,21 +1022,22 @@ class TerrainGameManager {
       return null;
     }
 
-    const tile = this.getBuildingPlacementTile(cursorState);
-    this.buildingPlacementTile = tile;
+    const cursorTile = this.getBuildingPlacementCursorTile(cursorState);
+    const validTile = this.getBuildingPlacementTile(cursorState);
+    this.buildingPlacementTile = validTile;
 
     const instance = this.buildingPlacementPreviewSceneObject?.instances?.[0];
     if (instance) {
-      instance.offset = tile ?
-        [tile.centerX, this.terrainSurfaceY, tile.centerZ] :
+      instance.offset = cursorTile ?
+        [cursorTile.centerX, this.terrainSurfaceY, cursorTile.centerZ] :
         [0, this.terrainSurfaceY, 0];
-      instance.tint = tile ? [1, 1, 1] : [1, 0.18, 0.12];
-      instance.tintStrength = tile ? 0 : 0.8;
-      instance.alpha = tile ? 0.58 : 0.28;
+      instance.tint = validTile ? [1, 1, 1] : [1, 0.18, 0.12];
+      instance.tintStrength = validTile ? 0 : 0.8;
+      instance.alpha = validTile ? 0.58 : 0.28;
     }
 
     this.renderIfLoopIsIdle();
-    return tile;
+    return validTile;
   }
 
   removeBuildingPlacementPreview() {
@@ -992,16 +1190,21 @@ class TerrainGameManager {
         claimedTile.centerZ
       ];
       const newBuildingSceneObjects = (
-        type === BUILDING_TYPES.BEVERAGE_STORE && this.beverageStoreAsset
-      ) ? createScenerySceneObjects({
-        sceneryAsset: this.beverageStoreAsset,
-        position: buildingPosition
-      }) : (
-        type === BUILDING_TYPES.BEACH_HOUSE && this.beachHouseAsset
-      ) ? createScenerySceneObjects({
-        sceneryAsset: this.beachHouseAsset,
-        position: buildingPosition
-      }) : createSceneryPlaceholderSceneObjects({
+      type === BUILDING_TYPES.BEVERAGE_STORE && this.beverageStoreAsset
+    ) ? createScenerySceneObjects({
+      sceneryAsset: this.beverageStoreAsset,
+      position: buildingPosition
+    }) : (
+      type === BUILDING_TYPES.LIFEGUARD_BUILDING && this.beachHouseAsset
+    ) ? createScenerySceneObjects({
+      sceneryAsset: this.beachHouseAsset,
+      position: buildingPosition
+    }) : (
+      type === BUILDING_TYPES.WIFI_SPOT && this.wifiSpotAsset
+    ) ? createScenerySceneObjects({
+      sceneryAsset: this.wifiSpotAsset,
+      position: buildingPosition
+    }) : createSceneryPlaceholderSceneObjects({
         gl: this.renderer.getContext(),
         sceneryType: type,
         model: this.terrainAssets.groundModel,
@@ -1021,9 +1224,11 @@ class TerrainGameManager {
       this.removeBuildingPlacementPreview();
       this.runBuildingSceneObjects.push(...newBuildingSceneObjects);
       this.sceneObjects.push(...newBuildingSceneObjects);
+      this.startConstructionAnimation(newBuildingSceneObjects);
       this.constructedBuildingCount += 1;
       this.pendingBuildingPlacement = null;
       this.selectedRunBuilding = null;
+      this.gameModeView.render("LIVE");
 
       if (!isFirstConstruction) {
         this.render();
@@ -1055,16 +1260,73 @@ class TerrainGameManager {
       this.pendingBuildingPlacement = null;
       this.selectedRunBuilding = null;
       this.removeBuildingPlacementPreview();
+      this.gameModeView.render("LIVE");
       console.error(error);
     }
   }
 
-  updateBatherCounter(npcs) {
-    const batherCount = npcs.reduce((count, npc) => (
-      npc.type === NPC_TYPES.BATHER ? count + 1 : count
-    ), 0);
+  startConstructionAnimation(sceneObjects) {
+    for (const sceneObject of sceneObjects) {
+      for (const instance of sceneObject.instances) {
+        const finalScale = instance.scale ?? 1;
 
-    this.batherCounterView?.render(batherCount);
+        instance.scale = 0;
+        instance.alpha = 0;
+        this.constructionAnimations.push({
+          instance,
+          finalScale,
+          elapsedSeconds: 0
+        });
+      }
+    }
+  }
+
+  updateConstructionAnimations(deltaSeconds) {
+    if (this.constructionAnimations.length === 0) {
+      return;
+    }
+
+    const stepSeconds = Math.max(0, Number(deltaSeconds) || 0);
+    const remainingAnimations = [];
+
+    for (const animation of this.constructionAnimations) {
+      animation.elapsedSeconds = Math.min(
+        BUILDING_CONSTRUCTION_ANIMATION_DURATION_SECONDS,
+        animation.elapsedSeconds + stepSeconds
+      );
+
+      const progress = animation.elapsedSeconds /
+        BUILDING_CONSTRUCTION_ANIMATION_DURATION_SECONDS;
+      const easedProgress = this.easeOutBack(progress);
+      const alphaProgress = 1 - (1 - progress) ** 3;
+
+      animation.instance.scale = animation.finalScale * easedProgress;
+      animation.instance.alpha = alphaProgress;
+
+      if (progress < 1) {
+        remainingAnimations.push(animation);
+      } else {
+        animation.instance.scale = animation.finalScale;
+        animation.instance.alpha = 1;
+      }
+    }
+
+    this.constructionAnimations = remainingAnimations;
+  }
+
+  easeOutBack(value) {
+    const t = Math.min(1, Math.max(0, Number(value) || 0));
+    const overshoot = 1.70158;
+    const shifted = t - 1;
+
+    return 1 + (overshoot + 1) * shifted ** 3 + overshoot * shifted ** 2;
+  }
+
+  updateBatherCounter(npcs) {
+    const bathers = npcs.filter((npc) => npc.type === NPC_TYPES.BATHER);
+    const batherCount = bathers.length;
+
+    this.batherCounterView?.render(batherCount, bathers);
   }
 
   updateMoneyCounter({ moneyInCents }) {
@@ -1162,7 +1424,10 @@ class TerrainGameManager {
     );
 
     if (beverageStoreSelection) {
-      this.beverageStoreModalView.show();
+      this.focusCameraOnBuilding(beverageStoreSelection.objectId);
+      this.beverageStoreModalView.show({
+        onClose: () => this.restoreCameraAfterBuildingModal()
+      });
       return;
     }
 
@@ -1205,12 +1470,13 @@ class TerrainGameManager {
       const totalRewardInCents = (
         collection.rewardAmountInCents + collection.bonusAmountInCents
       );
+      const totalRewardInDollars = totalRewardInCents / 100;
       this.pickupFeedbackView.showCollection({
         ...position,
         valuable: collection.valuable,
         text: collection.bonusAmountInCents > 0
-          ? `+$${(totalRewardInCents / 100).toFixed(2)} BONUS!`
-          : `+$${(totalRewardInCents / 100).toFixed(2)}`
+          ? `+$${totalRewardInDollars} BONUS!`
+          : `+$${totalRewardInDollars}`
       });
     }
 
@@ -1232,8 +1498,72 @@ class TerrainGameManager {
     this.renderIfLoopIsIdle();
   }
 
+  focusCameraOnBuilding(objectId) {
+    const sceneObject = this.runBuildingSceneObjects.find((candidate) => (
+      candidate.sceneryType === BUILDING_TYPES.BEVERAGE_STORE &&
+      candidate.instances?.some((instance) => instance.id === objectId)
+    ));
+    const instance = sceneObject?.instances?.find((candidate) => candidate.id === objectId);
+
+    if (
+      !instance ||
+      !Array.isArray(instance.offset) ||
+      instance.offset.length !== 3 ||
+      !instance.offset.every(Number.isFinite)
+    ) {
+      return false;
+    }
+
+    const modelSpan = Math.max(
+      Number(sceneObject.model?.size?.[0]) || 0,
+      Number(sceneObject.model?.size?.[2]) || 0
+    ) * (Number(instance.scale) || 1);
+    const focusDistance = this.camera.getDistanceForScreenWidth(
+      modelSpan,
+      BUILDING_CAMERA_FOCUS_SCREEN_FRACTION,
+      LOGICAL_STAGE_WIDTH / LOGICAL_STAGE_HEIGHT
+    );
+    const targetScreenOffset = this.camera.getHorizontalScreenHalfSpan(
+      LOGICAL_STAGE_WIDTH / LOGICAL_STAGE_HEIGHT,
+      focusDistance
+    ) * BUILDING_CAMERA_FOCUS_SCREEN_FRACTION;
+    const modelHeight = (
+      Number(sceneObject.model?.size?.[1]) || 0
+    ) * (Number(instance.scale) || 1);
+
+    this.cameraTargetMotionNode?.focus(
+      [
+        instance.offset[0] + Math.cos(BUILDING_CAMERA_FOCUS_YAW) * targetScreenOffset,
+        instance.offset[1] + modelHeight * 0.5,
+        instance.offset[2] - Math.sin(BUILDING_CAMERA_FOCUS_YAW) * targetScreenOffset
+      ],
+      {
+        distance: focusDistance,
+        yaw: BUILDING_CAMERA_FOCUS_YAW,
+        pitch: BUILDING_CAMERA_FOCUS_PITCH
+      }
+    );
+    this.cleanBeachGuide?.markProjectionDirty();
+    return true;
+  }
+
+  restoreCameraAfterBuildingModal() {
+    const restored = this.cameraTargetMotionNode?.restore();
+    if (restored) {
+      this.cleanBeachGuide?.markProjectionDirty();
+    }
+  }
+
+  isCameraNavigationLocked() {
+    return Boolean(
+      this.buildingChoiceActive ||
+      this.beverageStoreModalView?.isOpen?.() ||
+      this.cameraTargetMotionNode?.isActive?.()
+    );
+  }
+
   applyCursorZoom(cursorState) {
-    if (!this.isRunActive() || this.buildingChoiceActive) {
+    if (!this.isRunActive() || this.isCameraNavigationLocked()) {
       return;
     }
 
@@ -1254,7 +1584,7 @@ class TerrainGameManager {
   }
 
   applyCursorPan(cursorState) {
-    if (!this.isRunActive() || this.buildingChoiceActive) {
+    if (!this.isRunActive() || this.isCameraNavigationLocked()) {
       return;
     }
 
@@ -1277,7 +1607,7 @@ class TerrainGameManager {
   }
 
   applyCursorRotate(cursorState) {
-    if (!this.isRunActive() || this.buildingChoiceActive) {
+    if (!this.isRunActive() || this.isCameraNavigationLocked()) {
       return;
     }
 
@@ -1354,6 +1684,9 @@ class TerrainGameManager {
       this.lastFrameTimeMs = now;
 
       this.updateNavigationCamera(deltaSeconds);
+      if (this.cameraTargetMotionNode?.update(deltaSeconds)) {
+        this.cleanBeachGuide?.markProjectionDirty();
+      }
       if (this.isRunActive() && !this.buildingChoiceActive) {
         this.playerExperienceModel?.update(deltaSeconds);
         const timeSnapshot = this.timeManager?.update(deltaSeconds);
@@ -1366,6 +1699,8 @@ class TerrainGameManager {
         }
       }
       this.updateNpcWorld(deltaSeconds);
+      this.updateSharkEvent(deltaSeconds);
+      this.updateConstructionAnimations(deltaSeconds);
       this.render();
       this.updateFpsCounter(now);
       this.animationFrameId = scheduleFrame(tick);
@@ -1375,7 +1710,7 @@ class TerrainGameManager {
   }
 
   updateNavigationCamera(deltaSeconds) {
-    if (!this.isRunActive() || this.buildingChoiceActive) {
+    if (!this.isRunActive() || this.isCameraNavigationLocked()) {
       this.camera.stopMotion();
       return;
     }
@@ -1424,6 +1759,97 @@ class TerrainGameManager {
     });
   }
 
+  startSharkEvent(request) {
+    const placement = request?.placement;
+    const startPosition = placement?.position;
+    const exitPosition = placement?.exitPosition;
+
+    if (
+      !this.sharkSceneObject ||
+      !Array.isArray(startPosition) ||
+      !Array.isArray(exitPosition) ||
+      startPosition.length !== 2 ||
+      exitPosition.length !== 2 ||
+      !startPosition.every(Number.isFinite) ||
+      !exitPosition.every(Number.isFinite)
+    ) {
+      return false;
+    }
+
+    const direction = Number(placement.direction) < 0 ? -1 : 1;
+    const modelYawOffset = Number(this.sharkSceneObject.modelFaceYawOffset) || 0;
+
+    this.activeSharkEvent = {
+      id: request.id,
+      elapsedSeconds: 0,
+      durationSeconds: Math.max(0.1, Number(request.durationSeconds) || 12),
+      startPosition: [...startPosition],
+      exitPosition: [...exitPosition],
+      direction,
+      modelYaw: modelYawOffset + (direction > 0 ? -Math.PI / 2 : Math.PI / 2)
+    };
+    this.sharkEventsToday += 1;
+    this.sharkSceneObject.instances = [{
+      id: request.id,
+      offset: [
+        startPosition[0],
+        this.terrainSurfaceY + SHARK_WATERLINE_OFFSET + SHARK_SWIM_HEIGHT,
+        startPosition[1]
+      ],
+      scale: 1,
+      yaw: this.activeSharkEvent.modelYaw,
+      pitch: 0,
+      roll: 0,
+      tint: [1, 1, 1],
+      tintStrength: 0,
+      alpha: 1
+    }];
+
+    return true;
+  }
+
+  updateSharkEvent(deltaSeconds) {
+    if (!this.activeSharkEvent || !this.sharkSceneObject) {
+      return;
+    }
+
+    const event = this.activeSharkEvent;
+    event.elapsedSeconds += Math.max(0, Number(deltaSeconds) || 0);
+    const progress = Math.min(1, event.elapsedSeconds / event.durationSeconds);
+    const x = event.startPosition[0] + (
+      event.exitPosition[0] - event.startPosition[0]
+    ) * progress;
+    const z = event.startPosition[1] + (
+      event.exitPosition[1] - event.startPosition[1]
+    ) * progress;
+    const swimPhase = event.elapsedSeconds * 6.5;
+    const instance = this.sharkSceneObject.instances[0];
+
+    if (instance) {
+      instance.offset = [
+        x,
+        this.terrainSurfaceY + SHARK_WATERLINE_OFFSET +
+          SHARK_SWIM_HEIGHT + Math.sin(swimPhase) * 0.08,
+        z
+      ];
+      instance.yaw = event.modelYaw;
+      instance.pitch = Math.sin(swimPhase) * SHARK_SWIM_PITCH;
+      instance.roll = Math.cos(swimPhase * 0.7) * SHARK_SWIM_ROLL;
+    }
+
+    if (progress >= 1) {
+      this.clearSharkEvent();
+    }
+  }
+
+  clearSharkEvent() {
+    this.activeSharkEvent = null;
+
+    if (this.sharkSceneObject) {
+      this.sharkSceneObject.instances = [];
+    }
+  }
+
   updateSpawns(deltaSeconds) {
     if (!this.spawnManager || !this.npcSystem) {
       return;
@@ -1450,6 +1876,11 @@ class TerrainGameManager {
         if (hasWelcomeTask) {
           this.taskListModel.advance(WELCOME_BATHERS_TASK_ID);
         }
+        continue;
+      }
+
+      if (request.type === SPAWN_TYPES.SHARK) {
+        this.startSharkEvent(request);
         continue;
       }
 
@@ -1487,9 +1918,12 @@ class TerrainGameManager {
       batherCount: bathers.length,
       bathers
     });
+    const servicePositions = this.getBuildingServiceWorldPositions();
     this.npcSystem.update(deltaSeconds, {
       buildingServices: this.buildingServicesModel.getSnapshot(),
-      heat: this.heatModel.getSnapshot()
+      heat: this.heatModel.getSnapshot(),
+      beverageStorePosition: servicePositions[BUILDING_TYPES.BEVERAGE_STORE] || null,
+      servicePositions
     });
     const npcs = this.npcSystem.getSnapshot();
     updateNpcSceneObjects({
@@ -1536,7 +1970,118 @@ class TerrainGameManager {
         }
       }
     }
+    if (this.pendingBeverageDecisions.length > 0) {
+      const projectToOverlay = createWorldOverlayProjector({
+        root: this.root,
+        canvas: this.canvas,
+        camera: this.camera
+      });
+
+      for (const decision of this.pendingBeverageDecisions.splice(0)) {
+        const position = projectToOverlay(decision.batherId, this.npcSceneObjects);
+
+        if (position) {
+          this.pickupFeedbackView.showCollection({
+            ...position,
+            valuable: false,
+            text: "WANTS A BEER"
+          });
+        }
+      }
+    }
+    if (this.pendingBatherServiceDecisions.length > 0) {
+      const projectToOverlay = createWorldOverlayProjector({
+        root: this.root,
+        canvas: this.canvas,
+        camera: this.camera
+      });
+
+      for (const decision of this.pendingBatherServiceDecisions.splice(0)) {
+        const label = BATHER_SERVICE_DECISION_LABELS[decision.buildingType];
+        const position = projectToOverlay(decision.batherId, this.npcSceneObjects);
+
+        if (label && position) {
+          this.pickupFeedbackView.showCollection({
+            ...position,
+            valuable: false,
+            text: `GOING TO ${label}`
+          });
+        }
+      }
+    }
+    if (this.pendingBatherServiceCompletions.length > 0) {
+      const projectToOverlay = createWorldOverlayProjector({
+        root: this.root,
+        canvas: this.canvas,
+        camera: this.camera
+      });
+
+      for (const completion of this.pendingBatherServiceCompletions.splice(0)) {
+        const label = BATHER_SERVICE_COMPLETION_LABELS[completion.buildingType];
+        const position = projectToOverlay(completion.batherId, this.npcSceneObjects);
+
+        if (label && position) {
+          this.pickupFeedbackView.showCollection({
+            ...position,
+            valuable: false,
+            text: label
+          });
+        }
+      }
+    }
+    if (this.pendingBeveragePurchases.length > 0) {
+      const projectToOverlay = createWorldOverlayProjector({
+        root: this.root,
+        canvas: this.canvas,
+        camera: this.camera
+      });
+      const beverageStoreObjectId = `${BUILDING_TYPES.BEVERAGE_STORE}-main`;
+
+      for (const purchase of this.pendingBeveragePurchases.splice(0)) {
+        const position = projectToOverlay(
+          beverageStoreObjectId,
+          this.runBuildingSceneObjects
+        );
+
+        if (position) {
+          const dollars = purchase.amountInCents / 100;
+          this.pickupFeedbackView.showCollection({
+            ...position,
+            valuable: true,
+            text: `BEER +$${Number.isInteger(dollars) ? dollars : dollars.toFixed(2)}`
+          });
+        }
+      }
+    }
     this.updateBatherCounter(npcs);
+  }
+
+  getBuildingServiceWorldPositions() {
+    const positions = {};
+
+    for (const sceneObject of this.runBuildingSceneObjects) {
+      const instance = sceneObject?.instances?.[0];
+
+      if (
+        !sceneObject?.sceneryType ||
+        !Array.isArray(instance?.offset) ||
+        instance.offset.length !== 3 ||
+        !instance.offset.every(Number.isFinite)
+      ) {
+        continue;
+      }
+
+      positions[sceneObject.sceneryType] = [
+        instance.offset[0],
+        instance.offset[2]
+      ];
+    }
+
+    return positions;
+  }
+
+  getBeverageStoreWorldPosition() {
+    return this.getBuildingServiceWorldPositions()[BUILDING_TYPES.BEVERAGE_STORE] || null;
   }
 
   render() {
@@ -1582,14 +2127,30 @@ class TerrainGameManager {
     this.terrainAssets = world.terrainAssets;
     this.beverageStoreAsset = world.beverageStoreAsset;
     this.beachHouseAsset = world.beachHouseAsset;
+    this.wifiSpotAsset = world.wifiSpotAsset;
     this.terrainSceneObjects = world.terrainSceneObjects;
     this.npcSceneObjects = world.npcSceneObjects;
+    this.sharkSceneObject = this.npcSceneObjects.find((sceneObject) => (
+      sceneObject.npcType === SPAWNABLE_OBJECT_TYPES.SHARK
+    )) || null;
     this.npcSystem = world.npcSystem;
     this.unsubscribeBatherDepartures = this.npcSystem.subscribeToDepartures(
       (bather) => this.pendingBatherReviews.push(bather)
     );
     this.unsubscribeBatherToleranceChanges = this.npcSystem.subscribeToToleranceChanges(
       (event) => this.handleBatherToleranceChange(event)
+    );
+    this.unsubscribeBatherServiceDecisions = this.npcSystem.subscribeToServiceDecisions(
+      (event) => this.handleBatherServiceDecision(event)
+    );
+    this.unsubscribeBatherServiceCompletions = this.npcSystem.subscribeToServiceCompletions(
+      (event) => this.handleBatherServiceCompletion(event)
+    );
+    this.unsubscribeBatherBeverageDecisions = this.npcSystem.subscribeToBeverageDecisions(
+      (event) => this.handleBeverageDecision(event)
+    );
+    this.unsubscribeBatherBeveragePurchases = this.npcSystem.subscribeToBeveragePurchases(
+      (event) => this.handleBeveragePurchase(event)
     );
     this.spawnManager = world.spawnManager;
     this.dayLifecycleController = createDayLifecycleController({

@@ -29,6 +29,11 @@ const INITIAL_CLEANUP_MIN_HORIZONTAL_PROGRESS = 0.12;
 const INITIAL_CLEANUP_MAX_HORIZONTAL_PROGRESS = 0.88;
 const INITIAL_CLEANUP_MIN_DEPTH_PROGRESS = 0.42;
 const INITIAL_CLEANUP_MAX_DEPTH_PROGRESS = 0.55;
+const INITIAL_VALUABLE_REWARD_IN_CENTS = 500;
+const INITIAL_VALUABLE_TYPES = Object.freeze([
+  SPAWNABLE_OBJECT_TYPES.MONEY,
+  SPAWNABLE_OBJECT_TYPES.RING
+]);
 const INITIAL_CLEANUP_TYPES = Object.freeze([
   SPAWNABLE_OBJECT_TYPES.BANANA,
   SPAWNABLE_OBJECT_TYPES.PAPER,
@@ -41,18 +46,22 @@ function pickRandom(items) {
 }
 
 export function planInitialPopulation() {
-  const types = [];
+  const initialValuableType = pickRandom(INITIAL_VALUABLE_TYPES);
+  const types = [initialValuableType];
 
   while (types.length < INITIAL_CLEANUP_COUNT) {
     types.push(pickRandom(INITIAL_CLEANUP_TYPES));
   }
 
-  return Object.freeze(types.map((type) => {
+  return Object.freeze(types.map((type, index) => {
     const definition = getSpawnableObjectDto(type);
 
     return Object.freeze({
       type,
       source: SPAWN_SOURCES.SPAWN_MANAGER,
+      collectionRewardInCents: index === 0 && type === initialValuableType ?
+        INITIAL_VALUABLE_REWARD_IN_CENTS :
+        0,
       zone: pickRandom(definition.spawnZones),
       placement: Object.freeze({
         xProgress: (
@@ -129,6 +138,11 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
     type: SCENERY_TYPES.BEVERAGE_STORE,
     onStatus
   });
+  const wifiSpotAsset = await loadSceneryAsset({
+    gl,
+    type: SCENERY_TYPES.WIFI_SPOT,
+    onStatus
+  });
   const beachGrid = createBeachGrid({ tileSize: terrainTileSpan });
 
   reserveScenery(
@@ -184,6 +198,7 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
     beachHouseAsset,
     beachHouseSceneObjects: [],
     beverageStoreAsset,
+    wifiSpotAsset,
     terrainSurfaceY,
     resolveWorldObjectPosition,
     npcs

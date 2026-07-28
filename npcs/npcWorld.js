@@ -2,6 +2,7 @@ import { loadTexturedModel } from "../rendering/worldAssets.js";
 import { NPC_STATES, NPC_TYPES } from "./npcSystem.js";
 
 const BATHER_MODEL_FACE_YAW_OFFSET = Math.PI;
+const SHARK_MODEL_FACE_YAW_OFFSET = 0;
 const BATHER_SOURCE_PATH = "./npcs/bather-1/bather.txt";
 const FULL_TURN_RADIANS = Math.PI * 2;
 const BATHER_WALK_CYCLE_DISTANCE = 7;
@@ -154,7 +155,7 @@ function buildBatherPartInstances({ npcs, terrainSurfaceY, rig }) {
 }
 
 export async function loadNpcAssets({ gl, onStatus }) {
-  const [batherModel, batherSource] = await Promise.all([
+  const [batherModel, batherSource, sharkModel] = await Promise.all([
     loadTexturedModel({
       gl,
       gltfPath: "./npcs/bather-1/bather-2.gltf",
@@ -163,23 +164,32 @@ export async function loadNpcAssets({ gl, onStatus }) {
       normalizedSize: 6.2,
       onStatus
     }),
-    loadBatherSource()
+    loadBatherSource(),
+    loadTexturedModel({
+      gl,
+      gltfPath: "./npcs/shark/shark.gltf",
+      binPath: "./npcs/shark/shark.bin",
+      texturePath: "./npcs/shark/shark.png",
+      normalizedSize: 12,
+      onStatus
+    })
   ]);
 
   return {
-    batherRig: createBatherRig(batherModel, batherSource)
+    batherRig: createBatherRig(batherModel, batherSource),
+    sharkModel
   };
 }
 
 export function createNpcSceneObjects({ npcAssets, npcs, terrainSurfaceY }) {
-  const { batherRig } = npcAssets;
+  const { batherRig, sharkModel } = npcAssets;
   const instances = buildBatherPartInstances({
     npcs,
     terrainSurfaceY,
     rig: batherRig
   });
 
-  return [
+  const sceneObjects = [
     {
       worldObject: "npc",
       npcType: NPC_TYPES.BATHER,
@@ -209,6 +219,26 @@ export function createNpcSceneObjects({ npcAssets, npcs, terrainSurfaceY }) {
       brightness: 1.05
     }
   ];
+
+  if (sharkModel) {
+    sceneObjects.push({
+      worldObject: "shark",
+      npcType: "shark",
+      model: sharkModel,
+      instances: [],
+      brightness: 1.08,
+      wave: {
+        strength: 0.2,
+        scale: 0.45,
+        speed: 1.6,
+        chop: 0.18,
+        direction: [1, 0]
+      },
+      modelFaceYawOffset: SHARK_MODEL_FACE_YAW_OFFSET
+    });
+  }
+
+  return sceneObjects;
 }
 
 export function updateNpcSceneObjects({ sceneObjects, npcs, terrainSurfaceY }) {

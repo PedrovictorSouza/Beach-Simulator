@@ -6,10 +6,12 @@ import {
 export const SCENERY_TYPES = Object.freeze({
   KIOSK: "kiosk",
   BEACH_HOUSE: "beach-house",
-  BEVERAGE_STORE: "beverage-store"
+  BEVERAGE_STORE: "beverage-store",
+  WIFI_SPOT: "wifi-spot"
 });
 
 const BEVERAGE_STORE_MODEL_FACE_YAW_OFFSET = (Math.PI * 3) / 2;
+const WIFI_SPOT_MODEL_FACE_YAW_OFFSET = Math.PI / 2;
 
 const SCENERY_DEFINITIONS = Object.freeze({
   [SCENERY_TYPES.KIOSK]: Object.freeze({
@@ -34,6 +36,14 @@ const SCENERY_DEFINITIONS = Object.freeze({
     texturePath: "./beberage/Beberage.png",
     normalizedSize: 16,
     modelFaceYawOffset: BEVERAGE_STORE_MODEL_FACE_YAW_OFFSET,
+    brightness: 1.05
+  }),
+  [SCENERY_TYPES.WIFI_SPOT]: Object.freeze({
+    gltfPath: "./wifi-spot/wifi-spot.gltf",
+    binPath: "./wifi-spot/wifi-spot.bin",
+    texturePath: "./wifi-spot/wifi-spot.png",
+    normalizedSize: 16,
+    modelFaceYawOffset: WIFI_SPOT_MODEL_FACE_YAW_OFFSET,
     brightness: 1.05
   })
 });
@@ -75,7 +85,9 @@ export function createScenerySceneObjects({ sceneryAsset, position }) {
           id: `${sceneryAsset.type}-main`,
           offset: position,
           scale: 1,
-          yaw: definition.modelFaceYawOffset
+          yaw: definition.modelFaceYawOffset,
+          pitch: definition.modelPitchOffset || 0,
+          roll: definition.modelRollOffset || 0
         }
       ],
       brightness: definition.brightness

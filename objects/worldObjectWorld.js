@@ -81,6 +81,7 @@ function createWorldObjectInstance({
   return Object.freeze({
     id,
     spawnableType: request.type,
+    request,
     offset: Object.freeze([position[0], terrainSurfaceY + 0.08, position[1]]),
     baseScale: scale,
     scale,

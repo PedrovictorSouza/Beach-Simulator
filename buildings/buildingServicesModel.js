@@ -1,6 +1,5 @@
 export const BUILDING_TYPES = Object.freeze({
   BEVERAGE_STORE: "beverage-store",
-  BEACH_HOUSE: "beach-house",
   LIFEGUARD_BUILDING: "lifeguard-building",
   WIFI_SPOT: "wifi-spot",
   TOILET_BUILDING: "toilet-building",
@@ -16,6 +15,9 @@ export const BUILDING_SERVICE_MOTIVES = Object.freeze({
   RELIEF: "relief",
   SAFETY: "safety"
 });
+
+export const BEVERAGE_PURCHASE_PRICE_IN_CENTS = 100;
+export const BEVERAGE_PURCHASE_DURATION_SECONDS = 5;
 
 const SERVICE_ADVERTISEMENT_DEFINITIONS = Object.freeze([
   Object.freeze({
@@ -54,6 +56,25 @@ const BUILDING_TYPE_SET = new Set(Object.values(BUILDING_TYPES));
 const TOILET_DIRT_PER_BATHER_SECOND = 0.04;
 const TOILET_MAINTENANCE_COST_IN_CENTS = 300;
 const LIFEGUARD_SALARY_IN_CENTS = 400;
+const FIRST_PUBLIC_SUPPORT_GRANT_IN_CENTS = 500;
+const PUBLIC_SERVICE_SUPPORT_DEFINITIONS = Object.freeze([
+  Object.freeze({
+    buildingType: BUILDING_TYPES.LIFEGUARD_BUILDING,
+    amountInCents: 400
+  }),
+  Object.freeze({
+    buildingType: BUILDING_TYPES.TOILET_BUILDING,
+    amountInCents: 300
+  }),
+  Object.freeze({
+    buildingType: BUILDING_TYPES.TRASH_CANS,
+    amountInCents: 100
+  }),
+  Object.freeze({
+    buildingType: BUILDING_TYPES.VOLLEYBALL_COURT,
+    amountInCents: 200
+  })
+]);
 const SERVICE_REVENUE_DEFINITIONS = Object.freeze([
   Object.freeze({
     buildingType: BUILDING_TYPES.BEVERAGE_STORE,
@@ -104,6 +125,7 @@ export function createBuildingServicesModel() {
   let toiletCleanliness = 100;
   let lifeguardPaid = true;
   let revenueSequence = 0;
+  let publicSupportGrantClaimed = false;
   const getSnapshot = () => createSnapshot({
     ownedTypes,
     toiletCleanliness,
@@ -207,7 +229,21 @@ export function createBuildingServicesModel() {
         0,
         Math.floor(Number(availableMoneyInCents) || 0)
       );
-      let available = initialAvailable;
+      const publicServiceCount = PUBLIC_SERVICE_SUPPORT_DEFINITIONS
+        .filter(({ buildingType }) => ownedTypes.has(buildingType))
+        .length;
+      const firstGrant = publicServiceCount > 0 && !publicSupportGrantClaimed ?
+        FIRST_PUBLIC_SUPPORT_GRANT_IN_CENTS : 0;
+      const recurringSupport = PUBLIC_SERVICE_SUPPORT_DEFINITIONS
+        .filter(({ buildingType }) => ownedTypes.has(buildingType))
+        .reduce((total, { amountInCents }) => total + amountInCents, 0);
+      const publicSupportInCents = firstGrant > 0 ? firstGrant : recurringSupport;
+
+      if (firstGrant > 0) {
+        publicSupportGrantClaimed = true;
+      }
+
+      let available = initialAvailable + publicSupportInCents;
       const charges = [];
 
       if (ownedTypes.has(BUILDING_TYPES.TOILET_BUILDING)) {
@@ -240,7 +276,8 @@ export function createBuildingServicesModel() {
 
       return Object.freeze({
         charges: Object.freeze(charges),
-        totalPaidInCents: initialAvailable - available,
+        publicSupportInCents,
+        totalPaidInCents: initialAvailable + publicSupportInCents - available,
         services: getSnapshot()
       });
     }

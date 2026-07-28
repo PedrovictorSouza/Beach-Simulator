@@ -17,9 +17,30 @@ export function createBeverageStoreModalView({ root }) {
   overlayElement.append(dialogElement);
   root.append(overlayElement);
 
+  let closeHandler = null;
+  let open = false;
+  let closeTimer = null;
+  const closeAnimationMs = 250;
+  const schedule = documentRef.defaultView?.setTimeout?.bind(documentRef.defaultView) || setTimeout;
+  const cancelSchedule = documentRef.defaultView?.clearTimeout?.bind(documentRef.defaultView) || clearTimeout;
+
   const hide = () => {
+    if (!open) {
+      return;
+    }
+
+    open = false;
     overlayElement.classList.remove("beverage-store-modal--visible");
-    overlayElement.hidden = true;
+    overlayElement.classList.add("beverage-store-modal--closing");
+    const handler = closeHandler;
+    closeHandler = null;
+    handler?.();
+
+    closeTimer = schedule(() => {
+      overlayElement.hidden = true;
+      overlayElement.classList.remove("beverage-store-modal--closing");
+      closeTimer = null;
+    }, closeAnimationMs);
   };
 
   overlayElement.addEventListener("click", (event) => {
@@ -35,11 +56,25 @@ export function createBeverageStoreModalView({ root }) {
   });
 
   return Object.freeze({
-    show() {
+    show({ onClose = null } = {}) {
+      if (closeTimer !== null) {
+        cancelSchedule(closeTimer);
+        closeTimer = null;
+      }
+
+      closeHandler = typeof onClose === "function" ? onClose : null;
+      open = true;
       overlayElement.hidden = false;
+      overlayElement.classList.remove("beverage-store-modal--closing");
       void overlayElement.offsetWidth;
       overlayElement.classList.add("beverage-store-modal--visible");
       dialogElement.focus();
+    },
+    close() {
+      hide();
+    },
+    isOpen() {
+      return open;
     }
   });
 }

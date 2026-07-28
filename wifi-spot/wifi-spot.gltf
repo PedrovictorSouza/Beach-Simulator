@@ -1,0 +1,19 @@
+{
+  "asset": { "version": "2.0" },
+  "scene": 0,
+  "scenes": [{ "nodes": [0,1] }],
+  "nodes": [{"mesh":0},{"mesh":1}],
+  "meshes": [{"primitives":[{"attributes":{"POSITION":0,"TEXCOORD_0":1},"indices":2,"material":0}]},{"primitives":[{"attributes":{"POSITION":3,"TEXCOORD_0":4},"indices":5,"material":0}]}],
+  "materials": [{
+    "pbrMetallicRoughness": {
+      "baseColorTexture": { "index": 0 },
+      "metallicFactor": 0.0,
+      "roughnessFactor": 1.0
+    }
+  }],
+  "textures": [{ "source": 0 }],
+  "images": [{ "uri": "wifi-spot.png" }],
+  "accessors": [{"bufferView":0,"byteOffset":0,"componentType":5126,"count":18,"type":"VEC3","min":[1.815,-1.4725,-2.7225],"max":[1.815,3.9725,2.7225]},{"bufferView":1,"byteOffset":0,"componentType":5126,"count":18,"type":"VEC2"},{"bufferView":2,"byteOffset":0,"componentType":5123,"count":18,"type":"SCALAR"},{"bufferView":3,"byteOffset":0,"componentType":5126,"count":36,"type":"VEC3","min":[1.5,-13.75,-0],"max":[1.75,-0.5,0.25]},{"bufferView":4,"byteOffset":0,"componentType":5126,"count":36,"type":"VEC2"},{"bufferView":5,"byteOffset":0,"componentType":5123,"count":36,"type":"SCALAR"}],
+  "bufferViews": [{"buffer":0,"byteOffset":0,"byteLength":216,"target":34962},{"buffer":0,"byteOffset":216,"byteLength":144,"target":34962},{"buffer":0,"byteOffset":360,"byteLength":36,"target":34963},{"buffer":0,"byteOffset":396,"byteLength":432,"target":34962},{"buffer":0,"byteOffset":828,"byteLength":288,"target":34962},{"buffer":0,"byteOffset":1116,"byteLength":72,"target":34963}],
+  "buffers": [{ "uri": "wifi-spot.bin", "byteLength": 1188 }]
+}

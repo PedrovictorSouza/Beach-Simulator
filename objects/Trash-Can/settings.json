@@ -1,0 +1,17 @@
+{
+  "snap_is_default":true,
+  "auto_save_frequency":10,
+  "last_path":"",
+  "recent_files":["Trash-can.txt","house_2.txt","wifi-spot.txt","Beberage.txt","beach-house.txt"],
+  "invert_zoom":false,
+  "texture_grid_size":16,
+  "show_grid":false,
+  "gif_file_increment":true,
+  "rmb_action":1,
+  "theme":"classic",
+  "warn_on_exit":true,
+  "invert_mouse_controls":false,
+  "window_width":576,
+  "window_height":612,
+  "os_mouse":false
+}

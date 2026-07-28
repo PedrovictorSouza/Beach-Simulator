@@ -39,6 +39,13 @@ export function createDayLifecycleController({
         availableMoneyInCents: economyModel.getSnapshot().moneyInCents
       });
 
+      if (closing.publicSupportInCents > 0) {
+        economyModel.recordIncome({
+          sourceId: `day-${day}-public-beach-fund`,
+          amountInCents: closing.publicSupportInCents
+        });
+      }
+
       if (closing.totalPaidInCents > 0) {
         economyModel.recordExpense({
           sourceId: `day-${day}-services`,

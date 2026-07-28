@@ -6,7 +6,8 @@ import {
 import { createScheduledSpawnQueue } from "./scheduledSpawnQueue.js";
 
 export const SPAWN_TYPES = Object.freeze({
-  BATHER: SPAWNABLE_OBJECT_TYPES.BATHER
+  BATHER: SPAWNABLE_OBJECT_TYPES.BATHER,
+  SHARK: SPAWNABLE_OBJECT_TYPES.SHARK
 });
 
 export const SPAWN_CADENCES = Object.freeze({
@@ -39,9 +40,16 @@ const BATHER_LITTER_DELAY_SECONDS = Object.freeze({ min: 12, max: 30 });
 const FIRST_BATHER_LITTER_DELAY_SECONDS = Object.freeze({ min: 10, max: 15 });
 const WELCOME_LITTER_TARGET = 2;
 const BATHER_LITTER_OFFSET = 1.5;
+const SHARK_EVENT_INTERVAL_SECONDS = Object.freeze({ min: 45, max: 90 });
+const SHARK_EVENT_CHANCE = Object.freeze({
+  WITHOUT_LIFEGUARD: 0.35,
+  WITH_LIFEGUARD: 0.08
+});
+const SHARK_EVENT_DURATION_SECONDS = 12;
 const SPAWN_CHANNELS = Object.freeze({
   BATHERS: "bathers",
-  BATHER_LITTER: "bather-litter"
+  BATHER_LITTER: "bather-litter",
+  SHARK_EVENTS: "shark-events"
 });
 const SPAWN_CHANNEL_POLICIES = Object.freeze({
   [SPAWN_CHANNELS.BATHERS]: Object.freeze({
@@ -51,6 +59,10 @@ const SPAWN_CHANNEL_POLICIES = Object.freeze({
   [SPAWN_CHANNELS.BATHER_LITTER]: Object.freeze({
     designPriority: 1,
     attentionCost: 0.25
+  }),
+  [SPAWN_CHANNELS.SHARK_EVENTS]: Object.freeze({
+    designPriority: 1.5,
+    attentionCost: 0.75
   })
 });
 const ATTENTION_COST_PRIORITY_PENALTY = 0.5;
@@ -95,11 +107,13 @@ export function createSpawnManager({ random = Math.random } = {}) {
   let welcomeSequenceActive = false;
   let welcomeLitterFloorActive = false;
   let activeBatherCadence = null;
+  let activeSharkEventSequence = null;
   let guaranteedFirstLitterPending = false;
   let scheduledBatherLitterCount = 0;
   const timeline = createScheduledSpawnQueue();
   const readyEvents = [];
   const knownBatherIds = new Set();
+  const knownBeveragePurchaseBatherIds = new Set();
   const litterPlanByEventSequence = new Map();
 
   const readRandomUnit = () => clamp(Number(random()) || 0, 0, 1);
@@ -173,16 +187,58 @@ export function createSpawnManager({ random = Math.random } = {}) {
     activeBatherCadence = cadence;
   };
 
+  const scheduleLitterForBather = (bather, delayRange) => {
+    const policy = SPAWN_CHANNEL_POLICIES[SPAWN_CHANNELS.BATHER_LITTER];
+    const litterType = BATHER_LITTER_TYPES[
+      readRandomIndex(BATHER_LITTER_TYPES.length)
+    ];
+    const delaySeconds = interpolate(
+      delayRange.min,
+      delayRange.max,
+      readRandomUnit()
+    );
+    const event = timeline.enqueue({
+      executeAt: elapsedSeconds + delaySeconds,
+      channel: SPAWN_CHANNELS.BATHER_LITTER,
+      designPriority: policy.designPriority,
+      attentionCost: policy.attentionCost
+    });
+    const scheduledPosition = Array.isArray(bather?.position) ?
+      Object.freeze([...bather.position]) :
+      null;
+
+    litterPlanByEventSequence.set(event.sequence, Object.freeze({
+      batherId: bather.id,
+      litterType,
+      scheduledPosition
+    }));
+    scheduledBatherLitterCount += 1;
+    if (scheduledBatherLitterCount >= WELCOME_LITTER_TARGET) {
+      welcomeLitterFloorActive = false;
+    }
+  };
+
+  const scheduleNextSharkEvent = (fromSeconds = elapsedSeconds) => {
+    const policy = SPAWN_CHANNEL_POLICIES[SPAWN_CHANNELS.SHARK_EVENTS];
+    const delaySeconds = interpolate(
+      SHARK_EVENT_INTERVAL_SECONDS.min,
+      SHARK_EVENT_INTERVAL_SECONDS.max,
+      readRandomUnit()
+    );
+    const event = timeline.enqueue({
+      executeAt: fromSeconds + delaySeconds,
+      channel: SPAWN_CHANNELS.SHARK_EVENTS,
+      designPriority: policy.designPriority,
+      attentionCost: policy.attentionCost
+    });
+
+    activeSharkEventSequence = event.sequence;
+  };
+
   const scheduleLitterForNewBathers = (bathers, buildingServices) => {
     const baseLitterChance = buildingServices.hasTrashCans ?
       BATHER_LITTER_CHANCE.WITH_TRASH_CANS :
       BATHER_LITTER_CHANCE.WITHOUT_TRASH_CANS;
-    const litterChance = clamp(
-      baseLitterChance + (buildingServices.hasBeverageStore ?
-        BATHER_LITTER_CHANCE.BEVERAGE_STORE_BONUS : 0),
-      0,
-      1
-    );
 
     for (const bather of bathers) {
       const batherId = String(bather?.id || "").trim();
@@ -201,41 +257,57 @@ export function createSpawnManager({ random = Math.random } = {}) {
         guaranteedWelcomeLitter;
       guaranteedFirstLitterPending = false;
 
-      if (!guaranteedLitter && readRandomUnit() >= litterChance) {
+      if (!guaranteedLitter && readRandomUnit() >= baseLitterChance) {
         continue;
       }
 
-      const policy = SPAWN_CHANNEL_POLICIES[SPAWN_CHANNELS.BATHER_LITTER];
-      const litterType = BATHER_LITTER_TYPES[
-        readRandomIndex(BATHER_LITTER_TYPES.length)
-      ];
       const delayRange = guaranteedFirstLitter ?
         FIRST_BATHER_LITTER_DELAY_SECONDS :
         BATHER_LITTER_DELAY_SECONDS;
-      const delaySeconds = interpolate(
-        delayRange.min,
-        delayRange.max,
-        readRandomUnit()
-      );
-      const event = timeline.enqueue({
-        executeAt: elapsedSeconds + delaySeconds,
-        channel: SPAWN_CHANNELS.BATHER_LITTER,
-        designPriority: policy.designPriority,
-        attentionCost: policy.attentionCost
-      });
-      const scheduledPosition = Array.isArray(bather?.position) ?
-        Object.freeze([...bather.position]) :
-        null;
+      scheduleLitterForBather(bather, delayRange);
+    }
+  };
 
-      litterPlanByEventSequence.set(event.sequence, Object.freeze({
-        batherId,
-        litterType,
-        scheduledPosition
-      }));
-      scheduledBatherLitterCount += 1;
-      if (scheduledBatherLitterCount >= WELCOME_LITTER_TARGET) {
-        welcomeLitterFloorActive = false;
+  const scheduleLitterForBeveragePurchases = (bathers, buildingServices) => {
+    const baseLitterChance = buildingServices.hasTrashCans ?
+      BATHER_LITTER_CHANCE.WITH_TRASH_CANS :
+      BATHER_LITTER_CHANCE.WITHOUT_TRASH_CANS;
+    const postPurchaseChance = clamp(
+      baseLitterChance + BATHER_LITTER_CHANCE.BEVERAGE_STORE_BONUS,
+      0,
+      1
+    );
+
+    for (const bather of bathers) {
+      const batherId = String(bather?.id || "").trim();
+
+      if (
+        !batherId ||
+        !bather?.beveragePurchased ||
+        knownBeveragePurchaseBatherIds.has(batherId)
+      ) {
+        continue;
       }
+
+      knownBeveragePurchaseBatherIds.add(batherId);
+      const messinessMultiplier = Number(
+        bather.profile?.messinessMultiplier
+      );
+      const litterChance = clamp(
+        postPurchaseChance * (
+          Number.isFinite(messinessMultiplier) && messinessMultiplier > 0 ?
+            messinessMultiplier :
+            1
+        ),
+        0,
+        1
+      );
+
+      if (readRandomUnit() >= litterChance) {
+        continue;
+      }
+
+      scheduleLitterForBather(bather, BATHER_LITTER_DELAY_SECONDS);
     }
   };
 
@@ -308,8 +380,10 @@ export function createSpawnManager({ random = Math.random } = {}) {
         timeline.clear();
         readyEvents.length = 0;
         knownBatherIds.clear();
+        knownBeveragePurchaseBatherIds.clear();
         litterPlanByEventSequence.clear();
         activeBatherEventSequence = null;
+        activeSharkEventSequence = null;
         firstBatherSpawned = false;
         immediateBatherRequested = false;
         spawnedBatherCount = 0;
@@ -319,6 +393,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
         guaranteedFirstLitterPending = false;
         scheduledBatherLitterCount = 0;
         scheduleNextBather(averageRating);
+        scheduleNextSharkEvent();
       }
 
       return getSnapshot();
@@ -369,6 +444,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
 
       elapsedSeconds += deltaSeconds;
       scheduleLitterForNewBathers(bathers, buildingServices);
+      scheduleLitterForBeveragePurchases(bathers, buildingServices);
       const requests = [];
       const bathersById = new Map(bathers.map((bather) => [bather.id, bather]));
 
@@ -409,6 +485,40 @@ export function createSpawnManager({ random = Math.random } = {}) {
           if (litterRequest) {
             requests.push(litterRequest);
           }
+        }
+
+        if (event.channel === SPAWN_CHANNELS.SHARK_EVENTS) {
+          if (event.sequence !== activeSharkEventSequence) {
+            continue;
+          }
+
+          const lifeguardActive = Boolean(buildingServices.sharkWarningActive);
+          const encounterChance = lifeguardActive ?
+            SHARK_EVENT_CHANCE.WITH_LIFEGUARD :
+            SHARK_EVENT_CHANCE.WITHOUT_LIFEGUARD;
+
+          if (readRandomUnit() < encounterChance) {
+            const definition = getSpawnableObjectDto(SPAWNABLE_OBJECT_TYPES.SHARK);
+            const startX = -126 + readRandomUnit() * 252;
+            const direction = readRandomUnit() < 0.5 ? -1 : 1;
+            const endX = direction > 0 ? 126 : -126;
+
+            requests.push(Object.freeze({
+              id: `shark-event-${event.sequence}`,
+              type: SPAWN_TYPES.SHARK,
+              source: SPAWN_SOURCES.SPAWN_MANAGER,
+              zone: definition.spawnZones[0],
+              durationSeconds: SHARK_EVENT_DURATION_SECONDS,
+              encounterChance,
+              placement: Object.freeze({
+                position: Object.freeze([startX, -76]),
+                exitPosition: Object.freeze([endX, -76]),
+                direction
+              })
+            }));
+          }
+
+          scheduleNextSharkEvent(elapsedSeconds);
         }
       }
 
