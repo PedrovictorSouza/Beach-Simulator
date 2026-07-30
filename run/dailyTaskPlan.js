@@ -7,8 +7,20 @@ export function createDailyCleanupTask(day) {
 
   return Object.freeze({
     id: `clean-up-after-visitor-day-${normalizedDay}`,
-    label: "Clean up after a visitor",
+    messageId: "tasks.cleanAfterVisitor",
     progress: 0,
     target: 1
+  });
+}
+
+export function createHeatWaveTask() {
+  return Object.freeze({
+    id: "cool-down-heat-wave",
+    messageId: "tasks.coolDownPeople",
+    messageParams: { count: 3 },
+    progress: 0,
+    target: 3,
+    priority: 3,
+    urgency: 2
   });
 }

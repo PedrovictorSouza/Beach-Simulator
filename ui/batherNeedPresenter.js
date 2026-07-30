@@ -1,22 +1,18 @@
-import { BATHER_PROBLEM_SOURCES } from "../npcs/npcSystem.js";
+function getFeedback(translator, group, source) {
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("BatherNeedPresenter precisa de um translator.");
+  }
 
-const NEED_LABEL_BY_SOURCE = Object.freeze({
-  [BATHER_PROBLEM_SOURCES.HEAT]: "NEEDS A DRINK!",
-  [BATHER_PROBLEM_SOURCES.ENTERTAINMENT]: "IS BORED!",
-  [BATHER_PROBLEM_SOURCES.WIFI]: "WANTS WI-FI!",
-  [BATHER_PROBLEM_SOURCES.TOILET]: "NEEDS A TOILET!"
-});
-const BEACH_PROBLEM_LABEL_BY_SOURCE = Object.freeze({
-  [BATHER_PROBLEM_SOURCES.HEAT]: "BATHERS NEED DRINKS!",
-  [BATHER_PROBLEM_SOURCES.ENTERTAINMENT]: "BATHERS ARE BORED!",
-  [BATHER_PROBLEM_SOURCES.WIFI]: "BATHERS WANT WI-FI!",
-  [BATHER_PROBLEM_SOURCES.TOILET]: "BATHERS NEED TOILETS!"
-});
+  const key = source && translator.t(`feedback.${group}.${source}`) !==
+    `feedback.${group}.${source}` ? source : "fallback";
 
-export function presentBatherNeedFeedback(source) {
-  return NEED_LABEL_BY_SOURCE[source] || "BATHER IS UPSET!";
+  return translator.t(`feedback.${group}.${key}`);
 }
 
-export function presentBeachProblemFeedback(source) {
-  return BEACH_PROBLEM_LABEL_BY_SOURCE[source] || "BATHERS WERE UPSET!";
+export function presentBatherNeedFeedback(source, translator) {
+  return getFeedback(translator, "batherNeeds", source);
+}
+
+export function presentBeachProblemFeedback(source, translator) {
+  return getFeedback(translator, "beachProblems", source);
 }

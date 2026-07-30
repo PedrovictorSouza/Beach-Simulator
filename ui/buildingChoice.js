@@ -1,57 +1,14 @@
 import { BUILDING_TYPES } from "../buildings/buildingServicesModel.js";
+import { getBeachObjectDefinition } from "../objects/beachObjectCatalog.js";
 
-const BUILDING_CATALOG = Object.freeze([
-  Object.freeze({
-    type: BUILDING_TYPES.BEVERAGE_STORE,
-    label: "Beverage Store",
-    role: "Beverages",
-    description: "Makes $1 every 30 seconds a bather uses it.",
-    benefitIndicator: Object.freeze({
-      src: "2d-objects/HUD/money-thumb.png",
-      alt: "Money"
-    }),
-    color: Object.freeze([0.92, 0.3, 0.22])
-  }),
-  Object.freeze({
-    type: BUILDING_TYPES.LIFEGUARD_BUILDING,
-    label: "Lifeguard Building",
-    role: "Beach safety",
-    description: "Improves reviews. Costs $4 at the end of each day.",
-    color: Object.freeze([0.95, 0.76, 0.18])
-  }),
-  Object.freeze({
-    type: BUILDING_TYPES.WIFI_SPOT,
-    label: "Wi-Fi Spot",
-    role: "Visitor connection",
-    description: "Makes $1 every 30 seconds a bather uses it.",
-    benefitIndicator: Object.freeze({
-      src: "2d-objects/HUD/star-HUD.png",
-      alt: "Star"
-    }),
-    color: Object.freeze([0.18, 0.56, 0.92])
-  }),
-  Object.freeze({
-    type: BUILDING_TYPES.TOILET_BUILDING,
-    label: "Toilet Building",
-    role: "Beach facilities",
-    description: "Prevents toilet complaints. Costs $3 at the end of each day.",
-    color: Object.freeze([0.2, 0.78, 0.72])
-  }),
-  Object.freeze({
-    type: BUILDING_TYPES.TRASH_CANS,
-    label: "Trash Cans",
-    role: "Waste control",
-    description: "Don't make money, but they improve Guugle Maps Reviews.",
-    color: Object.freeze([0.3, 0.68, 0.3])
-  }),
-  Object.freeze({
-    type: BUILDING_TYPES.VOLLEYBALL_COURT,
-    label: "Volleyball Court",
-    role: "Fun",
-    description: "Stops bathers from getting bored.",
-    color: Object.freeze([0.96, 0.5, 0.18])
-  })
-]);
+const BUILDING_CATALOG = Object.freeze(Object.values(BUILDING_TYPES).map((type) => {
+  const definition = getBeachObjectDefinition(type);
+
+  return Object.freeze({
+    type,
+    ...definition.presentation
+  });
+}));
 
 function clampRandom(value) {
   return Math.min(0.999999, Math.max(0, Number(value) || 0));
@@ -171,9 +128,13 @@ export function createBuildingChoiceModel({ random = Math.random } = {}) {
   });
 }
 
-export function createBuildingChoiceView({ root }) {
+export function createBuildingChoiceView({ root, translator }) {
   if (!root) {
     throw new Error("BuildingChoiceView precisa de um elemento root.");
+  }
+
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("BuildingChoiceView precisa de um translator.");
   }
 
   const documentRef = root.ownerDocument;
@@ -191,12 +152,15 @@ export function createBuildingChoiceView({ root }) {
   dialogElement.setAttribute("aria-labelledby", "building-choice-title");
   titleElement.id = "building-choice-title";
   titleElement.className = "building-choice__title";
-  titleElement.textContent = "Choose a building";
+  titleElement.textContent = translator.t("dialogs.chooseBuilding");
   optionsElement.className = "building-choice__options";
   dialogElement.append(titleElement, optionsElement);
   overlayElement.append(dialogElement);
   overlayElement.addEventListener("keydown", (event) => event.stopPropagation());
   root.append(overlayElement);
+  translator.subscribe(() => {
+    titleElement.textContent = translator.t("dialogs.chooseBuilding");
+  });
 
   const hide = () => {
     overlayElement.classList.remove("building-choice--visible");
@@ -213,7 +177,9 @@ export function createBuildingChoiceView({ root }) {
         throw new Error("Ja existe uma escolha de construcao aberta.");
       }
 
-      const costLabel = `$${Math.max(0, Number(costInCents) || 0) / 100}`;
+      const costLabel = translator.formatCurrency(
+        Math.max(0, Number(costInCents) || 0) / 100
+      );
       const buttons = options.map((option) => {
         const buttonElement = documentRef.createElement("button");
         const swatchElement = documentRef.createElement("span");
@@ -229,9 +195,13 @@ export function createBuildingChoiceView({ root }) {
         swatchElement.style.backgroundColor = `rgb(${color.join(", ")})`;
         swatchElement.setAttribute("aria-hidden", "true");
         labelElement.className = "building-choice__option-label";
-        labelElement.textContent = option.label;
+        labelElement.textContent = translator.t(
+          `buildings.${option.type}.label`
+        );
         roleElement.className = "building-choice__option-role";
-        roleElement.textContent = option.role;
+        roleElement.textContent = translator.t(
+          `buildings.${option.type}.role`
+        );
         costElement.className = "building-choice__option-cost";
         costElement.textContent = costLabel;
         descriptionElement.className = "building-choice__option-description";
@@ -241,11 +211,14 @@ export function createBuildingChoiceView({ root }) {
 
           benefitThumbElement.className = "building-choice__benefit-thumb";
           benefitThumbElement.src = option.benefitIndicator.src;
-          benefitThumbElement.alt = option.benefitIndicator.alt;
-          upElement.textContent = "UP";
+          benefitThumbElement.alt = "";
+          benefitThumbElement.setAttribute("aria-hidden", "true");
+          upElement.textContent = translator.t("common.up");
           descriptionElement.append(benefitThumbElement, upElement);
         } else {
-          descriptionElement.textContent = option.description;
+          descriptionElement.textContent = translator.t(
+            `buildings.${option.type}.description`
+          );
         }
         buttonElement.append(
           swatchElement,

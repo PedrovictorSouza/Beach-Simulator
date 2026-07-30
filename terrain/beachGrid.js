@@ -1,3 +1,8 @@
+import {
+  BEACH_OBJECT_TYPES,
+  getBeachObjectDefinition
+} from "../objects/beachObjectCatalog.js";
+
 export const BEACH_ZONES = Object.freeze({
   SEA: "sea",
   SAND: "sand",
@@ -7,16 +12,6 @@ export const BEACH_ZONES = Object.freeze({
 const BEACH_LAND_Z = 82;
 const BEACH_WATER_Z = -58;
 const BEACH_WET_OVERLAP = 6;
-const BUILDING_ALLOWED_X_MIN = -24;
-const BUILDING_ALLOWED_X_MAX = 24;
-const BUILDING_ALLOWED_Z_MIN = 9;
-const BUILDING_ALLOWED_Z_MAX = 11;
-const BUILDING_RESERVED_X_MIN = -10;
-const BUILDING_RESERVED_X_MAX = -6;
-const SUN_SHADE_ALLOWED_X_MIN = -24;
-const SUN_SHADE_ALLOWED_X_MAX = 24;
-const SUN_SHADE_ALLOWED_Z_MIN = 4;
-const SUN_SHADE_ALLOWED_Z_MAX = 6;
 const DEFAULT_CHUNK_SIZE_IN_TILES = 8;
 
 function assertFiniteNumber(value, name) {
@@ -74,36 +69,47 @@ export function createBeachGrid({
   }
 
   const occupiedTiles = new Map();
+  const protectedTiles = new Map();
   const getTileKey = (xIndex, zIndex) => `${xIndex}:${zIndex}`;
 
-  function isBuildableTile({ xIndex, zIndex }) {
-    const centerX = Number((xIndex * tileSize).toFixed(4));
-    const centerZ = Number((zIndex * tileSize).toFixed(4));
-    const insideSelectedArea = (
-      xIndex >= BUILDING_ALLOWED_X_MIN &&
-      xIndex <= BUILDING_ALLOWED_X_MAX &&
-      zIndex >= BUILDING_ALLOWED_Z_MIN &&
-      zIndex <= BUILDING_ALLOWED_Z_MAX &&
-      !(
-        xIndex >= BUILDING_RESERVED_X_MIN &&
-        xIndex <= BUILDING_RESERVED_X_MAX
-      )
-    );
+  function isPlacementTileAllowed({ xIndex, zIndex }, placementType) {
+    if (!Number.isSafeInteger(xIndex) || !Number.isSafeInteger(zIndex)) {
+      return false;
+    }
 
-    return insideSelectedArea && getBeachZoneAt(centerX, centerZ) === BEACH_ZONES.SAND;
-  }
+    let definition;
 
-  function isSunShadeTile({ xIndex, zIndex }) {
+    try {
+      definition = getBeachObjectDefinition(placementType);
+    } catch (error) {
+      return false;
+    }
+
+    const placement = definition.placement;
+    const bounds = placement?.bounds;
+
+    if (!bounds) {
+      return false;
+    }
+
     const centerX = Number((xIndex * tileSize).toFixed(4));
     const centerZ = Number((zIndex * tileSize).toFixed(4));
 
     return (
-      xIndex >= SUN_SHADE_ALLOWED_X_MIN &&
-      xIndex <= SUN_SHADE_ALLOWED_X_MAX &&
-      zIndex >= SUN_SHADE_ALLOWED_Z_MIN &&
-      zIndex <= SUN_SHADE_ALLOWED_Z_MAX &&
-      getBeachZoneAt(centerX, centerZ) === BEACH_ZONES.SAND
+      xIndex >= bounds.xMin &&
+      xIndex <= bounds.xMax &&
+      zIndex >= bounds.zMin &&
+      zIndex <= bounds.zMax &&
+      getBeachZoneAt(centerX, centerZ) === placement.zone
     );
+  }
+
+  function isBuildableTile(tile) {
+    return isPlacementTileAllowed(tile, BEACH_OBJECT_TYPES.BEVERAGE_STORE);
+  }
+
+  function isSunShadeTile(tile) {
+    return isPlacementTileAllowed(tile, BEACH_OBJECT_TYPES.SUN_SHADE);
   }
 
   function getTileAtWorldPosition(x, z) {
@@ -199,10 +205,41 @@ export function createBeachGrid({
     }
   }
 
+  function protectWorldBounds({
+    centerX,
+    centerZ,
+    width,
+    depth,
+    padding = 0,
+    reason = "protected-area"
+  }) {
+    [centerX, centerZ, width, depth, padding].forEach((value) => (
+      assertFiniteNumber(value, "protecao do grid")
+    ));
+
+    if (width <= 0 || depth <= 0 || padding < 0) {
+      throw new Error("Protecao do grid precisa de dimensoes positivas.");
+    }
+
+    const halfWidth = width * 0.5 + padding + tileSize * 0.5;
+    const halfDepth = depth * 0.5 + padding + tileSize * 0.5;
+    const startXIndex = Math.ceil((centerX - halfWidth) / tileSize);
+    const endXIndex = Math.floor((centerX + halfWidth) / tileSize);
+    const startZIndex = Math.ceil((centerZ - halfDepth) / tileSize);
+    const endZIndex = Math.floor((centerZ + halfDepth) / tileSize);
+
+    for (let xIndex = startXIndex; xIndex <= endXIndex; xIndex += 1) {
+      for (let zIndex = startZIndex; zIndex <= endZIndex; zIndex += 1) {
+        protectedTiles.set(getTileKey(xIndex, zIndex), reason);
+      }
+    }
+  }
+
   function claimNearestAvailableTile({
     x,
     z,
     zone,
+    placementType = null,
     maxRadiusInTiles = 64,
     reason = "claimed-tile"
   }) {
@@ -232,7 +269,15 @@ export function createBeachGrid({
           const centerX = Number((xIndex * tileSize).toFixed(4));
           const centerZ = Number((zIndex * tileSize).toFixed(4));
 
-          if (occupiedTiles.has(key) || getBeachZoneAt(centerX, centerZ) !== zone) {
+          if (
+            occupiedTiles.has(key) ||
+            protectedTiles.has(key) ||
+            getBeachZoneAt(centerX, centerZ) !== zone ||
+            (placementType && !isPlacementTileAllowed(
+              { xIndex, zIndex },
+              placementType
+            ))
+          ) {
             continue;
           }
 
@@ -255,6 +300,7 @@ export function createBeachGrid({
 
     return (
       !occupiedTiles.has(getTileKey(xIndex, zIndex)) &&
+      !protectedTiles.has(getTileKey(xIndex, zIndex)) &&
       getBeachZoneAt(centerX, centerZ) === zone
     );
   }
@@ -274,10 +320,16 @@ export function createBeachGrid({
       centerX,
       centerZ,
       zone: getBeachZoneAt(centerX, centerZ),
+      buildingPlacement: isPlacementTileAllowed(
+        { xIndex, zIndex },
+        BEACH_OBJECT_TYPES.BEVERAGE_STORE
+      ),
       buildableSand: isBuildableTile({ xIndex, zIndex }),
       sunShadePlacement: isSunShadeTile({ xIndex, zIndex }),
       occupied: occupiedTiles.has(key),
-      occupancyReason: occupiedTiles.get(key) || null
+      occupancyReason: occupiedTiles.get(key) || null,
+      protected: protectedTiles.has(key),
+      protectionReason: protectedTiles.get(key) || null
     });
   }
 
@@ -329,10 +381,12 @@ export function createBeachGrid({
     chunkSizeInTiles,
     getTileAtWorldPosition,
     getTileDiagnostics,
+    isPlacementTileAllowed,
     isBuildableTile,
     isSunShadeTile,
     visitTilesInRange,
     reserveWorldBounds,
+    protectWorldBounds,
     claimNearestAvailableTile,
     isTileAvailable,
     isAreaAvailable,

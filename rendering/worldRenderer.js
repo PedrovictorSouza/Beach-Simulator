@@ -69,6 +69,13 @@ const INTERNAL_RENDER_WIDTH = LOGICAL_RENDER_WIDTH * INTERNAL_RENDER_SCALE;
 const INTERNAL_RENDER_HEIGHT = LOGICAL_RENDER_HEIGHT * INTERNAL_RENDER_SCALE;
 const DEFAULT_WAVE_DIRECTION = [1, 0];
 const DEFAULT_FOG_COLOR = [0.82, 0.9, 0.94];
+const TERRAIN_DITHER_STRENGTH = 0.5;
+const SPRITE_OUTLINE_COLOR = [0, 0, 0, 0.88];
+const SPRITE_OUTLINE_OFFSETS = [
+  [-1, -1], [0, -1], [1, -1],
+  [-1, 0],            [1, 0],
+  [-1, 1],  [0, 1],  [1, 1]
+];
 
 class WorldRenderer {
   constructor(canvas) {
@@ -150,6 +157,7 @@ class WorldRenderer {
     this.setUniform1(uniforms.fogNear, 84);
     this.setUniform1(uniforms.fogFar, 170);
     this.setUniform1(uniforms.fogIntensity, 0.28);
+    this.setUniform1(uniforms.ditherStrength, 1);
     this.gl.uniform1i(uniforms.texture, 0);
 
     this.gl.useProgram(spriteProgram);
@@ -159,6 +167,9 @@ class WorldRenderer {
       LOGICAL_RENDER_HEIGHT * 0.5
     ]);
     this.gl.uniform4fv(spriteUniforms.uvRect, [0, 0, 1, 1]);
+    this.gl.uniform2fv(spriteUniforms.spriteScreenOffset, [0, 0]);
+    this.gl.uniform4fv(spriteUniforms.spriteColor, [1, 1, 1, 1]);
+    this.setUniform1(spriteUniforms.spriteColorStrength, 0);
     this.gl.uniform1i(spriteUniforms.spriteTexture, 0);
     this.gl.useProgram(program);
   }
@@ -217,6 +228,18 @@ class WorldRenderer {
         this.gl.uniform2fv(spriteUniforms.spriteSize, this.spriteSizeBuffer);
         this.setUniform1(spriteUniforms.spriteRotation, 0);
         this.setUniform1(spriteUniforms.spriteAlpha, instance.alpha ?? 1);
+
+        this.gl.depthMask(false);
+        this.gl.uniform4fv(spriteUniforms.spriteColor, SPRITE_OUTLINE_COLOR);
+        this.setUniform1(spriteUniforms.spriteColorStrength, 1);
+        for (const offset of SPRITE_OUTLINE_OFFSETS) {
+          this.gl.uniform2fv(spriteUniforms.spriteScreenOffset, offset);
+          this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
+        }
+
+        this.gl.depthMask(true);
+        this.gl.uniform2fv(spriteUniforms.spriteScreenOffset, [0, 0]);
+        this.setUniform1(spriteUniforms.spriteColorStrength, 0);
         this.gl.drawElements(this.gl.TRIANGLES, 6, this.gl.UNSIGNED_SHORT, 0);
       }
       return;
@@ -230,6 +253,7 @@ class WorldRenderer {
 
     const { uniforms } = this.resources;
 
+    this.setUniform1(uniforms.ditherStrength, 1);
     this.setUniform3(uniforms.modelOffset, sceneObject.model.offset);
     this.setUniform1(uniforms.modelScale, sceneObject.model.scale);
     this.setUniform1(uniforms.modelHeight, sceneObject.model.size[1]);
@@ -266,6 +290,7 @@ class WorldRenderer {
   drawTerrainSceneObject(sceneObject) {
     const { uniforms } = this.resources;
 
+    this.setUniform1(uniforms.ditherStrength, TERRAIN_DITHER_STRENGTH);
     this.setUniform3(uniforms.modelOffset, sceneObject.model.offset);
     this.setUniform1(uniforms.modelScale, sceneObject.model.scale);
     this.setUniform1(uniforms.modelHeight, sceneObject.model.size[1]);

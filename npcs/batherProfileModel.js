@@ -22,24 +22,23 @@ const DEFAULT_REACTIONS = Object.freeze({
 const PROFILE_DEFINITIONS = Object.freeze([
   Object.freeze({
     id: BATHER_PROFILE_IDS.BALANCED,
-    label: "Balanced",
     reactionMultipliers: DEFAULT_REACTIONS,
     messinessMultiplier: 1,
-    beveragePurchaseChance: 0.75
+    beveragePurchaseChance: 0.75,
+    boredomRateMultiplier: 1
   }),
   Object.freeze({
     id: BATHER_PROFILE_IDS.CONNECTED,
-    label: "Connected",
     reactionMultipliers: Object.freeze({
       ...DEFAULT_REACTIONS,
       [BATHER_REACTION_TYPES.WIFI]: 0.75
     }),
     messinessMultiplier: 0.75,
-    beveragePurchaseChance: 0.65
+    beveragePurchaseChance: 0.65,
+    boredomRateMultiplier: 0.9
   }),
   Object.freeze({
     id: BATHER_PROFILE_IDS.EASYGOING,
-    label: "Easygoing",
     reactionMultipliers: Object.freeze({
       [BATHER_REACTION_TYPES.ENTERTAINMENT]: 1.25,
       [BATHER_REACTION_TYPES.HEAT]: 1.25,
@@ -47,26 +46,26 @@ const PROFILE_DEFINITIONS = Object.freeze([
       [BATHER_REACTION_TYPES.WIFI]: 1.25
     }),
     messinessMultiplier: 1.35,
-    beveragePurchaseChance: 0.82
+    beveragePurchaseChance: 0.82,
+    boredomRateMultiplier: 0.72
   }),
   Object.freeze({
     id: BATHER_PROFILE_IDS.SUN_SENSITIVE,
-    label: "Sun Sensitive",
     reactionMultipliers: Object.freeze({
       ...DEFAULT_REACTIONS,
       [BATHER_REACTION_TYPES.HEAT]: 0.7
     }),
     messinessMultiplier: 1.05,
-    beveragePurchaseChance: 0.92
+    beveragePurchaseChance: 0.92,
+    boredomRateMultiplier: 1.15
   })
 ]);
 
-const MOOD_MOTIVE_LABELS = Object.freeze({
-  connectivity: "CONNECTION",
-  relief: "RELIEF",
-  entertainment: "FUN",
-  heat: "COOL DOWN"
-});
+const MOOD_MOTIVES = Object.freeze([
+  "connectivity",
+  "relief",
+  "entertainment"
+]);
 
 function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
@@ -74,26 +73,25 @@ function clamp(value, min, max) {
 
 function getMoodBand(score) {
   if (score >= 75) {
-    return "HAPPY";
+    return "happy";
   }
 
   if (score >= 50) {
-    return "OKAY";
+    return "okay";
   }
 
   if (score >= 25) {
-    return "UNEASY";
+    return "uneasy";
   }
 
-  return "UPSET";
+  return "upset";
 }
 
 export function createBatherMoodSnapshot(bather) {
   const motiveNeeds = bather?.motiveNeeds || {};
-  const motiveEntries = Object.entries(MOOD_MOTIVE_LABELS)
-    .map(([motive, label]) => ({
+  const motiveEntries = MOOD_MOTIVES
+    .map((motive) => ({
       motive,
-      label,
       need: clamp(Number(motiveNeeds[motive]) || 0, 0, 100)
     }));
   const heatNeed = clamp(
@@ -103,7 +101,7 @@ export function createBatherMoodSnapshot(bather) {
   );
   const entries = [
     ...motiveEntries,
-    { motive: "heat", label: MOOD_MOTIVE_LABELS.heat, need: heatNeed }
+    { motive: "heat", need: heatNeed }
   ];
   const averageNeed = entries.reduce((total, entry) => total + entry.need, 0) /
     entries.length;
@@ -123,7 +121,6 @@ export function createBatherMoodSnapshot(bather) {
     band: getMoodBand(score),
     strongestNeed: Object.freeze({
       motive: strongestNeed.motive,
-      label: strongestNeed.label,
       value: Math.round(strongestNeed.need)
     }),
     complaint: Boolean(bather?.complaint),

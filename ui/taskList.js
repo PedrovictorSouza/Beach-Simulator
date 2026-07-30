@@ -3,9 +3,14 @@ const TASK_STATUS = Object.freeze({
   COMPLETED: "completed",
   CANCELLED: "cancelled"
 });
+const INITIAL_ONBOARDING_TASK_ID = "build-first-construction";
 
 function normalizeNumber(value) {
   return Number.isFinite(Number(value)) ? Number(value) : 0;
+}
+
+function normalizeMessageParams(params) {
+  return params && typeof params === "object" ? { ...params } : {};
 }
 
 export function createTaskListModel(initialTasks = []) {
@@ -17,9 +22,19 @@ export function createTaskListModel(initialTasks = []) {
     const taskId = task?.id === undefined ? "" : String(task.id);
     const existing = tasks.get(taskId);
 
-    if (!taskId || (!existing && !task?.label)) {
+    const hasMessageId = Boolean(String(task?.messageId || "").trim());
+    const hasLabel = Boolean(String(task?.label || "").trim());
+
+    if (!taskId || (!existing && !hasMessageId && !hasLabel)) {
       throw new Error("Task precisa de id e label.");
     }
+
+    const messageId = task.messageId === undefined ?
+      existing?.messageId ?? null :
+      String(task.messageId || "").trim() || null;
+    const messageParams = task.messageParams === undefined ?
+      existing?.messageParams ?? {} :
+      normalizeMessageParams(task.messageParams);
 
     const target = task.target === undefined ?
       existing?.target ?? null :
@@ -37,7 +52,9 @@ export function createTaskListModel(initialTasks = []) {
       ...existing,
       ...task,
       id: taskId,
-      label: String(task.label ?? existing.label),
+      label: String(task.label ?? existing?.label ?? ""),
+      messageId,
+      messageParams,
       priority: task.priority === undefined ?
         existing?.priority ?? 0 :
         normalizeNumber(task.priority),
@@ -69,6 +86,8 @@ export function createTaskListModel(initialTasks = []) {
       .map((task) => ({
         id: task.id,
         label: task.label,
+        messageId: task.messageId,
+        messageParams: task.messageParams,
         priority: task.priority,
         urgency: task.urgency,
         progress: task.progress,
@@ -135,42 +154,79 @@ export function createTaskListModel(initialTasks = []) {
   });
 }
 
-export function createTaskListView({ root, onTaskComplete = () => {} }) {
+export function createTaskListView({
+  root,
+  translator,
+  onTaskComplete = () => {},
+  onTaskProgress = () => {}
+}) {
   if (!root) {
     throw new Error("TaskListView precisa de um elemento root.");
+  }
+
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("TaskListView precisa de um translator.");
   }
 
   if (typeof onTaskComplete !== "function") {
     throw new Error("TaskListView precisa de um callback de conclusao valido.");
   }
 
+  if (typeof onTaskProgress !== "function") {
+    throw new Error("TaskListView precisa de um callback de progresso valido.");
+  }
+
   const documentRef = root.ownerDocument;
   const element = documentRef.createElement("section");
+  const titleElement = documentRef.createElement("h2");
+  const helperElement = documentRef.createElement("p");
   const listElement = documentRef.createElement("ol");
   const progressByTaskId = new Map();
+  let currentTasks = [];
 
   element.className = "task-list";
-  element.setAttribute("aria-label", "Tasks");
+  element.setAttribute("aria-label", translator.t("tasks.ariaLabel"));
   element.hidden = true;
+  titleElement.className = "task-list__title";
+  titleElement.textContent = translator.t("tasks.title");
+  helperElement.className = "task-list__helper";
+  helperElement.textContent = translator.t("tasks.helper");
   listElement.className = "task-list__items";
   listElement.setAttribute("aria-live", "polite");
-  element.append(listElement);
+  element.append(titleElement, helperElement, listElement);
   root.append(element);
 
-  return Object.freeze({
-    render(tasks) {
+  const renderTasks = (tasks) => {
       const nextTasks = Array.isArray(tasks) ? tasks : [];
+
+      currentTasks = nextTasks;
+      element.setAttribute("aria-label", translator.t("tasks.ariaLabel"));
+      titleElement.textContent = translator.t("tasks.title");
+      helperElement.textContent = translator.t("tasks.helper");
       const completedTasks = [];
       const taskElements = nextTasks.map((task) => {
         const itemElement = documentRef.createElement("li");
         const labelElement = documentRef.createElement("span");
         const hasProgress = Number.isFinite(task.target) && task.target > 0;
         const completed = hasProgress && task.progress >= task.target;
+        const taskLabel = task.messageId ?
+          translator.t(task.messageId, task.messageParams) :
+          task.label;
 
         itemElement.className = "task-list__item";
         itemElement.dataset.taskId = task.id;
+        if (task.id === INITIAL_ONBOARDING_TASK_ID && !completed) {
+          const focusElement = documentRef.createElement("span");
+
+          itemElement.classList.add("task-list__item--focus");
+          focusElement.className = "task-list__focus";
+          focusElement.textContent = translator.t("tasks.startHere");
+          itemElement.append(focusElement);
+        }
         labelElement.className = "task-list__label";
-        labelElement.textContent = completed ? "TASK COMPLETE!" : task.label;
+        labelElement.textContent = completed ?
+          translator.t("tasks.complete") :
+          taskLabel;
         labelElement.classList.toggle("task-list__label--complete", completed);
         itemElement.append(labelElement);
 
@@ -192,7 +248,10 @@ export function createTaskListView({ root, onTaskComplete = () => {} }) {
           progressRow.className = "task-list__progress-row";
           progressTrack.className = "task-list__progress";
           progressTrack.setAttribute("role", "progressbar");
-          progressTrack.setAttribute("aria-label", `${task.label} progress`);
+          progressTrack.setAttribute(
+            "aria-label",
+            translator.t("tasks.progress", { label: taskLabel })
+          );
           progressTrack.setAttribute("aria-valuemin", "0");
           progressTrack.setAttribute("aria-valuemax", String(task.target));
           progressTrack.setAttribute("aria-valuenow", String(task.progress));
@@ -210,6 +269,10 @@ export function createTaskListView({ root, onTaskComplete = () => {} }) {
           if (justCompleted) {
             labelElement.classList.add("task-list__label--completed-now");
             completedTasks.push(task);
+          }
+
+          if (progressed && !justCompleted) {
+            onTaskProgress(task);
           }
 
           progressTrack.append(progressFill);
@@ -232,6 +295,17 @@ export function createTaskListView({ root, onTaskComplete = () => {} }) {
       element.hidden = nextTasks.length === 0;
 
       completedTasks.forEach(onTaskComplete);
+  };
+  const unsubscribeLocale = translator.subscribe(() => {
+    renderTasks(currentTasks);
+  });
+
+  return Object.freeze({
+    render(tasks) {
+      renderTasks(tasks);
+    },
+    destroy() {
+      unsubscribeLocale();
     }
   });
 }

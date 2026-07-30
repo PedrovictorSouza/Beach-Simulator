@@ -3,27 +3,20 @@ const MONEY_THUMB_IMAGE_URL = new URL(
   import.meta.url
 ).href;
 
-const DISPLAY_MONEY_FORMATTER = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  notation: "compact",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0
-});
-
-const ACCESSIBLE_MONEY_FORMATTER = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0
-});
-
 const MONEY_STEP_IN_CENTS = 100;
 const MONEY_STEP_INTERVAL_MS = 100;
 
-export function createMoneyCounterView({ root, windowRef = window }) {
+export function createMoneyCounterView({
+  root,
+  translator,
+  windowRef = window
+}) {
   if (!root) {
     throw new Error("MoneyCounterView precisa de um elemento root.");
+  }
+
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("MoneyCounterView precisa de um translator.");
   }
 
   const documentRef = root.ownerDocument;
@@ -56,12 +49,24 @@ export function createMoneyCounterView({ root, windowRef = window }) {
   };
 
   const renderAmount = (moneyInCents) => {
-    amountElement.textContent = DISPLAY_MONEY_FORMATTER.format(moneyInCents / 100);
+    const amount = moneyInCents / 100;
+
+    amountElement.textContent = translator.formatCurrency(amount, {
+      notation: "compact"
+    });
     element.setAttribute(
       "aria-label",
-      `Beach money: ${ACCESSIBLE_MONEY_FORMATTER.format(moneyInCents / 100)}`
+      translator.t("hud.beachMoney", {
+        amount: translator.formatCurrency(amount)
+      })
     );
   };
+
+  translator.subscribe(() => {
+    if (renderedAmount !== null) {
+      renderAmount(renderedAmount);
+    }
+  });
 
   const advanceAnimation = () => {
     animationTimerId = null;

@@ -1,10 +1,16 @@
+import {
+  BEACH_OBJECT_DEFINITIONS,
+  BEACH_OBJECT_TYPES,
+  getBeachObjectDefinition
+} from "../objects/beachObjectCatalog.js";
+
 export const BUILDING_TYPES = Object.freeze({
-  BEVERAGE_STORE: "beverage-store",
-  LIFEGUARD_BUILDING: "lifeguard-building",
-  WIFI_SPOT: "wifi-spot",
-  TOILET_BUILDING: "toilet-building",
-  TRASH_CANS: "trash-cans",
-  VOLLEYBALL_COURT: "volleyball-court"
+  BEVERAGE_STORE: BEACH_OBJECT_TYPES.BEVERAGE_STORE,
+  LIFEGUARD_BUILDING: BEACH_OBJECT_TYPES.LIFEGUARD_BUILDING,
+  WIFI_SPOT: BEACH_OBJECT_TYPES.WIFI_SPOT,
+  TOILET_BUILDING: BEACH_OBJECT_TYPES.TOILET_BUILDING,
+  TRASH_CANS: BEACH_OBJECT_TYPES.TRASH_CANS,
+  VOLLEYBALL_COURT: BEACH_OBJECT_TYPES.VOLLEYBALL_COURT
 });
 
 export const BUILDING_SERVICE_MOTIVES = Object.freeze({
@@ -17,82 +23,75 @@ export const BUILDING_SERVICE_MOTIVES = Object.freeze({
 });
 
 export const BEACH_AMENITY_TYPES = Object.freeze({
-  SUN_SHADE: "sun-shade"
+  SUN_SHADE: BEACH_OBJECT_TYPES.SUN_SHADE
 });
 
-export const BEVERAGE_PURCHASE_PRICE_IN_CENTS = 100;
+export const BEVERAGE_PURCHASE_PRICE_IN_CENTS = getBeachObjectDefinition(
+  BUILDING_TYPES.BEVERAGE_STORE
+).economy.batherPurchasePriceInCents;
 export const BEVERAGE_PURCHASE_DURATION_SECONDS = 5;
-export const SUN_SHADE_RENTAL_INTERVAL_SECONDS = 15;
-export const SUN_SHADE_RENTAL_REWARD_IN_CENTS = 100;
-
-const SERVICE_ADVERTISEMENT_DEFINITIONS = Object.freeze([
-  Object.freeze({
-    buildingType: BUILDING_TYPES.BEVERAGE_STORE,
-    motive: BUILDING_SERVICE_MOTIVES.REFRESHMENT,
-    utility: 70
-  }),
-  Object.freeze({
-    buildingType: BUILDING_TYPES.LIFEGUARD_BUILDING,
-    motive: BUILDING_SERVICE_MOTIVES.SAFETY,
-    utility: 65
-  }),
-  Object.freeze({
-    buildingType: BUILDING_TYPES.WIFI_SPOT,
-    motive: BUILDING_SERVICE_MOTIVES.CONNECTIVITY,
-    utility: 55
-  }),
-  Object.freeze({
-    buildingType: BUILDING_TYPES.TOILET_BUILDING,
-    motive: BUILDING_SERVICE_MOTIVES.RELIEF,
-    utility: 90
-  }),
-  Object.freeze({
-    buildingType: BUILDING_TYPES.TRASH_CANS,
-    motive: BUILDING_SERVICE_MOTIVES.CLEANLINESS,
-    utility: 50
-  }),
-  Object.freeze({
-    buildingType: BUILDING_TYPES.VOLLEYBALL_COURT,
-    motive: BUILDING_SERVICE_MOTIVES.ENTERTAINMENT,
-    utility: 75
-  })
+export const SUN_SHADE_RENTAL_REWARD_TIERS = Object.freeze([
+  ...getBeachObjectDefinition(BEACH_AMENITY_TYPES.SUN_SHADE)
+    .service.revenue.rewardTiers
 ]);
+
+export function getSunShadeRentalRewardInCents(durationSeconds) {
+  const duration = Math.max(0, Number(durationSeconds) || 0);
+  const tier = SUN_SHADE_RENTAL_REWARD_TIERS.reduce((selected, candidate) => (
+    duration >= candidate.durationSeconds ? candidate : selected
+  ), null);
+
+  return tier?.amountInCents || 0;
+}
+
+const SERVICE_ADVERTISEMENT_DEFINITIONS = Object.freeze(
+  Object.values(BUILDING_TYPES).map((buildingType) => {
+    const advertisement = getBeachObjectDefinition(buildingType).service.advertisement;
+
+    return Object.freeze({
+      buildingType,
+      motive: advertisement.motive,
+      utility: advertisement.utility
+    });
+  })
+);
 
 const BUILDING_TYPE_SET = new Set(Object.values(BUILDING_TYPES));
-const TOILET_DIRT_PER_BATHER_SECOND = 0.04;
-const TOILET_MAINTENANCE_COST_IN_CENTS = 300;
-const LIFEGUARD_SALARY_IN_CENTS = 400;
+const TOILET_DIRT_PER_BATHER_SECOND = getBeachObjectDefinition(
+  BUILDING_TYPES.TOILET_BUILDING
+).batherInteraction.dirtPerBatherSecond;
+const TOILET_MAINTENANCE_COST_IN_CENTS = getBeachObjectDefinition(
+  BUILDING_TYPES.TOILET_BUILDING
+).economy.endOfDayMaintenanceCostInCents;
+const LIFEGUARD_SALARY_IN_CENTS = getBeachObjectDefinition(
+  BUILDING_TYPES.LIFEGUARD_BUILDING
+).economy.endOfDayMaintenanceCostInCents;
 const FIRST_PUBLIC_SUPPORT_GRANT_IN_CENTS = 500;
-const PUBLIC_SERVICE_SUPPORT_DEFINITIONS = Object.freeze([
-  Object.freeze({
-    buildingType: BUILDING_TYPES.LIFEGUARD_BUILDING,
-    amountInCents: 400
-  }),
-  Object.freeze({
-    buildingType: BUILDING_TYPES.TOILET_BUILDING,
-    amountInCents: 300
-  }),
-  Object.freeze({
-    buildingType: BUILDING_TYPES.TRASH_CANS,
-    amountInCents: 100
-  }),
-  Object.freeze({
-    buildingType: BUILDING_TYPES.VOLLEYBALL_COURT,
-    amountInCents: 200
-  })
-]);
-const SERVICE_REVENUE_DEFINITIONS = Object.freeze([
-  Object.freeze({
-    buildingType: BUILDING_TYPES.BEVERAGE_STORE,
-    intervalSeconds: 30,
-    amountInCents: 100
-  }),
-  Object.freeze({
-    buildingType: BUILDING_TYPES.WIFI_SPOT,
-    intervalSeconds: 30,
-    amountInCents: 100
-  })
-]);
+const PUBLIC_SERVICE_SUPPORT_DEFINITIONS = Object.freeze(
+  Object.values(BUILDING_TYPES)
+    .map((buildingType) => ({
+      buildingType,
+      amountInCents: BEACH_OBJECT_DEFINITIONS[buildingType].economy
+        ?.publicSupportInCents || 0
+    }))
+    .filter(({ amountInCents }) => amountInCents > 0)
+    .map((definition) => Object.freeze(definition))
+);
+const SERVICE_REVENUE_DEFINITIONS = Object.freeze(
+  Object.values(BUILDING_TYPES)
+    .map((buildingType) => ({
+      buildingType,
+      revenue: BEACH_OBJECT_DEFINITIONS[buildingType].service?.revenue
+    }))
+    .filter(({ buildingType, revenue }) => (
+      revenue && buildingType !== BEACH_AMENITY_TYPES.SUN_SHADE
+    ))
+    .map(({ buildingType, revenue }) => Object.freeze({
+      buildingType,
+      intervalSeconds: revenue.intervalSeconds,
+      amountInCents: revenue.amountInCents
+    }))
+);
 
 function createSnapshot({ ownedTypes, toiletCleanliness, lifeguardPaid }) {
   const owned = Object.freeze([...ownedTypes]);
@@ -158,10 +157,15 @@ export function createBuildingServicesModel() {
     },
     update(
       deltaSeconds,
-      { batherCount = 0, bathers = [], sunShadeUsers = [] } = {}
+      {
+        batherCount = 0,
+        bathers = [],
+        serviceUsers = []
+      } = {}
     ) {
       const stepSeconds = Math.max(0, Number(deltaSeconds) || 0);
       const activeBathers = Array.isArray(bathers) ? bathers : [];
+      const activeServiceUsers = Array.isArray(serviceUsers) ? serviceUsers : [];
       const normalizedBatherCount = activeBathers.length > 0 ?
         activeBathers.length :
         Math.max(0, Math.floor(Number(batherCount) || 0));
@@ -181,7 +185,9 @@ export function createBuildingServicesModel() {
           continue;
         }
 
-        for (const bather of activeBathers) {
+        for (const bather of activeServiceUsers.filter((candidate) => (
+          candidate?.activityBuildingType === definition.buildingType
+        ))) {
           const batherId = String(bather?.id || "").trim();
 
           if (!batherId) {
@@ -208,31 +214,6 @@ export function createBuildingServicesModel() {
         }
       }
 
-      for (const bather of Array.isArray(sunShadeUsers) ? sunShadeUsers : []) {
-        const batherId = String(bather?.id || "").trim();
-
-        if (!batherId) {
-          continue;
-        }
-
-        const usageKey = `${BEACH_AMENITY_TYPES.SUN_SHADE}:${batherId}`;
-        activeUsageKeys.add(usageKey);
-        let usageSeconds = (serviceUsageSecondsByKey.get(usageKey) || 0) + stepSeconds;
-
-        while (usageSeconds >= SUN_SHADE_RENTAL_INTERVAL_SECONDS) {
-          usageSeconds -= SUN_SHADE_RENTAL_INTERVAL_SECONDS;
-          revenueSequence += 1;
-          notifyRevenue(Object.freeze({
-            sequence: revenueSequence,
-            buildingType: BEACH_AMENITY_TYPES.SUN_SHADE,
-            batherId,
-            amountInCents: SUN_SHADE_RENTAL_REWARD_IN_CENTS
-          }));
-        }
-
-        serviceUsageSecondsByKey.set(usageKey, usageSeconds);
-      }
-
       for (const usageKey of serviceUsageSecondsByKey.keys()) {
         if (!activeUsageKeys.has(usageKey)) {
           serviceUsageSecondsByKey.delete(usageKey);
@@ -240,6 +221,32 @@ export function createBuildingServicesModel() {
       }
 
       return getSnapshot();
+    },
+    recordServiceCompletion({
+      buildingType,
+      batherId,
+      durationSeconds
+    } = {}) {
+      if (buildingType !== BEACH_AMENITY_TYPES.SUN_SHADE || !batherId) {
+        return null;
+      }
+
+      const amountInCents = getSunShadeRentalRewardInCents(durationSeconds);
+
+      if (amountInCents <= 0) {
+        return null;
+      }
+
+      revenueSequence += 1;
+      const event = Object.freeze({
+        sequence: revenueSequence,
+        buildingType,
+        batherId: String(batherId),
+        durationSeconds: Math.max(0, Number(durationSeconds) || 0),
+        amountInCents
+      });
+      notifyRevenue(event);
+      return event;
     },
     subscribeToRevenue(observer) {
       if (typeof observer !== "function") {

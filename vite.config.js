@@ -8,7 +8,11 @@ const RUNTIME_ASSET_DIRECTORIES = Object.freeze([
   "kiosk",
   "beach-house",
   "beberage",
-  "npcs/bather-1"
+  "wifi-spot",
+  "objects/sun-shade",
+  "objects/Trash-Can",
+  "npcs/bather-1",
+  "npcs/shark"
 ]);
 
 function copyRuntimeAssets() {

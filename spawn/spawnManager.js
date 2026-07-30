@@ -187,7 +187,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
     activeBatherCadence = cadence;
   };
 
-  const scheduleLitterForBather = (bather, delayRange) => {
+  const scheduleLitterForBather = (bather, delayRange, reason = "visitor") => {
     const policy = SPAWN_CHANNEL_POLICIES[SPAWN_CHANNELS.BATHER_LITTER];
     const litterType = BATHER_LITTER_TYPES[
       readRandomIndex(BATHER_LITTER_TYPES.length)
@@ -210,6 +210,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
     litterPlanByEventSequence.set(event.sequence, Object.freeze({
       batherId: bather.id,
       litterType,
+      reason,
       scheduledPosition
     }));
     scheduledBatherLitterCount += 1;
@@ -307,7 +308,11 @@ export function createSpawnManager({ random = Math.random } = {}) {
         continue;
       }
 
-      scheduleLitterForBather(bather, BATHER_LITTER_DELAY_SECONDS);
+      scheduleLitterForBather(
+        bather,
+        BATHER_LITTER_DELAY_SECONDS,
+        "beverage"
+      );
     }
   };
 
@@ -337,6 +342,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
       id: `npc-drop-${event.sequence}`,
       type: plan.litterType,
       source: SPAWN_SOURCES.NPC_DROP,
+      reason: plan.reason,
       zone: definition.spawnZones[0],
       placement: Object.freeze({
         position: Object.freeze([

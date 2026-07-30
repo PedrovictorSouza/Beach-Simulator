@@ -11,7 +11,10 @@ export function createCleanBeachController({
     collect({ worldObject, definition, progressTaskId = taskId }) {
       const traits = definition?.traits || [];
       const valuable = traits.includes(SPAWNABLE_OBJECT_TRAITS.PICKUP);
-      const progressesTask = valuable || traits.includes(SPAWNABLE_OBJECT_TRAITS.DIRTY);
+      const countsForCleanupTask = worldObject?.request?.countsForCleanupTask !== false;
+      const progressesTask = countsForCleanupTask && (
+        valuable || traits.includes(SPAWNABLE_OBJECT_TRAITS.DIRTY)
+      );
       const itemRewardInCents = Number(worldObject?.request?.collectionRewardInCents);
       const rewardAmountInCents = valuable ?
         (Number.isSafeInteger(itemRewardInCents) && itemRewardInCents > 0 ?

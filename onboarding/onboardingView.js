@@ -1,3 +1,5 @@
+import { SOUND_IDS } from "../audio/soundManager.js";
+
 const HAND_IMAGE_URL = new URL("../2d-objects/hand.png", import.meta.url).href;
 const BATHER_THUMB_IMAGE_URL = new URL(
   "../2d-objects/HUD/bather-thumb.png",
@@ -12,10 +14,25 @@ const AUTO_DISMISS_GRACE_MS = 10000;
 const NOTICE_TYPEWRITER_CHARACTER_DELAY_MS = 28;
 const WORLD_HINT_MARGIN_PX = 24;
 const WORLD_HINT_OFFSET_PX = 40;
+const HAND_ALERT_REPEAT_COUNT = 3;
+const HAND_ALERT_REPEAT_INTERVAL_MS = 320;
 
-export function createOnboardingView({ root, windowRef = window }) {
+export function createOnboardingView({
+  root,
+  translator,
+  windowRef = window,
+  playSound = () => {}
+}) {
   if (!root) {
     throw new Error("OnboardingView precisa de um elemento root.");
+  }
+
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("OnboardingView precisa de um translator.");
+  }
+
+  if (typeof playSound !== "function") {
+    throw new Error("OnboardingView precisa de uma funcao playSound.");
   }
 
   const handElement = root.ownerDocument.createElement("img");
@@ -31,6 +48,24 @@ export function createOnboardingView({ root, windowRef = window }) {
   let noticeTimeoutId = null;
   let noticeTypewriterId = null;
   let resolveNotice = null;
+  let handAlertTimeoutIds = [];
+
+  const clearHandAlertSequence = () => {
+    handAlertTimeoutIds.forEach((timeoutId) => windowRef.clearTimeout(timeoutId));
+    handAlertTimeoutIds = [];
+  };
+
+  const playHandAlertSequence = () => {
+    clearHandAlertSequence();
+    playSound(SOUND_IDS.ONBOARDING_ALERT);
+
+    for (let index = 1; index < HAND_ALERT_REPEAT_COUNT; index += 1) {
+      handAlertTimeoutIds.push(windowRef.setTimeout(
+        () => playSound(SOUND_IDS.ONBOARDING_ALERT),
+        index * HAND_ALERT_REPEAT_INTERVAL_MS
+      ));
+    }
+  };
 
   handElement.className = "onboarding-hand";
   handElement.src = HAND_IMAGE_URL;
@@ -47,7 +82,7 @@ export function createOnboardingView({ root, windowRef = window }) {
   worldArrowElement.append(worldArrowShapeElement);
   noticeElement.className = "onboarding-notice";
   noticeElement.setAttribute("role", "dialog");
-  noticeElement.setAttribute("aria-label", "Game tip");
+  noticeElement.setAttribute("aria-label", translator.t("onboarding.gameTip"));
   noticeElement.hidden = true;
   noticeImageElement.className = "onboarding-notice__image";
   noticeImageElement.src = BATHER_THUMB_IMAGE_URL;
@@ -56,13 +91,18 @@ export function createOnboardingView({ root, windowRef = window }) {
   noticeTextElement.className = "onboarding-notice__text";
   noticeButtonElement.className = "onboarding-notice__button";
   noticeButtonElement.type = "button";
-  noticeButtonElement.textContent = "OK";
+  noticeButtonElement.textContent = translator.t("onboarding.ok");
   noticeElement.append(
     noticeImageElement,
     noticeTextElement,
     noticeButtonElement
   );
   root.append(handElement, worldArrowElement, noticeElement);
+
+  translator.subscribe(() => {
+    noticeElement.setAttribute("aria-label", translator.t("onboarding.gameTip"));
+    noticeButtonElement.textContent = translator.t("onboarding.ok");
+  });
 
   const hideNotice = () => {
     windowRef.clearTimeout(noticeTimeoutId);
@@ -85,6 +125,7 @@ export function createOnboardingView({ root, windowRef = window }) {
       }
 
       windowRef.clearTimeout(hideTimeoutId);
+      clearHandAlertSequence();
       handElement.classList.remove("onboarding-hand--playing");
       handElement.hidden = false;
 
@@ -100,9 +141,11 @@ export function createOnboardingView({ root, windowRef = window }) {
       handElement.style.left = `${Math.min(preferredLeft, maxLeft)}px`;
       handElement.style.top = `${targetRect.top - rootRect.top + targetRect.height * 0.5}px`;
       handElement.classList.add("onboarding-hand--playing");
+      playHandAlertSequence();
 
       await new Promise((resolve) => {
         const hide = () => {
+          clearHandAlertSequence();
           handElement.classList.remove("onboarding-hand--playing");
           handElement.hidden = true;
           resolve();
@@ -142,8 +185,13 @@ export function createOnboardingView({ root, windowRef = window }) {
     hideWorldHint() {
       worldArrowElement.hidden = true;
     },
-    showNotice(message) {
-      const normalizedMessage = String(message || "").trim();
+    showNotice(messageOrOptions) {
+      const normalizedMessage = typeof messageOrOptions === "string" ?
+        String(messageOrOptions).trim() :
+        translator.t(
+          messageOrOptions?.messageId,
+          messageOrOptions?.messageParams
+        ).trim();
 
       if (!normalizedMessage) {
         throw new Error("OnboardingView precisa de um aviso com texto.");
@@ -173,6 +221,9 @@ export function createOnboardingView({ root, windowRef = window }) {
         noticeTypewriterId = windowRef.setInterval(() => {
           characterIndex += 1;
           noticeTextElement.textContent = normalizedMessage.slice(0, characterIndex);
+          if (/\S/.test(normalizedMessage[characterIndex - 1] || "")) {
+            playSound(SOUND_IDS.LETTER_INCREMENT);
+          }
 
           if (characterIndex >= normalizedMessage.length) {
             windowRef.clearInterval(noticeTypewriterId);

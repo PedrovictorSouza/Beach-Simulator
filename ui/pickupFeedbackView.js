@@ -8,7 +8,11 @@ const MONEY_IMAGE_URL = new URL(
   import.meta.url
 ).href;
 
-export function createPickupFeedbackView({ root, windowRef = window }) {
+export function createPickupFeedbackView({ root, translator, windowRef = window }) {
+  if (!translator) {
+    throw new Error("Pickup feedback view precisa de um tradutor.");
+  }
+
   const layer = root.ownerDocument.createElement("div");
   let hookElement = null;
   let hookTimeoutId = null;
@@ -68,7 +72,7 @@ export function createPickupFeedbackView({ root, windowRef = window }) {
 
     element.className = "money-gain-animation";
     element.src = MONEY_IMAGE_URL;
-    element.alt = "Money gained";
+    element.alt = translator.t("feedback.pickup.moneyGained");
     element.setAttribute("aria-hidden", "true");
     element.style.left = `${start.x}px`;
     element.style.top = `${start.y}px`;
@@ -114,16 +118,33 @@ export function createPickupFeedbackView({ root, windowRef = window }) {
       layer.append(hookElement);
       hookTimeoutId = windowRef.setTimeout(() => hookElement?.remove(), HOOK_DURATION_MS);
     },
-    showCollection({ x, y, valuable, text }) {
+    showCollection({
+      x,
+      y,
+      valuable,
+      messageId,
+      messageParams,
+      text,
+      durationMs = FEEDBACK_DURATION_MS
+    }) {
       const element = root.ownerDocument.createElement("span");
+      const duration = Math.max(
+        FEEDBACK_DURATION_MS,
+        Math.trunc(Number(durationMs) || FEEDBACK_DURATION_MS)
+      );
+      const resolvedText = messageId
+        ? translator.t(messageId, messageParams)
+        : text || translator.t("feedback.pickup.money", {
+          amount: translator.formatCurrency(1)
+        });
 
       element.className = valuable ?
         "pickup-feedback pickup-feedback--valuable" :
         "pickup-feedback";
-      element.textContent = text || "+$1.00";
+      element.textContent = resolvedText;
       place(element, { x, y });
       layer.append(element);
-      windowRef.setTimeout(() => element.remove(), FEEDBACK_DURATION_MS);
+      windowRef.setTimeout(() => element.remove(), duration);
     },
     showMoneyGain({ x, y, targetElement }) {
       return animateMoneyGain({ x, y, targetElement });

@@ -83,26 +83,43 @@ export function planInitialPopulation() {
   }));
 }
 
-function reserveScenery(beachGrid, sceneObjects, padding) {
-  for (const sceneObject of sceneObjects) {
-    const instance = sceneObject.instances[0];
-    const cosine = Math.abs(Math.cos(instance.yaw));
-    const sine = Math.abs(Math.sin(instance.yaw));
-    const width = (
-      sceneObject.model.size[0] * cosine + sceneObject.model.size[2] * sine
-    ) * instance.scale;
-    const depth = (
-      sceneObject.model.size[0] * sine + sceneObject.model.size[2] * cosine
-    ) * instance.scale;
+function getSceneryBounds(sceneObject) {
+  const instance = sceneObject.instances[0];
+  const cosine = Math.abs(Math.cos(instance.yaw));
+  const sine = Math.abs(Math.sin(instance.yaw));
+  const width = (
+    sceneObject.model.size[0] * cosine + sceneObject.model.size[2] * sine
+  ) * instance.scale;
+  const depth = (
+    sceneObject.model.size[0] * sine + sceneObject.model.size[2] * cosine
+  ) * instance.scale;
 
-    beachGrid.reserveWorldBounds({
-      centerX: instance.offset[0],
-      centerZ: instance.offset[2],
+  return {
+    centerX: instance.offset[0],
+    centerZ: instance.offset[2],
     width,
     depth,
-    padding,
     reason: sceneObject.sceneryType || sceneObject.worldObject || "scenery"
-  });
+  };
+}
+
+export function reserveScenery(beachGrid, sceneObjects, padding) {
+  for (const sceneObject of sceneObjects) {
+    const bounds = getSceneryBounds(sceneObject);
+
+    beachGrid.reserveWorldBounds({
+      ...bounds,
+      padding
+    });
+  }
+}
+
+export function protectScenery(beachGrid, sceneObjects, padding) {
+  for (const sceneObject of sceneObjects) {
+    beachGrid.protectWorldBounds({
+      ...getSceneryBounds(sceneObject),
+      padding
+    });
   }
 }
 
@@ -160,6 +177,7 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
     kioskSceneObjects,
     0
   );
+  protectScenery(beachGrid, kioskSceneObjects, 4);
 
   const resolveWorldObjectPosition = (request) => {
     const placement = request?.placement;

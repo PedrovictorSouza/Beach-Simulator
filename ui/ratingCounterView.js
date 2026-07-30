@@ -8,9 +8,13 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
-export function createRatingCounterView({ root }) {
+export function createRatingCounterView({ root, translator }) {
   if (!root) {
     throw new Error("RatingCounterView precisa de um elemento root.");
+  }
+
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("RatingCounterView precisa de um translator.");
   }
 
   const documentRef = root.ownerDocument;
@@ -23,7 +27,7 @@ export function createRatingCounterView({ root }) {
   element.setAttribute("role", "status");
   element.setAttribute("aria-live", "polite");
   labelElement.className = "rating-counter__label";
-  labelElement.textContent = "Rating";
+  labelElement.textContent = translator.t("hud.rating.label");
   starsElement.className = "rating-counter__stars";
   starsElement.setAttribute("aria-hidden", "true");
 
@@ -52,6 +56,30 @@ export function createRatingCounterView({ root }) {
   let renderedRating = null;
   let renderedReviewCount = null;
 
+  const renderAccessibleLabel = () => {
+    if (renderedRating === null || renderedReviewCount === null) {
+      return;
+    }
+
+    labelElement.textContent = translator.t("hud.rating.label");
+    element.setAttribute(
+      "aria-label",
+      renderedReviewCount === 0 ?
+        translator.t("hud.rating.noReviews") :
+        translator.t("hud.rating.aria", {
+          rating: translator.formatNumber(renderedRating, {
+            minimumFractionDigits: 1,
+            maximumFractionDigits: 1
+          }),
+          count: translator.formatNumber(renderedReviewCount),
+          reviewLabel: translator.t(
+            renderedReviewCount === 1 ? "hud.rating.review" : "hud.rating.reviews"
+          )
+        })
+    );
+  };
+  translator.subscribe(renderAccessibleLabel);
+
   return Object.freeze({
     render({ averageRating, reviewCount }) {
       const nextRating = clamp(Number(averageRating) || 0, 0, STAR_COUNT);
@@ -70,14 +98,7 @@ export function createRatingCounterView({ root }) {
         fillElement.style.width = `${fill}%`;
       });
 
-      element.setAttribute(
-        "aria-label",
-        nextReviewCount === 0 ?
-          "Beach rating: no reviews" :
-          `Beach rating: ${nextRating.toFixed(1)} out of 5 from ${nextReviewCount} ${
-            nextReviewCount === 1 ? "review" : "reviews"
-          }`
-      );
+      renderAccessibleLabel();
     }
   });
 }

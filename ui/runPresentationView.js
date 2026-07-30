@@ -1,27 +1,29 @@
 import { summarizeReviewProblems } from "../ratings/dayReviewSummary.js";
+import { createRatingCounterView } from "./ratingCounterView.js";
+import { SOUND_IDS } from "../audio/soundManager.js";
 
 const DAY_INTRO_DURATION_MS = 1800;
-const PROBLEM_ACTION_LABELS = Object.freeze({
-  "heat-without-beverage": "DRINKS",
-  "missing-entertainment": "VOLLEYBALL",
-  "missing-toilet": "TOILETS",
-  "missing-wifi": "WI-FI"
+const PROBLEM_ACTION_IDS = Object.freeze({
+  "heat-without-beverage": "drinks",
+  "missing-entertainment": "volleyball",
+  "missing-toilet": "toilets",
+  "missing-wifi": "wifi"
 });
 
-function presentRunVerdict(averageRating, reviewCount) {
+function presentRunVerdict(averageRating, reviewCount, translator) {
   if (reviewCount <= 0) {
-    return "BEACH OPENED!";
+    return translator.t("reports.verdict.beachOpened");
   }
   if (averageRating >= 4.5) {
-    return "AMAZING BEACH!";
+    return translator.t("reports.verdict.amazing");
   }
   if (averageRating >= 3.5) {
-    return "GREAT BEACH!";
+    return translator.t("reports.verdict.great");
   }
   if (averageRating >= 2.5) {
-    return "GOOD START!";
+    return translator.t("reports.verdict.goodStart");
   }
-  return "KEEP IMPROVING!";
+  return translator.t("reports.verdict.keepImproving");
 }
 
 export function presentRunReport({
@@ -32,26 +34,45 @@ export function presentRunReport({
   buildingsBuilt = 0,
   reviews = [],
   closingNotice = ""
-} = {}) {
+} = {}, translator) {
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("presentRunReport precisa de um translator.");
+  }
+
   const mainProblemActions = summarizeReviewProblems(reviews, { limit: 2 })
-    .map(({ source }) => PROBLEM_ACTION_LABELS[source] || "BATHER CARE");
-  const money = Math.max(0, Number(moneyInCents) || 0) / 100;
+    .map(({ source }) => translator.t(
+      `reports.actions.${PROBLEM_ACTION_IDS[source] || "batherCare"}`
+    ));
+  const money = Math.floor(Math.max(0, Number(moneyInCents) || 0) / 100);
   const normalizedReviewCount = Math.max(0, Number(reviewCount) || 0);
   const normalizedAverageRating = normalizedReviewCount > 0 ?
     Math.min(5, Math.max(0, Number(averageRating) || 0)) :
     0;
   const ratingLabel = normalizedReviewCount > 0 ?
-    `${normalizedAverageRating.toFixed(1)} STARS` :
-    "NO REVIEWS";
+    translator.t("reports.stars", {
+      value: translator.formatNumber(normalizedAverageRating, {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+      })
+    }) :
+    translator.t("reports.noReviews");
 
   const lines = [
-    `RATING ${ratingLabel}`,
-    `MONEY $${money.toFixed(2)}`,
-    `BATHERS ${Math.max(0, Math.floor(Number(totalBathers) || 0))}`,
-    `BUILDINGS ${Math.max(0, Math.floor(Number(buildingsBuilt) || 0))}`,
+    translator.t("reports.rating", { value: ratingLabel }),
+    translator.t("reports.money", {
+      amount: translator.formatCurrency(money)
+    }),
+    translator.t("reports.bathers", {
+      count: translator.formatNumber(Math.max(0, Math.floor(Number(totalBathers) || 0)))
+    }),
+    translator.t("reports.buildings", {
+      count: translator.formatNumber(Math.max(0, Math.floor(Number(buildingsBuilt) || 0)))
+    }),
     mainProblemActions.length > 0 ?
-      `NEXT TIME: ${mainProblemActions.join(" + ")} EARLIER!` :
-      "BATHERS LOVED IT!"
+      translator.t("reports.nextTime", {
+        actions: mainProblemActions.join(" + ")
+      }) :
+      translator.t("reports.loved")
   ];
   const normalizedClosingNotice = String(closingNotice || "").trim();
 
@@ -60,23 +81,42 @@ export function presentRunReport({
   }
 
   return Object.freeze({
-    title: presentRunVerdict(normalizedAverageRating, normalizedReviewCount),
+    title: presentRunVerdict(
+      normalizedAverageRating,
+      normalizedReviewCount,
+      translator
+    ),
     lines: Object.freeze(lines)
   });
 }
 
-export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
+export function createRunPresentationView({
+  root,
+  hudRoot,
+  translator,
+  onPlayAgain,
+  playSound = () => {}
+}) {
   if (!root || !hudRoot) {
     throw new Error("RunPresentationView precisa de root e hudRoot.");
+  }
+
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("RunPresentationView precisa de um translator.");
+  }
+
+  if (typeof playSound !== "function") {
+    throw new Error("RunPresentationView precisa de uma funcao playSound.");
   }
 
   const documentRef = root.ownerDocument;
   const windowRef = documentRef.defaultView;
   const element = documentRef.createElement("div");
   const titleElement = documentRef.createElement("strong");
-  const forecastElement = documentRef.createElement("section");
-  const forecastTitleElement = documentRef.createElement("strong");
-  const forecastLinesElement = documentRef.createElement("div");
+  const ratingSpotlightElement = documentRef.createElement("section");
+  const ratingTitleElement = documentRef.createElement("strong");
+  const ratingMeterElement = documentRef.createElement("div");
+  const ratingScoreElement = documentRef.createElement("strong");
   const continueButton = documentRef.createElement("button");
   const playAgainButton = documentRef.createElement("button");
   let resolveDayAdvance = null;
@@ -86,14 +126,37 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
   titleElement.className = "run-intro__title";
   titleElement.setAttribute("role", "status");
   titleElement.setAttribute("aria-live", "assertive");
-  forecastElement.className = "day-forecast";
-  forecastElement.hidden = true;
-  forecastTitleElement.className = "day-forecast__title";
-  forecastLinesElement.className = "day-forecast__lines";
-  forecastElement.append(forecastTitleElement, forecastLinesElement);
+  ratingSpotlightElement.className = "rating-spotlight";
+  ratingSpotlightElement.hidden = true;
+  ratingTitleElement.className = "rating-spotlight__title";
+  ratingTitleElement.textContent = translator.t("run.finalRating");
+  ratingMeterElement.className = "rating-spotlight__meter";
+  const ratingCounterView = createRatingCounterView({
+    root: ratingMeterElement,
+    translator
+  });
+  ratingMeterElement.querySelector(".rating-counter")?.classList.add(
+    "rating-spotlight__counter"
+  );
+  ratingMeterElement.addEventListener("animationstart", (event) => {
+    if (
+      event.animationName !== "rating-star-pop" ||
+      !event.target?.classList?.contains("rating-counter__star")
+    ) {
+      return;
+    }
+
+    playSound(SOUND_IDS.POP);
+  });
+  ratingScoreElement.className = "rating-spotlight__score";
+  ratingSpotlightElement.append(
+    ratingTitleElement,
+    ratingMeterElement,
+    ratingScoreElement
+  );
   continueButton.className = "run-intro__action";
   continueButton.type = "button";
-  continueButton.textContent = "CONTINUE";
+  continueButton.textContent = translator.t("run.continue");
   continueButton.hidden = true;
   continueButton.addEventListener("click", () => {
     const resolve = resolveDayAdvance;
@@ -102,22 +165,29 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
       return;
     }
 
+    playSound(SOUND_IDS.DEFAULT_BUTTON);
     resolveDayAdvance = null;
     continueButton.hidden = true;
     resolve();
   });
   playAgainButton.className = "run-intro__action";
   playAgainButton.type = "button";
-  playAgainButton.textContent = "PLAY AGAIN";
+  playAgainButton.textContent = translator.t("run.playAgain");
   playAgainButton.hidden = true;
   playAgainButton.addEventListener("click", () => onPlayAgain?.());
   element.append(
     titleElement,
-    forecastElement,
+    ratingSpotlightElement,
     continueButton,
     playAgainButton
   );
   root.append(element);
+
+  translator.subscribe(() => {
+    ratingTitleElement.textContent = translator.t("run.finalRating");
+    continueButton.textContent = translator.t("run.continue");
+    playAgainButton.textContent = translator.t("run.playAgain");
+  });
 
   function setHudActive(active) {
     hudRoot.classList.toggle("game-hud--active", active);
@@ -127,20 +197,48 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
 
   setHudActive(false);
 
+  function renderRatingSpotlight({
+    averageRating = 0,
+    reviewCount = 0,
+    animate = false
+  } = {}) {
+    const normalizedReviewCount = Math.max(0, Math.trunc(Number(reviewCount) || 0));
+    const normalizedRating = normalizedReviewCount > 0 ?
+      Math.min(5, Math.max(0, Number(averageRating) || 0)) :
+      0;
+
+    ratingCounterView.render({
+      averageRating: normalizedRating,
+      reviewCount: normalizedReviewCount
+    });
+    ratingTitleElement.textContent = translator.t("run.finalRating");
+    ratingScoreElement.textContent = normalizedReviewCount > 0 ?
+      `${translator.formatNumber(normalizedRating, {
+        minimumFractionDigits: 1,
+        maximumFractionDigits: 1
+      })} / 5` :
+      translator.t("hud.rating.noReviews");
+    ratingSpotlightElement.hidden = false;
+    ratingSpotlightElement.classList.remove("rating-spotlight--playing");
+
+    if (animate) {
+      void ratingSpotlightElement.offsetWidth;
+      ratingSpotlightElement.classList.add("rating-spotlight--playing");
+    }
+  }
+
   return Object.freeze({
     setHudActive,
-    async playDay(day, { notice = "", forecast = null } = {}) {
+    async playDay(day, { notice = "" } = {}) {
       if (!Number.isSafeInteger(day) || day <= 0) {
         throw new Error("RunPresentationView precisa de um dia inteiro positivo.");
       }
 
       const normalizedNotice = String(notice || "").trim();
-      const forecastLines = Array.isArray(forecast?.lines) ?
-        forecast.lines.map((line) => String(line || "").trim()).filter(Boolean) :
-        [];
-      const hasForecast = forecastLines.length > 0;
 
       setHudActive(false);
+      ratingSpotlightElement.hidden = true;
+      ratingSpotlightElement.classList.remove("rating-spotlight--playing");
       titleElement.style.removeProperty("font-size");
       titleElement.style.removeProperty("line-height");
       titleElement.style.removeProperty("text-align");
@@ -150,34 +248,28 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
         titleElement.style.textAlign = "center";
         titleElement.style.whiteSpace = "pre-line";
       }
-      titleElement.textContent = [`DAY ${day}`, normalizedNotice]
+      titleElement.textContent = [
+        translator.t("run.day", { day: translator.formatNumber(day) }),
+        normalizedNotice
+      ]
         .filter(Boolean)
         .join("\n");
-      forecastTitleElement.textContent = String(
-        forecast?.title || "TODAY'S OUTLOOK"
-      );
-      forecastLinesElement.replaceChildren(...forecastLines.map((line) => {
-        const lineElement = documentRef.createElement("span");
-
-        lineElement.className = "day-forecast__line";
-        lineElement.textContent = line;
-        return lineElement;
-      }));
-      forecastElement.hidden = !hasForecast;
       playAgainButton.hidden = true;
-      continueButton.hidden = !(normalizedNotice || hasForecast);
+      continueButton.hidden = !normalizedNotice;
       element.hidden = false;
       element.classList.remove("run-intro--playing");
       element.classList.toggle(
         "run-intro--waiting",
-        normalizedNotice || hasForecast
+        Boolean(normalizedNotice)
       );
-      element.classList.toggle("run-intro--forecast", hasForecast);
       element.classList.toggle("run-intro--summary", Boolean(normalizedNotice));
+      if (day === 1) {
+        playSound(SOUND_IDS.DAY_1_INTRO);
+      }
       void element.offsetWidth;
       element.classList.add("run-intro--playing");
 
-      if (normalizedNotice || hasForecast) {
+      if (normalizedNotice) {
         await new Promise((resolve) => {
           resolveDayAdvance = resolve;
         });
@@ -188,23 +280,24 @@ export function createRunPresentationView({ root, hudRoot, onPlayAgain }) {
       }
 
       continueButton.hidden = true;
-      forecastElement.hidden = true;
       element.classList.remove("run-intro--playing");
       element.classList.remove("run-intro--waiting");
-      element.classList.remove("run-intro--forecast");
       element.classList.remove("run-intro--summary");
       element.hidden = true;
     },
     showRunReport(input) {
-      const report = presentRunReport(input);
+      const report = presentRunReport(input, translator);
 
       setHudActive(false);
+      renderRatingSpotlight({
+        averageRating: input?.averageRating,
+        reviewCount: input?.reviewCount,
+        animate: true
+      });
       element.classList.remove("run-intro--playing");
       element.classList.remove("run-intro--waiting");
-      element.classList.remove("run-intro--forecast");
       element.classList.remove("run-intro--summary");
       continueButton.hidden = true;
-      forecastElement.hidden = true;
       titleElement.style.fontSize = "1rem";
       titleElement.style.lineHeight = "1.6";
       titleElement.style.textAlign = "center";

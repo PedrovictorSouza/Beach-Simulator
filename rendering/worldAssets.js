@@ -134,6 +134,7 @@ const SCENE_FRAGMENT_SOURCE = `
   uniform float uFogNear;
   uniform float uFogFar;
   uniform float uFogIntensity;
+  uniform float uDitherStrength;
   varying vec2 vTexCoord;
   varying float vClipW;
   varying vec3 vWorldNormal;
@@ -191,7 +192,9 @@ const SCENE_FRAGMENT_SOURCE = `
     float fogProgress = clamp((vFogDistance - uFogNear) / fogRange, 0.0, 1.0);
     float fogBlend = smoothstep(0.0, 1.0, fogProgress) * clamp(uFogIntensity, 0.0, 1.0);
     vec3 foggedColor = mix(tintedColor, uFogColor, fogBlend);
-    float ditherOffset = psxDither(gl_FragCoord.xy) / 255.0;
+    float ditherOffset = (
+      psxDither(gl_FragCoord.xy) * clamp(uDitherStrength, 0.0, 1.0)
+    ) / 255.0;
     vec3 psxColor = floor(
       clamp(foggedColor + vec3(ditherOffset), 0.0, 1.0) * 31.0 + 0.5
     ) / 31.0;
@@ -209,6 +212,7 @@ const SPRITE_VERTEX_SOURCE = `
   uniform vec2 uSpriteSize;
   uniform vec4 uUvRect;
   uniform float uSpriteRotation;
+  uniform vec2 uSpriteScreenOffset;
   uniform vec2 uPixelSnap;
 
   varying vec2 vTexCoord;
@@ -221,7 +225,9 @@ const SPRITE_VERTEX_SOURCE = `
       aCorner.x * rotationSine + aCorner.y * rotationCosine
     );
     vec4 clip = uViewProjection * vec4(uWorldPosition, 1.0);
-    clip.xy += (rotatedCorner * uSpriteSize / uPixelSnap) * clip.w;
+    clip.xy += (
+      (rotatedCorner * uSpriteSize + uSpriteScreenOffset) / uPixelSnap
+    ) * clip.w;
     vec2 snapped = floor((clip.xy / clip.w) * uPixelSnap + 0.5) / uPixelSnap;
     clip.xy = snapped * clip.w;
     gl_Position = clip;
@@ -238,6 +244,8 @@ const SPRITE_FRAGMENT_SOURCE = `
 
   uniform sampler2D uSpriteTexture;
   uniform float uSpriteAlpha;
+  uniform vec4 uSpriteColor;
+  uniform float uSpriteColorStrength;
   varying vec2 vTexCoord;
 
   void main() {
@@ -246,7 +254,12 @@ const SPRITE_FRAGMENT_SOURCE = `
     if (alpha < 0.03) {
       discard;
     }
-    gl_FragColor = vec4(texel.rgb, alpha);
+    vec3 spriteColor = mix(
+      texel.rgb,
+      uSpriteColor.rgb,
+      clamp(uSpriteColorStrength, 0.0, 1.0)
+    );
+    gl_FragColor = vec4(spriteColor, alpha * uSpriteColor.a);
   }
 `;
 
@@ -357,6 +370,7 @@ export function createNoopWebGlContext() {
     createTexture: () => createHandle("texture"),
     deleteProgram: noop,
     deleteShader: noop,
+    depthMask: noop,
     disable: noop,
     drawElements: noop,
     enable: noop,
@@ -461,6 +475,7 @@ export function createWorldRenderingResources(gl) {
     fogNear: gl.getUniformLocation(program, "uFogNear"),
     fogFar: gl.getUniformLocation(program, "uFogFar"),
     fogIntensity: gl.getUniformLocation(program, "uFogIntensity"),
+    ditherStrength: gl.getUniformLocation(program, "uDitherStrength"),
     texture: gl.getUniformLocation(program, "uTexture"),
     brightness: gl.getUniformLocation(program, "uBrightness"),
     instanceTint: gl.getUniformLocation(program, "uInstanceTint"),
@@ -481,7 +496,10 @@ export function createWorldRenderingResources(gl) {
     quadUp: gl.getUniformLocation(spriteProgram, "uQuadUp"),
     uvRect: gl.getUniformLocation(spriteProgram, "uUvRect"),
     spriteRotation: gl.getUniformLocation(spriteProgram, "uSpriteRotation"),
+    spriteScreenOffset: gl.getUniformLocation(spriteProgram, "uSpriteScreenOffset"),
     spriteAlpha: gl.getUniformLocation(spriteProgram, "uSpriteAlpha"),
+    spriteColor: gl.getUniformLocation(spriteProgram, "uSpriteColor"),
+    spriteColorStrength: gl.getUniformLocation(spriteProgram, "uSpriteColorStrength"),
     pixelSnap: gl.getUniformLocation(spriteProgram, "uPixelSnap"),
     spriteTexture: gl.getUniformLocation(spriteProgram, "uSpriteTexture")
   };
@@ -1473,7 +1491,7 @@ export async function loadPicoModel({
   txtPath,
   onStatus
 }) {
-  onStatus?.(`Carregando ${gltfPath}...`);
+  onStatus?.({ type: "asset-loading", asset: gltfPath });
 
   const [gltf, picoData] = await Promise.all([
     fetchGltfAsset(gltfPath),
@@ -1550,7 +1568,7 @@ export async function loadTexturedModel({
   normalizedSize = 3.8,
   onStatus
 }) {
-  onStatus?.(`Carregando ${gltfPath}...`);
+  onStatus?.({ type: "asset-loading", asset: gltfPath });
 
   const gltf = await fetchGltfAsset(gltfPath);
 

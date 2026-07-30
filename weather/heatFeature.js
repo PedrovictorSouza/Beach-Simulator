@@ -29,8 +29,7 @@ function createHeatSnapshot(value) {
       HEAT_LEVELS.LOW :
       high ? HEAT_LEVELS.HIGH : HEAT_LEVELS.COMFORTABLE,
     attractionMultiplier,
-    beverageSalesMultiplier: low ? 0.75 : high ? 1.5 : 1,
-    beverageSaleLabel: high ? "SUN CARE" : "DRINK"
+    beverageSalesMultiplier: low ? 0.75 : high ? 1.5 : 1
   });
 }
 
@@ -65,9 +64,13 @@ export function createHeatModel({ random = Math.random } = {}) {
   });
 }
 
-export function createHeatMeterView({ root }) {
+export function createHeatMeterView({ root, translator }) {
   if (!root) {
     throw new Error("HeatMeterView precisa de um elemento root.");
+  }
+
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("HeatMeterView precisa de um translator.");
   }
 
   const documentRef = root.ownerDocument;
@@ -89,7 +92,7 @@ export function createHeatMeterView({ root }) {
     minHeight: "2.5rem",
     fontSize: "0.75rem"
   });
-  labelElement.textContent = "HEAT";
+  labelElement.textContent = translator.t("hud.heat.label");
   levelElement.style.textAlign = "right";
   trackElement.setAttribute("role", "meter");
   Object.assign(trackElement.style, {
@@ -109,16 +112,37 @@ export function createHeatMeterView({ root }) {
   element.append(labelElement, levelElement, trackElement);
   root.append(element);
 
+  let currentSnapshot = null;
+  const renderSnapshot = ({ heat, level }) => {
+    const levelKey = String(level || "").toLowerCase();
+    const translatedLevel = translator.t(`hud.heat.levels.${levelKey}`);
+
+    currentSnapshot = { heat, level };
+    labelElement.textContent = translator.t("hud.heat.label");
+    levelElement.textContent = translatedLevel;
+    fillElement.style.width = `${heat}%`;
+    fillElement.style.background = level === HEAT_LEVELS.LOW ?
+      "#6bbfe8" : level === HEAT_LEVELS.HIGH ? "#e85d4f" : "#f7d154";
+    trackElement.setAttribute("aria-valuemin", "0");
+    trackElement.setAttribute("aria-valuemax", "100");
+    trackElement.setAttribute("aria-valuenow", String(heat));
+    element.setAttribute(
+      "aria-label",
+      translator.t("hud.heat.aria", {
+        level: translatedLevel,
+        heat: translator.formatNumber(heat)
+      })
+    );
+  };
+  translator.subscribe(() => {
+    if (currentSnapshot) {
+      renderSnapshot(currentSnapshot);
+    }
+  });
+
   return Object.freeze({
     render({ heat, level }) {
-      levelElement.textContent = level;
-      fillElement.style.width = `${heat}%`;
-      fillElement.style.background = level === HEAT_LEVELS.LOW ?
-        "#6bbfe8" : level === HEAT_LEVELS.HIGH ? "#e85d4f" : "#f7d154";
-      trackElement.setAttribute("aria-valuemin", "0");
-      trackElement.setAttribute("aria-valuemax", "100");
-      trackElement.setAttribute("aria-valuenow", String(heat));
-      element.setAttribute("aria-label", `Heat ${level.toLowerCase()}: ${heat}%`);
+      renderSnapshot({ heat, level });
     }
   });
 }

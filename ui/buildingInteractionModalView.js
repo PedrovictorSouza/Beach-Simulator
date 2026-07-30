@@ -1,15 +1,10 @@
-const BUILDING_LABELS = Object.freeze({
-  kiosk: "Kiosk",
-  "beverage-store": "Beverage store"
-});
-
-function getBuildingLabel(buildingType) {
-  return BUILDING_LABELS[buildingType] || "Building";
-}
-
-export function createBuildingInteractionModalView({ root }) {
+export function createBuildingInteractionModalView({ root, translator }) {
   if (!root) {
     throw new Error("BuildingInteractionModalView precisa de um elemento root.");
+  }
+
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("BuildingInteractionModalView precisa de um translator.");
   }
 
   const documentRef = root.ownerDocument;
@@ -33,9 +28,16 @@ export function createBuildingInteractionModalView({ root }) {
   let closeHandler = null;
   let open = false;
   let closeTimer = null;
+  let openFrame = null;
   const closeAnimationMs = 250;
   const schedule = documentRef.defaultView?.setTimeout?.bind(documentRef.defaultView) || setTimeout;
   const cancelSchedule = documentRef.defaultView?.clearTimeout?.bind(documentRef.defaultView) || clearTimeout;
+  const requestFrame = documentRef.defaultView?.requestAnimationFrame?.bind(
+    documentRef.defaultView
+  ) || ((callback) => schedule(callback, 0));
+  const cancelFrame = documentRef.defaultView?.cancelAnimationFrame?.bind(
+    documentRef.defaultView
+  ) || cancelSchedule;
 
   const renderActions = (actions) => {
     actionListElement.replaceChildren();
@@ -43,13 +45,19 @@ export function createBuildingInteractionModalView({ root }) {
     for (const action of Array.isArray(actions) ? actions : []) {
       const actionElement = documentRef.createElement("button");
       const descriptionElement = documentRef.createElement("p");
+      const label = action?.messageId ?
+        translator.t(action.messageId, action.messageParams) :
+        String(action?.label || translator.t("common.select"));
+      const description = action?.descriptionId ?
+        translator.t(action.descriptionId, action.descriptionParams) :
+        String(action?.description || "");
 
       actionElement.type = "button";
       actionElement.className = "building-interaction-modal__action";
-      actionElement.textContent = String(action?.label || "Select");
+      actionElement.textContent = label;
       actionElement.disabled = Boolean(action?.disabled);
       descriptionElement.className = "building-interaction-modal__description";
-      descriptionElement.textContent = String(action?.description || "");
+      descriptionElement.textContent = description;
       actionElement.addEventListener("click", () => action?.onSelect?.());
       actionListElement.append(actionElement);
 
@@ -64,6 +72,10 @@ export function createBuildingInteractionModalView({ root }) {
       return;
     }
 
+    if (openFrame !== null) {
+      cancelFrame(openFrame);
+      openFrame = null;
+    }
     open = false;
     overlayElement.classList.remove("building-interaction-modal--visible");
     overlayElement.classList.add("building-interaction-modal--closing");
@@ -96,18 +108,42 @@ export function createBuildingInteractionModalView({ root }) {
         cancelSchedule(closeTimer);
         closeTimer = null;
       }
+      if (openFrame !== null) {
+        cancelFrame(openFrame);
+        openFrame = null;
+      }
 
-      const label = getBuildingLabel(buildingType);
+      const label = translator.t(`buildings.${buildingType}.label`);
       titleElement.textContent = label;
       renderActions(actions);
-      dialogElement.setAttribute("aria-label", `${label} interaction`);
+      dialogElement.setAttribute(
+        "aria-label",
+        translator.t("dialogs.buildingInteraction", { building: label })
+      );
       closeHandler = typeof onClose === "function" ? onClose : null;
       open = true;
       overlayElement.hidden = false;
       overlayElement.classList.remove("building-interaction-modal--closing");
-      void overlayElement.offsetWidth;
-      overlayElement.classList.add("building-interaction-modal--visible");
-      dialogElement.focus();
+      overlayElement.classList.remove("building-interaction-modal--visible");
+
+      // Let the closed transform be painted before starting the slide. This
+      // avoids a partially-open panel when camera focus and modal opening are
+      // requested by the same pointer event.
+      openFrame = requestFrame(() => {
+        openFrame = null;
+
+        if (!open) {
+          return;
+        }
+
+        overlayElement.classList.add("building-interaction-modal--visible");
+      });
+
+      try {
+        dialogElement.focus({ preventScroll: true });
+      } catch {
+        dialogElement.focus();
+      }
     },
     close() {
       hide();

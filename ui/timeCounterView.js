@@ -6,9 +6,13 @@ function formatTime(remainingSeconds) {
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 }
 
-export function createTimeCounterView({ root }) {
+export function createTimeCounterView({ root, translator }) {
   if (!root) {
     throw new Error("TimeCounterView precisa de um elemento root.");
+  }
+
+  if (!translator || typeof translator.t !== "function") {
+    throw new Error("TimeCounterView precisa de um translator.");
   }
 
   const documentRef = root.ownerDocument;
@@ -20,6 +24,17 @@ export function createTimeCounterView({ root }) {
   root.append(element);
 
   let renderedSecond = null;
+  const renderAccessibleLabel = () => {
+    if (renderedSecond === null) {
+      return;
+    }
+
+    element.setAttribute(
+      "aria-label",
+      translator.t("hud.timeRemaining", { time: formatTime(renderedSecond) })
+    );
+  };
+  translator.subscribe(renderAccessibleLabel);
 
   return Object.freeze({
     render({ remainingSeconds }) {
@@ -31,7 +46,7 @@ export function createTimeCounterView({ root }) {
 
       renderedSecond = nextSecond;
       element.textContent = formatTime(nextSecond);
-      element.setAttribute("aria-label", `Time remaining: ${formatTime(nextSecond)}`);
+      renderAccessibleLabel();
     }
   });
 }
