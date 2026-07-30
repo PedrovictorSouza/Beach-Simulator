@@ -32,21 +32,34 @@ import {
   findMainReviewProblem,
   summarizeReviewProblems
 } from "./ratings/dayReviewSummary.js";
+import { createDemandForecast } from "./demand/demandForecastModel.js";
+import { createDemandDayLedger } from "./demand/demandDayLedger.js";
+import {
+  CLEANUP_POLICIES,
+  createBeachConditionModel
+} from "./environment/beachConditionModel.js";
+import { calculateBeachAttraction } from "./environment/beachAttractionModel.js";
+import { createClosingReservePlan } from "./economy/closingReserveModel.js";
+import { getActiveBuildingSynergies } from "./buildings/buildingSynergyModel.js";
+import { presentDemandDaySummary } from "./ui/demandDaySummaryPresenter.js";
+import { createCleanupDecisionView } from "./ui/cleanupDecisionView.js";
+import { presentBeachConditionSummary } from "./ui/beachConditionPresenter.js";
+import { presentBuildingSynergies } from "./ui/buildingSynergyPresenter.js";
 import { createReviewRewardModel } from "./ratings/reviewRewardModel.js";
 import {
   createRunSessionModel,
   RUN_PHASES
 } from "./run/runSessionModel.js";
+import { createRunScoreModel } from "./run/runScoreModel.js";
+import { createRunResultStorage } from "./run/runResultStorage.js";
+import { createEmergencyFundModel } from "./run/emergencyFundModel.js";
 import { createDayLifecycleController } from "./run/dayLifecycleController.js";
 import {
   createDailyCleanupTask,
   createHeatWaveTask
 } from "./run/dailyTaskPlan.js";
 import { createRunPresentationView } from "./ui/runPresentationView.js";
-import {
-  presentDayClosing,
-  presentDayResult
-} from "./ui/dayClosingPresenter.js";
+import { presentDayResult } from "./ui/dayClosingPresenter.js";
 import { createStartScreenView } from "./ui/startScreen.js";
 import { createGameModeView } from "./ui/gameModeView.js";
 import { createTimeManager } from "./time/timeManager.js";
@@ -56,7 +69,6 @@ import { createPickupFeedbackView } from "./ui/pickupFeedbackView.js";
 import { createBuildingInteractionModalView } from "./ui/buildingInteractionModalView.js";
 import { createBuildingButtonView } from "./ui/buildingButton.js";
 import { createOnboardingView } from "./onboarding/onboardingView.js";
-import { createCleanBeachGuide } from "./onboarding/cleanBeachGuide.js";
 import { createWorldInteractionGuide } from "./onboarding/worldInteractionGuide.js";
 import {
   createBuildingChoiceModel,
@@ -64,9 +76,15 @@ import {
 } from "./ui/buildingChoice.js";
 import {
   BEACH_AMENITY_TYPES,
+  BUILDING_SERVICE_MOTIVES,
   BUILDING_TYPES,
   createBuildingServicesModel
 } from "./buildings/buildingServicesModel.js";
+import {
+  getLockedBuildingTypes,
+  getNewlyUnlockedBuildingTypes,
+  getUnlockedBuildingTypes
+} from "./buildings/buildingUnlockModel.js";
 import { createPlayerExperienceModel } from "./experience/playerExperienceModel.js";
 import {
   SPAWN_TYPES
@@ -120,6 +138,18 @@ const SUN_SHADE_COST_IN_CENTS = 500;
 const BUILDING_PLACEHOLDER_SIZE = 10;
 const CONSTRUCTION_DROP_EXCLUSION_PADDING = 4;
 const BUILDING_CONSTRUCTION_ANIMATION_DURATION_SECONDS = 0.65;
+const INHERITED_LITTER_TYPES = Object.freeze([
+  SPAWNABLE_OBJECT_TYPES.PAPER,
+  SPAWNABLE_OBJECT_TYPES.CAN,
+  SPAWNABLE_OBJECT_TYPES.BOTTLE,
+  SPAWNABLE_OBJECT_TYPES.BANANA
+]);
+const CLOUD_VISIBLE_COUNT_BY_HEAT_LEVEL = Object.freeze({
+  [HEAT_LEVELS.LOW]: 10,
+  [HEAT_LEVELS.COMFORTABLE]: 7,
+  [HEAT_LEVELS.HIGH]: 4
+});
+const DEFAULT_VISIBLE_CLOUD_COUNT = 7;
 const SHARK_WATERLINE_OFFSET = -3.6;
 const SHARK_SWIM_HEIGHT = 0.35;
 const SHARK_SWIM_PITCH = 0.08;
@@ -155,11 +185,6 @@ const BUILDING_TYPE_BY_BATHER_PROBLEM = Object.freeze({
   [BATHER_PROBLEM_SOURCES.WIFI]: BUILDING_TYPES.WIFI_SPOT,
   [BATHER_PROBLEM_SOURCES.TOILET]: BUILDING_TYPES.TOILET_BUILDING
 });
-const FIRST_BUILDING_DEFERRED_TYPES = Object.freeze([
-  BUILDING_TYPES.LIFEGUARD_BUILDING,
-  BUILDING_TYPES.TOILET_BUILDING
-]);
-
 function readStoredLocale(windowRef) {
   try {
     return windowRef?.localStorage?.getItem(LANGUAGE_STORAGE_KEY) || undefined;
@@ -174,6 +199,28 @@ function persistLocale(windowRef, locale) {
   } catch {
     // A sessão continua funcionando mesmo quando o storage está indisponível.
   }
+}
+
+function getWindowStorage(windowRef) {
+  try {
+    return windowRef?.localStorage || null;
+  } catch {
+    return null;
+  }
+}
+
+function createRunId(windowRef) {
+  try {
+    const randomId = windowRef?.crypto?.randomUUID?.();
+
+    if (randomId) {
+      return randomId;
+    }
+  } catch {
+    // Usa o fallback local quando randomUUID nao estiver disponivel.
+  }
+
+  return `run-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 function createDayProblemMap({
@@ -245,6 +292,7 @@ class TerrainGameManager {
     this.sharkEventsToday = 0;
     this.spawnManager = null;
     this.worldObjectSceneObjects = [];
+    this.treasureChestWorld = null;
     this.visitorLitterObjectIds = new Set();
     this.pendingMoneyDrops = [];
     this.currentVisitorCleanupTaskId = null;
@@ -254,6 +302,11 @@ class TerrainGameManager {
     this.pendingBeveragePurchases = [];
     this.pendingBatherReviews = [];
     this.currentDayReviews = [];
+    this.previousDayReviewProblems = [];
+    this.currentDemandForecast = null;
+    this.demandDayLedger = null;
+    this.beachConditionModel = null;
+    this.cleanupDecisionView = null;
     this.pendingBatherToleranceFeedback = [];
     this.batherCounterView = null;
     this.beachEconomyModel = null;
@@ -269,14 +322,19 @@ class TerrainGameManager {
     this.unsubscribeBatherServiceCompletions = null;
     this.unsubscribeBatherBeverageDecisions = null;
     this.unsubscribeBatherBeveragePurchases = null;
+    this.unsubscribeLitterOutcomes = null;
     this.taskListModel = null;
     this.taskListView = null;
     this.cleanBeachController = null;
-    this.cleanBeachGuide = null;
     this.worldInteractionGuide = null;
     this.completedTaskRemovalIds = new Set();
     this.unsubscribeTaskList = null;
     this.runSessionModel = null;
+    this.runScoreModel = null;
+    this.runResultStorage = null;
+    this.totalRunVisitors = 0;
+    this.emergencyFundModel = null;
+    this.treasureArrivalAnnounced = false;
     this.dayLifecycleController = null;
     this.runPresentationView = null;
     this.gameModeView = null;
@@ -309,6 +367,7 @@ class TerrainGameManager {
     this.heatModel = null;
     this.heatMeterView = null;
     this.heatTintView = null;
+    this.cloudWorld = null;
     this.npcComplaintView = null;
     this.pickupFeedbackView = null;
     this.unsubscribeTimeManager = null;
@@ -357,25 +416,17 @@ class TerrainGameManager {
     this.startScreenView = createStartScreenView({
       root: this.root,
       translator: this.translator,
-      playSound: (soundId) => this.soundManager?.play(soundId)
+      playSound: (soundId) => {
+        this.soundManager?.playLoop(SOUND_IDS.START_SCREEN_MUSIC);
+        this.soundManager?.play(soundId);
+      }
     });
+    this.soundManager.playLoop(SOUND_IDS.START_SCREEN_MUSIC);
     this.initializeCursor();
     this.initializeRenderer();
     this.loadWorld()
       .then(async (sceneObjects) => {
         this.sceneObjects = sceneObjects;
-        this.cleanBeachGuide = createCleanBeachGuide({
-          root: this.root,
-          canvas: this.canvas,
-          camera: this.camera,
-          sceneObjects: this.worldObjectSceneObjects,
-          taskListModel: this.taskListModel,
-          playerExperienceModel: this.playerExperienceModel,
-          onboardingView: this.onboardingView,
-          isRunActive: () => this.isRunActive(),
-          taskId: CLEAN_BEACH_TASK_ID,
-          windowRef: this.windowRef
-        });
         this.worldInteractionGuide = createWorldInteractionGuide({
           root: this.root,
           canvas: this.canvas,
@@ -397,6 +448,7 @@ class TerrainGameManager {
           await this.startScreenView.waitForLanguage()
         );
         persistLocale(this.windowRef, this.locale);
+        this.soundManager.stopLoop(SOUND_IDS.START_SCREEN_MUSIC);
         this.startScreenView.destroy();
         this.startScreenView = null;
         await this.beginRun();
@@ -535,6 +587,14 @@ class TerrainGameManager {
       (tasks) => this.taskListView.render(tasks)
     );
     this.runSessionModel = createRunSessionModel();
+    this.runScoreModel = createRunScoreModel({
+      runId: createRunId(this.windowRef),
+      totalDays: this.runSessionModel.getSnapshot().totalDays
+    });
+    this.runResultStorage = createRunResultStorage({
+      storage: getWindowStorage(this.windowRef)
+    });
+    this.emergencyFundModel = createEmergencyFundModel();
     this.runPresentationView = createRunPresentationView({
       root: this.root,
       hudRoot: gameHudRoot,
@@ -568,6 +628,10 @@ class TerrainGameManager {
       (snapshot) => this.updateBuildingAccess(snapshot)
     );
     this.buildingInteractionModalView = createBuildingInteractionModalView({
+      root: this.root,
+      translator: this.translator
+    });
+    this.cleanupDecisionView = createCleanupDecisionView({
       root: this.root,
       translator: this.translator
     });
@@ -605,16 +669,44 @@ class TerrainGameManager {
   }
 
   async beginRun({ notice = "" } = {}) {
+    this.soundManager?.playLoop(SOUND_IDS.IN_GAME_MUSIC);
     const { day } = this.runSessionModel.getSnapshot();
     this.sharkEventsToday = 0;
     this.currentDayReviews = [];
     const heatForecast = this.heatModel.startDay();
+    this.currentDemandForecast = createDemandForecast({
+      day,
+      heatLevel: heatForecast.level,
+      conditionBand: this.beachConditionModel.getSnapshot().conditionBand,
+      previousProblems: this.previousDayReviewProblems,
+      services: this.buildingServicesModel.getSnapshot()
+    });
+    this.demandDayLedger = createDemandDayLedger({
+      forecast: this.currentDemandForecast
+    });
+    const newlyUnlockedTypes = day > 1 ?
+      getNewlyUnlockedBuildingTypes(day) :
+      [];
+    const unlockNotice = newlyUnlockedTypes.length > 0 ?
+      this.translator.t("run.buildingsUnlocked", {
+        buildings: newlyUnlockedTypes
+          .map((type) => this.translator.t(`buildings.${type}.label`))
+          .join(" • ")
+      }) :
+      "";
+    const currentRating = this.beachRatingModel.getSnapshot();
 
-    await this.runPresentationView.playDay(day, { notice });
+    await this.runPresentationView.playDay(day, {
+      notice: [notice, unlockNotice]
+        .filter(Boolean)
+        .join("\n"),
+      averageRating: currentRating.averageRating,
+      reviewCount: currentRating.reviewCount
+    });
     this.heatMeterView.render(heatForecast);
     this.heatTintView.render(heatForecast);
     this.dayLifecycleController.startDay({
-      averageRating: this.beachRatingModel.getSnapshot().averageRating,
+      averageRating: currentRating.averageRating,
       startWithSpawning: day !== 1
     });
     this.runPresentationView.setHudActive(true);
@@ -629,31 +721,12 @@ class TerrainGameManager {
     }
 
     if (day === 1) {
-      const valuableInstance = this.worldObjectSceneObjects
-        .flatMap((sceneObject) => sceneObject.instances)
-        .find((instance) => getSpawnableObjectDto(instance.spawnableType)
-          .traits.includes(SPAWNABLE_OBJECT_TRAITS.PICKUP));
-
-      if (valuableInstance) {
-        const projectToOverlay = createWorldOverlayProjector({
-          root: this.root,
-          canvas: this.canvas,
-          camera: this.camera
-        });
-        const position = projectToOverlay(
-          valuableInstance.id,
-          this.worldObjectSceneObjects
-        );
-
-        if (position) {
-          this.pickupFeedbackView.showValuableHook(position);
-        }
-      }
       await this.onboardingView.pointTo(
         `[data-task-id="${CLEAN_BEACH_TASK_ID}"] .task-list__progress-row`
       );
-      this.cleanBeachGuide.schedule();
     }
+
+    this.tryOfferEmergencyFund();
   }
 
   startDayTransition() {
@@ -686,16 +759,86 @@ class TerrainGameManager {
     this.clearSharkEvent();
     this.updateBatherCounter([]);
     const dayReviews = [...this.currentDayReviews];
+    this.previousDayReviewProblems = summarizeReviewProblems(dayReviews);
+    const demandDaySummary = this.demandDayLedger?.closeDay({
+      finalServices: this.buildingServicesModel.getSnapshot(),
+      problems: this.previousDayReviewProblems
+    });
+    const completedDay = this.runSessionModel.getSnapshot().day;
+    const completedRun = this.runSessionModel.getSnapshot();
+    const cleanupPlan = this.beachConditionModel.previewClosing();
+
+    this.runPresentationView.setHudActive(false);
+    const cleanupPolicy = completedRun.hasNextDay ?
+      await this.cleanupDecisionView.show({
+        plan: cleanupPlan,
+        moneyInCents: this.beachEconomyModel.getSnapshot().moneyInCents
+      }) :
+      CLEANUP_POLICIES.FINAL;
+    const canPayCleanup = (
+      completedRun.hasNextDay &&
+      cleanupPolicy === CLEANUP_POLICIES.PAY &&
+      this.beachEconomyModel.getSnapshot().moneyInCents >=
+        cleanupPlan.cleanupCostInCents
+    );
+
+    if (canPayCleanup && cleanupPlan.cleanupCostInCents > 0) {
+      this.beachEconomyModel.recordExpense({
+        sourceId: `day-${completedDay}-cleanup`,
+        amountInCents: cleanupPlan.cleanupCostInCents
+      });
+    }
+
+    const cleanupClosing = this.beachConditionModel.closeDay({
+      policy: cleanupPolicy,
+      canPay: canPayCleanup,
+      hasNextDay: completedRun.hasNextDay
+    });
+    const cleanupNotice = this.translator.t(
+      cleanupClosing.appliedPolicy === CLEANUP_POLICIES.FINAL ?
+        "cleanup.report.final" :
+        cleanupClosing.appliedPolicy === CLEANUP_POLICIES.PAY ?
+          "cleanup.report.paid" :
+          "cleanup.report.saved",
+      {
+        amount: this.translator.formatCurrency(
+          cleanupClosing.chargedInCents / 100
+        ),
+        count: this.translator.formatNumber(
+          cleanupClosing.nextDayDebtCount
+        )
+      }
+    );
+    const runScoreSnapshot = this.runScoreModel.recordDay({
+      day: completedDay,
+      reviews: dayReviews
+    });
+    const dayScore = runScoreSnapshot.dayResults.at(-1);
     this.preferredBuildingType = (
       BUILDING_TYPE_BY_BATHER_PROBLEM[findMainReviewProblem(dayReviews)] || null
     );
     const dayTasks = this.taskListModel?.getSnapshot() || [];
-    const closingNotice = presentDayClosing(closing, this.translator);
-    const dayResultNotice = presentDayResult({
-      reviews: dayReviews,
-      closing,
-      tasks: dayTasks
-    }, this.translator);
+    const dayResultNotice = [
+      presentDayResult({
+        reviews: dayReviews,
+        closing,
+        tasks: dayTasks,
+        dayScore
+      }, this.translator),
+      presentDemandDaySummary(demandDaySummary, this.translator),
+      presentBuildingSynergies(
+        getActiveBuildingSynergies({
+          services: closing.services,
+          sunShadeCount: this.sunShadeCount
+        }),
+        this.translator
+      ),
+      cleanupNotice,
+      presentBeachConditionSummary(
+        cleanupClosing.snapshot,
+        this.translator
+      )
+    ].filter(Boolean).join("\n");
     const dayProblemMap = createDayProblemMap({
       reviews: dayReviews,
       remainingVisitorLitterCount: this.visitorLitterObjectIds.size,
@@ -706,39 +849,117 @@ class TerrainGameManager {
       this.translator.t(dayProblemMap.titleId),
       ...dayProblemMap.lines.map((messageId) => this.translator.t(messageId))
     ].join("\n");
-    this.runPresentationView.setHudActive(false);
-    const completedRun = this.runSessionModel.getSnapshot();
-
     if (!completedRun.hasNextDay) {
-      const ratingSnapshot = this.beachRatingModel.getSnapshot();
-
+      const finalScore = this.runScoreModel.finalize().finalResult;
       this.runPresentationView.showRunReport({
         moneyInCents: this.beachEconomyModel.getSnapshot().moneyInCents,
-        averageRating: ratingSnapshot.averageRating,
-        reviewCount: ratingSnapshot.reviewCount,
-        totalBathers: ratingSnapshot.reviewCount,
+        averageRating: finalScore.finalRating,
+        reviewCount: finalScore.totalReviews,
+        totalBathers: this.totalRunVisitors,
+        dayRatings: finalScore.dayRatings,
         buildingsBuilt: this.constructedBuildingCount,
-        reviews: ratingSnapshot.reviews,
-        closingNotice: [closingNotice, dayResultNotice, dayProblemNotice]
+        reviews: this.beachRatingModel.getSnapshot().reviews,
+        closingNotice: [dayResultNotice, dayProblemNotice]
           .filter(Boolean)
           .join("\n")
       });
+      this.runResultStorage.save(finalScore);
       this.disposeObservers();
       return;
     }
 
     this.runSessionModel.prepareNextDay();
+    const nextCondition = this.beachConditionModel.startNextDay();
+    this.restoreInheritedLitter(nextCondition.inheritedDebtCount);
+    this.updateMoneyCounter(this.beachEconomyModel.getSnapshot());
     this.soundManager?.play(SOUND_IDS.NEW_DAY);
     this.timeManager.reset();
     await this.beginRun({
-      notice: [dayResultNotice, dayProblemNotice]
-        .filter(Boolean)
-        .join("\n")
+      notice: dayResultNotice
     });
   }
 
   isRunActive() {
     return this.runSessionModel?.getSnapshot().phase === RUN_PHASES.ACTIVE;
+  }
+
+  clearVisibleLitterForNextDay() {
+    const dirtyObjectIds = [];
+
+    for (const sceneObject of this.worldObjectSceneObjects) {
+      for (const instance of sceneObject.instances) {
+        try {
+          if (
+            getSpawnableObjectDto(instance.spawnableType)
+              .traits.includes(SPAWNABLE_OBJECT_TRAITS.DIRTY)
+          ) {
+            dirtyObjectIds.push(instance.id);
+          }
+        } catch {
+          // Objetos sem DTO nao participam da limpeza.
+        }
+      }
+    }
+
+    for (const objectId of dirtyObjectIds) {
+      const removed = removeWorldObjectSceneInstance({
+        sceneObjects: this.worldObjectSceneObjects,
+        objectId
+      });
+
+      if (removed) {
+        this.beachGrid?.releaseWorldPosition(
+          removed.offset[0],
+          removed.offset[2]
+        );
+      }
+    }
+
+    this.visitorLitterObjectIds.clear();
+  }
+
+  restoreInheritedLitter(count) {
+    this.clearVisibleLitterForNextDay();
+    const normalizedCount = Math.max(0, Math.trunc(Number(count) || 0));
+    const day = this.runSessionModel.getSnapshot().day;
+
+    for (let index = 0; index < normalizedCount; index += 1) {
+      const type = INHERITED_LITTER_TYPES[
+        index % INHERITED_LITTER_TYPES.length
+      ];
+      const request = Object.freeze({
+        id: `inherited-litter-${day}-${index + 1}`,
+        type,
+        source: SPAWN_SOURCES.SPAWN_MANAGER,
+        zone: BEACH_ZONES.SAND,
+        reason: "cleanup-debt",
+        countsForCleanupTask: true,
+        placement: Object.freeze({
+          xProgress: 0.18 + Math.random() * 0.64,
+          zProgress: 0.42 + Math.random() * 0.13,
+          yaw: Math.random() * Math.PI * 2
+        })
+      });
+
+      try {
+        const instance = addWorldObjectPlaceholderSceneInstance({
+          sceneObjects: this.worldObjectSceneObjects,
+          request,
+          terrainSurfaceY: this.terrainSurfaceY,
+          resolvePosition: (spawnRequest) => (
+            this.resolveWorldObjectPosition(spawnRequest)
+          )
+        });
+
+        if (instance) {
+          this.visitorLitterObjectIds.add(instance.id);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    }
+
+    this.renderIfLoopIsIdle();
   }
 
   disposeObservers() {
@@ -751,6 +972,7 @@ class TerrainGameManager {
       "unsubscribeBatherServiceCompletions",
       "unsubscribeBatherBeverageDecisions",
       "unsubscribeBatherBeveragePurchases",
+      "unsubscribeLitterOutcomes",
       "unsubscribeTaskList",
       "unsubscribeBuildingEconomy",
       "unsubscribeBuildingRevenue",
@@ -840,7 +1062,7 @@ class TerrainGameManager {
   }
 
   spawnMoneyDrop(
-    { sourceId, position, amountInCents },
+    { sourceId, position, amountInCents, originBuildingType = "" },
     { queueOnFailure = true } = {}
   ) {
     if (
@@ -860,6 +1082,7 @@ class TerrainGameManager {
       source: SPAWN_SOURCES.SPAWN_MANAGER,
       zone: BEACH_ZONES.SAND,
       collectionRewardInCents: amountInCents,
+      originBuildingType: String(originBuildingType || ""),
       countsForCleanupTask: false,
       placement: Object.freeze({
         position: Object.freeze([...position]),
@@ -917,7 +1140,8 @@ class TerrainGameManager {
     return this.spawnMoneyDrop({
       sourceId: `building-revenue-money-${event.buildingType}-${event.batherId}-${event.sequence}`,
       position: this.getBuildingRevenueWorldPosition(event),
-      amountInCents: event.amountInCents
+      amountInCents: event.amountInCents,
+      originBuildingType: event.buildingType
     });
   }
 
@@ -930,6 +1154,11 @@ class TerrainGameManager {
       return;
     }
 
+    this.demandDayLedger?.recordServiceCompletion({
+      eventId: `beverage-${event.sequence}`,
+      buildingType: BUILDING_TYPES.BEVERAGE_STORE,
+      motive: BUILDING_SERVICE_MOTIVES.REFRESHMENT
+    });
     this.spawnBuildingRevenueMoneyDrop({
       ...event,
       buildingType: BUILDING_TYPES.BEVERAGE_STORE
@@ -946,6 +1175,21 @@ class TerrainGameManager {
     this.pendingBeverageDecisions.push(event);
   }
 
+  handleLitterOutcome(event) {
+    if (!event?.produced) {
+      return;
+    }
+
+    const recorded = this.beachConditionModel?.recordProducedLitter({
+      eventId: event.eventId,
+      captured: event.captured
+    });
+
+    if (recorded) {
+      this.updateMoneyCounter(this.beachEconomyModel.getSnapshot());
+    }
+  }
+
   handleBatherServiceDecision(event) {
     if (!event?.batherId || !event?.buildingType) {
       return;
@@ -958,6 +1202,12 @@ class TerrainGameManager {
     if (!event?.batherId || !event?.buildingType) {
       return;
     }
+
+    this.demandDayLedger?.recordServiceCompletion({
+      eventId: `service-${event.sequence}`,
+      buildingType: event.buildingType,
+      motive: event.motive
+    });
 
     if (event.buildingType === BEACH_AMENITY_TYPES.SUN_SHADE) {
       this.buildingServicesModel?.recordServiceCompletion({
@@ -1045,7 +1295,8 @@ class TerrainGameManager {
     try {
       const ownedTypes = this.buildingServicesModel.getSnapshot().owned;
       const ownedTypeSet = new Set(ownedTypes);
-      const isFirstConstruction = this.constructedBuildingCount === 0;
+      const currentDay = this.runSessionModel.getSnapshot().day;
+      const lockedTypes = getLockedBuildingTypes(currentDay);
       const hasRevenueBuilding = (
         ownedTypeSet.has(BUILDING_TYPES.BEVERAGE_STORE) ||
         ownedTypeSet.has(BUILDING_TYPES.WIFI_SPOT)
@@ -1078,16 +1329,16 @@ class TerrainGameManager {
         addPreferredType(BUILDING_TYPES.WIFI_SPOT);
       }
 
-      const excludedTypes = isFirstConstruction ?
-        [...ownedTypes, ...FIRST_BUILDING_DEFERRED_TYPES] :
-        ownedTypes;
       const choice = this.buildingChoiceModel.startChoice({
         preferredTypes,
         preferredOptionCount: hasRevenueBuilding ?
           Math.min(1, preferredTypes.length) :
           Math.min(3, preferredTypes.length),
-        excludedTypes
+        excludedTypes: [...ownedTypes, ...lockedTypes]
       });
+      if (choice.options.length === 0) {
+        return;
+      }
       const type = await this.buildingChoiceView.show(choice.options, {
         costInCents: BUILDING_ACCESS_COST_IN_CENTS
       });
@@ -1620,6 +1871,7 @@ class TerrainGameManager {
         this.sunShadeSceneObjects.push(...newBuildingSceneObjects);
         this.sunShadeCount += 1;
       }
+      this.updateMoneyCounter(this.beachEconomyModel.getSnapshot());
       this.removeBuildingPlacementPreview();
       this.sceneObjects.push(...newBuildingSceneObjects);
       this.soundManager?.play(SOUND_IDS.POP);
@@ -1747,7 +1999,21 @@ class TerrainGameManager {
     }
 
     this.lastMoneyInCents = moneyInCents;
-    this.moneyCounterView?.render(moneyInCents);
+    const servicePlan = this.buildingServicesModel?.previewClosing?.({
+      availableMoneyInCents: moneyInCents
+    });
+    const closingPlan = servicePlan ? createClosingReservePlan({
+      servicePlan,
+      cleanupPlan: this.runSessionModel?.getSnapshot().hasNextDay ?
+        this.beachConditionModel?.previewClosing?.() :
+        null,
+      availableMoneyInCents: moneyInCents
+    }) : null;
+
+    this.moneyCounterView?.render({
+      moneyInCents,
+      closingPlan
+    });
   }
 
   showMoneyGainAtPosition(position) {
@@ -1918,6 +2184,11 @@ class TerrainGameManager {
       this.worldObjectSceneObjects
     );
 
+    if (this.treasureChestWorld?.isTreasureObjectId(selection.objectId)) {
+      this.claimEmergencyTreasure(position);
+      return;
+    }
+
     const removedObject = removeWorldObjectSceneInstance({
       sceneObjects: this.worldObjectSceneObjects,
       objectId: selection.objectId
@@ -1936,6 +2207,29 @@ class TerrainGameManager {
         progressTaskId
       }) :
       null;
+    const originBuildingType = String(
+      removedObject?.request?.originBuildingType || ""
+    );
+
+    if (originBuildingType && collection?.rewardAmountInCents > 0) {
+      this.demandDayLedger?.recordRevenue({
+        eventId: removedObject.id,
+        buildingType: originBuildingType,
+        amountInCents: collection.rewardAmountInCents
+      });
+    }
+    if (
+      removedObject &&
+      removedDefinition?.traits.includes(SPAWNABLE_OBJECT_TRAITS.DIRTY)
+    ) {
+      const recordedCollection = this.beachConditionModel?.recordCollectedLitter({
+        objectId: removedObject.id
+      });
+
+      if (recordedCollection) {
+        this.updateMoneyCounter(this.beachEconomyModel.getSnapshot());
+      }
+    }
 
     if (position && collection?.rewardAmountInCents > 0) {
       const totalRewardInCents = (
@@ -1964,15 +2258,138 @@ class TerrainGameManager {
       this.flushPendingMoneyDrops();
     }
 
-    if (collection?.progressesTask) {
-      this.cleanBeachGuide.schedule();
-    }
-
     setHoveredWorldObjectSceneInstance({
       sceneObjects: this.worldObjectSceneObjects,
       objectId: null
     });
     this.renderIfLoopIsIdle();
+  }
+
+  tryOfferEmergencyFund() {
+    if (
+      !this.isRunActive() ||
+      !this.emergencyFundModel ||
+      !this.treasureChestWorld
+    ) {
+      return false;
+    }
+
+    const { day, totalDays } = this.runSessionModel.getSnapshot();
+    const moneyInCents = this.beachEconomyModel.getSnapshot().moneyInCents;
+    const services = this.buildingServicesModel.getSnapshot();
+    const servicePlan = this.buildingServicesModel.previewClosing({
+      availableMoneyInCents: moneyInCents
+    });
+    const closingPlan = createClosingReservePlan({
+      servicePlan,
+      cleanupPlan: this.beachConditionModel.previewClosing(),
+      availableMoneyInCents: moneyInCents
+    });
+    const hasRevenueService = (
+      services.hasBeverageStore ||
+      services.hasWifiSpot
+    );
+    const hasCollectibleIncome = this.worldObjectSceneObjects.some(
+      (sceneObject) => sceneObject.instances?.some((instance) => (
+        instance.spawnableType !== "treasure-chest" &&
+        Number(instance.request?.collectionRewardInCents) > 0
+      ))
+    );
+    const offer = this.emergencyFundModel.offer({
+      day,
+      totalDays,
+      reserveShortfallInCents: closingPlan.reserveShortfallInCents,
+      freeToInvestInCents: closingPlan.freeToInvestInCents,
+      hasReachableIncome: hasRevenueService || hasCollectibleIncome
+    });
+
+    if (!offer.offered) {
+      return false;
+    }
+
+    this.treasureArrivalAnnounced = false;
+    this.treasureChestWorld.activate();
+    this.renderIfLoopIsIdle();
+    return true;
+  }
+
+  claimEmergencyTreasure(position) {
+    if (!this.treasureChestWorld?.getSnapshot().ready) {
+      return false;
+    }
+
+    const claim = this.emergencyFundModel.claimClick();
+
+    if (claim.amountInCents <= 0) {
+      return false;
+    }
+
+    this.beachEconomyModel.recordIncome({
+      sourceId: `treasure-${claim.snapshot.claimedPayoutInCents}`,
+      amountInCents: claim.amountInCents
+    });
+    this.treasureChestWorld.pulse();
+    this.soundManager?.play(SOUND_IDS.CASH);
+
+    if (position) {
+      this.showMoneyGainAtPosition(position);
+      this.pickupFeedbackView.showCollection({
+        ...position,
+        valuable: true,
+        messageId: "feedback.pickup.treasureCoin",
+        messageParams: {
+          amount: this.translator.formatCurrency(
+            claim.amountInCents / 100
+          )
+        }
+      });
+    }
+
+    if (!claim.snapshot.active) {
+      this.treasureChestWorld.startDeparture();
+    }
+
+    this.renderIfLoopIsIdle();
+    return true;
+  }
+
+  updateTreasureChest(deltaSeconds) {
+    if (!this.treasureChestWorld) {
+      return;
+    }
+
+    const snapshot = this.treasureChestWorld.update(deltaSeconds);
+
+    if (!snapshot.ready || this.treasureArrivalAnnounced) {
+      return;
+    }
+
+    this.treasureArrivalAnnounced = true;
+    const projectToOverlay = createWorldOverlayProjector({
+      root: this.root,
+      canvas: this.canvas,
+      camera: this.camera
+    });
+    const position = projectToOverlay(
+      snapshot.objectId,
+      this.worldObjectSceneObjects
+    );
+
+    if (position) {
+      const fund = this.emergencyFundModel.getSnapshot();
+
+      this.pickupFeedbackView.showCollection({
+        ...position,
+        valuable: true,
+        messageId: "feedback.pickup.treasureArrived",
+        messageParams: {
+          amount: this.translator.formatCurrency(
+            fund.totalPayoutInCents / 100
+          )
+        },
+        durationMs: 2400
+      });
+    }
   }
 
   focusCameraOnBuilding(buildingType, objectId) {
@@ -2032,7 +2449,6 @@ class TerrainGameManager {
   }
 
   markOnboardingProjectionDirty() {
-    this.cleanBeachGuide?.markProjectionDirty();
     this.worldInteractionGuide?.markProjectionDirty();
   }
 
@@ -2208,6 +2624,15 @@ class TerrainGameManager {
           this.updateSpawns(deltaSeconds);
         }
       }
+      const heatLevel = this.heatModel?.getSnapshot().level;
+      this.cloudWorld?.update({
+        deltaSeconds,
+        nextVisibleCount: (
+          CLOUD_VISIBLE_COUNT_BY_HEAT_LEVEL[heatLevel] ??
+          DEFAULT_VISIBLE_CLOUD_COUNT
+        )
+      });
+      this.updateTreasureChest(deltaSeconds);
       this.updateNpcWorld(deltaSeconds);
       this.updateSharkEvent(deltaSeconds);
       this.updateConstructionAnimations(deltaSeconds);
@@ -2368,11 +2793,17 @@ class TerrainGameManager {
     const { averageRating } = this.beachRatingModel.getSnapshot();
     const buildingServices = this.buildingServicesModel.getSnapshot();
     const heat = this.heatModel.getSnapshot();
+    const beachAttraction = calculateBeachAttraction({
+      sunShadeCount: this.sunShadeCount,
+      conditionPenalty: this.beachConditionModel
+        ?.getSnapshot().attractionPenalty
+    });
     const spawnRequests = this.spawnManager.update(deltaSeconds, {
       averageRating,
       bathers: this.npcSystem.getSnapshot(),
       buildingServices,
-      attractionMultiplier: heat.attractionMultiplier
+      attractionMultiplier:
+        heat.attractionMultiplier * beachAttraction.multiplier
     });
 
     for (const request of spawnRequests) {
@@ -2380,6 +2811,7 @@ class TerrainGameManager {
         this.npcSystem.addBather({
           position: getBeachEntryPosition(request.entryProgress)
         });
+        this.totalRunVisitors += 1;
         const hasWelcomeTask = this.taskListModel.getSnapshot().some(
           (task) => task.id === WELCOME_BATHERS_TASK_ID
         );
@@ -2405,6 +2837,12 @@ class TerrainGameManager {
         });
         if (addedObject) {
           this.visitorLitterObjectIds.add(addedObject.id);
+          if (request.reason !== "beverage") {
+            this.beachConditionModel?.recordProducedLitter({
+              eventId: `ground:${request.id}`,
+              captured: false
+            });
+          }
           this.playerExperienceModel?.recordPressureAdded();
 
           if (request.reason === "beverage") {
@@ -2455,6 +2893,12 @@ class TerrainGameManager {
     const bathers = this.npcSystem.getSnapshot().filter(
       (npc) => npc.type === NPC_TYPES.BATHER
     );
+
+    if (bathers.length === 0) {
+      this.updateBatherCounter(bathers);
+      return;
+    }
+
     const serviceUsers = bathers.filter((bather) => (
       bather.state === NPC_STATES.SERVICE_USE &&
       Boolean(bather.activityBuildingType)
@@ -2466,12 +2910,25 @@ class TerrainGameManager {
     });
     const sunShadePositions = this.getSunShadeWorldPositions();
     const servicePositions = this.getBuildingServiceWorldPositions();
+    const visibleLitterPositions = this.worldObjectSceneObjects.flatMap(
+      (sceneObject) => sceneObject.instances.flatMap((instance) => {
+        try {
+          return getSpawnableObjectDto(instance.spawnableType)
+            .traits.includes(SPAWNABLE_OBJECT_TRAITS.DIRTY) ?
+            [[instance.offset[0], instance.offset[2]]] :
+            [];
+        } catch {
+          return [];
+        }
+      })
+    );
     this.npcSystem.update(deltaSeconds, {
       buildingServices: this.buildingServicesModel.getSnapshot(),
       heat: this.heatModel.getSnapshot(),
       beverageStorePosition: servicePositions[BUILDING_TYPES.BEVERAGE_STORE] || null,
       servicePositions,
       sunShadePositions,
+      visibleLitterPositions,
       buildingObstacles: this.getBatherBuildingObstacles()
     });
     const npcs = this.npcSystem.getSnapshot();
@@ -2703,7 +3160,6 @@ class TerrainGameManager {
     }
 
     this.npcComplaintView?.render(complaints);
-    this.cleanBeachGuide?.render();
     this.worldInteractionGuide?.render();
   }
 
@@ -2762,6 +3218,25 @@ class TerrainGameManager {
       economyModel: this.beachEconomyModel
     });
     this.worldObjectSceneObjects = world.worldObjectSceneObjects;
+    this.treasureChestWorld = world.treasureChestWorld;
+    const initialVisibleLitterCount = this.worldObjectSceneObjects.reduce(
+      (count, sceneObject) => count + sceneObject.instances.filter((instance) => {
+        try {
+          return getSpawnableObjectDto(instance.spawnableType)
+            .traits.includes(SPAWNABLE_OBJECT_TRAITS.DIRTY);
+        } catch {
+          return false;
+        }
+      }).length,
+      0
+    );
+    this.beachConditionModel = createBeachConditionModel({
+      initialVisibleLitterCount
+    });
+    this.updateMoneyCounter(this.beachEconomyModel.getSnapshot());
+    this.unsubscribeLitterOutcomes = this.spawnManager
+      .subscribeToLitterOutcomes((event) => this.handleLitterOutcome(event));
+    this.cloudWorld = world.cloudWorld;
     this.beachGrid = world.beachGrid;
     this.beachHouseSceneObjects = world.beachHouseSceneObjects;
     this.terrainSurfaceY = world.terrainSurfaceY;

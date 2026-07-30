@@ -69,10 +69,12 @@ function normalizeWheelDelta(event, target) {
 
 function readPointerPosition(event, target) {
   const rect = target.getBoundingClientRect();
+  const scaleX = rect.width > 0 ? target.clientWidth / rect.width : 1;
+  const scaleY = rect.height > 0 ? target.clientHeight / rect.height : 1;
 
   return {
-    x: event.clientX - rect.left,
-    y: event.clientY - rect.top,
+    x: (event.clientX - rect.left) * scaleX,
+    y: (event.clientY - rect.top) * scaleY,
     screenX: event.clientX,
     screenY: event.clientY
   };

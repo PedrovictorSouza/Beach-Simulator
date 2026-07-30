@@ -1,5 +1,4 @@
 const FEEDBACK_DURATION_MS = 700;
-const HOOK_DURATION_MS = 3000;
 const MONEY_GAIN_DURATION_MS = 850;
 const MONEY_GAIN_ARC_HEIGHT_PX = 54;
 const STAGE_MARGIN_PX = 32;
@@ -14,8 +13,6 @@ export function createPickupFeedbackView({ root, translator, windowRef = window 
   }
 
   const layer = root.ownerDocument.createElement("div");
-  let hookElement = null;
-  let hookTimeoutId = null;
 
   layer.className = "pickup-feedback-layer";
   layer.setAttribute("aria-live", "polite");
@@ -108,16 +105,6 @@ export function createPickupFeedbackView({ root, translator, windowRef = window 
   };
 
   return Object.freeze({
-    showValuableHook(position) {
-      windowRef.clearTimeout(hookTimeoutId);
-      hookElement?.remove();
-      hookElement = root.ownerDocument.createElement("span");
-      hookElement.className = "pickup-feedback-hook";
-      hookElement.setAttribute("aria-hidden", "true");
-      place(hookElement, position);
-      layer.append(hookElement);
-      hookTimeoutId = windowRef.setTimeout(() => hookElement?.remove(), HOOK_DURATION_MS);
-    },
     showCollection({
       x,
       y,

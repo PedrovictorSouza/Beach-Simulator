@@ -368,6 +368,7 @@ export function createNoopWebGlContext() {
     createProgram: () => createHandle("program"),
     createShader: () => createHandle("shader"),
     createTexture: () => createHandle("texture"),
+    deleteBuffer: noop,
     deleteProgram: noop,
     deleteShader: noop,
     depthMask: noop,
@@ -1489,6 +1490,7 @@ export async function loadPicoModel({
   gl,
   gltfPath,
   txtPath,
+  retainGeometry = false,
   onStatus
 }) {
   onStatus?.({ type: "asset-loading", asset: gltfPath });
@@ -1523,6 +1525,10 @@ export async function loadPicoModel({
       const flatMesh = buildFlatShadedInterleaved(positions, texcoords, indices);
       primitives.push({
         ...createGLPrimitive(gl, flatMesh.interleaved, flatMesh.indices),
+        ...(retainGeometry ? {
+          interleaved: flatMesh.interleaved,
+          indices: flatMesh.indices
+        } : {}),
         positions
       });
     }
@@ -1566,6 +1572,7 @@ export async function loadTexturedModel({
   binPath = null,
   texturePath = null,
   normalizedSize = 3.8,
+  retainGeometry = false,
   onStatus
 }) {
   onStatus?.({ type: "asset-loading", asset: gltfPath });
@@ -1597,6 +1604,10 @@ export async function loadTexturedModel({
       const flatMesh = buildFlatShadedInterleaved(positions, texcoords, indices);
       primitives.push({
         ...createGLPrimitive(gl, flatMesh.interleaved, flatMesh.indices),
+        ...(retainGeometry ? {
+          interleaved: flatMesh.interleaved,
+          indices: flatMesh.indices
+        } : {}),
         positions
       });
     }

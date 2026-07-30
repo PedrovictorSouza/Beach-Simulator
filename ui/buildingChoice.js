@@ -93,7 +93,7 @@ export function createBuildingChoiceModel({ random = Math.random } = {}) {
       ];
       const selectedTypeSet = new Set(selectedOptions.map(({ type }) => type));
       const fallbackPool = BUILDING_CATALOG.filter(({ type }) => (
-        !selectedTypeSet.has(type)
+        !selectedTypeSet.has(type) && !excludedTypeSet.has(type)
       ));
 
       for (
@@ -170,7 +170,9 @@ export function createBuildingChoiceView({ root, translator }) {
   return Object.freeze({
     show(options, { costInCents = 0 } = {}) {
       if (!Array.isArray(options) || options.length !== 3) {
-        throw new Error("BuildingChoiceView precisa receber tres opcoes.");
+        throw new Error(
+          "BuildingChoiceView precisa receber exatamente tres opcoes."
+        );
       }
 
       if (resolveChoice) {
@@ -184,7 +186,6 @@ export function createBuildingChoiceView({ root, translator }) {
         const buttonElement = documentRef.createElement("button");
         const swatchElement = documentRef.createElement("span");
         const labelElement = documentRef.createElement("strong");
-        const roleElement = documentRef.createElement("span");
         const costElement = documentRef.createElement("span");
         const descriptionElement = documentRef.createElement("span");
         const color = option.color.map((channel) => Math.round(channel * 255));
@@ -197,10 +198,6 @@ export function createBuildingChoiceView({ root, translator }) {
         labelElement.className = "building-choice__option-label";
         labelElement.textContent = translator.t(
           `buildings.${option.type}.label`
-        );
-        roleElement.className = "building-choice__option-role";
-        roleElement.textContent = translator.t(
-          `buildings.${option.type}.role`
         );
         costElement.className = "building-choice__option-cost";
         costElement.textContent = costLabel;
@@ -223,7 +220,6 @@ export function createBuildingChoiceView({ root, translator }) {
         buttonElement.append(
           swatchElement,
           labelElement,
-          roleElement,
           costElement,
           descriptionElement
         );
@@ -238,6 +234,7 @@ export function createBuildingChoiceView({ root, translator }) {
         return buttonElement;
       });
 
+      optionsElement.dataset.optionCount = String(buttons.length);
       optionsElement.replaceChildren(...buttons);
       overlayElement.hidden = false;
       void overlayElement.offsetWidth;

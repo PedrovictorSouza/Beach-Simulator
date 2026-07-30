@@ -21,6 +21,8 @@ import {
   SCENERY_TYPES
 } from "../scenery/sceneryWorld.js";
 import { createWorldObjectPlaceholderSceneObjects } from "../objects/worldObjectWorld.js";
+import { createCloudWorld } from "../objects/cloud/cloudWorld.js";
+import { createTreasureChestWorld } from "../objects/treasure-chest/treasureChestWorld.js";
 
 const KIOSK_POSITION_X = -48;
 const KIOSK_RESTINGA_INSET = 18;
@@ -197,24 +199,34 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
 
     return [tile.centerX, tile.centerZ];
   };
-  const worldObjectSceneObjects = await createWorldObjectPlaceholderSceneObjects({
+  const spawnableWorldObjectSceneObjects = await createWorldObjectPlaceholderSceneObjects({
     gl,
     requests: planInitialPopulation(),
     terrainSurfaceY,
     resolvePosition: resolveWorldObjectPosition
   });
+  const treasureChestWorld = await createTreasureChestWorld({
+    gl,
+    terrainSurfaceY
+  });
+  const worldObjectSceneObjects = [
+    ...spawnableWorldObjectSceneObjects,
+    treasureChestWorld.sceneObject
+  ];
   const npcSceneObjects = createNpcSceneObjects({
     npcAssets,
     npcs,
     terrainSurfaceY
   });
+  const cloudWorld = await createCloudWorld({ gl, onStatus });
 
   return {
     sceneObjects: [
       ...terrainSceneObjects,
       ...kioskSceneObjects,
       ...worldObjectSceneObjects,
-      ...npcSceneObjects
+      ...npcSceneObjects,
+      cloudWorld.sceneObject
     ],
     terrainAssets,
     terrainSceneObjects,
@@ -231,6 +243,8 @@ export async function loadBeachWorld({ gl, camera, onStatus }) {
     trashCansAsset,
     terrainSurfaceY,
     resolveWorldObjectPosition,
+    cloudWorld,
+    treasureChestWorld,
     npcs
   };
 }

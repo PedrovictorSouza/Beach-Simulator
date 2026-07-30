@@ -2,7 +2,6 @@ import { summarizeReviewProblems } from "../ratings/dayReviewSummary.js";
 import { createRatingCounterView } from "./ratingCounterView.js";
 import { SOUND_IDS } from "../audio/soundManager.js";
 
-const DAY_INTRO_DURATION_MS = 1800;
 const PROBLEM_ACTION_IDS = Object.freeze({
   "heat-without-beverage": "drinks",
   "missing-entertainment": "volleyball",
@@ -32,6 +31,7 @@ export function presentRunReport({
   reviewCount = 0,
   totalBathers = 0,
   buildingsBuilt = 0,
+  dayRatings = [],
   reviews = [],
   closingNotice = ""
 } = {}, translator) {
@@ -55,10 +55,37 @@ export function presentRunReport({
         maximumFractionDigits: 1
       })
     }) :
-    translator.t("reports.noReviews");
+      translator.t("reports.noReviews");
+  const dayScoreLabels = (Array.isArray(dayRatings) ? dayRatings : [])
+    .map((dayRating) => {
+      const day = Math.max(1, Math.trunc(Number(dayRating?.day) || 1));
+      const dayReviewCount = Math.max(
+        0,
+        Math.trunc(Number(dayRating?.reviewCount) || 0)
+      );
+
+      if (dayReviewCount <= 0) {
+        return translator.t("reports.scoreDayNoReviews", {
+          day: translator.formatNumber(day)
+        });
+      }
+
+      return translator.t("reports.scoreDay", {
+        day: translator.formatNumber(day),
+        rating: translator.formatNumber(
+          Math.min(5, Math.max(0, Number(dayRating?.averageRating) || 0)),
+          { minimumFractionDigits: 1, maximumFractionDigits: 1 }
+        )
+      });
+    });
 
   const lines = [
     translator.t("reports.rating", { value: ratingLabel }),
+    ...(dayScoreLabels.length > 0 ? [
+      translator.t("reports.scoreHistory", {
+        scores: dayScoreLabels.join(" • ")
+      })
+    ] : []),
     translator.t("reports.money", {
       amount: translator.formatCurrency(money)
     }),
@@ -110,9 +137,9 @@ export function createRunPresentationView({
   }
 
   const documentRef = root.ownerDocument;
-  const windowRef = documentRef.defaultView;
   const element = documentRef.createElement("div");
   const titleElement = documentRef.createElement("strong");
+  const noticeElement = documentRef.createElement("p");
   const ratingSpotlightElement = documentRef.createElement("section");
   const ratingTitleElement = documentRef.createElement("strong");
   const ratingMeterElement = documentRef.createElement("div");
@@ -126,6 +153,8 @@ export function createRunPresentationView({
   titleElement.className = "run-intro__title";
   titleElement.setAttribute("role", "status");
   titleElement.setAttribute("aria-live", "assertive");
+  noticeElement.className = "run-intro__notice";
+  noticeElement.hidden = true;
   ratingSpotlightElement.className = "rating-spotlight";
   ratingSpotlightElement.hidden = true;
   ratingTitleElement.className = "rating-spotlight__title";
@@ -177,6 +206,7 @@ export function createRunPresentationView({
   playAgainButton.addEventListener("click", () => onPlayAgain?.());
   element.append(
     titleElement,
+    noticeElement,
     ratingSpotlightElement,
     continueButton,
     playAgainButton
@@ -229,7 +259,11 @@ export function createRunPresentationView({
 
   return Object.freeze({
     setHudActive,
-    async playDay(day, { notice = "" } = {}) {
+    async playDay(day, {
+      notice = "",
+      averageRating = 0,
+      reviewCount = 0
+    } = {}) {
       if (!Number.isSafeInteger(day) || day <= 0) {
         throw new Error("RunPresentationView precisa de um dia inteiro positivo.");
       }
@@ -237,52 +271,41 @@ export function createRunPresentationView({
       const normalizedNotice = String(notice || "").trim();
 
       setHudActive(false);
-      ratingSpotlightElement.hidden = true;
-      ratingSpotlightElement.classList.remove("rating-spotlight--playing");
+      renderRatingSpotlight({
+        averageRating,
+        reviewCount,
+        animate: true
+      });
       titleElement.style.removeProperty("font-size");
       titleElement.style.removeProperty("line-height");
       titleElement.style.removeProperty("text-align");
       titleElement.style.removeProperty("white-space");
-      if (normalizedNotice) {
-        titleElement.style.lineHeight = "1.5";
-        titleElement.style.textAlign = "center";
-        titleElement.style.whiteSpace = "pre-line";
-      }
-      titleElement.textContent = [
-        translator.t("run.day", { day: translator.formatNumber(day) }),
-        normalizedNotice
-      ]
-        .filter(Boolean)
-        .join("\n");
+      titleElement.textContent = translator.t("run.day", {
+        day: translator.formatNumber(day)
+      });
+      noticeElement.textContent = normalizedNotice;
+      noticeElement.hidden = !normalizedNotice;
       playAgainButton.hidden = true;
-      continueButton.hidden = !normalizedNotice;
+      continueButton.hidden = false;
       element.hidden = false;
       element.classList.remove("run-intro--playing");
-      element.classList.toggle(
-        "run-intro--waiting",
-        Boolean(normalizedNotice)
-      );
-      element.classList.toggle("run-intro--summary", Boolean(normalizedNotice));
+      element.classList.add("run-intro--waiting");
+      element.classList.add("run-intro--summary");
       if (day === 1) {
         playSound(SOUND_IDS.DAY_1_INTRO);
       }
       void element.offsetWidth;
       element.classList.add("run-intro--playing");
 
-      if (normalizedNotice) {
-        await new Promise((resolve) => {
-          resolveDayAdvance = resolve;
-        });
-      } else {
-        await new Promise((resolve) => {
-          windowRef.setTimeout(resolve, DAY_INTRO_DURATION_MS);
-        });
-      }
+      await new Promise((resolve) => {
+        resolveDayAdvance = resolve;
+      });
 
       continueButton.hidden = true;
       element.classList.remove("run-intro--playing");
       element.classList.remove("run-intro--waiting");
       element.classList.remove("run-intro--summary");
+      noticeElement.hidden = true;
       element.hidden = true;
     },
     showRunReport(input) {
@@ -298,6 +321,7 @@ export function createRunPresentationView({
       element.classList.remove("run-intro--waiting");
       element.classList.remove("run-intro--summary");
       continueButton.hidden = true;
+      noticeElement.hidden = true;
       titleElement.style.fontSize = "1rem";
       titleElement.style.lineHeight = "1.6";
       titleElement.style.textAlign = "center";

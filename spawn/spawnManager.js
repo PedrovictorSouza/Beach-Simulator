@@ -36,6 +36,11 @@ const BATHER_LITTER_CHANCE = Object.freeze({
   WITH_TRASH_CANS: 0.08,
   BEVERAGE_STORE_BONUS: 0.2
 });
+const BEVERAGE_PACKAGING_CHANCE = (
+  BATHER_LITTER_CHANCE.WITHOUT_TRASH_CANS +
+  BATHER_LITTER_CHANCE.BEVERAGE_STORE_BONUS
+);
+const TRASH_CAN_CAPTURE_CHANCE = 0.5;
 const BATHER_LITTER_DELAY_SECONDS = Object.freeze({ min: 12, max: 30 });
 const FIRST_BATHER_LITTER_DELAY_SECONDS = Object.freeze({ min: 10, max: 15 });
 const WELCOME_LITTER_TARGET = 2;
@@ -113,7 +118,8 @@ export function createSpawnManager({ random = Math.random } = {}) {
   const timeline = createScheduledSpawnQueue();
   const readyEvents = [];
   const knownBatherIds = new Set();
-  const knownBeveragePurchaseBatherIds = new Set();
+  const processedBeveragePurchaseCountByBatherId = new Map();
+  const litterOutcomeObservers = new Set();
   const litterPlanByEventSequence = new Map();
 
   const readRandomUnit = () => clamp(Number(random()) || 0, 0, 1);
@@ -270,32 +276,37 @@ export function createSpawnManager({ random = Math.random } = {}) {
   };
 
   const scheduleLitterForBeveragePurchases = (bathers, buildingServices) => {
-    const baseLitterChance = buildingServices.hasTrashCans ?
-      BATHER_LITTER_CHANCE.WITH_TRASH_CANS :
-      BATHER_LITTER_CHANCE.WITHOUT_TRASH_CANS;
-    const postPurchaseChance = clamp(
-      baseLitterChance + BATHER_LITTER_CHANCE.BEVERAGE_STORE_BONUS,
-      0,
-      1
-    );
-
     for (const bather of bathers) {
       const batherId = String(bather?.id || "").trim();
 
       if (
         !batherId ||
-        !bather?.beveragePurchased ||
-        knownBeveragePurchaseBatherIds.has(batherId)
+        !bather?.beveragePurchased
       ) {
         continue;
       }
 
-      knownBeveragePurchaseBatherIds.add(batherId);
+      const purchaseCount = Math.max(
+        1,
+        Math.trunc(Number(bather.beveragePurchaseCount) || 1)
+      );
+      const processedPurchaseCount = (
+        processedBeveragePurchaseCountByBatherId.get(batherId) || 0
+      );
+
+      if (purchaseCount <= processedPurchaseCount) {
+        continue;
+      }
+
+      processedBeveragePurchaseCountByBatherId.set(
+        batherId,
+        purchaseCount
+      );
       const messinessMultiplier = Number(
         bather.profile?.messinessMultiplier
       );
-      const litterChance = clamp(
-        postPurchaseChance * (
+      const packagingChance = clamp(
+        BEVERAGE_PACKAGING_CHANCE * (
           Number.isFinite(messinessMultiplier) && messinessMultiplier > 0 ?
             messinessMultiplier :
             1
@@ -304,7 +315,24 @@ export function createSpawnManager({ random = Math.random } = {}) {
         1
       );
 
-      if (readRandomUnit() >= litterChance) {
+      const produced = readRandomUnit() < packagingChance;
+      const captured = produced &&
+        Boolean(buildingServices.hasTrashCans) &&
+        readRandomUnit() < TRASH_CAN_CAPTURE_CHANCE;
+      const outcome = Object.freeze({
+        eventId: `beverage-package-${batherId}-${purchaseCount}`,
+        batherId,
+        reason: "beverage",
+        produced,
+        captured,
+        reachesGround: produced && !captured
+      });
+
+      for (const observer of litterOutcomeObservers) {
+        observer(outcome);
+      }
+
+      if (!outcome.reachesGround) {
         continue;
       }
 
@@ -386,7 +414,7 @@ export function createSpawnManager({ random = Math.random } = {}) {
         timeline.clear();
         readyEvents.length = 0;
         knownBatherIds.clear();
-        knownBeveragePurchaseBatherIds.clear();
+        processedBeveragePurchaseCountByBatherId.clear();
         litterPlanByEventSequence.clear();
         activeBatherEventSequence = null;
         activeSharkEventSequence = null;
@@ -408,6 +436,23 @@ export function createSpawnManager({ random = Math.random } = {}) {
       running = false;
 
       return getSnapshot();
+    },
+    subscribeToLitterOutcomes(observer) {
+      if (typeof observer !== "function") {
+        throw new Error("Observer de residuos precisa de uma funcao.");
+      }
+
+      litterOutcomeObservers.add(observer);
+      let subscribed = true;
+
+      return () => {
+        if (!subscribed) {
+          return;
+        }
+
+        subscribed = false;
+        litterOutcomeObservers.delete(observer);
+      };
     },
     requestImmediateBather() {
       if (!running || firstBatherSpawned || immediateBatherRequested) {

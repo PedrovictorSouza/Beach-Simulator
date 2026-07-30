@@ -47,18 +47,26 @@ const SPRITE_SCALE_BY_TYPE = Object.freeze({
 const WHITE_TINT = Object.freeze([1, 1, 1]);
 const SCREEN_SPRITE_MAX_SIZE = 16;
 
-function createScreenSpriteModel(image, texture) {
+function createScreenSpriteModel(
+  image,
+  texture,
+  maxSpriteSize = SCREEN_SPRITE_MAX_SIZE
+) {
   const longestSide = Math.max(image.width, image.height);
   const widthRatio = image.width / longestSide;
   const heightRatio = image.height / longestSide;
+  const normalizedMaxSpriteSize = Math.max(
+    1,
+    Math.round(Number(maxSpriteSize) || SCREEN_SPRITE_MAX_SIZE)
+  );
 
   return Object.freeze({
     offset: Object.freeze([0, 0, 0]),
     scale: 1,
     size: Object.freeze([widthRatio * 2, 0.02, heightRatio * 2]),
     spriteSize: Object.freeze([
-      Math.max(1, Math.round(widthRatio * SCREEN_SPRITE_MAX_SIZE)),
-      Math.max(1, Math.round(heightRatio * SCREEN_SPRITE_MAX_SIZE))
+      Math.max(1, Math.round(widthRatio * normalizedMaxSpriteSize)),
+      Math.max(1, Math.round(heightRatio * normalizedMaxSpriteSize))
     ]),
     texture,
     primitives: Object.freeze([])
@@ -89,6 +97,27 @@ function createWorldObjectInstance({
     tint: WHITE_TINT,
     tintStrength: 0
   });
+}
+
+export async function loadWorldSpriteModel({
+  gl,
+  url,
+  maxSpriteSize = SCREEN_SPRITE_MAX_SIZE
+}) {
+  const normalizedUrl = String(url || "").trim();
+
+  if (!gl) {
+    throw new Error("Sprite do mundo precisa de um contexto WebGL.");
+  }
+
+  if (!normalizedUrl) {
+    throw new Error("Sprite do mundo precisa de uma URL.");
+  }
+
+  const image = await loadImageAsset(normalizedUrl);
+  const texture = createWorldTextureFactory(gl).fromImage(image);
+
+  return createScreenSpriteModel(image, texture, maxSpriteSize);
 }
 
 export async function createWorldObjectPlaceholderSceneObjects({

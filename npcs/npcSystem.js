@@ -66,6 +66,8 @@ const ENTERTAINMENT_COMPLAINT_SECONDS = 10;
 const WIFI_COMPLAINT_SECONDS = 16;
 const TOILET_COMPLAINT_SECONDS = 24;
 const TOILET_LEAVE_SECONDS = 34;
+const LITTER_EXPOSURE_RADIUS = 9;
+const LITTER_COMPLAINT_SECONDS = 6;
 const ACTIVITY_NOVELTY_UTILITY = 18;
 const ACTIVITY_REPEAT_UTILITY = -24;
 const ACTIVITY_VARIATION_UTILITY = 12;
@@ -73,6 +75,9 @@ const ACTIVITY_PROXIMITY_RANGE = 70;
 const NAVIGATION_RING_POINTS = 12;
 const NAVIGATION_CLEARANCE = 1.5;
 const HIGH_HEAT_BEVERAGE_PURCHASE_CHANCE = 0.75;
+const MAX_BEVERAGE_PURCHASES_PER_VISIT = 2;
+const REPEAT_BEVERAGE_PURCHASE_INTERVAL_SECONDS = 35;
+const MAX_RETENTION_CREDITS = 1;
 const SUN_SHADE_MIN_PURCHASE_CHANCE = 0.12;
 const SUN_SHADE_HEAT_PURCHASE_CHANCE = 0.68;
 const SUN_SHADE_HEAT_UTILITY = 52;
@@ -91,6 +96,7 @@ const BATHER_COMPLAINTS = Object.freeze({
   ENTERTAINMENT: "complaints.entertainment",
   WIFI: "complaints.wifi",
   TOILET: "complaints.toilet",
+  LITTER: "complaints.litter",
   TOILET_LEAVING: "complaints.toiletLeaving",
   TOLERANCE_EXHAUSTED: "complaints.toleranceExhausted"
 });
@@ -98,7 +104,8 @@ export const BATHER_PROBLEM_SOURCES = Object.freeze({
   HEAT: "heat-without-beverage",
   ENTERTAINMENT: "missing-entertainment",
   WIFI: "missing-wifi",
-  TOILET: "missing-toilet"
+  TOILET: "missing-toilet",
+  LITTER: "visible-litter"
 });
 const ACTIVITY_WAYPOINT_OFFSETS = Object.freeze([
   Object.freeze([-36, 12]),
@@ -399,6 +406,16 @@ function applyServiceOutcome(entity, buildingType) {
   if (buildingType === BEACH_AMENITY_TYPES.SUN_SHADE) {
     entity.heatExposureSeconds = 0;
     entity.complaint = null;
+    entity.retentionCredits = Math.min(
+      MAX_RETENTION_CREDITS,
+      (Number(entity.retentionCredits) || 0) + 1
+    );
+    if (
+      entity.beveragePurchaseCount > 0 &&
+      entity.beveragePurchaseCount < MAX_BEVERAGE_PURCHASES_PER_VISIT
+    ) {
+      entity.beverageDecisionMade = false;
+    }
     return;
   }
 
@@ -410,6 +427,19 @@ function applyServiceOutcome(entity, buildingType) {
 
   entity.motiveNeeds[motive] = 0;
   entity.complaint = null;
+
+  if (buildingType === BUILDING_TYPES.TOILET_BUILDING) {
+    entity.retentionCredits = Math.min(
+      MAX_RETENTION_CREDITS,
+      (Number(entity.retentionCredits) || 0) + 1
+    );
+    if (
+      entity.beveragePurchaseCount > 0 &&
+      entity.beveragePurchaseCount < MAX_BEVERAGE_PURCHASES_PER_VISIT
+    ) {
+      entity.beverageDecisionMade = false;
+    }
+  }
 }
 
 function completeBeachActivity(entity) {
@@ -743,6 +773,14 @@ function createEntitySnapshot(entity) {
     mood: createBatherMoodSnapshot(entity),
     beverageDecisionMade: Boolean(entity.beverageDecisionMade),
     beveragePurchased: Boolean(entity.beveragePurchased),
+    beveragePurchaseCount: Math.max(
+      0,
+      Math.trunc(Number(entity.beveragePurchaseCount) || 0)
+    ),
+    retentionCredits: Math.max(
+      0,
+      Math.trunc(Number(entity.retentionCredits) || 0)
+    ),
     movementPurpose: entity.movementPurpose,
     activityBuildingType: entity.activityBuildingType,
     interaction: entity.interaction ? { ...entity.interaction } : null,
@@ -811,10 +849,24 @@ function maybeStartBeverageStoreVisit(
   random,
   notifyBeverageDecision
 ) {
+  const purchaseCount = Math.max(
+    0,
+    Math.trunc(Number(entity.beveragePurchaseCount) || 0)
+  );
+  const repeatPurchase = purchaseCount > 0;
+  const secondsSinceLastPurchase = (
+    Number(entity.beachElapsedSeconds) || 0
+  ) - (Number(entity.lastBeveragePurchaseAtSeconds) || 0);
+
   if (
     entity.departing ||
+    entity.state !== NPC_STATES.IDLE ||
     entity.beverageDecisionMade ||
-    entity.beveragePurchased ||
+    purchaseCount >= MAX_BEVERAGE_PURCHASES_PER_VISIT ||
+    (repeatPurchase && (
+      (Number(entity.retentionCredits) || 0) <= 0 ||
+      secondsSinceLastPurchase < REPEAT_BEVERAGE_PURCHASE_INTERVAL_SECONDS
+    )) ||
     heat.level !== "HIGH" ||
     !hasAdvertisedMotive(
       buildingServices,
@@ -849,6 +901,7 @@ function updateBatherNeeds(
   heat,
   toleranceModel,
   notifyToleranceOccupied,
+  visibleLitterPositions = [],
   buildingObstacles = []
 ) {
   entity.beachElapsedSeconds += stepSeconds;
@@ -888,6 +941,44 @@ function updateBatherNeeds(
     entity,
     BUILDING_SERVICE_MOTIVES.ENTERTAINMENT
   );
+  const exposedToLitter = (Array.isArray(visibleLitterPositions) ?
+    visibleLitterPositions :
+    []).some((position) => (
+    Array.isArray(position) &&
+    position.length === 2 &&
+    position.every(Number.isFinite) &&
+    Math.hypot(
+      entity.position[0] - position[0],
+      entity.position[1] - position[1]
+    ) <= LITTER_EXPOSURE_RADIUS
+  ));
+
+  const litterExposureSeconds = Math.max(
+    0,
+    Number(entity.litterExposureSeconds) || 0
+  );
+  entity.litterExposureSeconds = exposedToLitter ?
+    litterExposureSeconds + stepSeconds :
+    Math.max(0, litterExposureSeconds - stepSeconds * 0.5);
+
+  if (
+    entity.litterExposureSeconds >= LITTER_COMPLAINT_SECONDS &&
+    !toleranceModel.hasIssue(
+      entity.tolerance,
+      BATHER_PROBLEM_SOURCES.LITTER
+    )
+  ) {
+    entity.complaint = BATHER_COMPLAINTS.LITTER;
+    if (occupyTolerance(
+      entity,
+      toleranceModel,
+      BATHER_PROBLEM_SOURCES.LITTER,
+      notifyToleranceOccupied
+    )) {
+      beginToleranceDeparture(entity, buildingObstacles);
+    }
+    return;
+  }
 
   if (entity.departing) {
     return;
@@ -1090,11 +1181,15 @@ export function createNpcSystem({ random = Math.random } = {}) {
         profile: batherProfileModel.createProfile(),
         tolerance: batherToleranceModel.createState(),
         heatExposureSeconds: 0,
+        litterExposureSeconds: 0,
         availableServiceMotives: [],
         complaint: null,
         departing: false,
         beverageDecisionMade: false,
         beveragePurchased: false,
+        beveragePurchaseCount: 0,
+        lastBeveragePurchaseAtSeconds: 0,
+        retentionCredits: 0,
         movementPurpose: null,
         activityBuildingType: null,
         activityDurationSeconds: 0,
@@ -1119,6 +1214,7 @@ export function createNpcSystem({ random = Math.random } = {}) {
         beverageStorePosition = null,
         servicePositions = {},
         sunShadePositions = [],
+        visibleLitterPositions = [],
         buildingObstacles = []
       } = {}
     ) {
@@ -1182,6 +1278,7 @@ export function createNpcSystem({ random = Math.random } = {}) {
           heat,
           batherToleranceModel,
           notifyToleranceOccupied,
+          visibleLitterPositions,
           buildingObstacles
         );
 
@@ -1263,12 +1360,21 @@ export function createNpcSystem({ random = Math.random } = {}) {
           entity.stateElapsedSeconds += stepSeconds;
           if (entity.stateElapsedSeconds >= BEVERAGE_PURCHASE_DURATION_SECONDS) {
             entity.beveragePurchased = true;
+            entity.beveragePurchaseCount += 1;
+            entity.lastBeveragePurchaseAtSeconds = entity.beachElapsedSeconds;
+            if (entity.beveragePurchaseCount > 1) {
+              entity.retentionCredits = Math.max(
+                0,
+                entity.retentionCredits - 1
+              );
+            }
             entity.heatExposureSeconds = 0;
             entity.complaint = null;
             beveragePurchaseSequence += 1;
             const beveragePurchaseEvent = Object.freeze({
               sequence: beveragePurchaseSequence,
               batherId: entity.id,
+              purchaseCount: entity.beveragePurchaseCount,
               amountInCents: BEVERAGE_PURCHASE_PRICE_IN_CENTS,
               bather: createEntitySnapshot(entity)
             });

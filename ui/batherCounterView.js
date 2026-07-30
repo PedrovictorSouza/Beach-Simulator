@@ -20,10 +20,6 @@ export function createBatherCounterView({ root, translator }) {
   const element = documentRef.createElement("div");
   const labelElement = documentRef.createElement("img");
   const countElement = documentRef.createElement("strong");
-  const moodElement = documentRef.createElement("div");
-  const moodTitleElement = documentRef.createElement("strong");
-  const moodNeedElement = documentRef.createElement("span");
-  const moodActionElement = documentRef.createElement("span");
 
   element.className = "bather-counter";
   element.setAttribute("role", "status");
@@ -33,23 +29,15 @@ export function createBatherCounterView({ root, translator }) {
   labelElement.alt = "";
   labelElement.setAttribute("aria-hidden", "true");
   countElement.className = "bather-counter__count";
-  moodElement.className = "bather-counter__mood";
-  moodTitleElement.className = "bather-counter__mood-title";
-  moodNeedElement.className = "bather-counter__mood-need";
-  moodActionElement.className = "bather-counter__mood-action";
-  moodElement.append(moodTitleElement, moodNeedElement, moodActionElement);
-  element.append(labelElement, countElement, moodElement);
+  element.append(labelElement, countElement);
   root.append(element);
 
   let renderedCount = null;
-  let currentBathers = [];
 
-  const renderState = (count, bathers) => {
+  const renderState = (count) => {
     const nextCount = Math.max(0, Math.trunc(Number(count) || 0));
-    const nextBathers = Array.isArray(bathers) ? bathers : [];
     const previousCount = renderedCount;
 
-    currentBathers = nextBathers;
     renderedCount = nextCount;
     countElement.textContent = String(nextCount);
     if (previousCount !== null && nextCount !== previousCount) {
@@ -71,60 +59,16 @@ export function createBatherCounterView({ root, translator }) {
         label: countLabel
       })
     );
-
-    const moodBather = nextBathers
-      .filter((bather) => bather?.mood)
-      .sort((left, right) => (
-        left.mood.score - right.mood.score ||
-        right.mood.strongestNeed.value - left.mood.strongestNeed.value
-      ))[0];
-
-    if (!moodBather) {
-      moodElement.hidden = true;
-      return;
-    }
-
-    const { mood } = moodBather;
-    const bandId = String(mood.band || "").toLowerCase();
-    const motive = mood.strongestNeed.motive;
-    const band = translator.t(`hud.bathers.bands.${bandId}`);
-    const need = translator.t(`hud.bathers.needsByMotive.${motive}`);
-    const action = translator.t(`hud.bathers.actions.${motive}`);
-
-    moodElement.hidden = false;
-    moodElement.dataset.moodBand = bandId;
-    moodElement.style.setProperty("--bather-mood-score", `${mood.score}%`);
-    moodTitleElement.textContent = translator.t("hud.bathers.moodTitle", {
-      band,
-      score: translator.formatNumber(mood.score)
-    });
-    moodNeedElement.textContent = translator.t("hud.bathers.needs", {
-      need,
-      value: translator.formatNumber(mood.strongestNeed.value)
-    });
-    moodActionElement.textContent = action.includes("hud.") ?
-      translator.t("hud.bathers.actions.watchBeach") :
-      action;
-    element.setAttribute(
-      "aria-label",
-      translator.t("hud.bathers.focusAria", {
-        count: translator.formatNumber(nextCount),
-        label: countLabel,
-        band,
-        score: translator.formatNumber(mood.score),
-        need
-      })
-    );
   };
   translator.subscribe(() => {
     if (renderedCount !== null) {
-      renderState(renderedCount, currentBathers);
+      renderState(renderedCount);
     }
   });
 
   return Object.freeze({
-    render(count, bathers = []) {
-      renderState(count, bathers);
+    render(count) {
+      renderState(count);
     }
   });
 }

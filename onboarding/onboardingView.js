@@ -135,11 +135,31 @@ export function createOnboardingView({
 
       const rootRect = root.getBoundingClientRect();
       const targetRect = target.getBoundingClientRect();
-      const preferredLeft = targetRect.right - rootRect.left + TARGET_GAP_PX;
+      const scaleX = rootRect.width > 0 ? root.clientWidth / rootRect.width : 1;
+      const scaleY = rootRect.height > 0 ? root.clientHeight / rootRect.height : 1;
+      const targetLeft = (targetRect.left - rootRect.left) * scaleX;
+      const targetRight = (targetRect.right - rootRect.left) * scaleX;
+      const targetCenterY = (
+        targetRect.top - rootRect.top + targetRect.height * 0.5
+      ) * scaleY;
+      const handWidth = handElement.offsetWidth;
+      const handHalfHeight = handElement.offsetHeight * 0.5;
       const maxLeft = Math.max(0, root.clientWidth - handElement.offsetWidth);
+      const canFitOnRight = targetRight + TARGET_GAP_PX + handWidth <= root.clientWidth;
+      const left = canFitOnRight ?
+        targetRight + TARGET_GAP_PX :
+        targetLeft - TARGET_GAP_PX - handWidth;
+      const top = Math.min(
+        root.clientHeight - handHalfHeight,
+        Math.max(handHalfHeight, targetCenterY)
+      );
 
-      handElement.style.left = `${Math.min(preferredLeft, maxLeft)}px`;
-      handElement.style.top = `${targetRect.top - rootRect.top + targetRect.height * 0.5}px`;
+      handElement.style.left = `${Math.min(maxLeft, Math.max(0, left))}px`;
+      handElement.style.top = `${top}px`;
+      handElement.classList.toggle(
+        "onboarding-hand--point-right",
+        !canFitOnRight
+      );
       handElement.classList.add("onboarding-hand--playing");
       playHandAlertSequence();
 

@@ -178,8 +178,6 @@ export function createTaskListView({
 
   const documentRef = root.ownerDocument;
   const element = documentRef.createElement("section");
-  const titleElement = documentRef.createElement("h2");
-  const helperElement = documentRef.createElement("p");
   const listElement = documentRef.createElement("ol");
   const progressByTaskId = new Map();
   let currentTasks = [];
@@ -187,13 +185,9 @@ export function createTaskListView({
   element.className = "task-list";
   element.setAttribute("aria-label", translator.t("tasks.ariaLabel"));
   element.hidden = true;
-  titleElement.className = "task-list__title";
-  titleElement.textContent = translator.t("tasks.title");
-  helperElement.className = "task-list__helper";
-  helperElement.textContent = translator.t("tasks.helper");
   listElement.className = "task-list__items";
   listElement.setAttribute("aria-live", "polite");
-  element.append(titleElement, helperElement, listElement);
+  element.append(listElement);
   root.append(element);
 
   const renderTasks = (tasks) => {
@@ -201,8 +195,6 @@ export function createTaskListView({
 
       currentTasks = nextTasks;
       element.setAttribute("aria-label", translator.t("tasks.ariaLabel"));
-      titleElement.textContent = translator.t("tasks.title");
-      helperElement.textContent = translator.t("tasks.helper");
       const completedTasks = [];
       const taskElements = nextTasks.map((task) => {
         const itemElement = documentRef.createElement("li");
@@ -216,12 +208,7 @@ export function createTaskListView({
         itemElement.className = "task-list__item";
         itemElement.dataset.taskId = task.id;
         if (task.id === INITIAL_ONBOARDING_TASK_ID && !completed) {
-          const focusElement = documentRef.createElement("span");
-
           itemElement.classList.add("task-list__item--focus");
-          focusElement.className = "task-list__focus";
-          focusElement.textContent = translator.t("tasks.startHere");
-          itemElement.append(focusElement);
         }
         labelElement.className = "task-list__label";
         labelElement.textContent = completed ?

@@ -30,6 +30,7 @@ export async function loadTerrainAssets({ gl, onStatus }) {
       gl,
       gltfPath: TERRAIN_ASSET_PATHS.ground.gltfPath,
       txtPath: TERRAIN_ASSET_PATHS.ground.txtPath,
+      retainGeometry: true,
       onStatus
     }),
     loadTexturedModel({
@@ -38,12 +39,14 @@ export async function loadTerrainAssets({ gl, onStatus }) {
       binPath: TERRAIN_ASSET_PATHS.sandground.binPath,
       texturePath: TERRAIN_ASSET_PATHS.sandground.texturePath,
       normalizedSize: 3.8,
+      retainGeometry: true,
       onStatus
     }),
     loadPicoModel({
       gl,
       gltfPath: TERRAIN_ASSET_PATHS.palmTree.gltfPath,
       txtPath: TERRAIN_ASSET_PATHS.palmTree.txtPath,
+      retainGeometry: true,
       onStatus
     })
   ]);

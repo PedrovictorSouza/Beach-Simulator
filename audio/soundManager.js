@@ -1,4 +1,6 @@
 export const SOUND_IDS = Object.freeze({
+  START_SCREEN_MUSIC: "start-screen-music",
+  IN_GAME_MUSIC: "in-game-music",
   START_BUTTON: "start-button",
   LANGUAGE_CHOICE: "language-choice",
   DAY_1_INTRO: "day-1-intro",
@@ -15,6 +17,14 @@ export const SOUND_IDS = Object.freeze({
 });
 
 const SOUND_URLS = Object.freeze({
+  [SOUND_IDS.START_SCREEN_MUSIC]: new URL(
+    "../sounds/music/start-screen-music.mp3",
+    import.meta.url
+  ).href,
+  [SOUND_IDS.IN_GAME_MUSIC]: new URL(
+    "../sounds/music/in-game-music.mp3",
+    import.meta.url
+  ).href,
   [SOUND_IDS.START_BUTTON]: new URL(
     "../sounds/sfx/start-btn.mp3",
     import.meta.url

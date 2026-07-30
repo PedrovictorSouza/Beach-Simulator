@@ -10,13 +10,21 @@ const SERVICE_LABEL_IDS = Object.freeze({
 });
 const POSITIVE_SERVICE_LABEL_IDS = Object.freeze({
   [BUILDING_SERVICE_MOTIVES.CLEANLINESS]: "trashCans",
+  [BUILDING_SERVICE_MOTIVES.ENTERTAINMENT]: "volleyball",
+  [BUILDING_SERVICE_MOTIVES.RELIEF]: "toilet",
   [BUILDING_SERVICE_MOTIVES.SAFETY]: "lifeguard"
 });
 const PROBLEM_IDS = Object.freeze({
   "heat-without-beverage": "heat-without-beverage",
   "missing-entertainment": "missing-entertainment",
   "missing-wifi": "missing-wifi",
-  "missing-toilet": "missing-toilet"
+  "missing-toilet": "missing-toilet",
+  "visible-litter": "visible-litter"
+});
+const SCORE_TREND_ARROWS = Object.freeze({
+  up: "↑",
+  down: "↓",
+  same: "→"
 });
 
 function assertTranslator(translator) {
@@ -73,7 +81,8 @@ export function presentDayClosing({
 export function presentDayResult({
   reviews = [],
   closing = {},
-  tasks = []
+  tasks = [],
+  dayScore = null
 } = {}, translator) {
   assertTranslator(translator);
   const normalizedReviews = Array.isArray(reviews) ? reviews : [];
@@ -98,6 +107,41 @@ export function presentDayResult({
   ] : [
     translator.t("reports.dayClosing.yesterdayNoReviews")
   ];
+  const cumulativeReviewCount = Math.max(
+    0,
+    Math.trunc(Number(dayScore?.cumulativeReviewCount) || 0)
+  );
+
+  if (cumulativeReviewCount > 0) {
+    const cumulativeRating = Math.min(
+      5,
+      Math.max(0, Number(dayScore?.cumulativeAverageRating) || 0)
+    );
+    const previousCumulativeRating = Math.min(
+      5,
+      Math.max(0, Number(dayScore?.previousCumulativeAverageRating) || 0)
+    );
+    const formatRating = (rating) => translator.formatNumber(rating, {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1
+    });
+    const hasPreviousRating = (
+      Math.max(
+        0,
+        Math.trunc(Number(dayScore?.cumulativeReviewCount) || 0)
+      ) > Math.max(0, Math.trunc(Number(dayScore?.reviewCount) || 0))
+    );
+
+    lines.push(hasPreviousRating ?
+      translator.t("reports.dayClosing.runRatingChange", {
+        previous: formatRating(previousCumulativeRating),
+        arrow: SCORE_TREND_ARROWS[dayScore?.trend] || SCORE_TREND_ARROWS.same,
+        rating: formatRating(cumulativeRating)
+      }) :
+      translator.t("reports.dayClosing.runRating", {
+        rating: formatRating(cumulativeRating)
+      }));
+  }
   const mainProblem = findMainReviewProblem(normalizedReviews);
 
   if (mainProblem) {

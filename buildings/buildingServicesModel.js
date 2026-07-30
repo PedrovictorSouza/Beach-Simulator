@@ -93,6 +93,79 @@ const SERVICE_REVENUE_DEFINITIONS = Object.freeze(
     }))
 );
 
+function createClosingPlan({
+  ownedTypes,
+  publicSupportGrantClaimed,
+  availableMoneyInCents = 0
+}) {
+  const initialAvailable = Math.max(
+    0,
+    Math.floor(Number(availableMoneyInCents) || 0)
+  );
+  const publicServiceCount = PUBLIC_SERVICE_SUPPORT_DEFINITIONS
+    .filter(({ buildingType }) => ownedTypes.has(buildingType))
+    .length;
+  const firstGrant = publicServiceCount > 0 && !publicSupportGrantClaimed ?
+    FIRST_PUBLIC_SUPPORT_GRANT_IN_CENTS : 0;
+  const recurringSupport = PUBLIC_SERVICE_SUPPORT_DEFINITIONS
+    .filter(({ buildingType }) => ownedTypes.has(buildingType))
+    .reduce((total, { amountInCents }) => total + amountInCents, 0);
+  const publicSupportInCents = firstGrant > 0 ? firstGrant : recurringSupport;
+  let available = initialAvailable + publicSupportInCents;
+  const charges = [];
+
+  if (ownedTypes.has(BUILDING_TYPES.TOILET_BUILDING)) {
+    const paid = available >= TOILET_MAINTENANCE_COST_IN_CENTS;
+
+    if (paid) {
+      available -= TOILET_MAINTENANCE_COST_IN_CENTS;
+    }
+    charges.push(Object.freeze({
+      type: BUILDING_TYPES.TOILET_BUILDING,
+      amountInCents: TOILET_MAINTENANCE_COST_IN_CENTS,
+      paid
+    }));
+  }
+
+  if (ownedTypes.has(BUILDING_TYPES.LIFEGUARD_BUILDING)) {
+    const paid = available >= LIFEGUARD_SALARY_IN_CENTS;
+
+    if (paid) {
+      available -= LIFEGUARD_SALARY_IN_CENTS;
+    }
+    charges.push(Object.freeze({
+      type: BUILDING_TYPES.LIFEGUARD_BUILDING,
+      amountInCents: LIFEGUARD_SALARY_IN_CENTS,
+      paid
+    }));
+  }
+
+  const grossServiceCostsInCents = charges.reduce(
+    (total, charge) => total + charge.amountInCents,
+    0
+  );
+  const amountToReserveInCents = Math.max(
+    0,
+    grossServiceCostsInCents - publicSupportInCents
+  );
+
+  return Object.freeze({
+    charges: Object.freeze(charges),
+    publicSupportInCents,
+    grossServiceCostsInCents,
+    amountToReserveInCents,
+    freeToInvestInCents: Math.max(
+      0,
+      initialAvailable - amountToReserveInCents
+    ),
+    reserveShortfallInCents: Math.max(
+      0,
+      amountToReserveInCents - initialAvailable
+    ),
+    totalPaidInCents: initialAvailable + publicSupportInCents - available
+  });
+}
+
 function createSnapshot({ ownedTypes, toiletCleanliness, lifeguardPaid }) {
   const owned = Object.freeze([...ownedTypes]);
   const hasToiletBuilding = ownedTypes.has(BUILDING_TYPES.TOILET_BUILDING);
@@ -265,60 +338,44 @@ export function createBuildingServicesModel() {
         revenueObservers.delete(observer);
       };
     },
+    previewClosing({ availableMoneyInCents = 0 } = {}) {
+      return createClosingPlan({
+        ownedTypes,
+        publicSupportGrantClaimed,
+        availableMoneyInCents
+      });
+    },
     closeDay({ availableMoneyInCents = 0 } = {}) {
-      const initialAvailable = Math.max(
-        0,
-        Math.floor(Number(availableMoneyInCents) || 0)
-      );
-      const publicServiceCount = PUBLIC_SERVICE_SUPPORT_DEFINITIONS
-        .filter(({ buildingType }) => ownedTypes.has(buildingType))
-        .length;
-      const firstGrant = publicServiceCount > 0 && !publicSupportGrantClaimed ?
-        FIRST_PUBLIC_SUPPORT_GRANT_IN_CENTS : 0;
-      const recurringSupport = PUBLIC_SERVICE_SUPPORT_DEFINITIONS
-        .filter(({ buildingType }) => ownedTypes.has(buildingType))
-        .reduce((total, { amountInCents }) => total + amountInCents, 0);
-      const publicSupportInCents = firstGrant > 0 ? firstGrant : recurringSupport;
+      const plan = createClosingPlan({
+        ownedTypes,
+        publicSupportGrantClaimed,
+        availableMoneyInCents
+      });
 
-      if (firstGrant > 0) {
+      if (
+        plan.publicSupportInCents === FIRST_PUBLIC_SUPPORT_GRANT_IN_CENTS &&
+        !publicSupportGrantClaimed
+      ) {
         publicSupportGrantClaimed = true;
       }
 
-      let available = initialAvailable + publicSupportInCents;
-      const charges = [];
-
-      if (ownedTypes.has(BUILDING_TYPES.TOILET_BUILDING)) {
-        const paid = available >= TOILET_MAINTENANCE_COST_IN_CENTS;
-
-        if (paid) {
-          available -= TOILET_MAINTENANCE_COST_IN_CENTS;
-          toiletCleanliness = 100;
-        } else {
-          toiletCleanliness = 0;
+      for (const charge of plan.charges) {
+        if (charge.type === BUILDING_TYPES.TOILET_BUILDING) {
+          if (charge.paid) {
+            toiletCleanliness = 100;
+          } else {
+            toiletCleanliness = 0;
+          }
         }
-        charges.push(Object.freeze({
-          type: BUILDING_TYPES.TOILET_BUILDING,
-          amountInCents: TOILET_MAINTENANCE_COST_IN_CENTS,
-          paid
-        }));
-      }
-
-      if (ownedTypes.has(BUILDING_TYPES.LIFEGUARD_BUILDING)) {
-        lifeguardPaid = available >= LIFEGUARD_SALARY_IN_CENTS;
-        if (lifeguardPaid) {
-          available -= LIFEGUARD_SALARY_IN_CENTS;
+        if (charge.type === BUILDING_TYPES.LIFEGUARD_BUILDING) {
+          lifeguardPaid = charge.paid;
         }
-        charges.push(Object.freeze({
-          type: BUILDING_TYPES.LIFEGUARD_BUILDING,
-          amountInCents: LIFEGUARD_SALARY_IN_CENTS,
-          paid: lifeguardPaid
-        }));
       }
 
       return Object.freeze({
-        charges: Object.freeze(charges),
-        publicSupportInCents,
-        totalPaidInCents: initialAvailable + publicSupportInCents - available,
+        charges: plan.charges,
+        publicSupportInCents: plan.publicSupportInCents,
+        totalPaidInCents: plan.totalPaidInCents,
         services: getSnapshot()
       });
     }
