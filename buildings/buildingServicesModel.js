@@ -140,28 +140,9 @@ function createClosingPlan({
     }));
   }
 
-  const grossServiceCostsInCents = charges.reduce(
-    (total, charge) => total + charge.amountInCents,
-    0
-  );
-  const amountToReserveInCents = Math.max(
-    0,
-    grossServiceCostsInCents - publicSupportInCents
-  );
-
   return Object.freeze({
     charges: Object.freeze(charges),
     publicSupportInCents,
-    grossServiceCostsInCents,
-    amountToReserveInCents,
-    freeToInvestInCents: Math.max(
-      0,
-      initialAvailable - amountToReserveInCents
-    ),
-    reserveShortfallInCents: Math.max(
-      0,
-      amountToReserveInCents - initialAvailable
-    ),
     totalPaidInCents: initialAvailable + publicSupportInCents - available
   });
 }
@@ -337,13 +318,6 @@ export function createBuildingServicesModel() {
         subscribed = false;
         revenueObservers.delete(observer);
       };
-    },
-    previewClosing({ availableMoneyInCents = 0 } = {}) {
-      return createClosingPlan({
-        ownedTypes,
-        publicSupportGrantClaimed,
-        availableMoneyInCents
-      });
     },
     closeDay({ availableMoneyInCents = 0 } = {}) {
       const plan = createClosingPlan({

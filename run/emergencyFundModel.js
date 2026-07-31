@@ -27,8 +27,7 @@ function createSnapshot({
 export function calculateEmergencyFundOffer({
   day,
   totalDays,
-  reserveShortfallInCents = 0,
-  freeToInvestInCents = 0,
+  availableMoneyInCents = 0,
   hasReachableIncome = true,
   minimumConstructionCostInCents = 500,
   maximumPayoutInCents = 700
@@ -38,30 +37,28 @@ export function calculateEmergencyFundOffer({
     normalizedDay,
     Math.trunc(Number(totalDays) || normalizedDay)
   );
-  const reserveShortfall = normalizeMoney(reserveShortfallInCents);
-  const freeToInvest = normalizeMoney(freeToInvestInCents);
+  const availableMoney = normalizeMoney(availableMoneyInCents);
   const minimumConstructionCost = normalizeMoney(
     minimumConstructionCostInCents
   );
   const maximumPayout = normalizeMoney(maximumPayoutInCents);
   const constructionGap = Math.max(
     0,
-    minimumConstructionCost - freeToInvest
+    minimumConstructionCost - availableMoney
   );
-  const operationalGap = reserveShortfall + constructionGap;
   const eligible = (
     normalizedDay >= 2 &&
     normalizedDay < normalizedTotalDays &&
     hasReachableIncome === false &&
-    operationalGap > 0 &&
+    constructionGap > 0 &&
     maximumPayout > 0
   );
 
   return Object.freeze({
     eligible,
-    operationalGapInCents: operationalGap,
+    constructionGapInCents: constructionGap,
     totalPayoutInCents: eligible ?
-      Math.min(operationalGap, maximumPayout) :
+      Math.min(constructionGap, maximumPayout) :
       0
   });
 }

@@ -1,17 +1,56 @@
 import { BUILDING_TYPES } from "../buildings/buildingServicesModel.js";
 import { getBeachObjectDefinition } from "../objects/beachObjectCatalog.js";
+import {
+  createBuildingPreviewTurntable
+} from "./buildingPreviewTurntable.js";
+
+const MONEY_BENEFIT_IMAGE_URL = new URL(
+  "../2d-objects/HUD/money-thumb.png",
+  import.meta.url
+).href;
+const RATING_BENEFIT_IMAGE_URL = new URL(
+  "../2d-objects/HUD/star-HUD.png",
+  import.meta.url
+).href;
+const BUILDING_BENEFIT_KINDS = Object.freeze({
+  MONEY: "money",
+  RATING: "rating"
+});
+
+function createBenefitIndicator(definition) {
+  const earnsMoney = Boolean(definition.service?.revenue);
+
+  return Object.freeze({
+    kind: earnsMoney ?
+      BUILDING_BENEFIT_KINDS.MONEY :
+      BUILDING_BENEFIT_KINDS.RATING,
+    src: earnsMoney ?
+      MONEY_BENEFIT_IMAGE_URL :
+      RATING_BENEFIT_IMAGE_URL
+  });
+}
 
 const BUILDING_CATALOG = Object.freeze(Object.values(BUILDING_TYPES).map((type) => {
   const definition = getBeachObjectDefinition(type);
 
   return Object.freeze({
     type,
-    ...definition.presentation
+    ...definition.presentation,
+    benefitIndicator: createBenefitIndicator(definition)
   });
 }));
 
 function clampRandom(value) {
   return Math.min(0.999999, Math.max(0, Number(value) || 0));
+}
+
+export function formatBuildingChoiceCost(costInCents) {
+  const amountInDollars = Math.max(
+    0,
+    Math.round((Number(costInCents) || 0) / 100)
+  );
+
+  return `$${amountInDollars}`;
 }
 
 export function createBuildingChoiceModel({ random = Math.random } = {}) {
@@ -128,7 +167,11 @@ export function createBuildingChoiceModel({ random = Math.random } = {}) {
   });
 }
 
-export function createBuildingChoiceView({ root, translator }) {
+export function createBuildingChoiceView({
+  root,
+  translator,
+  previewTurntable = null
+}) {
   if (!root) {
     throw new Error("BuildingChoiceView precisa de um elemento root.");
   }
@@ -141,7 +184,14 @@ export function createBuildingChoiceView({ root, translator }) {
   const overlayElement = documentRef.createElement("div");
   const dialogElement = documentRef.createElement("section");
   const titleElement = documentRef.createElement("h2");
+  const closeButtonElement = documentRef.createElement("button");
   const optionsElement = documentRef.createElement("div");
+  const buildingPreviewTurntable = previewTurntable ||
+    createBuildingPreviewTurntable({
+      documentRef,
+      windowRef: documentRef.defaultView
+    });
+  let previewHandles = [];
   let resolveChoice = null;
 
   overlayElement.className = "building-choice";
@@ -153,8 +203,12 @@ export function createBuildingChoiceView({ root, translator }) {
   titleElement.id = "building-choice-title";
   titleElement.className = "building-choice__title";
   titleElement.textContent = translator.t("dialogs.chooseBuilding");
+  closeButtonElement.className = "building-choice__close";
+  closeButtonElement.type = "button";
+  closeButtonElement.textContent = "X";
+  closeButtonElement.setAttribute("aria-label", "Close");
   optionsElement.className = "building-choice__options";
-  dialogElement.append(titleElement, optionsElement);
+  dialogElement.append(titleElement, closeButtonElement, optionsElement);
   overlayElement.append(dialogElement);
   overlayElement.addEventListener("keydown", (event) => event.stopPropagation());
   root.append(overlayElement);
@@ -162,10 +216,24 @@ export function createBuildingChoiceView({ root, translator }) {
     titleElement.textContent = translator.t("dialogs.chooseBuilding");
   });
 
+  const releasePreviews = () => {
+    for (const handle of previewHandles) {
+      handle.release();
+    }
+    previewHandles = [];
+  };
   const hide = () => {
+    releasePreviews();
     overlayElement.classList.remove("building-choice--visible");
     overlayElement.hidden = true;
   };
+  closeButtonElement.addEventListener("click", () => {
+    const resolve = resolveChoice;
+
+    resolveChoice = null;
+    hide();
+    resolve?.(null);
+  });
 
   return Object.freeze({
     show(options, { costInCents = 0 } = {}) {
@@ -179,22 +247,25 @@ export function createBuildingChoiceView({ root, translator }) {
         throw new Error("Ja existe uma escolha de construcao aberta.");
       }
 
-      const costLabel = translator.formatCurrency(
-        Math.max(0, Number(costInCents) || 0) / 100
-      );
+      const costLabel = formatBuildingChoiceCost(costInCents);
+      releasePreviews();
       const buttons = options.map((option) => {
         const buttonElement = documentRef.createElement("button");
-        const swatchElement = documentRef.createElement("span");
+        const previewElement = documentRef.createElement("span");
+        const previewCanvasElement = documentRef.createElement("canvas");
         const labelElement = documentRef.createElement("strong");
         const costElement = documentRef.createElement("span");
         const descriptionElement = documentRef.createElement("span");
-        const color = option.color.map((channel) => Math.round(channel * 255));
+        const benefitIndicator = option.benefitIndicator ||
+          createBenefitIndicator(getBeachObjectDefinition(option.type));
 
         buttonElement.className = "building-choice__option";
         buttonElement.type = "button";
-        swatchElement.className = "building-choice__swatch";
-        swatchElement.style.backgroundColor = `rgb(${color.join(", ")})`;
-        swatchElement.setAttribute("aria-hidden", "true");
+        previewElement.className = "building-choice__preview";
+        previewElement.setAttribute("aria-hidden", "true");
+        previewCanvasElement.className = "building-choice__preview-canvas";
+        previewCanvasElement.setAttribute("aria-hidden", "true");
+        previewElement.append(previewCanvasElement);
         labelElement.className = "building-choice__option-label";
         labelElement.textContent = translator.t(
           `buildings.${option.type}.label`
@@ -202,27 +273,37 @@ export function createBuildingChoiceView({ root, translator }) {
         costElement.className = "building-choice__option-cost";
         costElement.textContent = costLabel;
         descriptionElement.className = "building-choice__option-description";
-        if (option.benefitIndicator) {
-          const benefitThumbElement = documentRef.createElement("img");
-          const upElement = documentRef.createElement("span");
+        descriptionElement.dataset.benefitKind =
+          benefitIndicator.kind;
+        const benefitThumbElement = documentRef.createElement("img");
+        const upElement = documentRef.createElement("span");
 
-          benefitThumbElement.className = "building-choice__benefit-thumb";
-          benefitThumbElement.src = option.benefitIndicator.src;
-          benefitThumbElement.alt = "";
-          benefitThumbElement.setAttribute("aria-hidden", "true");
-          upElement.textContent = translator.t("common.up");
-          descriptionElement.append(benefitThumbElement, upElement);
-        } else {
-          descriptionElement.textContent = translator.t(
-            `buildings.${option.type}.description`
-          );
-        }
+        benefitThumbElement.className = "building-choice__benefit-thumb";
+        benefitThumbElement.src = benefitIndicator.src;
+        benefitThumbElement.alt = "";
+        benefitThumbElement.setAttribute("aria-hidden", "true");
+        upElement.className = "building-choice__benefit-label";
+        upElement.textContent = translator.t("common.up");
+        descriptionElement.append(benefitThumbElement, upElement);
         buttonElement.append(
-          swatchElement,
+          previewElement,
           labelElement,
           costElement,
           descriptionElement
         );
+        try {
+          previewHandles.push(buildingPreviewTurntable.attach({
+            canvas: previewCanvasElement,
+            interactionElement: buttonElement,
+            type: option.type
+          }));
+        } catch (error) {
+          previewCanvasElement.dataset.previewState = "error";
+          console.warn(
+            `Nao foi possivel preparar a miniatura de ${option.type}.`,
+            error
+          );
+        }
         buttonElement.addEventListener("click", () => {
           const resolve = resolveChoice;
 

@@ -44,14 +44,11 @@ export function createNpcComplaintView({
         if (!entry) {
           const element = documentRef.createElement("div");
           const textElement = documentRef.createElement("span");
-          const needElement = documentRef.createElement("span");
 
           element.className = "npc-complaint";
           textElement.className = "npc-complaint__text";
-          needElement.className = "npc-complaint__need";
-          needElement.setAttribute("aria-hidden", "true");
-          element.append(textElement, needElement);
-          entry = { element, textElement, needElement, complaintKey: null };
+          element.append(textElement);
+          entry = { element, textElement, complaintKey: null };
           elementsByNpcId.set(complaint.id, entry);
           layerElement.append(element);
         }
@@ -72,15 +69,6 @@ export function createNpcComplaintView({
         if (entry.element.style.top !== top) {
           entry.element.style.top = top;
         }
-        const needPercent = Math.min(
-          100,
-          Math.max(0, Number(complaint.needPercent) || 0)
-        );
-        entry.needElement.style.setProperty("--need-level", `${needPercent}%`);
-        const needLabel = complaint.needMotive ?
-          translator.t(`hud.bathers.needsByMotive.${complaint.needMotive}`) :
-          translator.t("complaints.needLevel");
-        entry.needElement.title = `${needLabel} ${Math.round(needPercent)}%`;
       }
 
     for (const [npcId, entry] of elementsByNpcId) {

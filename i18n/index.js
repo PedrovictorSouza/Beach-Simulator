@@ -19,12 +19,6 @@ const CATALOGS = Object.freeze({
     hud: Object.freeze({
       timeRemaining: "Time remaining: {time}",
       beachMoney: "Beach money: {amount}",
-      moneyBudget: Object.freeze({
-        reserve: "KEEP {reserve} • SPEND {free}",
-        covered: "TOMORROW IS PAID • SPEND {free}",
-        shortfall: "NEED {shortfall} FOR TOMORROW",
-        aria: "You have {amount}. Tomorrow costs {costs}. The city helps with {support}. Keep {reserve}. You can spend {free}."
-      }),
       heat: Object.freeze({
         label: "HEAT",
         levels: Object.freeze({
@@ -62,8 +56,8 @@ const CATALOGS = Object.freeze({
         spotBusy: "SOMETHING IS ALREADY HERE",
         notWater: "PUT IT IN THE WATER",
         stayOnSand: "PUT IT ON THE SAND",
-        useSunShadeRow: "PUT IT NEAR THE SUN-SHADES",
-        useGreenRow: "PUT IT ON THE GRASS"
+        useSunShadeRow: "PLACE IT ON THE GREEN AREA",
+        useGreenRow: "PLACE IT ON THE GREEN AREA"
       })
     }),
     common: Object.freeze({
@@ -123,8 +117,20 @@ const CATALOGS = Object.freeze({
     start: Object.freeze({
       title: "BEACH SIMULATOR",
       loading: "LOADING...",
-      pressStart: "PRESS START",
+      pressStart: "START GAME",
       chooseLanguage: "CHOOSE YOUR LANGUAGE",
+      storyAria: "Story scene",
+      storyImageAlt: "A girl speaking into a podcast microphone",
+      storyBegin: "BEGIN",
+      storyRatingLabel: "STARS",
+      storyPages: Object.freeze({
+        welcome: "HEY OOO, SONS OF A BEACH! WHOS READY FOR THE BEST SEASON OF THE YEAR?!",
+        locations: "OH YEAH. THIS YEAR WE HAVE NEW LOCATIONS TO GET A GNARLY TAN, KNOW WHAT UM SAYNG!",
+        competition: "SO WHO'S GONNA WIN THE BEST BEACH OF THE SUMMER!!! UH LA LA!",
+        ratingBefore: "REMEMBER, PEOPLE WANNA HAVE FUN, THE MORE ",
+        ratingAfter: " YOU GET, THE BETTER!",
+        goodLuck: "GOOD LUCK, YOU BEACH BOSS SIX SEVEN AURA FARMER!"
+      }),
       screenAria: "Beach Simulator start screen",
       languageAria: "Choose your language"
     }),
@@ -161,6 +167,35 @@ const CATALOGS = Object.freeze({
       playAgain: "PLAY AGAIN",
       day: "DAY {day}",
       buildingsUnlocked: "NOW YOU CAN BUILD: {buildings}",
+      leaderboard: Object.freeze({
+        eyebrow: "SUMMER RESULTS",
+        title: "BEACH RANKING",
+        yourScore: "YOUR STAR RATING",
+        connecting: "CONNECTING...",
+        worldTitle: "WORLD TOP 5",
+        personalTitle: "YOUR BEST RUNS",
+        platformTitle: "PLATFORM RANKING",
+        scale: "STARS",
+        loading: "CHECKING THE RANKING...",
+        playerFallback: "PLAYER",
+        reviewCountOne: "{count} REVIEW",
+        reviewCount: "{count} REVIEWS",
+        namePlaceholder: "NAME OR INITIALS",
+        nameAria: "Player name or initials",
+        saveScore: "SAVE SCORE",
+        openRanking: "OPEN RANKING",
+        saveHelp: "SAVE THIS RUN ON THIS DEVICE.",
+        submitFailed: "WORLD RANKING OFFLINE. SAVE IT HERE.",
+        scoreSaved: "SCORE SAVED!",
+        empty: "NO SCORES YET.",
+        loadFailed: "SCORE SENT. RANKING COULD NOT LOAD.",
+        nativePopupHelp: "SCORE SENT. OPEN THE PLATFORM RANKING.",
+        nativeManaged: "SCORE SENT. THE PLATFORM SHOWS THE RANKING.",
+        scoreSubmittedAs: "SCORE SENT AS {name}.",
+        scoreSubmitted: "SCORE SENT TO THE WORLD RANKING.",
+        saveFailed: "COULD NOT SAVE THIS SCORE.",
+        openFailed: "THE PLATFORM RANKING COULD NOT OPEN."
+      }),
       problems: Object.freeze({
         title: "WHAT WENT WRONG",
         heat: "TOO MANY BATHERS GOT HOT",
@@ -376,12 +411,6 @@ const CATALOGS = Object.freeze({
     hud: Object.freeze({
       timeRemaining: "Tiempo restante: {time}",
       beachMoney: "Dinero de la playa: {amount}",
-      moneyBudget: Object.freeze({
-        reserve: "GUARDA {reserve} • USA {free}",
-        covered: "MAÑANA ESTÁ PAGADO • USA {free}",
-        shortfall: "FALTAN {shortfall} PARA MAÑANA",
-        aria: "Tienes {amount}. Mañana cuesta {costs}. La ciudad ayuda con {support}. Guarda {reserve}. Puedes usar {free}."
-      }),
       heat: Object.freeze({
         label: "CALOR",
         levels: Object.freeze({
@@ -482,6 +511,18 @@ const CATALOGS = Object.freeze({
       loading: "CARGANDO...",
       pressStart: "PULSA START",
       chooseLanguage: "ELIGE TU IDIOMA",
+      storyAria: "Escena de historia",
+      storyImageAlt: "Una chica hablando ante un micrófono de podcast",
+      storyBegin: "EMPEZAR",
+      storyRatingLabel: "ESTRELLAS",
+      storyPages: Object.freeze({
+        welcome: "¡HEY OOO, HIJOS DE LA PLAYA! ¿QUIÉN ESTÁ LISTO PARA LA MEJOR TEMPORADA DEL AÑO?!",
+        locations: "¡OH, SÍ! ESTE AÑO TENEMOS NUEVOS LUGARES PARA CONSEGUIR UN BRONCEADO BRUTAL, ¿SABEN LO QUE DIGO?!",
+        competition: "¡¡¡ASÍ QUE QUIÉN VA A GANAR LA MEJOR PLAYA DEL VERANO!!! ¡UH LA LA!",
+        ratingBefore: "RECUERDEN, LA GENTE QUIERE DIVERTIRSE. CUANTAS MÁS ",
+        ratingAfter: " CONSIGAN, ¡MEJOR!",
+        goodLuck: "¡BUENA SUERTE, BEACH BOSS SIX SEVEN AURA FARMER!"
+      }),
       screenAria: "Pantalla de inicio de Beach Simulator",
       languageAria: "Elige tu idioma"
     }),
@@ -518,6 +559,35 @@ const CATALOGS = Object.freeze({
       playAgain: "JUGAR DE NUEVO",
       day: "DÍA {day}",
       buildingsUnlocked: "AHORA PUEDES CONSTRUIR: {buildings}",
+      leaderboard: Object.freeze({
+        eyebrow: "RESULTADOS DEL VERANO",
+        title: "RANKING DE PLAYAS",
+        yourScore: "TU NOTA EN ESTRELLAS",
+        connecting: "CONECTANDO...",
+        worldTitle: "TOP 5 MUNDIAL",
+        personalTitle: "TUS MEJORES PARTIDAS",
+        platformTitle: "RANKING DE LA PLATAFORMA",
+        scale: "ESTRELLAS",
+        loading: "BUSCANDO EL RANKING...",
+        playerFallback: "JUGADOR",
+        reviewCountOne: "{count} RESEÑA",
+        reviewCount: "{count} RESEÑAS",
+        namePlaceholder: "NOMBRE O INICIALES",
+        nameAria: "Nombre o iniciales del jugador",
+        saveScore: "GUARDAR",
+        openRanking: "ABRIR RANKING",
+        saveHelp: "GUARDA ESTA PARTIDA EN ESTE DISPOSITIVO.",
+        submitFailed: "RANKING MUNDIAL SIN CONEXIÓN. GUÁRDALO AQUÍ.",
+        scoreSaved: "¡PUNTUACIÓN GUARDADA!",
+        empty: "TODAVÍA NO HAY PUNTUACIONES.",
+        loadFailed: "PUNTUACIÓN ENVIADA. NO SE PUDO CARGAR EL RANKING.",
+        nativePopupHelp: "PUNTUACIÓN ENVIADA. ABRE EL RANKING.",
+        nativeManaged: "PUNTUACIÓN ENVIADA. LA PLATAFORMA MUESTRA EL RANKING.",
+        scoreSubmittedAs: "PUNTUACIÓN ENVIADA COMO {name}.",
+        scoreSubmitted: "PUNTUACIÓN ENVIADA AL RANKING MUNDIAL.",
+        saveFailed: "NO SE PUDO GUARDAR LA PUNTUACIÓN.",
+        openFailed: "NO SE PUDO ABRIR EL RANKING."
+      }),
       problems: Object.freeze({
         title: "QUÉ SALIÓ MAL",
         heat: "MUCHOS BAÑISTAS TUVIERON CALOR",
@@ -733,12 +803,6 @@ const CATALOGS = Object.freeze({
     hud: Object.freeze({
       timeRemaining: "Tempo restante: {time}",
       beachMoney: "Dinheiro da praia: {amount}",
-      moneyBudget: Object.freeze({
-        reserve: "GUARDE {reserve} • USE {free}",
-        covered: "AMANHÃ ESTÁ PAGO • USE {free}",
-        shortfall: "FALTAM {shortfall} PARA AMANHÃ",
-        aria: "Você tem {amount}. Amanhã custa {costs}. A cidade ajuda com {support}. Guarde {reserve}. Você pode usar {free}."
-      }),
       heat: Object.freeze({
         label: "CALOR",
         levels: Object.freeze({
@@ -781,7 +845,7 @@ const CATALOGS = Object.freeze({
       })
     }),
     common: Object.freeze({
-      up: "MELHORIA",
+      up: "UP",
       money: "Dinheiro",
       star: "Estrela",
       free: "GRÁTIS",
@@ -839,6 +903,18 @@ const CATALOGS = Object.freeze({
       loading: "CARREGANDO...",
       pressStart: "PRESSIONE START",
       chooseLanguage: "ESCOLHA SEU IDIOMA",
+      storyAria: "Cena da história",
+      storyImageAlt: "Uma garota falando em um microfone de podcast",
+      storyBegin: "COMEÇAR",
+      storyRatingLabel: "ESTRELAS",
+      storyPages: Object.freeze({
+        welcome: "EI OOO, FILHOS DA PRAIA! QUEM ESTÁ PRONTO PARA A MELHOR ESTAÇÃO DO ANO?!",
+        locations: "AH, SIM! ESTE ANO TEMOS NOVOS LUGARES PARA PEGAR AQUELE BRONZE INSANO, TÁ LIGADO!",
+        competition: "ENTÃO, QUEM VAI GANHAR A MELHOR PRAIA DO VERÃO!!! UH LA LA!",
+        ratingBefore: "LEMBREM-SE, AS PESSOAS QUEREM SE DIVERTIR. QUANTO MAIS ",
+        ratingAfter: " VOCÊS CONSEGUIREM, MELHOR!",
+        goodLuck: "BOA SORTE, SEU BEACH BOSS SIX SEVEN AURA FARMER!"
+      }),
       screenAria: "Tela inicial do Beach Simulator",
       languageAria: "Escolha seu idioma"
     }),
@@ -875,6 +951,35 @@ const CATALOGS = Object.freeze({
       playAgain: "JOGAR NOVAMENTE",
       day: "DIA {day}",
       buildingsUnlocked: "AGORA VOCÊ PODE CONSTRUIR: {buildings}",
+      leaderboard: Object.freeze({
+        eyebrow: "RESULTADOS DO VERÃO",
+        title: "RANKING DAS PRAIAS",
+        yourScore: "SUA NOTA EM ESTRELAS",
+        connecting: "CONECTANDO...",
+        worldTitle: "TOP 5 MUNDIAL",
+        personalTitle: "SUAS MELHORES PARTIDAS",
+        platformTitle: "RANKING DA PLATAFORMA",
+        scale: "ESTRELAS",
+        loading: "BUSCANDO O RANKING...",
+        playerFallback: "JOGADOR",
+        reviewCountOne: "{count} AVALIAÇÃO",
+        reviewCount: "{count} AVALIAÇÕES",
+        namePlaceholder: "NOME OU INICIAIS",
+        nameAria: "Nome ou iniciais do jogador",
+        saveScore: "SALVAR NOTA",
+        openRanking: "ABRIR RANKING",
+        saveHelp: "SALVE ESTA PARTIDA NESTE DISPOSITIVO.",
+        submitFailed: "RANKING MUNDIAL OFFLINE. SALVE AQUI.",
+        scoreSaved: "NOTA SALVA!",
+        empty: "AINDA NÃO HÁ NOTAS.",
+        loadFailed: "NOTA ENVIADA. NÃO FOI POSSÍVEL CARREGAR O RANKING.",
+        nativePopupHelp: "NOTA ENVIADA. ABRA O RANKING DA PLATAFORMA.",
+        nativeManaged: "NOTA ENVIADA. A PLATAFORMA MOSTRA O RANKING.",
+        scoreSubmittedAs: "NOTA ENVIADA COMO {name}.",
+        scoreSubmitted: "NOTA ENVIADA AO RANKING MUNDIAL.",
+        saveFailed: "NÃO FOI POSSÍVEL SALVAR A NOTA.",
+        openFailed: "NÃO FOI POSSÍVEL ABRIR O RANKING."
+      }),
       problems: Object.freeze({
         title: "O QUE DEU ERRADO",
         heat: "MUITOS BANHISTAS SENTIRAM CALOR",
@@ -1090,12 +1195,6 @@ const CATALOGS = Object.freeze({
     hud: Object.freeze({
       timeRemaining: "Verbleibende Zeit: {time}",
       beachMoney: "Strandgeld: {amount}",
-      moneyBudget: Object.freeze({
-        reserve: "BEHALTE {reserve} • NUTZE {free}",
-        covered: "MORGEN IST BEZAHLT • NUTZE {free}",
-        shortfall: "FÜR MORGEN FEHLEN {shortfall}",
-        aria: "Du hast {amount}. Morgen kostet {costs}. Die Stadt hilft mit {support}. Behalte {reserve}. Du kannst {free} nutzen."
-      }),
       heat: Object.freeze({
         label: "HITZE",
         levels: Object.freeze({
@@ -1196,6 +1295,18 @@ const CATALOGS = Object.freeze({
       loading: "LADEN...",
       pressStart: "START DRÜCKEN",
       chooseLanguage: "SPRACHE WÄHLEN",
+      storyAria: "Geschichtsszene",
+      storyImageAlt: "Ein Mädchen spricht in ein Podcast-Mikrofon",
+      storyBegin: "BEGINNEN",
+      storyRatingLabel: "STERNE",
+      storyPages: Object.freeze({
+        welcome: "HEY OOO, KINDER DES STRANDES! WER IST BEREIT FÜR DIE BESTE JAHRESZEIT?!",
+        locations: "OH JA! DIESES JAHR GIBT ES NEUE ORTE FÜR EINE RICHTIG KRASSE BRÄUNE, WISST IHR, WAS ICH MEINE?!",
+        competition: "WER GEWINNT ALSO DEN TITEL BESTER STRAND DES SOMMERS!!! UH LA LA!",
+        ratingBefore: "DENKT DARAN: DIE LEUTE WOLLEN SPASS. JE MEHR ",
+        ratingAfter: " IHR BEKOMMT, DESTO BESSER!",
+        goodLuck: "VIEL GLÜCK, BEACH BOSS SIX SEVEN AURA FARMER!"
+      }),
       screenAria: "Startbildschirm von Beach Simulator",
       languageAria: "Wähle deine Sprache"
     }),
@@ -1232,6 +1343,35 @@ const CATALOGS = Object.freeze({
       playAgain: "NOCH EINMAL SPIELEN",
       day: "TAG {day}",
       buildingsUnlocked: "JETZT KANNST DU BAUEN: {buildings}",
+      leaderboard: Object.freeze({
+        eyebrow: "SOMMERERGEBNIS",
+        title: "STRAND-RANGLISTE",
+        yourScore: "DEINE STERNEBEWERTUNG",
+        connecting: "VERBINDEN...",
+        worldTitle: "WELTWEITE TOP 5",
+        personalTitle: "DEINE BESTEN RUNDEN",
+        platformTitle: "PLATTFORM-RANGLISTE",
+        scale: "STERNE",
+        loading: "RANGLISTE WIRD GELADEN...",
+        playerFallback: "SPIELER",
+        reviewCountOne: "{count} BEWERTUNG",
+        reviewCount: "{count} BEWERTUNGEN",
+        namePlaceholder: "NAME ODER INITIALEN",
+        nameAria: "Name oder Initialen des Spielers",
+        saveScore: "WERT SPEICHERN",
+        openRanking: "RANGLISTE ÖFFNEN",
+        saveHelp: "SPEICHERE DIESE RUNDE AUF DIESEM GERÄT.",
+        submitFailed: "WELTRANGLISTE OFFLINE. HIER SPEICHERN.",
+        scoreSaved: "WERT GESPEICHERT!",
+        empty: "NOCH KEINE WERTE.",
+        loadFailed: "WERT GESENDET. RANGLISTE KONNTE NICHT LADEN.",
+        nativePopupHelp: "WERT GESENDET. ÖFFNE DIE RANGLISTE.",
+        nativeManaged: "WERT GESENDET. DIE PLATTFORM ZEIGT DIE RANGLISTE.",
+        scoreSubmittedAs: "WERT ALS {name} GESENDET.",
+        scoreSubmitted: "WERT AN DIE WELTRANGLISTE GESENDET.",
+        saveFailed: "WERT KONNTE NICHT GESPEICHERT WERDEN.",
+        openFailed: "RANGLISTE KONNTE NICHT GEÖFFNET WERDEN."
+      }),
       problems: Object.freeze({
         title: "WAS SCHIEF GING",
         heat: "VIELE GÄSTE HATTEN ZU HEISS",
@@ -1445,8 +1585,29 @@ const CATALOGS = Object.freeze({
   })
 });
 
+export function resolveSupportedLocale(locale) {
+  const requestedLocale = String(locale || "").trim();
+  const exactLocale = SUPPORTED_LOCALES.find((supportedLocale) => (
+    supportedLocale.toLowerCase() === requestedLocale.toLowerCase()
+  ));
+
+  if (exactLocale) {
+    return exactLocale;
+  }
+
+  const language = requestedLocale.toLowerCase().split(/[-_]/)[0];
+
+  if (language === "pt") {
+    return LOCALES.PT_BR;
+  }
+
+  return SUPPORTED_LOCALES.find((supportedLocale) => (
+    supportedLocale.toLowerCase().split("-")[0] === language
+  )) || DEFAULT_LOCALE;
+}
+
 function normalizeLocale(locale) {
-  return SUPPORTED_LOCALES.includes(locale) ? locale : DEFAULT_LOCALE;
+  return resolveSupportedLocale(locale);
 }
 
 function readCatalogValue(catalog, key) {

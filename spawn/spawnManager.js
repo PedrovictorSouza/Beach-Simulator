@@ -22,6 +22,13 @@ const WELCOME_BATHER_INTERVAL_SECONDS = Object.freeze({ min: 12, max: 20 });
 const WAVE_BATHER_INTERVAL_SECONDS = Object.freeze({ min: 8, max: 12 });
 const WAVE_BATHER_CHANCE = 0.25;
 const WELCOME_BATHER_TARGET = 3;
+export const BATHER_POPULATION_RANGES = Object.freeze({
+  1: Object.freeze({ min: 1, max: 3 }),
+  2: Object.freeze({ min: 5, max: 10 }),
+  3: Object.freeze({ min: 15, max: 30 }),
+  4: Object.freeze({ min: 30, max: 40 }),
+  5: Object.freeze({ min: 40, max: 60 })
+});
 const BATHER_ENTRY_LANES = Object.freeze([0.1, 0.9, 0.5, 0.28, 0.72]);
 const BATHER_ENTRY_LANE_JITTER = 0.06;
 const BEVERAGE_STORE_BATHER_RATE_MULTIPLIER = 1.05;
@@ -77,6 +84,20 @@ function clamp(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+export function getBatherRatingTier(averageRating) {
+  const normalizedRating = Number(averageRating);
+
+  return clamp(
+    Math.round(Number.isFinite(normalizedRating) ? normalizedRating : 0),
+    1,
+    5
+  );
+}
+
+export function getBatherPopulationRange(averageRating) {
+  return BATHER_POPULATION_RANGES[getBatherRatingTier(averageRating)];
+}
+
 function interpolate(start, end, progress) {
   return start + (end - start) * progress;
 }
@@ -109,6 +130,8 @@ export function createSpawnManager({ random = Math.random } = {}) {
   let firstBatherSpawned = false;
   let immediateBatherRequested = false;
   let spawnedBatherCount = 0;
+  let batherPopulationTier = null;
+  let batherPopulationTarget = null;
   let welcomeSequenceActive = false;
   let welcomeLitterFloorActive = false;
   let activeBatherCadence = null;
@@ -134,6 +157,24 @@ export function createSpawnManager({ random = Math.random } = {}) {
 
     return clamp(laneProgress + jitter, 0.03, 0.97);
   };
+  const chooseBatherPopulationTarget = (averageRating) => {
+    const range = getBatherPopulationRange(averageRating);
+    const target = range.min + Math.floor(
+      readRandomUnit() * (range.max - range.min + 1)
+    );
+
+    return Math.min(range.max, Math.max(range.min, target));
+  };
+  const refreshBatherPopulationTarget = (averageRating, force = false) => {
+    const nextTier = getBatherRatingTier(averageRating);
+
+    if (!force && nextTier === batherPopulationTier) {
+      return;
+    }
+
+    batherPopulationTier = nextTier;
+    batherPopulationTarget = chooseBatherPopulationTarget(averageRating);
+  };
   const getSecondsUntilNextSpawn = () => {
     const nextEvent = timeline.peek();
 
@@ -146,7 +187,9 @@ export function createSpawnManager({ random = Math.random } = {}) {
     nextBatherCadence: activeBatherCadence,
     secondsUntilNextSpawn: getSecondsUntilNextSpawn(),
     scheduledCount: timeline.size,
-    readyCount: readyEvents.length
+    readyCount: readyEvents.length,
+    batherPopulationTier,
+    batherPopulationTarget
   });
 
   const scheduleNextBather = (
@@ -421,11 +464,14 @@ export function createSpawnManager({ random = Math.random } = {}) {
         firstBatherSpawned = false;
         immediateBatherRequested = false;
         spawnedBatherCount = 0;
+        batherPopulationTier = null;
+        batherPopulationTarget = null;
         welcomeSequenceActive = false;
         welcomeLitterFloorActive = false;
         activeBatherCadence = null;
         guaranteedFirstLitterPending = false;
         scheduledBatherLitterCount = 0;
+        refreshBatherPopulationTarget(averageRating, true);
         scheduleNextBather(averageRating);
         scheduleNextSharkEvent();
       }
@@ -460,6 +506,13 @@ export function createSpawnManager({ random = Math.random } = {}) {
       }
 
       const policy = SPAWN_CHANNEL_POLICIES[SPAWN_CHANNELS.BATHERS];
+      const populationRange = BATHER_POPULATION_RANGES[batherPopulationTier] ||
+        BATHER_POPULATION_RANGES[1];
+
+      batherPopulationTarget = Math.max(
+        batherPopulationTarget || populationRange.min,
+        Math.min(populationRange.max, WELCOME_BATHER_TARGET)
+      );
       const event = timeline.enqueue({
         executeAt: elapsedSeconds,
         channel: SPAWN_CHANNELS.BATHERS,
@@ -494,8 +547,22 @@ export function createSpawnManager({ random = Math.random } = {}) {
       }
 
       elapsedSeconds += deltaSeconds;
+      refreshBatherPopulationTarget(averageRating);
       scheduleLitterForNewBathers(bathers, buildingServices);
       scheduleLitterForBeveragePurchases(bathers, buildingServices);
+      let projectedBatherCount = bathers.length;
+
+      if (
+        projectedBatherCount < batherPopulationTarget &&
+        activeBatherEventSequence === null
+      ) {
+        scheduleNextBather(
+          averageRating,
+          elapsedSeconds,
+          buildingServices,
+          attractionMultiplier
+        );
+      }
       const requests = [];
       const bathersById = new Map(bathers.map((bather) => [bather.id, bather]));
 
@@ -511,12 +578,20 @@ export function createSpawnManager({ random = Math.random } = {}) {
             continue;
           }
 
+          if (projectedBatherCount >= batherPopulationTarget) {
+            activeBatherEventSequence = null;
+            activeBatherCadence = null;
+            immediateBatherRequested = false;
+            continue;
+          }
+
           firstBatherSpawned = true;
           immediateBatherRequested = false;
           spawnedBatherCount += 1;
           if (spawnedBatherCount >= WELCOME_BATHER_TARGET) {
             welcomeSequenceActive = false;
           }
+          projectedBatherCount += 1;
           requests.push(Object.freeze({
             type: SPAWN_TYPES.BATHER,
             cadence: activeBatherCadence,

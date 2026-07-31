@@ -1,21 +1,33 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { BUILDING_TYPES } from "../buildings/buildingServicesModel.js";
+import {
+  BEACH_AMENITY_TYPES,
+  BUILDING_TYPES,
+  createBuildingServicesModel,
+  getSunShadeRentalRewardInCents
+} from "../buildings/buildingServicesModel.js";
 import {
   getLockedBuildingTypes,
   getNewlyUnlockedBuildingTypes,
   getUnlockedBuildingTypes
 } from "../buildings/buildingUnlockModel.js";
 import { getActiveBuildingSynergies } from "../buildings/buildingSynergyModel.js";
-import { createBuildingChoiceModel } from "../ui/buildingChoice.js";
+import {
+  createBuildingChoiceModel,
+  formatBuildingChoiceCost
+} from "../ui/buildingChoice.js";
+import {
+  getBuildingPreviewYawOffset
+} from "../ui/buildingPreviewTurntable.js";
+import { getSceneryDefinition } from "../scenery/sceneryWorld.js";
 import { createDemandForecast } from "../demand/demandForecastModel.js";
 import { createDemandDayLedger } from "../demand/demandDayLedger.js";
 import { createTranslator } from "../i18n/index.js";
 import { presentDemandForecast } from "../ui/demandForecastPresenter.js";
 import { createBeachConditionModel } from "../environment/beachConditionModel.js";
 import { calculateBeachAttraction } from "../environment/beachAttractionModel.js";
-import { createClosingReservePlan } from "../economy/closingReserveModel.js";
+import { BEACH_ECONOMY_BALANCE } from "../economy/beachEconomyBalance.js";
 import {
   calculateEmergencyFundOffer,
   createEmergencyFundModel
@@ -23,6 +35,79 @@ import {
 import { createRunResultStorage } from "../run/runResultStorage.js";
 import { createRunScoreModel } from "../run/runScoreModel.js";
 import { createNpcSystem, NPC_STATES } from "../npcs/npcSystem.js";
+
+test("toda construção do sorteio possui uma miniatura 3D", () => {
+  for (const buildingType of Object.values(BUILDING_TYPES)) {
+    const definition = getSceneryDefinition(buildingType);
+
+    assert.match(definition.gltfPath, /\.gltf(?:$|\?)/);
+    assert.match(definition.binPath, /\.bin(?:$|\?)/);
+    assert.match(definition.texturePath, /\.png(?:$|\?)/);
+  }
+
+  assert.match(
+    getSceneryDefinition(BUILDING_TYPES.TOILET_BUILDING).gltfPath,
+    /Toilet\/toillet\.gltf$/
+  );
+});
+
+test("turntable de construção completa voltas em passos PSX", () => {
+  assert.equal(getBuildingPreviewYawOffset(0), 0);
+  assert.ok(getBuildingPreviewYawOffset(75) > 0);
+  assert.equal(getBuildingPreviewYawOffset(24 * 75), 0);
+});
+
+test("cards mostram dinheiro para receita e estrela para benefício", () => {
+  const choice = createBuildingChoiceModel({ random: () => 0 });
+  const moneyTypes = [
+    BUILDING_TYPES.BEVERAGE_STORE,
+    BUILDING_TYPES.LIFEGUARD_BUILDING,
+    BUILDING_TYPES.WIFI_SPOT,
+    BUILDING_TYPES.TOILET_BUILDING,
+    BUILDING_TYPES.VOLLEYBALL_COURT
+  ];
+  const optionByType = new Map();
+
+  for (const preferredTypes of [
+    moneyTypes.slice(0, 3),
+    [
+      ...moneyTypes.slice(3),
+      BUILDING_TYPES.TRASH_CANS
+    ]
+  ]) {
+    const snapshot = choice.startChoice({
+      preferredTypes,
+      preferredOptionCount: 3
+    });
+
+    for (const option of snapshot.options) {
+      optionByType.set(option.type, option);
+    }
+  }
+
+  for (const type of moneyTypes) {
+    assert.equal(optionByType.get(type).benefitIndicator.kind, "money");
+    assert.match(
+      optionByType.get(type).benefitIndicator.src,
+      /money-thumb\.png$/
+    );
+  }
+
+  assert.equal(
+    optionByType.get(BUILDING_TYPES.TRASH_CANS).benefitIndicator.kind,
+    "rating"
+  );
+  assert.match(
+    optionByType.get(BUILDING_TYPES.TRASH_CANS).benefitIndicator.src,
+    /star-HUD\.png$/
+  );
+});
+
+test("preço do card usa formato arcade curto", () => {
+  assert.equal(formatBuildingChoiceCost(500), "$5");
+  assert.equal(formatBuildingChoiceCost(0), "$0");
+  assert.doesNotMatch(formatBuildingChoiceCost(500), /US|R\$/);
+});
 
 test("desbloqueio gradual mantém uma única progressão por dia", () => {
   assert.deepEqual(getUnlockedBuildingTypes(1), [
@@ -129,6 +214,7 @@ test("ledger atribui usos e receita uma única vez ao evento real", () => {
 test("banhista passeia na praia antes de visitar a loja de bebidas", () => {
   const npcSystem = createNpcSystem({ random: () => 0 });
   const beverageDecisions = [];
+  const beveragePurchases = [];
   const updateOptions = {
     buildingServices: {
       hasBeverageStore: true,
@@ -144,6 +230,9 @@ test("banhista passeia na praia antes de visitar a loja de bebidas", () => {
 
   npcSystem.subscribeToBeverageDecisions((event) => {
     beverageDecisions.push(event);
+  });
+  npcSystem.subscribeToBeveragePurchases((event) => {
+    beveragePurchases.push(event);
   });
   npcSystem.addBather({ position: [0, 0] });
   npcSystem.update(0.05, updateOptions);
@@ -163,6 +252,181 @@ test("banhista passeia na praia antes de visitar a loja de bebidas", () => {
 
   assert.equal(relaxedOnBeach, true);
   assert.equal(beverageDecisions.length, 1);
+
+  for (let step = 0; step < 400 && beveragePurchases.length === 0; step += 1) {
+    npcSystem.update(0.05, updateOptions);
+  }
+
+  assert.equal(beveragePurchases.length, 1);
+  assert.equal(npcSystem.getSnapshot()[0].state, NPC_STATES.WALKING_TO_ACTIVITY);
+  assert.equal(npcSystem.getSnapshot()[0].movementPurpose, "beach-waypoint");
+});
+
+test("banhista não abandona a praia nos primeiros segundos por falta de serviços", () => {
+  const npcSystem = createNpcSystem({ random: () => 0 });
+
+  npcSystem.addBather({ position: [0, 0] });
+
+  for (let step = 0; step < 800; step += 1) {
+    npcSystem.update(0.05, {
+      heat: { level: "HIGH", heat: 100 }
+    });
+  }
+
+  const bather = npcSystem.getSnapshot()[0];
+
+  assert.ok(bather);
+  assert.equal(bather.departing, false);
+  assert.ok(bather.walkDistance > 0 || bather.state === NPC_STATES.RELAXING);
+});
+
+test("guarda-sol paga pela duração completa da estadia", () => {
+  assert.equal(getSunShadeRentalRewardInCents(4.99), 0);
+  assert.equal(getSunShadeRentalRewardInCents(5), 100);
+  assert.equal(getSunShadeRentalRewardInCents(9.99), 100);
+  assert.equal(getSunShadeRentalRewardInCents(10), 300);
+  assert.equal(getSunShadeRentalRewardInCents(14.99), 300);
+  assert.equal(getSunShadeRentalRewardInCents(15), 500);
+  assert.equal(getSunShadeRentalRewardInCents(30), 500);
+});
+
+test("toda receita de visitante usa dólares inteiros", () => {
+  const visitorRevenueValues = [
+    BEACH_ECONOMY_BALANCE.beveragePurchasePriceInCents,
+    BEACH_ECONOMY_BALANCE.beverageServiceRevenue.amountInCents,
+    BEACH_ECONOMY_BALANCE.wifiServiceRevenue.amountInCents,
+    BEACH_ECONOMY_BALANCE.lifeguardServiceRevenue.amountInCents,
+    BEACH_ECONOMY_BALANCE.toiletServiceRevenue.amountInCents,
+    BEACH_ECONOMY_BALANCE.volleyballServiceRevenue.amountInCents,
+    ...BEACH_ECONOMY_BALANCE.sunShadeRentalRewardTiers.map(
+      ({ amountInCents }) => amountInCents
+    )
+  ];
+
+  assert.equal(
+    visitorRevenueValues.every((amountInCents) => amountInCents % 100 === 0),
+    true
+  );
+});
+
+test("calor aumenta a procura e cada guarda-sol recebe um banhista", () => {
+  const coldNpcSystem = createNpcSystem({ random: () => 0.5 });
+  const hotNpcSystem = createNpcSystem({ random: () => 0.5 });
+  const coldDecisions = [];
+  const hotDecisions = [];
+
+  coldNpcSystem.subscribeToServiceDecisions((event) => {
+    if (event.buildingType === BEACH_AMENITY_TYPES.SUN_SHADE) {
+      coldDecisions.push(event);
+    }
+  });
+  hotNpcSystem.subscribeToServiceDecisions((event) => {
+    if (event.buildingType === BEACH_AMENITY_TYPES.SUN_SHADE) {
+      hotDecisions.push(event);
+    }
+  });
+  coldNpcSystem.addBather({ position: [0, 0] });
+  hotNpcSystem.addBather({ position: [0, 0] });
+
+  for (let step = 0; step < 1400; step += 1) {
+    coldNpcSystem.update(0.05, {
+      heat: { level: "COMFORTABLE", heat: 0 },
+      sunShadePositions: [[42, 4]]
+    });
+    hotNpcSystem.update(0.05, {
+      heat: { level: "COMFORTABLE", heat: 100 },
+      sunShadePositions: [[42, 4]]
+    });
+  }
+
+  assert.equal(coldDecisions.length, 0);
+  assert.ok(hotDecisions.length > 0);
+
+  const occupancyNpcSystem = createNpcSystem({ random: () => 0 });
+  const completions = [];
+  let simultaneousUseObserved = false;
+
+  occupancyNpcSystem.subscribeToServiceCompletions((event) => {
+    if (event.buildingType === BEACH_AMENITY_TYPES.SUN_SHADE) {
+      completions.push(event);
+    }
+  });
+  occupancyNpcSystem.addBather({ position: [0, 0] });
+  occupancyNpcSystem.addBather({ position: [0, 0] });
+
+  for (let step = 0; step < 1600 && completions.length < 2; step += 1) {
+    occupancyNpcSystem.update(0.05, {
+      heat: { level: "COMFORTABLE", heat: 100 },
+      sunShadePositions: [[-36, 12], [-35, 12]]
+    });
+    const sunShadeUsers = occupancyNpcSystem.getSnapshot().filter((bather) => (
+      bather.activityBuildingType === BEACH_AMENITY_TYPES.SUN_SHADE
+    ));
+    const occupiedPositions = sunShadeUsers.map(
+      (bather) => bather.interaction?.sunShadePositionKey
+    );
+
+    assert.equal(
+      occupiedPositions.every(Boolean),
+      true
+    );
+    assert.equal(
+      new Set(occupiedPositions).size,
+      occupiedPositions.length
+    );
+    simultaneousUseObserved ||= sunShadeUsers.length === 2;
+  }
+
+  assert.equal(simultaneousUseObserved, true);
+  assert.equal(completions.length, 2);
+  assert.deepEqual(
+    completions.map(({ durationSeconds }) => durationSeconds),
+    [15, 15]
+  );
+});
+
+test("primeiro guarda-sol fecha o ciclo inicial com um aluguel garantido de $5", () => {
+  const npcSystem = createNpcSystem({ random: () => 0.99 });
+  const buildingServices = createBuildingServicesModel();
+  const decisions = [];
+  const completions = [];
+  const revenues = [];
+
+  npcSystem.subscribeToServiceDecisions((event) => decisions.push(event));
+  npcSystem.subscribeToServiceCompletions((event) => {
+    completions.push(event);
+    buildingServices.recordServiceCompletion(event);
+  });
+  buildingServices.subscribeToRevenue((event) => revenues.push(event));
+  npcSystem.addBather({ position: [0, 0] });
+
+  for (let step = 0; step < 2400; step += 1) {
+    npcSystem.update(0.05, {
+      heat: { level: "HIGH", heat: 100 },
+      guaranteeFirstSunShadeRental: true
+    });
+  }
+
+  assert.equal(npcSystem.getSnapshot().length, 1);
+
+  for (let step = 0; step < 1600 && completions.length === 0; step += 1) {
+    npcSystem.update(0.05, {
+      heat: { level: "COMFORTABLE", heat: 0 },
+      sunShadePositions: [[12, 8]],
+      guaranteeFirstSunShadeRental: true
+    });
+  }
+
+  assert.equal(decisions.length, 1);
+  assert.equal(decisions[0].buildingType, BEACH_AMENITY_TYPES.SUN_SHADE);
+  assert.equal(decisions[0].guaranteed, true);
+  assert.equal(completions.length, 1);
+  assert.equal(completions[0].durationSeconds, 15);
+  assert.equal(completions[0].guaranteed, true);
+  assert.equal(revenues.length, 1);
+  assert.equal(revenues[0].amountInCents, 500);
+  assert.equal(npcSystem.getSnapshot()[0].state, NPC_STATES.WALKING_TO_ACTIVITY);
+  assert.equal(npcSystem.getSnapshot()[0].movementPurpose, "beach-waypoint");
 });
 
 test("condição da praia carrega dívida limitada e afeta atração", () => {
@@ -183,25 +447,6 @@ test("condição da praia carrega dívida limitada e afeta atração", () => {
 
   assert.equal(attraction.sunShadeBonus, 0.32);
   assert.ok(Math.abs(attraction.multiplier - 0.87) < Number.EPSILON * 2);
-});
-
-test("reserva combina manutenção, limpeza e apoio público", () => {
-  assert.deepEqual(createClosingReservePlan({
-    servicePlan: {
-      grossServiceCostsInCents: 700,
-      publicSupportInCents: 500
-    },
-    cleanupPlan: { cleanupCostInCents: 400 },
-    availableMoneyInCents: 500
-  }), {
-    serviceCostsInCents: 700,
-    cleanupCostsInCents: 400,
-    grossServiceCostsInCents: 1100,
-    publicSupportInCents: 500,
-    amountToReserveInCents: 600,
-    freeToInvestInCents: 0,
-    reserveShortfallInCents: 100
-  });
 });
 
 test("sinergias refletem somente construções e serviços ativos", () => {
@@ -275,12 +520,11 @@ test("histórico local valida, limita e não duplica runs", () => {
   assert.deepEqual(results.getResults(), []);
 });
 
-test("tesouro só recupera uma vez, em dias úteis, até sete cliques", () => {
+test("tesouro usa o saldo real e só recupera uma vez em dias úteis", () => {
   assert.equal(calculateEmergencyFundOffer({
     day: 1,
     totalDays: 5,
-    reserveShortfallInCents: 700,
-    freeToInvestInCents: 0,
+    availableMoneyInCents: 0,
     hasReachableIncome: false
   }).eligible, false);
 
@@ -288,18 +532,17 @@ test("tesouro só recupera uma vez, em dias úteis, até sete cliques", () => {
   const offered = fund.offer({
     day: 2,
     totalDays: 5,
-    reserveShortfallInCents: 400,
-    freeToInvestInCents: 0,
+    availableMoneyInCents: 0,
     hasReachableIncome: false
   });
 
-  assert.equal(offered.plan.totalPayoutInCents, 700);
-  const claims = Array.from({ length: 8 }, () => fund.claimClick().amountInCents);
-  assert.deepEqual(claims, [100, 100, 100, 100, 100, 100, 100, 0]);
+  assert.equal(offered.plan.totalPayoutInCents, 500);
+  const claims = Array.from({ length: 6 }, () => fund.claimClick().amountInCents);
+  assert.deepEqual(claims, [100, 100, 100, 100, 100, 0]);
   assert.equal(fund.offer({
     day: 3,
     totalDays: 5,
-    reserveShortfallInCents: 700,
+    availableMoneyInCents: 0,
     hasReachableIncome: false
   }).offered, false);
 });

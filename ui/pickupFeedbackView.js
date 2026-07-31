@@ -35,10 +35,20 @@ export function createPickupFeedbackView({ root, translator, windowRef = window 
   const getRootPoint = (element) => {
     const rootRect = root.getBoundingClientRect();
     const elementRect = element.getBoundingClientRect();
+    const scaleX = root.clientWidth > 0 ?
+      rootRect.width / root.clientWidth :
+      1;
+    const scaleY = root.clientHeight > 0 ?
+      rootRect.height / root.clientHeight :
+      1;
 
     return {
-      x: elementRect.left - rootRect.left + elementRect.width * 0.5,
-      y: elementRect.top - rootRect.top + elementRect.height * 0.5
+      x: (
+        elementRect.left - rootRect.left + elementRect.width * 0.5
+      ) / (scaleX || 1),
+      y: (
+        elementRect.top - rootRect.top + elementRect.height * 0.5
+      ) / (scaleY || 1)
     };
   };
 

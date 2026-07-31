@@ -8,3 +8,5 @@ material/
 test-results/
 .vercel
 tmp/pdfs/material-review/
+tmp/pdfs/gdd-v80/
+release/

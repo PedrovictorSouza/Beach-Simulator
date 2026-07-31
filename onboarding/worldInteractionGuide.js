@@ -52,6 +52,16 @@ export function createWorldInteractionGuide({
       needsRender = false;
       onboardingView.hideWorldHint();
     },
+    hideForObject(objectId) {
+      if (!targetId || targetId !== String(objectId || "").trim()) {
+        return false;
+      }
+
+      targetId = null;
+      needsRender = false;
+      onboardingView.hideWorldHint();
+      return true;
+    },
     render() {
       if (needsRender) {
         needsRender = false;

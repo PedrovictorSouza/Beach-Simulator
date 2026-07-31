@@ -1,3 +1,5 @@
+import { BEACH_ECONOMY_BALANCE } from "../economy/beachEconomyBalance.js";
+
 export const BEACH_OBJECT_TYPES = Object.freeze({
   KIOSK: "kiosk",
   BEACH_HOUSE: "beach-house",
@@ -41,12 +43,9 @@ function createPlacement({
   });
 }
 
-function createPresentation({ color, benefitIndicator }) {
+function createPresentation({ color }) {
   return Object.freeze({
-    color: Object.freeze([...color]),
-    ...(benefitIndicator ? {
-      benefitIndicator: Object.freeze({ ...benefitIndicator })
-    } : {})
+    color: Object.freeze([...color])
   });
 }
 
@@ -74,18 +73,12 @@ function createDefinition({
 
 const BUILDING_PRESENTATIONS = Object.freeze({
   [BEACH_OBJECT_TYPES.BEVERAGE_STORE]: createPresentation({
-    benefitIndicator: {
-      src: "2d-objects/HUD/money-thumb.png"
-    },
     color: [0.92, 0.3, 0.22]
   }),
   [BEACH_OBJECT_TYPES.LIFEGUARD_BUILDING]: createPresentation({
     color: [0.95, 0.76, 0.18]
   }),
   [BEACH_OBJECT_TYPES.WIFI_SPOT]: createPresentation({
-    benefitIndicator: {
-      src: "2d-objects/HUD/star-HUD.png"
-    },
     color: [0.18, 0.56, 0.92]
   }),
   [BEACH_OBJECT_TYPES.TOILET_BUILDING]: createPresentation({
@@ -123,8 +116,7 @@ export const BEACH_OBJECT_DEFINITIONS = Object.freeze({
         utility: 70
       },
       revenue: {
-        intervalSeconds: 30,
-        amountInCents: 100
+        ...BEACH_ECONOMY_BALANCE.beverageServiceRevenue
       }
     },
     batherInteraction: {
@@ -133,7 +125,8 @@ export const BEACH_OBJECT_DEFINITIONS = Object.freeze({
       litterRiskBonus: 0.2
     },
     economy: {
-      batherPurchasePriceInCents: 100
+      batherPurchasePriceInCents:
+        BEACH_ECONOMY_BALANCE.beveragePurchasePriceInCents
     },
     presentation: BUILDING_PRESENTATIONS[BEACH_OBJECT_TYPES.BEVERAGE_STORE]
   }),
@@ -148,6 +141,9 @@ export const BEACH_OBJECT_DEFINITIONS = Object.freeze({
       advertisement: {
         motive: "safety",
         utility: 65
+      },
+      revenue: {
+        ...BEACH_ECONOMY_BALANCE.lifeguardServiceRevenue
       }
     },
     economy: {
@@ -169,8 +165,7 @@ export const BEACH_OBJECT_DEFINITIONS = Object.freeze({
         utility: 55
       },
       revenue: {
-        intervalSeconds: 30,
-        amountInCents: 100
+        ...BEACH_ECONOMY_BALANCE.wifiServiceRevenue
       }
     },
     presentation: BUILDING_PRESENTATIONS[BEACH_OBJECT_TYPES.WIFI_SPOT]
@@ -186,6 +181,9 @@ export const BEACH_OBJECT_DEFINITIONS = Object.freeze({
       advertisement: {
         motive: "relief",
         utility: 90
+      },
+      revenue: {
+        ...BEACH_ECONOMY_BALANCE.toiletServiceRevenue
       }
     },
     economy: {
@@ -226,6 +224,9 @@ export const BEACH_OBJECT_DEFINITIONS = Object.freeze({
       advertisement: {
         motive: "entertainment",
         utility: 75
+      },
+      revenue: {
+        ...BEACH_ECONOMY_BALANCE.volleyballServiceRevenue
       }
     },
     economy: {
@@ -242,15 +243,11 @@ export const BEACH_OBJECT_DEFINITIONS = Object.freeze({
     }),
     service: {
       revenue: {
-        rewardTiers: Object.freeze([
-          Object.freeze({ durationSeconds: 5, amountInCents: 100 }),
-          Object.freeze({ durationSeconds: 10, amountInCents: 300 }),
-          Object.freeze({ durationSeconds: 15, amountInCents: 500 })
-        ])
+        rewardTiers: BEACH_ECONOMY_BALANCE.sunShadeRentalRewardTiers
       }
     },
     economy: {
-      purchaseCostInCents: 500,
+      purchaseCostInCents: BEACH_ECONOMY_BALANCE.sunShadePurchaseCostInCents,
       firstPurchaseFree: true
     },
     batherInteraction: {

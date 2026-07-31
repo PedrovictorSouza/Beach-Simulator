@@ -86,13 +86,25 @@ const SPRITE_OUTLINE_OFFSETS = [
 ];
 
 class WorldRenderer {
-  constructor(canvas) {
+  constructor(canvas, {
+    width = INTERNAL_RENDER_WIDTH,
+    height = INTERNAL_RENDER_HEIGHT,
+    pixelSnap = PIXEL_SNAP,
+    oceanEnabled = true,
+    preserveDrawingBuffer = false
+  } = {}) {
     this.canvas = canvas;
+    this.renderWidth = Math.max(1, Math.round(Number(width) || INTERNAL_RENDER_WIDTH));
+    this.renderHeight = Math.max(1, Math.round(Number(height) || INTERNAL_RENDER_HEIGHT));
+    this.pixelSnap = new Float32Array([
+      Math.max(1, Number(pixelSnap?.[0]) || PIXEL_SNAP[0]),
+      Math.max(1, Number(pixelSnap?.[1]) || PIXEL_SNAP[1])
+    ]);
     this.gl = canvas.getContext("webgl", {
       antialias: false,
       alpha: true,
       premultipliedAlpha: false,
-      preserveDrawingBuffer: false
+      preserveDrawingBuffer: Boolean(preserveDrawingBuffer)
     });
 
     if (!this.gl) {
@@ -107,10 +119,12 @@ class WorldRenderer {
     this.terrainBatches = new Set();
     this.disposed = false;
 
-    try {
-      this.oceanSurface = createOceanSurface(this.gl);
-    } catch (error) {
-      console.warn("Shader do oceano desativado.", error);
+    if (oceanEnabled) {
+      try {
+        this.oceanSurface = createOceanSurface(this.gl);
+      } catch (error) {
+        console.warn("Shader do oceano desativado.", error);
+      }
     }
   }
 
@@ -119,8 +133,8 @@ class WorldRenderer {
   }
 
   resize() {
-    const width = INTERNAL_RENDER_WIDTH;
-    const height = INTERNAL_RENDER_HEIGHT;
+    const width = this.renderWidth;
+    const height = this.renderHeight;
 
     if (this.canvas.width !== width || this.canvas.height !== height) {
       this.canvas.width = width;
@@ -167,7 +181,7 @@ class WorldRenderer {
     this.setUniform1(uniforms.waveSpeed, 1);
     this.setUniform1(uniforms.waveChop, 0);
     this.gl.uniform2fv(uniforms.waveDirection, DEFAULT_WAVE_DIRECTION);
-    this.gl.uniform2fv(uniforms.pixelSnap, PIXEL_SNAP);
+    this.gl.uniform2fv(uniforms.pixelSnap, this.pixelSnap);
     this.setUniform1(uniforms.time, timeSeconds);
     this.setUniform3(uniforms.fogOrigin, cameraTarget);
     this.setUniform3(uniforms.fogColor, DEFAULT_FOG_COLOR);
@@ -179,7 +193,7 @@ class WorldRenderer {
 
     this.useProgram(spriteProgram);
     this.gl.uniformMatrix4fv(spriteUniforms.viewProjection, false, viewProjection);
-    this.gl.uniform2fv(spriteUniforms.pixelSnap, PIXEL_SNAP);
+    this.gl.uniform2fv(spriteUniforms.pixelSnap, this.pixelSnap);
     this.gl.uniform4fv(spriteUniforms.uvRect, DEFAULT_UV_RECT);
     this.gl.uniform2fv(spriteUniforms.spriteScreenOffset, DEFAULT_SPRITE_SCREEN_OFFSET);
     this.gl.uniform4fv(spriteUniforms.spriteColor, DEFAULT_SPRITE_COLOR);
@@ -589,13 +603,20 @@ class WorldRenderer {
 }
 
 /**
- * @param {{ canvas: HTMLCanvasElement }} options
+ * @param {{
+ *   canvas: HTMLCanvasElement,
+ *   width?: number,
+ *   height?: number,
+ *   pixelSnap?: number[],
+ *   oceanEnabled?: boolean,
+ *   preserveDrawingBuffer?: boolean
+ * }} options
  * @returns {WorldRenderer}
  */
-export function createWorldRenderer({ canvas }) {
+export function createWorldRenderer({ canvas, ...options }) {
   if (!canvas) {
     throw new Error("Renderer precisa de um canvas.");
   }
 
-  return new WorldRenderer(canvas);
+  return new WorldRenderer(canvas, options);
 }

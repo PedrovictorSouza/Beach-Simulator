@@ -3,6 +3,11 @@ const LOGICAL_STAGE_WIDTH = 480;
 const LOGICAL_STAGE_HEIGHT = 272;
 const SPRITE_HIT_PADDING_LOGICAL_PX = 8;
 
+export const WORLD_OVERLAY_ANCHORS = Object.freeze({
+  CENTER: "center",
+  ORIGIN: "origin"
+});
+
 function projectPoint(point, matrix, viewport) {
   const [x, y, z] = point;
   const clipX = matrix[0] * x + matrix[4] * y + matrix[8] * z + matrix[12];
@@ -19,10 +24,18 @@ function projectPoint(point, matrix, viewport) {
   };
 }
 
-function getProjectedInstance(instance, sceneObject, viewProjection, viewport) {
+function getProjectedInstance(
+  instance,
+  sceneObject,
+  viewProjection,
+  viewport,
+  anchor = WORLD_OVERLAY_ANCHORS.CENTER
+) {
   const { model } = sceneObject;
   const instanceScale = Number(instance.scale) || 1;
-  const center = sceneObject.screenSpaceSprite ?
+  const center = anchor === WORLD_OVERLAY_ANCHORS.ORIGIN ?
+    instance.offset :
+    sceneObject.screenSpaceSprite ?
     instance.offset :
     [
       instance.offset[0],
@@ -80,7 +93,8 @@ export function getWorldObjectScreenPosition({
   objectId,
   sceneObjects,
   viewProjection,
-  viewport
+  viewport,
+  anchor = WORLD_OVERLAY_ANCHORS.CENTER
 }) {
   for (const sceneObject of sceneObjects) {
     const instance = sceneObject.instances.find((item) => item.id === objectId);
@@ -93,7 +107,8 @@ export function getWorldObjectScreenPosition({
       instance,
       sceneObject,
       viewProjection,
-      viewport
+      viewport,
+      anchor
     );
 
     return projected ? Object.freeze({ x: projected.x, y: projected.y }) : null;
@@ -113,12 +128,17 @@ export function createWorldOverlayProjector({ root, canvas, camera }) {
   const offsetX = canvasRect.left - rootRect.left;
   const offsetY = canvasRect.top - rootRect.top;
 
-  return (objectId, sceneObjects) => {
+  return (
+    objectId,
+    sceneObjects,
+    { anchor = WORLD_OVERLAY_ANCHORS.CENTER } = {}
+  ) => {
     const projected = getWorldObjectScreenPosition({
       objectId,
       sceneObjects,
       viewProjection,
-      viewport
+      viewport,
+      anchor
     });
 
     return projected ? Object.freeze({

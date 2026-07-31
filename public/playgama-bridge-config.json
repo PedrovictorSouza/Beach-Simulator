@@ -1,0 +1,32 @@
+{
+  "sendAnalyticsEvents": true,
+  "disableLoadingLogo": true,
+  "advertisement": {
+    "useBuiltInErrorPopup": false,
+    "interstitial": {
+      "disable": false,
+      "preloadOnStart": false,
+      "minimumDelayBetweenInterstitial": 60,
+      "placementFallback": "day_complete"
+    },
+    "rewarded": {
+      "disable": true
+    },
+    "banner": {
+      "disable": true
+    }
+  },
+  "game": {
+    "adaptToSafeArea": true
+  },
+  "leaderboards": [
+    {
+      "id": "beach_rating",
+      "isMain": true
+    }
+  ],
+  "device": {
+    "useBuiltInOrientationPopup": true,
+    "supportedOrientations": ["landscape"]
+  }
+}

@@ -1,6 +1,8 @@
+import { BEACH_ECONOMY_BALANCE } from "../economy/beachEconomyBalance.js";
+
 const DEFAULT_MIN_REVIEWS = 2;
 const DEFAULT_MAX_REVIEWS = 4;
-const DEFAULT_REWARD_IN_CENTS = 100;
+const DEFAULT_REWARD_IN_CENTS = BEACH_ECONOMY_BALANCE.reviewBonusInCents;
 const DEFAULT_MAX_REWARDS_PER_RUN = 2;
 
 function normalizeRandom(random) {

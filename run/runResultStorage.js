@@ -1,10 +1,12 @@
 export const RUN_RESULT_STORAGE_KEY = "beach-simulator.run-results.v1";
 export const RUN_RESULT_STORAGE_LIMIT = 20;
+const PLAYER_NAME_MAX_LENGTH = 12;
 
 function freezeResult(result) {
   return Object.freeze({
     version: 1,
     runId: result.runId,
+    playerName: result.playerName,
     finalRating: result.finalRating,
     totalReviews: result.totalReviews,
     dayRatings: Object.freeze(result.dayRatings.map((dayRating) => (
@@ -20,6 +22,11 @@ function normalizeResult(input) {
   }
 
   const runId = String(input.runId || "").trim();
+  const playerName = String(input.playerName || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .slice(0, PLAYER_NAME_MAX_LENGTH)
+    .toUpperCase();
   const finalRating = Number(input.finalRating);
   const totalReviews = Number(input.totalReviews);
   const completedAt = String(input.completedAt || "").trim();
@@ -70,11 +77,20 @@ function normalizeResult(input) {
 
   return freezeResult({
     runId,
+    playerName,
     finalRating,
     totalReviews,
     dayRatings: sortedDayRatings,
     completedAt: new Date(completedAtTime).toISOString()
   });
+}
+
+function compareLeaderboardResults(left, right) {
+  return (
+    right.finalRating - left.finalRating ||
+    right.totalReviews - left.totalReviews ||
+    Date.parse(right.completedAt) - Date.parse(left.completedAt)
+  );
 }
 
 export function createRunResultStorage({
@@ -99,6 +115,7 @@ export function createRunResultStorage({
       return (Array.isArray(parsed) ? parsed : [])
         .map(normalizeResult)
         .filter(Boolean)
+        .sort(compareLeaderboardResults)
         .slice(0, normalizedLimit);
     } catch {
       return [];
@@ -128,9 +145,7 @@ export function createRunResultStorage({
       }
 
       const nextResults = [result, ...currentResults]
-        .sort((left, right) => (
-          Date.parse(right.completedAt) - Date.parse(left.completedAt)
-        ))
+        .sort(compareLeaderboardResults)
         .slice(0, normalizedLimit);
       let saved = false;
 

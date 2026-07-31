@@ -121,7 +121,6 @@ export function createRunPresentationView({
   root,
   hudRoot,
   translator,
-  onPlayAgain,
   playSound = () => {}
 }) {
   if (!root || !hudRoot) {
@@ -145,7 +144,6 @@ export function createRunPresentationView({
   const ratingMeterElement = documentRef.createElement("div");
   const ratingScoreElement = documentRef.createElement("strong");
   const continueButton = documentRef.createElement("button");
-  const playAgainButton = documentRef.createElement("button");
   let resolveDayAdvance = null;
 
   element.className = "run-intro";
@@ -199,24 +197,17 @@ export function createRunPresentationView({
     continueButton.hidden = true;
     resolve();
   });
-  playAgainButton.className = "run-intro__action";
-  playAgainButton.type = "button";
-  playAgainButton.textContent = translator.t("run.playAgain");
-  playAgainButton.hidden = true;
-  playAgainButton.addEventListener("click", () => onPlayAgain?.());
   element.append(
     titleElement,
     noticeElement,
     ratingSpotlightElement,
-    continueButton,
-    playAgainButton
+    continueButton
   );
   root.append(element);
 
   translator.subscribe(() => {
     ratingTitleElement.textContent = translator.t("run.finalRating");
     continueButton.textContent = translator.t("run.continue");
-    playAgainButton.textContent = translator.t("run.playAgain");
   });
 
   function setHudActive(active) {
@@ -285,7 +276,6 @@ export function createRunPresentationView({
       });
       noticeElement.textContent = normalizedNotice;
       noticeElement.hidden = !normalizedNotice;
-      playAgainButton.hidden = true;
       continueButton.hidden = false;
       element.hidden = false;
       element.classList.remove("run-intro--playing");
@@ -307,29 +297,6 @@ export function createRunPresentationView({
       element.classList.remove("run-intro--summary");
       noticeElement.hidden = true;
       element.hidden = true;
-    },
-    showRunReport(input) {
-      const report = presentRunReport(input, translator);
-
-      setHudActive(false);
-      renderRatingSpotlight({
-        averageRating: input?.averageRating,
-        reviewCount: input?.reviewCount,
-        animate: true
-      });
-      element.classList.remove("run-intro--playing");
-      element.classList.remove("run-intro--waiting");
-      element.classList.remove("run-intro--summary");
-      continueButton.hidden = true;
-      noticeElement.hidden = true;
-      titleElement.style.fontSize = "1rem";
-      titleElement.style.lineHeight = "1.6";
-      titleElement.style.textAlign = "center";
-      titleElement.style.whiteSpace = "pre-line";
-      titleElement.textContent = [report.title, ...report.lines].join("\n");
-      playAgainButton.hidden = false;
-      element.hidden = false;
-      return report;
     }
   });
 }

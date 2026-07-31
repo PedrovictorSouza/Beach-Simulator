@@ -19,15 +19,12 @@ export function createRatingCounterView({ root, translator }) {
 
   const documentRef = root.ownerDocument;
   const element = documentRef.createElement("div");
-  const labelElement = documentRef.createElement("span");
   const starsElement = documentRef.createElement("div");
   const starFillElements = [];
 
   element.className = "rating-counter";
   element.setAttribute("role", "status");
   element.setAttribute("aria-live", "polite");
-  labelElement.className = "rating-counter__label";
-  labelElement.textContent = translator.t("hud.rating.label");
   starsElement.className = "rating-counter__stars";
   starsElement.setAttribute("aria-hidden", "true");
 
@@ -50,7 +47,7 @@ export function createRatingCounterView({ root, translator }) {
     starFillElements.push(fillElement);
   }
 
-  element.append(labelElement, starsElement);
+  element.append(starsElement);
   root.append(element);
 
   let renderedRating = null;
@@ -61,7 +58,6 @@ export function createRatingCounterView({ root, translator }) {
       return;
     }
 
-    labelElement.textContent = translator.t("hud.rating.label");
     element.setAttribute(
       "aria-label",
       renderedReviewCount === 0 ?

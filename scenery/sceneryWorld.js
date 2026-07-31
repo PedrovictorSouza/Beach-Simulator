@@ -7,14 +7,26 @@ export const SCENERY_TYPES = Object.freeze({
   KIOSK: "kiosk",
   BEACH_HOUSE: "beach-house",
   BEVERAGE_STORE: "beverage-store",
+  LIFEGUARD_BUILDING: "lifeguard-building",
   WIFI_SPOT: "wifi-spot",
+  TOILET_BUILDING: "toilet-building",
   SUN_SHADE: "sun-shade",
-  TRASH_CANS: "trash-cans"
+  TRASH_CANS: "trash-cans",
+  VOLLEYBALL_COURT: "volleyball-court"
 });
 
 const BEVERAGE_STORE_MODEL_FACE_YAW_OFFSET = (Math.PI * 3) / 2;
 const WIFI_SPOT_MODEL_FACE_YAW_OFFSET = Math.PI / 2;
 const TRASH_CANS_MODEL_FACE_YAW_OFFSET = 0;
+const VOLLEYBALL_COURT_MODEL_FACE_YAW_OFFSET = 0;
+const BEACH_HOUSE_SCENERY_DEFINITION = Object.freeze({
+  gltfPath: "./beach-house/beach-house.gltf",
+  binPath: "./beach-house/beach-house.bin",
+  texturePath: "./beach-house/beach-house.png",
+  normalizedSize: 34,
+  modelFaceYawOffset: (Math.PI * 3) / 2,
+  brightness: 1.05
+});
 
 const SCENERY_DEFINITIONS = Object.freeze({
   [SCENERY_TYPES.KIOSK]: Object.freeze({
@@ -25,14 +37,8 @@ const SCENERY_DEFINITIONS = Object.freeze({
     modelFaceYawOffset: (Math.PI * 3) / 2,
     brightness: 1.05
   }),
-  [SCENERY_TYPES.BEACH_HOUSE]: Object.freeze({
-    gltfPath: "./beach-house/beach-house.gltf",
-    binPath: "./beach-house/beach-house.bin",
-    texturePath: "./beach-house/beach-house.png",
-    normalizedSize: 34,
-    modelFaceYawOffset: (Math.PI * 3) / 2,
-    brightness: 1.05
-  }),
+  [SCENERY_TYPES.BEACH_HOUSE]: BEACH_HOUSE_SCENERY_DEFINITION,
+  [SCENERY_TYPES.LIFEGUARD_BUILDING]: BEACH_HOUSE_SCENERY_DEFINITION,
   [SCENERY_TYPES.BEVERAGE_STORE]: Object.freeze({
     gltfPath: "./beberage/Beberage.gltf",
     binPath: "./beberage/Beberage.bin",
@@ -47,6 +53,14 @@ const SCENERY_DEFINITIONS = Object.freeze({
     texturePath: "./wifi-spot/wifi-spot.png",
     normalizedSize: 16,
     modelFaceYawOffset: WIFI_SPOT_MODEL_FACE_YAW_OFFSET,
+    brightness: 1.05
+  }),
+  [SCENERY_TYPES.TOILET_BUILDING]: Object.freeze({
+    gltfPath: "./objects/Toilet/toillet.gltf",
+    binPath: "./objects/Toilet/toillet.bin",
+    texturePath: "./objects/Toilet/toillet.png",
+    normalizedSize: 16,
+    modelFaceYawOffset: 0,
     brightness: 1.05
   }),
   [SCENERY_TYPES.SUN_SHADE]: Object.freeze({
@@ -64,10 +78,27 @@ const SCENERY_DEFINITIONS = Object.freeze({
     normalizedSize: 8,
     modelFaceYawOffset: TRASH_CANS_MODEL_FACE_YAW_OFFSET,
     brightness: 1.05
+  }),
+  [SCENERY_TYPES.VOLLEYBALL_COURT]: Object.freeze({
+    gltfPath: new URL(
+      "../beach-volley/beach-volley.gltf",
+      import.meta.url
+    ).href,
+    binPath: new URL(
+      "../beach-volley/beach-volley.bin",
+      import.meta.url
+    ).href,
+    texturePath: new URL(
+      "../beach-volley/beach-volley.png",
+      import.meta.url
+    ).href,
+    normalizedSize: 10,
+    modelFaceYawOffset: VOLLEYBALL_COURT_MODEL_FACE_YAW_OFFSET,
+    brightness: 1.05
   })
 });
 
-function getSceneryDefinition(type) {
+export function getSceneryDefinition(type) {
   const definition = SCENERY_DEFINITIONS[type];
 
   if (!definition) {

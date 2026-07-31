@@ -79,24 +79,65 @@ const SOUND_URLS = Object.freeze({
   ).href
 });
 
+const SOUND_CHANNELS = Object.freeze({
+  MUSIC: "music",
+  SFX: "sfx"
+});
+const MUSIC_SOUND_IDS = new Set([
+  SOUND_IDS.START_SCREEN_MUSIC,
+  SOUND_IDS.IN_GAME_MUSIC
+]);
+
+function getSoundChannel(soundId) {
+  return MUSIC_SOUND_IDS.has(soundId) ?
+    SOUND_CHANNELS.MUSIC :
+    SOUND_CHANNELS.SFX;
+}
+
 export function createSoundManager({ windowRef = globalThis } = {}) {
   const loopAudioById = new Map();
+  const requestedLoopIds = new Set();
+  const activeOneShotAudio = new Map();
+  let musicMuted = false;
+  let sfxMuted = false;
+  let suspended = false;
+
+  const getSnapshot = () => Object.freeze({
+    musicMuted,
+    sfxMuted,
+    suspended
+  });
+  const isChannelMuted = (channel) => (
+    channel === SOUND_CHANNELS.MUSIC ? musicMuted : sfxMuted
+  );
 
   const play = (soundId) => {
     const soundUrl = SOUND_URLS[soundId];
     const AudioConstructor = windowRef?.Audio;
+    const channel = getSoundChannel(soundId);
 
-    if (!soundUrl || typeof AudioConstructor !== "function") {
+    if (
+      !soundUrl ||
+      typeof AudioConstructor !== "function" ||
+      suspended ||
+      isChannelMuted(channel)
+    ) {
       return false;
     }
 
     const audio = new AudioConstructor(soundUrl);
+    const forgetAudio = () => activeOneShotAudio.delete(audio);
+
     audio.preload = "auto";
+    activeOneShotAudio.set(audio, channel);
+    audio.addEventListener?.("ended", forgetAudio, { once: true });
+    audio.addEventListener?.("error", forgetAudio, { once: true });
 
     try {
       const playback = audio.play();
-      playback?.catch?.(() => {});
+      playback?.catch?.(forgetAudio);
     } catch {
+      forgetAudio();
       return false;
     }
 
@@ -111,6 +152,7 @@ export function createSoundManager({ windowRef = globalThis } = {}) {
       return false;
     }
 
+    requestedLoopIds.add(soundId);
     let audio = loopAudioById.get(soundId);
 
     if (!audio) {
@@ -118,6 +160,12 @@ export function createSoundManager({ windowRef = globalThis } = {}) {
       audio.preload = "auto";
       audio.loop = true;
       loopAudioById.set(soundId, audio);
+    }
+
+    audio.muted = isChannelMuted(getSoundChannel(soundId));
+    if (suspended) {
+      audio.pause();
+      return true;
     }
 
     if (!audio.paused) {
@@ -135,6 +183,7 @@ export function createSoundManager({ windowRef = globalThis } = {}) {
   };
 
   const stopLoop = (soundId) => {
+    requestedLoopIds.delete(soundId);
     const audio = loopAudioById.get(soundId);
 
     if (!audio) {
@@ -146,5 +195,120 @@ export function createSoundManager({ windowRef = globalThis } = {}) {
     return true;
   };
 
-  return Object.freeze({ play, playLoop, stopLoop });
+  const pauseLoop = (soundId) => {
+    requestedLoopIds.delete(soundId);
+    const audio = loopAudioById.get(soundId);
+
+    if (!audio) {
+      return false;
+    }
+
+    audio.pause();
+    return true;
+  };
+
+  const setChannelMuted = (channel, muted) => {
+    const nextMuted = Boolean(muted);
+
+    if (channel === SOUND_CHANNELS.MUSIC) {
+      musicMuted = nextMuted;
+    } else {
+      sfxMuted = nextMuted;
+    }
+
+    for (const [soundId, audio] of loopAudioById) {
+      if (getSoundChannel(soundId) !== channel) {
+        continue;
+      }
+
+      audio.muted = nextMuted;
+      if (
+        !suspended &&
+        !nextMuted &&
+        requestedLoopIds.has(soundId) &&
+        audio.paused
+      ) {
+        try {
+          const playback = audio.play();
+          playback?.catch?.(() => {});
+        } catch {
+          // A proxima interacao do usuario tentara novamente.
+        }
+      }
+    }
+
+    if (nextMuted) {
+      for (const [audio, audioChannel] of activeOneShotAudio) {
+        if (audioChannel !== channel) {
+          continue;
+        }
+
+        audio.pause();
+        audio.currentTime = 0;
+        activeOneShotAudio.delete(audio);
+      }
+    }
+
+    return getSnapshot();
+  };
+  const setMusicMuted = (muted) => (
+    setChannelMuted(SOUND_CHANNELS.MUSIC, muted)
+  );
+  const setSfxMuted = (muted) => (
+    setChannelMuted(SOUND_CHANNELS.SFX, muted)
+  );
+  const setSuspended = (nextSuspended) => {
+    const normalizedSuspended = Boolean(nextSuspended);
+
+    if (normalizedSuspended === suspended) {
+      return getSnapshot();
+    }
+
+    suspended = normalizedSuspended;
+    if (suspended) {
+      for (const audio of loopAudioById.values()) {
+        audio.pause();
+      }
+      for (const audio of activeOneShotAudio.keys()) {
+        audio.pause();
+        audio.currentTime = 0;
+      }
+      activeOneShotAudio.clear();
+      return getSnapshot();
+    }
+
+    for (const soundId of requestedLoopIds) {
+      const audio = loopAudioById.get(soundId);
+
+      if (!audio || isChannelMuted(getSoundChannel(soundId)) || !audio.paused) {
+        continue;
+      }
+
+      try {
+        const playback = audio.play();
+        playback?.catch?.(() => {});
+      } catch {
+        // A proxima interacao do usuario tentara novamente.
+      }
+    }
+
+    return getSnapshot();
+  };
+
+  return Object.freeze({
+    getSnapshot,
+    pauseLoop,
+    play,
+    playLoop,
+    setMusicMuted,
+    setSfxMuted,
+    setSuspended,
+    stopLoop,
+    toggleMusicMuted() {
+      return setMusicMuted(!musicMuted);
+    },
+    toggleSfxMuted() {
+      return setSfxMuted(!sfxMuted);
+    }
+  });
 }

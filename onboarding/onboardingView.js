@@ -1,4 +1,5 @@
 import { SOUND_IDS } from "../audio/soundManager.js";
+import { createTypewriter } from "../ui/typewriter.js";
 
 const HAND_IMAGE_URL = new URL("../2d-objects/hand.png", import.meta.url).href;
 const BATHER_THUMB_IMAGE_URL = new URL(
@@ -11,7 +12,6 @@ const TARGET_GAP_PX = 8;
 const READING_WORDS_PER_MINUTE = 200;
 const MINIMUM_READING_TIME_MS = 4000;
 const AUTO_DISMISS_GRACE_MS = 10000;
-const NOTICE_TYPEWRITER_CHARACTER_DELAY_MS = 28;
 const WORLD_HINT_MARGIN_PX = 24;
 const WORLD_HINT_OFFSET_PX = 40;
 const HAND_ALERT_REPEAT_COUNT = 3;
@@ -46,9 +46,9 @@ export function createOnboardingView({
   const noticeButtonElement = root.ownerDocument.createElement("button");
   let hideTimeoutId = null;
   let noticeTimeoutId = null;
-  let noticeTypewriterId = null;
   let resolveNotice = null;
   let handAlertTimeoutIds = [];
+  let guidanceActive = false;
 
   const clearHandAlertSequence = () => {
     handAlertTimeoutIds.forEach((timeoutId) => windowRef.clearTimeout(timeoutId));
@@ -98,6 +98,11 @@ export function createOnboardingView({
     noticeButtonElement
   );
   root.append(handElement, worldArrowElement, noticeElement);
+  const noticeTypewriter = createTypewriter({
+    target: noticeTextElement,
+    windowRef,
+    onCharacter: () => playSound(SOUND_IDS.LETTER_INCREMENT)
+  });
 
   translator.subscribe(() => {
     noticeElement.setAttribute("aria-label", translator.t("onboarding.gameTip"));
@@ -106,8 +111,7 @@ export function createOnboardingView({
 
   const hideNotice = () => {
     windowRef.clearTimeout(noticeTimeoutId);
-    windowRef.clearInterval(noticeTypewriterId);
-    noticeTypewriterId = null;
+    noticeTypewriter.stop();
     noticeElement.classList.remove("onboarding-notice--visible");
     noticeElement.hidden = true;
     resolveNotice?.();
@@ -125,6 +129,7 @@ export function createOnboardingView({
       }
 
       windowRef.clearTimeout(hideTimeoutId);
+      guidanceActive = true;
       clearHandAlertSequence();
       handElement.classList.remove("onboarding-hand--playing");
       handElement.hidden = false;
@@ -168,6 +173,7 @@ export function createOnboardingView({
           clearHandAlertSequence();
           handElement.classList.remove("onboarding-hand--playing");
           handElement.hidden = true;
+          guidanceActive = false;
           resolve();
         };
 
@@ -205,6 +211,9 @@ export function createOnboardingView({
     hideWorldHint() {
       worldArrowElement.hidden = true;
     },
+    isBlocking() {
+      return guidanceActive || !noticeElement.hidden;
+    },
     showNotice(messageOrOptions) {
       const normalizedMessage = typeof messageOrOptions === "string" ?
         String(messageOrOptions).trim() :
@@ -228,29 +237,11 @@ export function createOnboardingView({
         MINIMUM_READING_TIME_MS,
         Math.ceil(wordCount / READING_WORDS_PER_MINUTE * 60000)
       );
-      const reduceMotion = windowRef.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-      const typewriterDurationMs = reduceMotion ? 0 : (
-        normalizedMessage.length * NOTICE_TYPEWRITER_CHARACTER_DELAY_MS
+      const typewriterDurationMs = noticeTypewriter.getDurationMs(
+        normalizedMessage
       );
 
-      if (reduceMotion) {
-        noticeTextElement.textContent = normalizedMessage;
-      } else {
-        let characterIndex = 0;
-
-        noticeTypewriterId = windowRef.setInterval(() => {
-          characterIndex += 1;
-          noticeTextElement.textContent = normalizedMessage.slice(0, characterIndex);
-          if (/\S/.test(normalizedMessage[characterIndex - 1] || "")) {
-            playSound(SOUND_IDS.LETTER_INCREMENT);
-          }
-
-          if (characterIndex >= normalizedMessage.length) {
-            windowRef.clearInterval(noticeTypewriterId);
-            noticeTypewriterId = null;
-          }
-        }, NOTICE_TYPEWRITER_CHARACTER_DELAY_MS);
-      }
+      void noticeTypewriter.play(normalizedMessage);
 
       return new Promise((resolve) => {
         resolveNotice = resolve;

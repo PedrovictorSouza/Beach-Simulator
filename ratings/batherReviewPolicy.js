@@ -14,6 +14,19 @@ const POSITIVE_REVIEW_MOTIVES = new Set([
 ]);
 const SATISFIED_MOTIVE_THRESHOLD = 25;
 
+export const FIRST_DAY_RATING_REQUIREMENTS = Object.freeze({
+  minimumVisitors: 5,
+  minimumEngagedBathers: 3
+});
+
+export function meetsFirstDayRatingRequirements({
+  visitorCount = 0,
+  engagedBatherCount = 0
+} = {}) {
+  return Number(visitorCount) >= FIRST_DAY_RATING_REQUIREMENTS.minimumVisitors &&
+    Number(engagedBatherCount) >= FIRST_DAY_RATING_REQUIREMENTS.minimumEngagedBathers;
+}
+
 function getBandForRating(rating) {
   if (rating >= 5) {
     return BATHER_REVIEW_BANDS.DELIGHTED;

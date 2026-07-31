@@ -1,5 +1,12 @@
 import "./styles/app.css";
-import { gameManager } from "./gameManager.js";
+import { gameManager, LANGUAGE_STORAGE_KEY } from "./gameManager.js";
+import { RUN_RESULT_STORAGE_KEY } from "./run/runResultStorage.js";
+import {
+  createPlaygamaPlatformGateway
+} from "./platform/playgamaPlatformGateway.js";
+import {
+  createPlatformBackedStorage
+} from "./platform/platformBackedStorage.js";
 import {
   applyGamePalette,
   GAME_PALETTES,
@@ -13,6 +20,19 @@ const requestedPalette = new URLSearchParams(window.location.search).get("palett
 const activePalette = isGamePalette(requestedPalette) ?
   requestedPalette :
   GAME_PALETTES.MEGA_DRIVE;
+const platformGateway = createPlaygamaPlatformGateway({ windowRef: window });
+let localStorageRef = null;
+
+try {
+  localStorageRef = window.localStorage;
+} catch {
+  localStorageRef = null;
+}
+
+const platformStorage = createPlatformBackedStorage({
+  localStorage: localStorageRef,
+  platformGateway
+});
 
 function updateStageScale() {
   const scale = Math.min(
@@ -26,7 +46,22 @@ function updateStageScale() {
 updateStageScale();
 window.addEventListener("resize", updateStageScale);
 applyGamePalette({ root, palette: activePalette });
-gameManager.start({
-  root,
-  windowRef: window
-});
+
+async function bootstrap() {
+  const platform = await platformGateway.initialize();
+
+  await platformStorage.hydrate([
+    LANGUAGE_STORAGE_KEY,
+    RUN_RESULT_STORAGE_KEY
+  ]);
+  gameManager.start({
+    root,
+    windowRef: window,
+    platformGateway,
+    storage: platformStorage,
+    initialLocale: platformStorage.getItem(LANGUAGE_STORAGE_KEY) ||
+      platform.language
+  });
+}
+
+void bootstrap();

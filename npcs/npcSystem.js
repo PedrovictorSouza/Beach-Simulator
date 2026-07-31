@@ -32,6 +32,8 @@ const RESTLESSNESS_LIMIT = 100;
 const RESTLESSNESS_RATE = 14;
 const RELAXING_DURATION_SECONDS = 3.5;
 const AUTONOMY_RESELECTION_RESTLESSNESS = 80;
+const POST_ACTIVITY_RESELECTION_RESTLESSNESS =
+  AUTONOMY_RESELECTION_RESTLESSNESS - 2;
 const SERVICE_ACTIVITY_DURATIONS = Object.freeze({
   [BUILDING_TYPES.LIFEGUARD_BUILDING]: 3,
   [BUILDING_TYPES.WIFI_SPOT]: 7,
@@ -43,6 +45,8 @@ const SUN_SHADE_ACTIVITY_DURATIONS_SECONDS = Object.freeze({
   MEDIUM: 10,
   LONG: 15
 });
+const FIRST_SUN_SHADE_RENTAL_DURATION_SECONDS =
+  SUN_SHADE_ACTIVITY_DURATIONS_SECONDS.LONG;
 const SERVICE_OUTCOME_MOTIVES = Object.freeze({
   [BUILDING_TYPES.WIFI_SPOT]: BUILDING_SERVICE_MOTIVES.CONNECTIVITY,
   [BUILDING_TYPES.TOILET_BUILDING]: BUILDING_SERVICE_MOTIVES.RELIEF,
@@ -68,6 +72,7 @@ const TOILET_COMPLAINT_SECONDS = 24;
 const TOILET_LEAVE_SECONDS = 34;
 const LITTER_EXPOSURE_RADIUS = 9;
 const LITTER_COMPLAINT_SECONDS = 6;
+const MINIMUM_BATHER_VISIT_SECONDS = 45;
 const ACTIVITY_NOVELTY_UTILITY = 18;
 const ACTIVITY_REPEAT_UTILITY = -24;
 const ACTIVITY_VARIATION_UTILITY = 12;
@@ -78,9 +83,9 @@ const HIGH_HEAT_BEVERAGE_PURCHASE_CHANCE = 0.75;
 const MAX_BEVERAGE_PURCHASES_PER_VISIT = 2;
 const REPEAT_BEVERAGE_PURCHASE_INTERVAL_SECONDS = 35;
 const MAX_RETENTION_CREDITS = 1;
-const SUN_SHADE_MIN_PURCHASE_CHANCE = 0.12;
-const SUN_SHADE_HEAT_PURCHASE_CHANCE = 0.68;
-const SUN_SHADE_HEAT_UTILITY = 52;
+const SUN_SHADE_MIN_PURCHASE_CHANCE = 0.18;
+const SUN_SHADE_HEAT_PURCHASE_CHANCE = 0.72;
+const SUN_SHADE_HEAT_UTILITY = 140;
 const SERVICE_NEED_THRESHOLD = 26;
 const SERVICE_DISTANCE_ATTENUATION = 0.018;
 const SERVICE_REPEAT_UTILITY = -18;
@@ -317,6 +322,7 @@ function beginMovement(
   entity.movementPurpose = movementPurpose;
   entity.activityBuildingType = null;
   entity.interaction = null;
+  entity.guaranteedSunShadeRental = false;
   entity.activityDurationSeconds = 0;
   entity.stateElapsedSeconds = 0;
   entity.currentSpeed = 0;
@@ -325,6 +331,10 @@ function beginMovement(
 
 function sampleUnit(random) {
   return Math.max(0, Math.min(0.999999, Number(random()) || 0));
+}
+
+function getSunShadePositionKey(position) {
+  return `${position[0]}:${position[1]}`;
 }
 
 function createActivityCandidate(entity, waypointIndex, random) {
@@ -451,10 +461,11 @@ function completeBeachActivity(entity) {
   entity.movementPurpose = null;
   entity.activityBuildingType = null;
   entity.interaction = null;
+  entity.guaranteedSunShadeRental = false;
   entity.activityDurationSeconds = 0;
   entity.stateElapsedSeconds = 0;
   entity.currentSpeed = 0;
-  entity.restlessness = 0;
+  entity.restlessness = POST_ACTIVITY_RESELECTION_RESTLESSNESS;
 }
 
 function chooseSunShadeActivityDuration(heat, random) {
@@ -525,7 +536,8 @@ function createSunShadeActivityCandidates(
   sunShadePositions,
   heat,
   random,
-  serviceUseCounts
+  serviceUseCounts,
+  occupiedSunShadePositionKeys
 ) {
   if (!Array.isArray(sunShadePositions) || sunShadePositions.length === 0) {
     return [];
@@ -552,7 +564,8 @@ function createSunShadeActivityCandidates(
     .filter((position) => (
       Array.isArray(position) &&
       position.length === 2 &&
-      position.every(Number.isFinite)
+      position.every(Number.isFinite) &&
+      !occupiedSunShadePositionKeys.has(getSunShadePositionKey(position))
     ))
     .map((position) => {
       const distance = Math.hypot(
@@ -588,6 +601,7 @@ function selectNextActivity(
     buildingServices = {},
     servicePositions = {},
     serviceUseCounts = {},
+    occupiedSunShadePositionKeys = new Set(),
     sunShadePositions = [],
     heat = {},
     notifyServiceDecision = null,
@@ -634,7 +648,8 @@ function selectNextActivity(
     sunShadePositions,
     heat,
     random,
-    serviceUseCounts
+    serviceUseCounts,
+    occupiedSunShadePositionKeys
   );
   const allCandidates = [
     ...candidates,
@@ -644,6 +659,10 @@ function selectNextActivity(
   const selected = allCandidates.reduce((best, candidate) => (
     candidate.utility > best.utility ? candidate : best
   ));
+  const selectedSunShadePositionKey = selected.buildingType ===
+    BEACH_AMENITY_TYPES.SUN_SHADE ?
+    getSunShadePositionKey(selected.waypoint) :
+    null;
 
   entity.lastActivityIndex = selected.waypointIndex ?? null;
   entity.lastServiceBuildingType = selected.buildingType ?? null;
@@ -669,8 +688,15 @@ function selectNextActivity(
     buildingType: selected.buildingType,
     phase: "approaching",
     motive: selected.motive,
-    reason: "need"
+    reason: "need",
+    ...(selectedSunShadePositionKey ? {
+      sunShadePositionKey: selectedSunShadePositionKey
+    } : {})
   } : null;
+
+  if (selectedSunShadePositionKey) {
+    occupiedSunShadePositionKeys.add(selectedSunShadePositionKey);
+  }
 
   if (
     entity.activityBuildingType &&
@@ -784,6 +810,7 @@ function createEntitySnapshot(entity) {
     movementPurpose: entity.movementPurpose,
     activityBuildingType: entity.activityBuildingType,
     interaction: entity.interaction ? { ...entity.interaction } : null,
+    guaranteedSunShadeRental: Boolean(entity.guaranteedSunShadeRental),
     activityDurationSeconds: entity.activityDurationSeconds,
     motiveNeeds: { ...(entity.motiveNeeds || {}) },
     availableServiceMotives: [...(entity.availableServiceMotives || [])],
@@ -902,9 +929,18 @@ function updateBatherNeeds(
   toleranceModel,
   notifyToleranceOccupied,
   visibleLitterPositions = [],
-  buildingObstacles = []
+  buildingObstacles = [],
+  needsPaused = false
 ) {
   entity.beachElapsedSeconds += stepSeconds;
+
+  if (needsPaused) {
+    entity.heatExposureSeconds = 0;
+    entity.litterExposureSeconds = 0;
+    entity.complaint = null;
+    return;
+  }
+
   updateMotiveNeeds(entity, stepSeconds);
   const needsElapsed = entity.beachElapsedSeconds - entity.needsDelaySeconds;
   const toiletOperational = hasAdvertisedMotive(
@@ -960,6 +996,7 @@ function updateBatherNeeds(
   entity.litterExposureSeconds = exposedToLitter ?
     litterExposureSeconds + stepSeconds :
     Math.max(0, litterExposureSeconds - stepSeconds * 0.5);
+  const canDepart = entity.beachElapsedSeconds >= MINIMUM_BATHER_VISIT_SECONDS;
 
   if (
     entity.litterExposureSeconds >= LITTER_COMPLAINT_SECONDS &&
@@ -974,7 +1011,7 @@ function updateBatherNeeds(
       toleranceModel,
       BATHER_PROBLEM_SOURCES.LITTER,
       notifyToleranceOccupied
-    )) {
+    ) && canDepart) {
       beginToleranceDeparture(entity, buildingObstacles);
     }
     return;
@@ -985,6 +1022,11 @@ function updateBatherNeeds(
   }
 
   if (entity.state !== NPC_STATES.IDLE) {
+    return;
+  }
+
+  if (canDepart && toleranceModel.isExhausted(entity.tolerance)) {
+    beginToleranceDeparture(entity, buildingObstacles);
     return;
   }
 
@@ -1004,7 +1046,7 @@ function updateBatherNeeds(
       toleranceModel,
       BATHER_PROBLEM_SOURCES.HEAT,
       notifyToleranceOccupied
-    )) {
+    ) && canDepart) {
       beginToleranceDeparture(entity, buildingObstacles);
     }
     return;
@@ -1022,7 +1064,7 @@ function updateBatherNeeds(
       notifyToleranceOccupied
     );
 
-    if (!entity.departing && (
+    if (!entity.departing && canDepart && (
       toleranceExhausted ||
       reliefNeed >= MOTIVE_LEAVE_THRESHOLDS[BUILDING_SERVICE_MOTIVES.RELIEF]
     )) {
@@ -1053,7 +1095,7 @@ function updateBatherNeeds(
       toleranceModel,
       BATHER_PROBLEM_SOURCES.WIFI,
       notifyToleranceOccupied
-    )) {
+    ) && canDepart) {
       beginToleranceDeparture(entity, buildingObstacles);
     }
     return;
@@ -1069,7 +1111,7 @@ function updateBatherNeeds(
       toleranceModel,
       BATHER_PROBLEM_SOURCES.ENTERTAINMENT,
       notifyToleranceOccupied
-    )) {
+    ) && canDepart) {
       beginToleranceDeparture(entity, buildingObstacles);
     }
     return;
@@ -1093,6 +1135,8 @@ export function createNpcSystem({ random = Math.random } = {}) {
   let serviceCompletionSequence = 0;
   let beverageDecisionSequence = 0;
   let beveragePurchaseSequence = 0;
+  let firstSunShadeRentalCompleted = false;
+  let guaranteedSunShadeCustomerId = null;
   const notifyToleranceOccupied = (event) => {
     for (const observer of toleranceObservers) {
       observer(event);
@@ -1123,6 +1167,7 @@ export function createNpcSystem({ random = Math.random } = {}) {
       buildingType,
       motive,
       utility,
+      guaranteed: Boolean(entity.guaranteedSunShadeRental),
       bather: createEntitySnapshot(entity)
     });
 
@@ -1138,8 +1183,14 @@ export function createNpcSystem({ random = Math.random } = {}) {
       buildingType,
       motive,
       durationSeconds: entity.activityDurationSeconds,
+      guaranteed: Boolean(entity.guaranteedSunShadeRental),
       bather: createEntitySnapshot(entity)
     });
+
+    if (buildingType === BEACH_AMENITY_TYPES.SUN_SHADE) {
+      firstSunShadeRentalCompleted = true;
+      guaranteedSunShadeCustomerId = null;
+    }
 
     for (const observer of serviceCompletionObservers) {
       observer(event);
@@ -1192,6 +1243,7 @@ export function createNpcSystem({ random = Math.random } = {}) {
         retentionCredits: 0,
         movementPurpose: null,
         activityBuildingType: null,
+        guaranteedSunShadeRental: false,
         activityDurationSeconds: 0,
         motiveNeeds: {
           [BUILDING_SERVICE_MOTIVES.CONNECTIVITY]: 0,
@@ -1215,18 +1267,33 @@ export function createNpcSystem({ random = Math.random } = {}) {
         servicePositions = {},
         sunShadePositions = [],
         visibleLitterPositions = [],
-        buildingObstacles = []
+        buildingObstacles = [],
+        guaranteeFirstSunShadeRental = false
       } = {}
     ) {
       const stepSeconds = Math.min(Math.max(Number(deltaSeconds) || 0, 0), 0.05);
       const departedIds = new Set();
       const serviceUseCounts = {};
+      const occupiedSunShadePositionKeys = new Set();
       const normalizedBuildingObstacles = normalizeNavigationObstacles(
         buildingObstacles
       );
       const buildingObstacleSignature = createNavigationObstacleSignature(
         normalizedBuildingObstacles
       );
+
+      if (guaranteeFirstSunShadeRental && !firstSunShadeRentalCompleted) {
+        const assignedCustomer = entities.find((entity) => (
+          entity.id === guaranteedSunShadeCustomerId
+        ));
+        const availableCustomer = assignedCustomer || entities.find((entity) => (
+          !entity.departing
+        ));
+
+        if (availableCustomer) {
+          guaranteedSunShadeCustomerId = availableCustomer.id;
+        }
+      }
 
       for (const entity of entities) {
         const buildingType = entity.activityBuildingType;
@@ -1235,6 +1302,108 @@ export function createNpcSystem({ random = Math.random } = {}) {
           serviceUseCounts[buildingType] = (
             serviceUseCounts[buildingType] || 0
           ) + 1;
+        }
+
+        if (
+          buildingType === BEACH_AMENITY_TYPES.SUN_SHADE &&
+          entity.interaction?.sunShadePositionKey
+        ) {
+          occupiedSunShadePositionKeys.add(
+            entity.interaction.sunShadePositionKey
+          );
+        }
+      }
+
+      if (
+        guaranteeFirstSunShadeRental &&
+        !firstSunShadeRentalCompleted &&
+        guaranteedSunShadeCustomerId &&
+        sunShadePositions.length > 0
+      ) {
+        const customer = entities.find((entity) => (
+          entity.id === guaranteedSunShadeCustomerId
+        ));
+
+        if (customer) {
+          const alreadyUsingSunShade = customer.activityBuildingType ===
+            BEACH_AMENITY_TYPES.SUN_SHADE;
+          const canChangeActivity = customer.state !== NPC_STATES.SERVICE_USE &&
+            customer.state !== NPC_STATES.BEVERAGE_PURCHASE;
+
+          if (alreadyUsingSunShade) {
+            customer.guaranteedSunShadeRental = true;
+            customer.interaction = {
+              ...(customer.interaction || {}),
+              buildingType: BEACH_AMENITY_TYPES.SUN_SHADE,
+              reason: "first-rental",
+              guaranteed: true
+            };
+
+            if (customer.state === NPC_STATES.SERVICE_USE) {
+              customer.activityDurationSeconds =
+                FIRST_SUN_SHADE_RENTAL_DURATION_SECONDS;
+            }
+          } else if (canChangeActivity) {
+            const availableSunShadePositions = sunShadePositions.filter((position) => (
+              Array.isArray(position) &&
+              position.length === 2 &&
+              position.every(Number.isFinite) &&
+              !occupiedSunShadePositionKeys.has(getSunShadePositionKey(position))
+            ));
+            const selectedPosition = availableSunShadePositions.reduce(
+              (closest, position) => {
+                if (!closest) {
+                  return position;
+                }
+
+                const closestDistance = Math.hypot(
+                  closest[0] - customer.position[0],
+                  closest[1] - customer.position[1]
+                );
+                const distance = Math.hypot(
+                  position[0] - customer.position[0],
+                  position[1] - customer.position[1]
+                );
+
+                return distance < closestDistance ? position : closest;
+              },
+              null
+            );
+
+            if (selectedPosition) {
+              const positionKey = getSunShadePositionKey(selectedPosition);
+              customer.departing = false;
+              customer.complaint = null;
+              beginMovement(
+                customer,
+                NPC_STATES.WALKING_TO_ACTIVITY,
+                selectedPosition,
+                "building-service",
+                buildingObstacles
+              );
+              customer.activityBuildingType = BEACH_AMENITY_TYPES.SUN_SHADE;
+              customer.guaranteedSunShadeRental = true;
+              customer.lastServiceBuildingType = BEACH_AMENITY_TYPES.SUN_SHADE;
+              customer.interaction = {
+                buildingType: BEACH_AMENITY_TYPES.SUN_SHADE,
+                phase: "approaching",
+                motive: null,
+                reason: "first-rental",
+                guaranteed: true,
+                sunShadePositionKey: positionKey
+              };
+              occupiedSunShadePositionKeys.add(positionKey);
+              serviceUseCounts[BEACH_AMENITY_TYPES.SUN_SHADE] = (
+                serviceUseCounts[BEACH_AMENITY_TYPES.SUN_SHADE] || 0
+              ) + 1;
+              notifyServiceDecision({
+                entity: customer,
+                buildingType: BEACH_AMENITY_TYPES.SUN_SHADE,
+                motive: null,
+                utility: Number.POSITIVE_INFINITY
+              });
+            }
+          }
         }
       }
 
@@ -1248,6 +1417,7 @@ export function createNpcSystem({ random = Math.random } = {}) {
             buildingServices,
             servicePositions,
             serviceUseCounts,
+            occupiedSunShadePositionKeys,
             sunShadePositions,
             heat,
             notifyServiceDecision,
@@ -1279,7 +1449,10 @@ export function createNpcSystem({ random = Math.random } = {}) {
           batherToleranceModel,
           notifyToleranceOccupied,
           visibleLitterPositions,
-          buildingObstacles
+          buildingObstacles,
+          guaranteeFirstSunShadeRental &&
+            !firstSunShadeRentalCompleted &&
+            entity.id === guaranteedSunShadeCustomerId
         );
 
         if (
@@ -1320,6 +1493,7 @@ export function createNpcSystem({ random = Math.random } = {}) {
               buildingServices,
               servicePositions,
               serviceUseCounts,
+              occupiedSunShadePositionKeys,
               sunShadePositions,
               heat,
               notifyServiceDecision,
@@ -1340,7 +1514,9 @@ export function createNpcSystem({ random = Math.random } = {}) {
             entity.stateElapsedSeconds = 0;
             entity.activityDurationSeconds = entity.activityBuildingType ===
               BEACH_AMENITY_TYPES.SUN_SHADE ?
-              chooseSunShadeActivityDuration(heat, random) :
+              entity.guaranteedSunShadeRental ?
+                FIRST_SUN_SHADE_RENTAL_DURATION_SECONDS :
+                chooseSunShadeActivityDuration(heat, random) :
               entity.activityBuildingType ?
                 SERVICE_ACTIVITY_DURATIONS[entity.activityBuildingType] ||
                   RELAXING_DURATION_SECONDS :
@@ -1381,13 +1557,7 @@ export function createNpcSystem({ random = Math.random } = {}) {
             for (const observer of beveragePurchaseObservers) {
               observer(beveragePurchaseEvent);
             }
-            beginMovement(
-              entity,
-              NPC_STATES.RETURNING_HOME,
-              entity.home,
-              "home",
-              buildingObstacles
-            );
+            selectNextActivity(entity, random, { buildingObstacles });
           }
           continue;
         }
@@ -1409,6 +1579,9 @@ export function createNpcSystem({ random = Math.random } = {}) {
               });
             }
             completeBeachActivity(entity);
+            if (completedBuildingType) {
+              selectNextActivity(entity, random, { buildingObstacles });
+            }
           }
           continue;
         }
